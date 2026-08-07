@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
+import { theme } from '@/theme'; console.log(theme.color.brand500); 
 
 export default function App() {
   return (

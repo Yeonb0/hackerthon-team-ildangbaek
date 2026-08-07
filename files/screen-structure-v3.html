@@ -1,0 +1,1483 @@
+<meta charset="utf-8">
+<title>화면 구조 정의서 v3 · 해커톤 1조</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --p:#1a1a18; --s:#5f5e5a; --t:#9c9a92; --b:#e3e1d9; --bg2:#fff;
+  --paper:#fff; --rail:#f6f5f1; --ink:#111; --hair:#e8e6df;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:860px;margin:0 auto;padding:0 28px 120px}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+header{padding:88px 0 40px;border-bottom:2px solid var(--ink)}
+.eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.08em;color:var(--s);margin:0 0 18px}
+h1{font-size:34px;line-height:1.3;font-weight:800;margin:0 0 12px;letter-spacing:-.02em}
+.lede{font-size:16px;color:var(--s);margin:0;max-width:54ch}
+.meta{display:flex;flex-wrap:wrap;gap:0 28px;margin:28px 0 0;font-size:13px;color:var(--s)}
+.meta b{color:var(--ink);font-weight:600}
+.ver{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:11px;
+  padding:3px 9px;background:var(--ink);color:#fff;border-radius:2px;margin-left:8px;vertical-align:middle}
+
+nav.toc{margin:36px 0 0;padding:22px 24px;background:var(--rail);border-radius:2px}
+nav.toc h2{font-size:12px;font-family:ui-monospace,Menlo,monospace;letter-spacing:.08em;color:var(--s);margin:0 0 12px;font-weight:500}
+nav.toc ol{margin:0;padding-left:20px;columns:2;column-gap:32px;font-size:14px}
+nav.toc li{margin:0 0 5px;break-inside:avoid}
+nav.toc a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--b)}
+nav.toc a:hover{border-color:var(--ink)}
+
+section{margin:76px 0 0;scroll-margin-top:24px}
+h2.sec{font-size:13px;font-family:ui-monospace,Menlo,monospace;letter-spacing:.08em;color:var(--s);
+  margin:0 0 10px;font-weight:500;padding-bottom:10px;border-bottom:1px solid var(--ink)}
+h3{font-size:21px;font-weight:700;margin:34px 0 8px;letter-spacing:-.01em}
+p{margin:0 0 14px;max-width:62ch}
+
+.fig{margin:22px 0 0;border:1px solid var(--hair);border-radius:2px;overflow:hidden;break-inside:avoid}
+.fig .strip{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  padding:9px 14px;background:var(--rail);border-bottom:1px solid var(--hair)}
+.chip{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.04em;
+  padding:2px 7px;background:var(--ink);color:#fff;border-radius:2px}
+.chip.new{background:#0F6E56}
+.strip .cap{font-size:12px;color:var(--s);margin-left:4px}
+.fig .canvas{padding:18px 14px;background:var(--paper)}
+.fig svg{display:block;width:100%;height:auto}
+
+table{width:100%;border-collapse:collapse;margin:20px 0 0;font-size:14px}
+th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{font-size:12px;font-family:ui-monospace,Menlo,monospace;letter-spacing:.05em;color:var(--s);
+  font-weight:500;border-bottom:1px solid var(--ink)}
+td.mono{white-space:nowrap;font-size:13px}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--b);color:var(--s)}
+.pill.todo{border-color:#993C1D;color:#993C1D}
+.pill.ok{border-color:#0F6E56;color:#0F6E56}
+.pill.chg{border-color:#854F0B;color:#854F0B}
+
+ul.plain{margin:0 0 14px;padding-left:20px;max-width:62ch}
+ul.plain li{margin:0 0 6px}
+
+footer{margin:90px 0 0;padding:22px 0 0;border-top:1px solid var(--hair);font-size:13px;color:var(--t)}
+
+.t{font-size:14px;fill:var(--p)}
+.ts{font-size:12px;fill:var(--s)}
+.ts[font-size="11"]{font-size:11px}
+.ts[font-weight="700"]{font-weight:700}
+.th{font-size:14px;font-weight:500;fill:var(--p)}
+.box{fill:var(--bg2);stroke:#b4b2a9}
+.arr{stroke:var(--s);stroke-width:1.5;fill:none}
+.leader{stroke:var(--t);stroke-width:.5;stroke-dasharray:3 3;fill:none}
+.c-purple>rect{fill:#EEEDFE;stroke:#534AB7}
+.c-purple>.th{fill:#3C3489}.c-purple>.ts{fill:#534AB7}
+.c-teal>rect{fill:#E1F5EE;stroke:#0F6E56}
+.c-teal>.th{fill:#085041}.c-teal>.ts{fill:#0F6E56}
+.c-coral>rect{fill:#FAECE7;stroke:#993C1D}
+.c-coral>.th{fill:#712B13}.c-coral>.ts{fill:#993C1D}
+.c-gray>rect{fill:#F1EFE8;stroke:#5F5E5A}
+.c-gray>.th{fill:#2C2C2A}.c-gray>.ts{fill:#5F5E5A}
+.c-amber>rect{fill:#FAEEDA;stroke:#854F0B}
+.c-amber>.th{fill:#633806}.c-amber>.ts{fill:#854F0B}
+
+@media print{
+  header{padding-top:0}
+  nav.toc{display:none}
+  section{margin-top:40px;break-inside:avoid}
+  .fig{break-inside:avoid}
+  body{font-size:13px}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px 80px}
+  h1{font-size:26px}
+  nav.toc ol{columns:1}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">HACKATHON TEAM 1 · FRONTEND</p>
+  <h1>화면 구조 정의서<span class="ver">v3</span></h1>
+  <p class="lede">S-00부터 S-24까지 각 화면이 어떤 요소로 이루어져 있는지를, 요소의 종류와 성격까지 구분해 정의한 문서입니다. 4차 개발팀 회의 결정을 반영했습니다.</p>
+  <div class="meta">
+    <span><b>화면</b> 24개</span>
+    <span><b>규칙 다이어그램</b> 3개</span>
+    <span><b>미정 항목</b> 10개</span>
+    <span><b>단계</b> 구조 정의 · 구현 전</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#legend">읽는 법 · 표기 범례</a></li>
+    <li><a href="#nav">앱 전체 네비게이션</a></li>
+    <li><a href="#skeleton">화면 공통 골격</a></li>
+    <li><a href="#onboarding">온보딩 · S-00~06</a></li>
+    <li><a href="#daynight">낮/밤 판정 규칙</a></li>
+    <li><a href="#main">메인 탭</a></li>
+    <li><a href="#record">기록 플로우 · S-11~18</a></li>
+    <li><a href="#detail">상세 화면 · S-20, 22, 24</a></li>
+    <li><a href="#decided">확정된 결정</a></li>
+    <li><a href="#open">미정 항목</a></li>
+  </ol>
+</nav>
+
+<section id="legend">
+  <h2 class="sec">00 · 읽는 법</h2>
+  <p>다이어그램의 각 상자는 화면을 이루는 요소 하나입니다. <b>색</b>은 그 요소의 성격을, <b>왼쪽 라벨</b>은 종류를 나타냅니다. 요소가 아닌 상자도 두 종류 있는데, <code>규칙</code>은 동작 조건을, <code>미정</code>은 아직 정해지지 않은 항목을 뜻합니다.</p>
+  <div class="fig">
+    <div class="strip"><span class="chip">범례</span><span class="cap">색 4종 · 라벨 12종</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 384" role="img" xmlns="http://www.w3.org/2000/svg"><title>컴포넌트 표기법 범례</title><desc>색으로 요소의 성격을 구분하고 라벨로 요소의 종류를 나타내는 표기법 범례</desc>
+<text class="ts" x="40" y="24" dominant-baseline="central" font-weight="700">색 = 요소의 성격</text>
+<g class="c-gray"><rect x="40" y="40" width="138" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="54" y="58" dominant-baseline="central" font-weight="700">프레임 제공</text>
+<text class="ts" x="54" y="75" dominant-baseline="central" font-size="11">화면이 소유 안 함</text></g>
+<g class="c-teal"><rect x="194" y="40" width="138" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="208" y="58" dominant-baseline="central" font-weight="700">표시 요소</text>
+<text class="ts" x="208" y="75" dominant-baseline="central" font-size="11">보여주기만 함</text></g>
+<g class="c-coral"><rect x="348" y="40" width="138" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="362" y="58" dominant-baseline="central" font-weight="700">입력 · 조작</text>
+<text class="ts" x="362" y="75" dominant-baseline="central" font-size="11">사용자가 건드림</text></g>
+<g class="c-amber"><rect x="502" y="40" width="138" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="516" y="58" dominant-baseline="central" font-weight="700">미정 · 미구현</text>
+<text class="ts" x="516" y="75" dominant-baseline="central" font-size="11">확정 필요</text></g>
+<text class="ts" x="40" y="114" dominant-baseline="central" font-weight="700">라벨 = 요소의 종류</text>
+<g><rect class="box" x="40" y="130" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="54" y="146" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="54" y="163" dominant-baseline="central" font-size="11">상단 바 · 뒤로가기</text></g>
+<g><rect class="box" x="247" y="130" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="261" y="146" dominant-baseline="central" font-weight="700" font-size="11">BAR</text>
+<text class="ts" x="261" y="163" dominant-baseline="central" font-size="11">진행률 · 지표 바</text></g>
+<g><rect class="box" x="454" y="130" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="468" y="146" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="468" y="163" dominant-baseline="central" font-size="11">제목 · 설명 · 라벨</text></g>
+<g><rect class="box" x="40" y="186" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="54" y="202" dominant-baseline="central" font-weight="700" font-size="11">INPUT</text>
+<text class="ts" x="54" y="219" dominant-baseline="central" font-size="11">텍스트 입력칸</text></g>
+<g><rect class="box" x="247" y="186" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="261" y="202" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="261" y="219" dominant-baseline="central" font-size="11">선택지 · 단일 또는 중복</text></g>
+<g><rect class="box" x="454" y="186" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="468" y="202" dominant-baseline="central" font-weight="700" font-size="11">STEPPER</text>
+<text class="ts" x="468" y="219" dominant-baseline="central" font-size="11">− 값 + 증감 입력</text></g>
+<g><rect class="box" x="40" y="242" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="54" y="258" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="54" y="275" dominant-baseline="central" font-size="11">버튼 · 기본 / 선 / 텍스트</text></g>
+<g><rect class="box" x="247" y="242" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="261" y="258" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="261" y="275" dominant-baseline="central" font-size="11">배경 있는 묶음</text></g>
+<g><rect class="box" x="454" y="242" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="468" y="258" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="468" y="275" dominant-baseline="central" font-size="11">같은 모양 반복 행</text></g>
+<g><rect class="box" x="40" y="298" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="54" y="314" dominant-baseline="central" font-weight="700" font-size="11">CALENDAR</text>
+<text class="ts" x="54" y="331" dominant-baseline="central" font-size="11">월 · 주 캘린더</text></g>
+<g><rect class="box" x="247" y="298" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="261" y="314" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="261" y="331" dominant-baseline="central" font-size="11">이미지 · 카메라 영역</text></g>
+<g><rect class="box" x="454" y="298" width="186" height="46" rx="6" stroke-width="0.5"/>
+<text class="ts" x="468" y="314" dominant-baseline="central" font-weight="700" font-size="11">CHART</text>
+<text class="ts" x="468" y="331" dominant-baseline="central" font-size="11">그래프 · 추이</text></g>
+</svg>
+    </div>
+  </div>
+  <p>이 밖에 화면 단위를 가리키는 <code>SCREEN</code>과 상태 배지를 뜻하는 <code>TAG</code> 라벨을 함께 씁니다.</p>
+
+  <h3>v2에서 달라진 점</h3>
+  <table>
+    <tr><th>대상</th><th>변경</th><th>출처</th></tr>
+    <tr><td class="mono">S-03</td><td>온보딩에서 삭제 <span class="pill chg">변경</span></td><td>수면 입력 대신 고정 시각 사용</td></tr>
+    <tr><td class="mono">S-01</td><td>순차 노출 방식으로 변경 <span class="pill chg">변경</span></td><td>이름 → 성별 → 나이</td></tr>
+    <tr><td class="mono">S-04</td><td>성별 여성일 때만 진입 · 선택지 4종 <span class="pill chg">변경</span></td><td>호르몬약 · 주사 추가</td></tr>
+    <tr><td class="mono">S-07 · S-08</td><td>구성 전면 개편 <span class="pill chg">변경</span></td><td>날씨 시각화 · 주간 캘린더 · 리포트 카드</td></tr>
+    <tr><td class="mono">S-09 · S-10</td><td>모닝 / 나이트 탭 구조로 변경 <span class="pill chg">변경</span></td><td>기록 슬롯이 하루 4개로</td></tr>
+    <tr><td class="mono">S-23</td><td>보유 코인 카드 제거 <span class="pill chg">변경</span></td><td>설계 미완으로 1차 제외</td></tr>
+    <tr><td>낮/밤 판정</td><td>수면 패턴 → 고정 시각 <span class="pill chg">변경</span></td><td>06:00 ~ 18:00 / 18:00 ~ 06:00</td></tr>
+  </table>
+</section>
+
+<section id="nav">
+  <h2 class="sec">01 · 앱 전체 네비게이션</h2>
+  <p>루트는 스택 하나입니다. 온보딩을 마치면 메인 탭으로 교체되어, 뒤로가기로 온보딩에 돌아가지 않습니다.</p>
+  <div class="fig">
+    <div class="strip"><span class="chip">전체</span><span class="cap">화면 그룹 3개</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 470" role="img" xmlns="http://www.w3.org/2000/svg"><title>앱 전체 네비게이션 구조</title><desc>루트 스택 아래 온보딩 스택, 메인 탭, 플로우 상세 스택 세 그룹으로 화면이 나뉘는 구조도</desc>
+<defs><marker id="n1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-gray"><rect x="250" y="26" width="180" height="44" rx="8" stroke-width="0.5"/><text class="th" x="340" y="48" text-anchor="middle" dominant-baseline="central">앱 진입점</text></g>
+<line x1="340" y1="70" x2="340" y2="100" class="arr" marker-end="url(#n1)"/>
+<g class="c-gray"><rect x="250" y="104" width="180" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="122" text-anchor="middle" dominant-baseline="central">루트 스택</text><text class="ts" x="340" y="139" text-anchor="middle" dominant-baseline="central">화면 24개 등록</text></g>
+<path d="M340 152 V172 H135 V186" class="arr" marker-end="url(#n1)"/>
+<path d="M340 152 V186" class="arr" marker-end="url(#n1)"/>
+<path d="M340 152 V172 H545 V186" class="arr" marker-end="url(#n1)"/>
+<g class="c-teal"><rect x="40" y="190" width="190" height="240" rx="16" stroke-width="0.5"/><text class="th" x="135" y="216" text-anchor="middle" dominant-baseline="central">온보딩 스택</text></g>
+<g><rect class="box" x="56" y="232" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="135" y="247" text-anchor="middle" dominant-baseline="central">S-00 로그인</text></g>
+<g><rect class="box" x="56" y="270" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="135" y="285" text-anchor="middle" dominant-baseline="central">S-01 기본 정보</text></g>
+<g><rect class="box" x="56" y="308" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="135" y="323" text-anchor="middle" dominant-baseline="central">S-02 피부 타입</text></g>
+<g><rect class="box" x="56" y="346" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="135" y="361" text-anchor="middle" dominant-baseline="central">S-04 생리 · 호르몬</text></g>
+<g><rect class="box" x="56" y="384" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="135" y="399" text-anchor="middle" dominant-baseline="central">S-05 · S-06 마무리</text></g>
+<g class="c-purple"><rect x="245" y="190" width="190" height="240" rx="16" stroke-width="0.5"/><text class="th" x="340" y="216" text-anchor="middle" dominant-baseline="central">메인 탭</text></g>
+<g><rect class="box" x="261" y="232" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="340" y="247" text-anchor="middle" dominant-baseline="central">S-07/08 홈</text></g>
+<g><rect class="box" x="261" y="270" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="340" y="285" text-anchor="middle" dominant-baseline="central">S-21 쇼핑</text></g>
+<g><rect class="box" x="261" y="308" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="340" y="323" text-anchor="middle" dominant-baseline="central">S-09/10 기록 허브</text></g>
+<g><rect class="box" x="261" y="346" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="340" y="361" text-anchor="middle" dominant-baseline="central">S-19 리포트</text></g>
+<g><rect class="box" x="261" y="384" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="340" y="399" text-anchor="middle" dominant-baseline="central">S-23 마이페이지</text></g>
+<g class="c-coral"><rect x="450" y="190" width="190" height="240" rx="16" stroke-width="0.5"/><text class="th" x="545" y="216" text-anchor="middle" dominant-baseline="central">플로우 · 상세 스택</text></g>
+<g><rect class="box" x="466" y="232" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="545" y="247" text-anchor="middle" dominant-baseline="central">S-11~14 제품 기록</text></g>
+<g><rect class="box" x="466" y="270" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="545" y="285" text-anchor="middle" dominant-baseline="central">S-15~18 피부 기록</text></g>
+<g><rect class="box" x="466" y="308" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="545" y="323" text-anchor="middle" dominant-baseline="central">S-20 요인 상세</text></g>
+<g><rect class="box" x="466" y="346" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="545" y="361" text-anchor="middle" dominant-baseline="central">S-22 위험도 결과</text></g>
+<g><rect class="box" x="466" y="384" width="158" height="30" rx="6" stroke-width="0.5"/><text class="ts" x="545" y="399" text-anchor="middle" dominant-baseline="central">S-24 위치 설정</text></g>
+</svg>
+    </div>
+  </div>
+</section>
+
+<section id="skeleton">
+  <h2 class="sec">02 · 화면 공통 골격</h2>
+  <p>화면이 24개지만 각각 다른 골격을 갖지 않습니다. 전부 아래 다섯 슬롯을 공유하고, 어떤 슬롯을 쓰느냐만 다릅니다.</p>
+  <div class="fig">
+    <div class="strip"><span class="chip">공통</span><span class="cap">상단 바 · 진행 바 · 본문 · 하단 CTA · 탭바</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 550" role="img" xmlns="http://www.w3.org/2000/svg"><title>화면 공통 레이아웃 골격</title><desc>모든 화면이 공유하는 다섯 슬롯 구조와 본문에 들어가는 공통 요소</desc>
+<rect x="180" y="40" width="260" height="470" rx="20" fill="none" stroke="var(--b)" stroke-width="1"/>
+<g class="c-teal"><rect x="192" y="54" width="236" height="44" rx="8" stroke-width="0.5"/><text class="th" x="310" y="76" text-anchor="middle" dominant-baseline="central">상단 바</text></g>
+<g class="c-teal"><rect x="192" y="104" width="236" height="14" rx="4" stroke-width="0.5"/></g>
+<g class="c-purple"><rect x="192" y="126" width="236" height="252" rx="10" stroke-width="0.5"/><text class="th" x="310" y="150" text-anchor="middle" dominant-baseline="central">본문 · 스크롤 영역</text></g>
+<g><rect class="box" x="200" y="176" width="108" height="34" rx="6" stroke-width="0.5"/><text class="ts" x="254" y="193" text-anchor="middle" dominant-baseline="central">섹션 라벨</text></g>
+<g><rect class="box" x="320" y="176" width="108" height="34" rx="6" stroke-width="0.5"/><text class="ts" x="374" y="193" text-anchor="middle" dominant-baseline="central">카드</text></g>
+<g><rect class="box" x="200" y="220" width="108" height="34" rx="6" stroke-width="0.5"/><text class="ts" x="254" y="237" text-anchor="middle" dominant-baseline="central">목록 행</text></g>
+<g><rect class="box" x="320" y="220" width="108" height="34" rx="6" stroke-width="0.5"/><text class="ts" x="374" y="237" text-anchor="middle" dominant-baseline="central">구분선</text></g>
+<g><rect class="box" x="200" y="264" width="108" height="34" rx="6" stroke-width="0.5"/><text class="ts" x="254" y="281" text-anchor="middle" dominant-baseline="central">상태 배지</text></g>
+<g><rect class="box" x="320" y="264" width="108" height="34" rx="6" stroke-width="0.5"/><text class="ts" x="374" y="281" text-anchor="middle" dominant-baseline="central">지표 바</text></g>
+<g><rect class="box" x="200" y="308" width="108" height="34" rx="6" stroke-width="0.5"/><text class="ts" x="254" y="325" text-anchor="middle" dominant-baseline="central">검색창</text></g>
+<g><rect class="box" x="320" y="308" width="108" height="34" rx="6" stroke-width="0.5"/><text class="ts" x="374" y="325" text-anchor="middle" dominant-baseline="central">선택 토글</text></g>
+<g class="c-coral"><rect x="192" y="386" width="236" height="52" rx="8" stroke-width="0.5"/><text class="th" x="310" y="412" text-anchor="middle" dominant-baseline="central">하단 CTA</text></g>
+<g class="c-amber"><rect x="192" y="446" width="236" height="50" rx="8" stroke-width="0.5"/><text class="th" x="310" y="471" text-anchor="middle" dominant-baseline="central">탭바</text></g>
+<g><line class="leader" x1="440" y1="76" x2="466" y2="76"/><circle cx="440" cy="76" r="2" fill="var(--t)"/><text class="ts" x="474" y="72">뒤로가기 + 타이틀</text><text class="ts" x="474" y="90">스택 화면 전용</text></g>
+<g><line class="leader" x1="440" y1="111" x2="466" y2="124"/><circle cx="440" cy="111" r="2" fill="var(--t)"/><text class="ts" x="474" y="128">진행률 표시</text><text class="ts" x="474" y="146">온보딩 전용</text></g>
+<g><line class="leader" x1="440" y1="252" x2="466" y2="252"/><circle cx="440" cy="252" r="2" fill="var(--t)"/><text class="ts" x="474" y="248">화면마다 다른 부분</text><text class="ts" x="474" y="266">공통 요소 조합으로 구성</text></g>
+<g><line class="leader" x1="440" y1="412" x2="466" y2="412"/><circle cx="440" cy="412" r="2" fill="var(--t)"/><text class="ts" x="474" y="408">기본 버튼 + 텍스트 버튼</text><text class="ts" x="474" y="426">하단 고정</text></g>
+<g><line class="leader" x1="440" y1="471" x2="466" y2="471"/><circle cx="440" cy="471" r="2" fill="var(--t)"/><text class="ts" x="474" y="467">메인 5화면만</text><text class="ts" x="474" y="485">화면 바깥에 고정</text></g>
+</svg>
+    </div>
+  </div>
+</section>
+
+<section id="onboarding">
+  <h2 class="sec">03 · 온보딩 · S-00 ~ S-06</h2>
+  <p>수면 시간 화면이 빠지면서 온보딩이 짧아졌고, 성별에 따라 단계 수가 달라집니다. 여성은 입력 화면 3단계, 그 외는 2단계입니다.</p>
+
+  <div class="fig">
+    <div class="strip"><span class="chip new">변경</span><span class="cap">온보딩 전체 흐름 · 성별 분기</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 582" role="img" xmlns="http://www.w3.org/2000/svg"><title>온보딩 흐름</title><desc>로그인부터 알림 허용까지 이어지며 성별에 따라 생리 호르몬 화면이 분기되는 흐름</desc>
+<defs><marker id="n2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="250" y="30" width="180" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="52" text-anchor="middle" dominant-baseline="central">S-00 로그인</text></g>
+<path d="M340 74 V90" class="arr" marker-end="url(#n2)"/>
+<g class="c-purple"><rect x="250" y="94" width="180" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="113" text-anchor="middle" dominant-baseline="central">S-01 기본 정보</text>
+<text class="ts" x="340" y="131" text-anchor="middle" dominant-baseline="central">이름 → 성별 → 나이 순차</text></g>
+<path d="M340 146 V162" class="arr" marker-end="url(#n2)"/>
+<g class="c-purple"><rect x="250" y="166" width="180" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="185" text-anchor="middle" dominant-baseline="central">S-02 피부 타입</text>
+<text class="ts" x="340" y="203" text-anchor="middle" dominant-baseline="central">4종 중복 선택</text></g>
+<path d="M340 218 V234" class="arr" marker-end="url(#n2)"/>
+<g class="c-coral"><rect x="250" y="238" width="180" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="260" text-anchor="middle" dominant-baseline="central">성별 = 여성?</text></g>
+<path d="M340 282 V292 H190 V306" class="arr" marker-end="url(#n2)"/>
+<path d="M340 282 V292 H490 V306" class="arr" marker-end="url(#n2)"/>
+<text class="ts" x="255" y="283" text-anchor="middle" dominant-baseline="central" font-size="11">여성</text>
+<text class="ts" x="430" y="283" text-anchor="middle" dominant-baseline="central" font-size="11">그 외</text>
+<g class="c-purple"><rect x="90" y="310" width="200" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="190" y="329" text-anchor="middle" dominant-baseline="central">S-04 생리 · 호르몬</text>
+<text class="ts" x="190" y="347" text-anchor="middle" dominant-baseline="central">생리 / 호르몬약 / 주사 / 폐경</text></g>
+<g class="c-gray"><rect x="390" y="310" width="200" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="490" y="329" text-anchor="middle" dominant-baseline="central">건너뜀</text>
+<text class="ts" x="490" y="347" text-anchor="middle" dominant-baseline="central">바로 완료 화면으로</text></g>
+<path d="M190 362 V376 H340 V386" class="arr" marker-end="url(#n2)"/>
+<path d="M490 362 V376 H340 V386" class="arr" marker-end="url(#n2)"/>
+<g class="c-purple"><rect x="250" y="390" width="180" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="412" text-anchor="middle" dominant-baseline="central">S-05 완료 요약</text></g>
+<path d="M340 434 V452" class="arr" marker-end="url(#n2)"/>
+<g class="c-purple"><rect x="250" y="456" width="180" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="478" text-anchor="middle" dominant-baseline="central">S-06 알림 허용</text></g>
+<g class="c-amber"><rect x="40" y="516" width="290" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="52" y="534" dominant-baseline="central" font-weight="700" font-size="11">삭제</text>
+<text class="ts" x="110" y="534" dominant-baseline="central">S-03 수면 시간 제외</text></g>
+<g class="c-amber"><rect x="350" y="516" width="290" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="362" y="534" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="420" y="534" dominant-baseline="central">진행률 단계 수 · 성별 분기</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">S-00</span><span class="cap">로그인 · 프레임 미사용</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 360" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-00 로그인 화면 요소 구조</title><desc>로고 텍스트, 소개 텍스트, 버튼 세 종류로 구성된 구조</desc>
+<defs><marker id="n3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="156" width="170" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="125" y="174" text-anchor="middle" dominant-baseline="central">S-00 로그인</text>
+<text class="ts" x="125" y="191" text-anchor="middle" dominant-baseline="central">프레임 미사용</text></g>
+<path d="M210 180 H405 V64 H416" class="arr" marker-end="url(#n3)"/>
+<path d="M405 64 V122 H416" class="arr" marker-end="url(#n3)"/>
+<path d="M405 122 V180 H416" class="arr" marker-end="url(#n3)"/>
+<path d="M405 180 V238 H416" class="arr" marker-end="url(#n3)"/>
+<path d="M405 238 V296 H416" class="arr" marker-end="url(#n3)"/>
+<g class="c-teal"><rect x="420" y="40" width="220" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="434" y="57" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="434" y="74" dominant-baseline="central">로고 · 현재 플레이스홀더</text></g>
+<g class="c-teal"><rect x="420" y="98" width="220" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="434" y="115" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="434" y="132" dominant-baseline="central">서비스 한 줄 소개</text></g>
+<g class="c-coral"><rect x="420" y="156" width="220" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="434" y="173" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="434" y="190" dominant-baseline="central">카카오로 시작하기 · 기본</text></g>
+<g class="c-coral"><rect x="420" y="214" width="220" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="434" y="231" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="434" y="248" dominant-baseline="central">구글로 시작하기 · 선</text></g>
+<g class="c-coral"><rect x="420" y="272" width="220" height="48" rx="6" stroke-width="0.5"/>
+<text class="ts" x="434" y="289" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="434" y="306" dominant-baseline="central">이메일 로그인 · 텍스트</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip new">변경</span><span class="chip">S-01</span><span class="cap">기본 정보 · 입력하면 다음 필드가 나타남</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 644" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-01 기본 정보 화면 요소 구조</title><desc>이름 성별 나이를 순차로 노출하며 입력받는 화면의 요소 구조</desc>
+<defs><marker id="n4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="298" width="140" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="110" y="316" text-anchor="middle" dominant-baseline="central">S-01 기본 정보</text>
+<text class="ts" x="110" y="333" text-anchor="middle" dominant-baseline="central">순차 노출</text></g>
+<path d="M180 322 H188" class="arr"/>
+<line x1="188" y1="58" x2="188" y2="586" class="arr"/>
+<line x1="188" y1="58" x2="196" y2="58" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="102" x2="196" y2="102" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="146" x2="196" y2="146" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="190" x2="196" y2="190" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="234" x2="196" y2="234" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="278" x2="196" y2="278" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="322" x2="196" y2="322" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="366" x2="196" y2="366" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="410" x2="196" y2="410" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="454" x2="196" y2="454" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="498" x2="196" y2="498" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="542" x2="196" y2="542" class="arr" marker-end="url(#n4)"/>
+<line x1="188" y1="586" x2="196" y2="586" class="arr" marker-end="url(#n4)"/>
+<g class="c-gray"><rect x="200" y="40" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="58" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="290" y="58" dominant-baseline="central">뒤로가기 · 프레임 제공</text></g>
+<g class="c-gray"><rect x="200" y="84" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="102" dominant-baseline="central" font-weight="700" font-size="11">BAR</text>
+<text class="ts" x="290" y="102" dominant-baseline="central">진행률 · 프레임 제공</text></g>
+<g class="c-teal"><rect x="200" y="128" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="146" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="146" dominant-baseline="central">제목 · 기본 정보를 알려주세요</text></g>
+<g class="c-teal"><rect x="200" y="172" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="190" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="190" dominant-baseline="central">설명 · 성분 반응 해석에 참고해요</text></g>
+<g class="c-teal"><rect x="200" y="216" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="234" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="234" dominant-baseline="central">필드 라벨 · 이름</text></g>
+<g class="c-coral"><rect x="200" y="260" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="278" dominant-baseline="central" font-weight="700" font-size="11">INPUT</text>
+<text class="ts" x="290" y="278" dominant-baseline="central">이름 · 한 줄 밑줄 입력</text></g>
+<g><rect class="box" x="200" y="304" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="322" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="290" y="322" dominant-baseline="central">이름 입력 후 성별 필드가 나타남</text></g>
+<g class="c-teal"><rect x="200" y="348" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="366" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="366" dominant-baseline="central">필드 라벨 · 성별</text></g>
+<g class="c-coral"><rect x="200" y="392" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="410" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="290" y="410" dominant-baseline="central">여성 / 남성 / 선택 안 함 · 단일</text></g>
+<g><rect class="box" x="200" y="436" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="454" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="290" y="454" dominant-baseline="central">성별 선택 후 나이 필드가 나타남</text></g>
+<g class="c-teal"><rect x="200" y="480" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="498" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="498" dominant-baseline="central">필드 라벨 · 나이</text></g>
+<g class="c-coral"><rect x="200" y="524" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="542" dominant-baseline="central" font-weight="700" font-size="11">STEPPER</text>
+<text class="ts" x="290" y="542" dominant-baseline="central">10~100세 · 기본 26세</text></g>
+<g class="c-coral"><rect x="200" y="568" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="586" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="290" y="586" dominant-baseline="central">다음 · 세 필드 모두 입력 전 비활성</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">S-02</span><span class="cap">피부 타입 · 중복 선택</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 512" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-02 피부 타입 화면 요소 구조</title><desc>네 선택지를 중복 선택으로 받는 화면의 요소 구조와 배타 규칙</desc>
+<defs><marker id="n5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="232" width="140" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="110" y="250" text-anchor="middle" dominant-baseline="central">S-02 피부 타입</text>
+<text class="ts" x="110" y="267" text-anchor="middle" dominant-baseline="central">중복 선택</text></g>
+<path d="M180 256 H188 V58" class="arr"/>
+<line x1="188" y1="58" x2="188" y2="454" class="arr"/>
+<line x1="188" y1="58" x2="196" y2="58" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="102" x2="196" y2="102" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="146" x2="196" y2="146" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="190" x2="196" y2="190" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="234" x2="196" y2="234" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="278" x2="196" y2="278" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="322" x2="196" y2="322" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="366" x2="196" y2="366" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="410" x2="196" y2="410" class="arr" marker-end="url(#n5)"/>
+<line x1="188" y1="454" x2="196" y2="454" class="arr" marker-end="url(#n5)"/>
+<g class="c-gray"><rect x="200" y="40" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="58" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="290" y="58" dominant-baseline="central">뒤로가기 · 프레임 제공</text></g>
+<g class="c-gray"><rect x="200" y="84" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="102" dominant-baseline="central" font-weight="700" font-size="11">BAR</text>
+<text class="ts" x="290" y="102" dominant-baseline="central">진행률 · 프레임 제공</text></g>
+<g class="c-teal"><rect x="200" y="128" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="146" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="146" dominant-baseline="central">제목 · 피부 타입을 알려주세요</text></g>
+<g class="c-teal"><rect x="200" y="172" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="190" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="190" dominant-baseline="central">설명 · 해당되는 것을 모두 골라주세요</text></g>
+<g class="c-coral"><rect x="200" y="216" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="234" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="290" y="234" dominant-baseline="central">지성 · 유분이 많고 쉽게 번들거려요</text></g>
+<g class="c-coral"><rect x="200" y="260" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="278" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="290" y="278" dominant-baseline="central">건성 · 당기고 각질이 잘 생겨요</text></g>
+<g class="c-coral"><rect x="200" y="304" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="322" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="290" y="322" dominant-baseline="central">민감성 · 쉽게 붉어지거나 따가워요</text></g>
+<g class="c-coral"><rect x="200" y="348" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="366" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="290" y="366" dominant-baseline="central">모르겠음 · 나머지와 배타</text></g>
+<g><rect class="box" x="200" y="392" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="410" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="290" y="410" dominant-baseline="central">모르겠음 선택 시 나머지 3개 해제 + 선택 불가</text></g>
+<g class="c-coral"><rect x="200" y="436" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="454" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="290" y="454" dominant-baseline="central">다음 · 1개 이상 선택 전 비활성</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip new">변경</span><span class="chip">S-04</span><span class="cap">생리 · 호르몬 · 성별 여성일 때만</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 556" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-04 생리 호르몬 화면 요소 구조</title><desc>생리 상태 네 선택지와 최근 시작일 평균 주기를 입력받는 화면 구조</desc>
+<defs><marker id="n6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="254" width="140" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="110" y="272" text-anchor="middle" dominant-baseline="central">S-04</text>
+<text class="ts" x="110" y="289" text-anchor="middle" dominant-baseline="central">생리 · 호르몬</text></g>
+<path d="M180 278 H188" class="arr"/>
+<line x1="188" y1="58" x2="188" y2="498" class="arr"/>
+<line x1="188" y1="58" x2="196" y2="58" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="102" x2="196" y2="102" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="146" x2="196" y2="146" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="190" x2="196" y2="190" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="234" x2="196" y2="234" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="278" x2="196" y2="278" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="322" x2="196" y2="322" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="366" x2="196" y2="366" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="410" x2="196" y2="410" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="454" x2="196" y2="454" class="arr" marker-end="url(#n6)"/>
+<line x1="188" y1="498" x2="196" y2="498" class="arr" marker-end="url(#n6)"/>
+<g><rect class="box" x="200" y="40" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="58" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="290" y="58" dominant-baseline="central">S-01 성별이 여성일 때만 이 화면으로 진입</text></g>
+<g class="c-gray"><rect x="200" y="84" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="102" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="290" y="102" dominant-baseline="central">뒤로가기 · 프레임 제공</text></g>
+<g class="c-gray"><rect x="200" y="128" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="146" dominant-baseline="central" font-weight="700" font-size="11">BAR</text>
+<text class="ts" x="290" y="146" dominant-baseline="central">진행률 · 프레임 제공</text></g>
+<g class="c-teal"><rect x="200" y="172" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="190" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="190" dominant-baseline="central">제목 · 생리 주기를 알려주세요</text></g>
+<g class="c-teal"><rect x="200" y="216" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="234" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="234" dominant-baseline="central">설명 · 호르몬 변화에 따른 패턴 분석</text></g>
+<g class="c-teal"><rect x="200" y="260" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="278" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="278" dominant-baseline="central">필드 라벨 · 생리 상태</text></g>
+<g class="c-coral"><rect x="200" y="304" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="322" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="290" y="322" dominant-baseline="central">생리 / 호르몬약 / 주사 / 폐경 · 단일</text></g>
+<g class="c-coral"><rect x="200" y="348" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="366" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="290" y="366" dominant-baseline="central">최근 시작일 행 · 날짜 선택</text></g>
+<g class="c-teal"><rect x="200" y="392" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="410" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="410" dominant-baseline="central">필드 라벨 · 평균 주기</text></g>
+<g class="c-coral"><rect x="200" y="436" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="454" dominant-baseline="central" font-weight="700" font-size="11">STEPPER</text>
+<text class="ts" x="290" y="454" dominant-baseline="central">20~45일 · 기본 28일</text></g>
+<g class="c-coral"><rect x="200" y="480" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="498" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="290" y="498" dominant-baseline="central">완료 + 나중에 설정하기</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip new">변경</span><span class="chip">S-05</span><span class="chip">S-06</span><span class="cap">완료 요약 · 알림 허용</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 392" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-05 온보딩 완료와 S-06 알림 허용 화면 요소 구조</title><desc>두 화면의 아이콘 텍스트 요약 목록과 카드 버튼 구성</desc>
+<defs><marker id="n7" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="48" text-anchor="middle" dominant-baseline="central">S-05 온보딩 완료</text></g>
+<path d="M185 70 V82 H50 V290" class="arr"/>
+<line x1="50" y1="114" x2="60" y2="114" class="arr" marker-end="url(#n7)"/>
+<line x1="50" y1="158" x2="60" y2="158" class="arr" marker-end="url(#n7)"/>
+<line x1="50" y1="202" x2="60" y2="202" class="arr" marker-end="url(#n7)"/>
+<line x1="50" y1="246" x2="60" y2="246" class="arr" marker-end="url(#n7)"/>
+<line x1="50" y1="290" x2="60" y2="290" class="arr" marker-end="url(#n7)"/>
+<g class="c-teal"><rect x="64" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="114" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="146" y="114" dominant-baseline="central">체크 원 아이콘</text></g>
+<g class="c-teal"><rect x="64" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="146" y="158" dominant-baseline="central">제목 · 프로파일 완성</text></g>
+<g class="c-teal"><rect x="64" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="202" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="146" y="202" dominant-baseline="central">설명 2줄</text></g>
+<g class="c-teal"><rect x="64" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="246" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="146" y="246" dominant-baseline="central">요약 행 · 3개 또는 4개</text></g>
+<g class="c-coral"><rect x="64" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="290" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="146" y="290" dominant-baseline="central">기록 시작하기 · 기본</text></g>
+<g class="c-purple"><rect x="350" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="48" text-anchor="middle" dominant-baseline="central">S-06 알림 허용</text></g>
+<path d="M495 70 V82 H360 V290" class="arr"/>
+<line x1="360" y1="114" x2="370" y2="114" class="arr" marker-end="url(#n7)"/>
+<line x1="360" y1="158" x2="370" y2="158" class="arr" marker-end="url(#n7)"/>
+<line x1="360" y1="202" x2="370" y2="202" class="arr" marker-end="url(#n7)"/>
+<line x1="360" y1="246" x2="370" y2="246" class="arr" marker-end="url(#n7)"/>
+<line x1="360" y1="290" x2="370" y2="290" class="arr" marker-end="url(#n7)"/>
+<g class="c-teal"><rect x="374" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="114" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="456" y="114" dominant-baseline="central">벨 아이콘 원</text></g>
+<g class="c-teal"><rect x="374" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="456" y="158" dominant-baseline="central">제목 · 알림을 받을까요</text></g>
+<g class="c-teal"><rect x="374" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="202" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="456" y="202" dominant-baseline="central">설명 2줄</text></g>
+<g class="c-teal"><rect x="374" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="246" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="456" y="246" dominant-baseline="central">알림 미리보기</text></g>
+<g class="c-coral"><rect x="374" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="290" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="456" y="290" dominant-baseline="central">허용 · 기본 + 나중에</text></g>
+<g><rect class="box" x="64" y="330" width="576" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="348" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="146" y="348" dominant-baseline="central">요약 행 · 이름 / 성별 · 나이 / 피부 타입 (+ 여성은 생리 상태)</text></g>
+</svg>
+    </div>
+  </div>
+</section>
+
+<section id="daynight">
+  <h2 class="sec">04 · 낮/밤 판정 규칙</h2>
+  <p>수면 시간 입력이 온보딩에서 빠지면서, 낮/밤은 전 사용자 동일한 고정 시각으로 나눕니다. 12시간씩 균등 분할입니다. 여기에 더해 사용자가 직접 화면을 바꿀 수 있는 토글을 둡니다.</p>
+  <div class="fig">
+    <div class="strip"><span class="chip new">변경</span><span class="cap">고정 시각 기준 + 수동 전환</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 500" role="img" xmlns="http://www.w3.org/2000/svg"><title>낮 밤 화면 결정 규칙</title><desc>현재 시각을 06시와 18시로 나눠 낮과 밤 화면을 정하고 토글로 덮어쓰는 구조</desc>
+<defs><marker id="n8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-teal"><rect x="40" y="76" width="180" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="130" y="96" text-anchor="middle" dominant-baseline="central">현재 시각</text>
+<text class="ts" x="130" y="115" text-anchor="middle" dominant-baseline="central">기기 시간</text></g>
+<path d="M220 104 H246" class="arr" marker-end="url(#n8)"/>
+<g class="c-purple"><rect x="250" y="76" width="180" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="96" text-anchor="middle" dominant-baseline="central">기본 화면 판정</text>
+<text class="ts" x="340" y="115" text-anchor="middle" dominant-baseline="central">전 사용자 동일 기준</text></g>
+<path d="M340 132 V162 H240 V186" class="arr" marker-end="url(#n8)"/>
+<path d="M340 132 V162 H460 V186" class="arr" marker-end="url(#n8)"/>
+<g class="c-teal"><rect x="150" y="190" width="180" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="240" y="210" text-anchor="middle" dominant-baseline="central">S-07 낮 화면</text>
+<text class="ts" x="240" y="229" text-anchor="middle" dominant-baseline="central">06:00 ~ 18:00</text></g>
+<g class="c-teal"><rect x="370" y="190" width="180" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="460" y="210" text-anchor="middle" dominant-baseline="central">S-08 밤 화면</text>
+<text class="ts" x="460" y="229" text-anchor="middle" dominant-baseline="central">18:00 ~ 06:00</text></g>
+<path d="M250 328 H210 V250" class="arr" marker-end="url(#n8)"/>
+<path d="M450 328 H490 V250" class="arr" marker-end="url(#n8)"/>
+<g class="c-coral"><rect x="250" y="300" width="200" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="350" y="320" text-anchor="middle" dominant-baseline="central">낮/밤 토글</text>
+<text class="ts" x="350" y="339" text-anchor="middle" dominant-baseline="central">사용자 수동 전환</text></g>
+<g><rect class="box" x="40" y="380" width="290" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="52" y="398" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="110" y="398" dominant-baseline="central">12 / 12시간 균등 분할</text></g>
+<g><rect class="box" x="350" y="380" width="290" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="362" y="398" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="420" y="398" dominant-baseline="central">토글은 판정 결과를 덮어씀</text></g>
+<g class="c-amber"><rect x="40" y="424" width="290" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="52" y="442" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="110" y="442" dominant-baseline="central">토글 유지 범위 · 화면 또는 앱</text></g>
+<g class="c-amber"><rect x="350" y="424" width="290" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="362" y="442" dominant-baseline="central" font-weight="700" font-size="11">향후</text>
+<text class="ts" x="420" y="442" dominant-baseline="central">루틴 기록 기반 개인화</text></g>
+</svg>
+    </div>
+  </div>
+  <p>루틴 기록 시 기상·수면 시각을 함께 받는 안이 논의됐습니다. 데이터가 쌓이면 이 고정 기준을 개인별로 조정할 수 있으므로, 지금 구조를 그대로 두고 나중에 판정 부분만 교체하면 됩니다.</p>
+</section>
+
+<section id="main">
+  <h2 class="sec">05 · 메인 탭</h2>
+  <p>탭 전환은 스택이 아니라 상태 교체입니다. 탭바가 화면 바깥에 고정으로 있어 안쪽만 바뀌고, 탭별로 뒤로가기 이력이 쌓이지 않습니다.</p>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">컨테이너</span><span class="cap">5화면 + 고정 탭바</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 424" role="img" xmlns="http://www.w3.org/2000/svg"><title>메인 탭 컨테이너 요소 구조</title><desc>다섯 화면과 하단 탭바, 탭 전환 규칙과 미확정 아이콘 에셋</desc>
+<defs><marker id="n9" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="188" width="140" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="110" y="206" text-anchor="middle" dominant-baseline="central">메인 탭</text>
+<text class="ts" x="110" y="223" text-anchor="middle" dominant-baseline="central">컨테이너</text></g>
+<path d="M180 212 H188" class="arr"/>
+<line x1="188" y1="58" x2="188" y2="366" class="arr"/>
+<line x1="188" y1="58" x2="196" y2="58" class="arr" marker-end="url(#n9)"/>
+<line x1="188" y1="102" x2="196" y2="102" class="arr" marker-end="url(#n9)"/>
+<line x1="188" y1="146" x2="196" y2="146" class="arr" marker-end="url(#n9)"/>
+<line x1="188" y1="190" x2="196" y2="190" class="arr" marker-end="url(#n9)"/>
+<line x1="188" y1="234" x2="196" y2="234" class="arr" marker-end="url(#n9)"/>
+<line x1="188" y1="278" x2="196" y2="278" class="arr" marker-end="url(#n9)"/>
+<line x1="188" y1="322" x2="196" y2="322" class="arr" marker-end="url(#n9)"/>
+<line x1="188" y1="366" x2="196" y2="366" class="arr" marker-end="url(#n9)"/>
+<g class="c-purple"><rect x="200" y="40" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="58" dominant-baseline="central" font-weight="700" font-size="11">SCREEN</text>
+<text class="ts" x="290" y="58" dominant-baseline="central">홈 · S-07 낮 / S-08 밤</text></g>
+<g class="c-purple"><rect x="200" y="84" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="102" dominant-baseline="central" font-weight="700" font-size="11">SCREEN</text>
+<text class="ts" x="290" y="102" dominant-baseline="central">쇼핑 · S-21</text></g>
+<g class="c-purple"><rect x="200" y="128" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="146" dominant-baseline="central" font-weight="700" font-size="11">SCREEN</text>
+<text class="ts" x="290" y="146" dominant-baseline="central">기록 허브 · S-09 / S-10</text></g>
+<g class="c-purple"><rect x="200" y="172" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="190" dominant-baseline="central" font-weight="700" font-size="11">SCREEN</text>
+<text class="ts" x="290" y="190" dominant-baseline="central">리포트 · S-19</text></g>
+<g class="c-purple"><rect x="200" y="216" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="234" dominant-baseline="central" font-weight="700" font-size="11">SCREEN</text>
+<text class="ts" x="290" y="234" dominant-baseline="central">마이페이지 · S-23</text></g>
+<g class="c-coral"><rect x="200" y="260" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="278" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="290" y="278" dominant-baseline="central">탭바 · 아이콘 + 라벨 5개 · 하단 고정</text></g>
+<g><rect class="box" x="200" y="304" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="322" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="290" y="322" dominant-baseline="central">탭 전환은 상태 교체 · 탭별 뒤로가기 없음</text></g>
+<g class="c-amber"><rect x="200" y="348" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="366" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="290" y="366" dominant-baseline="central">탭 아이콘 에셋 · 현재 글리프 문자로 대체 중</text></g>
+</svg>
+    </div>
+  </div>
+
+  <h3>홈 · S-07 / S-08</h3>
+  <p>낮은 날씨를 크게 보여주고 모닝루틴으로, 밤은 기록 현황과 리포트로 이어집니다. 두 화면이 공유하는 요소는 낮/밤 토글 하나뿐이라 별도 화면으로 둡니다.</p>
+  <div class="fig">
+    <div class="strip"><span class="chip new">변경</span><span class="chip">S-07</span><span class="chip">S-08</span><span class="cap">날씨 시각화 · 주간 캘린더 · 리포트 카드</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 524" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-07 낮 홈과 S-08 밤 홈 요소 구조</title><desc>낮 홈의 날씨 시각화와 밤 홈의 주간 캘린더 리포트 카드 구성</desc>
+<defs><marker id="n10" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="48" text-anchor="middle" dominant-baseline="central">S-07 홈 · 낮</text></g>
+<path d="M185 70 V82 H50 V334" class="arr"/>
+<line x1="50" y1="114" x2="60" y2="114" class="arr" marker-end="url(#n10)"/>
+<line x1="50" y1="158" x2="60" y2="158" class="arr" marker-end="url(#n10)"/>
+<line x1="50" y1="202" x2="60" y2="202" class="arr" marker-end="url(#n10)"/>
+<line x1="50" y1="246" x2="60" y2="246" class="arr" marker-end="url(#n10)"/>
+<line x1="50" y1="290" x2="60" y2="290" class="arr" marker-end="url(#n10)"/>
+<line x1="50" y1="334" x2="60" y2="334" class="arr" marker-end="url(#n10)"/>
+<g class="c-coral"><rect x="64" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="114" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="140" y="114" dominant-baseline="central">낮/밤 토글</text></g>
+<g class="c-amber"><rect x="64" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="158" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="140" y="158" dominant-baseline="central">날씨 배경 · 그라데이션</text></g>
+<g class="c-amber"><rect x="64" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="202" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="140" y="202" dominant-baseline="central">날씨 이미지 · 에셋 필요</text></g>
+<g class="c-teal"><rect x="64" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="246" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="246" dominant-baseline="central">기온 · 자외선 · 습도</text></g>
+<g class="c-teal"><rect x="64" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="290" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="140" y="290" dominant-baseline="central">루틴 추천 · 순위 + 이유</text></g>
+<g class="c-coral"><rect x="64" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="334" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="140" y="334" dominant-baseline="central">모닝루틴 기록하러 가기</text></g>
+<g class="c-purple"><rect x="350" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="48" text-anchor="middle" dominant-baseline="central">S-08 홈 · 밤</text></g>
+<path d="M495 70 V82 H360 V466" class="arr"/>
+<line x1="360" y1="114" x2="370" y2="114" class="arr" marker-end="url(#n10)"/>
+<line x1="360" y1="158" x2="370" y2="158" class="arr" marker-end="url(#n10)"/>
+<line x1="360" y1="202" x2="370" y2="202" class="arr" marker-end="url(#n10)"/>
+<line x1="360" y1="246" x2="370" y2="246" class="arr" marker-end="url(#n10)"/>
+<line x1="360" y1="290" x2="370" y2="290" class="arr" marker-end="url(#n10)"/>
+<line x1="360" y1="334" x2="370" y2="334" class="arr" marker-end="url(#n10)"/>
+<line x1="360" y1="378" x2="370" y2="378" class="arr" marker-end="url(#n10)"/>
+<line x1="360" y1="422" x2="370" y2="422" class="arr" marker-end="url(#n10)"/>
+<line x1="360" y1="466" x2="370" y2="466" class="arr" marker-end="url(#n10)"/>
+<g class="c-coral"><rect x="374" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="114" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="450" y="114" dominant-baseline="central">낮/밤 토글</text></g>
+<g class="c-teal"><rect x="374" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="158" dominant-baseline="central">인사 · 오늘도 수고했어요</text></g>
+<g class="c-teal"><rect x="374" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="202" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="202" dominant-baseline="central">기록 유도 문구</text></g>
+<g class="c-teal"><rect x="374" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="246" dominant-baseline="central" font-weight="700" font-size="11">CALENDAR</text>
+<text class="ts" x="450" y="246" dominant-baseline="central">주간 기록 현황 · 신규</text></g>
+<g class="c-teal"><rect x="374" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="290" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="450" y="290" dominant-baseline="central">루틴 추천 · 순위 + 이유</text></g>
+<g class="c-coral"><rect x="374" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="334" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="450" y="334" dominant-baseline="central">나이트루틴 기록하러 가기</text></g>
+<g class="c-teal"><rect x="374" y="360" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="378" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="450" y="378" dominant-baseline="central">오늘 리포트 요약 · 조건부</text></g>
+<g class="c-coral"><rect x="374" y="404" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="422" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="450" y="422" dominant-baseline="central">자세히 보러가기</text></g>
+<g class="c-amber"><rect x="374" y="448" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="466" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="450" y="466" dominant-baseline="central">정보 부족 시 안내 방식</text></g>
+</svg>
+    </div>
+  </div>
+
+  <h3>기록 허브 · S-09 / S-10</h3>
+  <p>모닝과 나이트를 탭으로 나누고, 각 탭 안에 제품·피부 버튼을 둡니다. 하루 기록 슬롯이 4개가 됩니다.</p>
+  <div class="fig">
+    <div class="strip"><span class="chip new">변경</span><span class="chip">S-09</span><span class="chip">S-10</span><span class="cap">모닝 / 나이트 탭 구조</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 500" role="img" xmlns="http://www.w3.org/2000/svg"><title>모닝 나이트 탭으로 재구성한 기록 허브</title><desc>월 캘린더 아래 모닝과 나이트 탭이 있고 각 탭에 제품과 피부 기록 버튼이 놓인 구조</desc>
+<defs><marker id="n11" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="122" width="140" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="110" y="140" text-anchor="middle" dominant-baseline="central">기록 허브</text>
+<text class="ts" x="110" y="157" text-anchor="middle" dominant-baseline="central">S-09 · S-10</text></g>
+<path d="M180 146 H188" class="arr"/>
+<line x1="188" y1="58" x2="188" y2="234" class="arr"/>
+<line x1="188" y1="58" x2="196" y2="58" class="arr" marker-end="url(#n11)"/>
+<line x1="188" y1="102" x2="196" y2="102" class="arr" marker-end="url(#n11)"/>
+<line x1="188" y1="146" x2="196" y2="146" class="arr" marker-end="url(#n11)"/>
+<line x1="188" y1="190" x2="196" y2="190" class="arr" marker-end="url(#n11)"/>
+<line x1="188" y1="234" x2="196" y2="234" class="arr" marker-end="url(#n11)"/>
+<g class="c-teal"><rect x="200" y="40" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="58" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="58" dominant-baseline="central">타이틀 · 기록</text></g>
+<g class="c-coral"><rect x="200" y="84" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="102" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="290" y="102" dominant-baseline="central">월 이동 · 이전 / 다음</text></g>
+<g class="c-teal"><rect x="200" y="128" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="146" dominant-baseline="central" font-weight="700" font-size="11">CALENDAR</text>
+<text class="ts" x="290" y="146" dominant-baseline="central">월 캘린더 · 이번 달 전체</text></g>
+<g class="c-teal"><rect x="200" y="172" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="190" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="190" dominant-baseline="central">이번 달 요약 · 기록 N회</text></g>
+<g class="c-coral"><rect x="200" y="216" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="234" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="290" y="234" dominant-baseline="central">모닝 / 나이트 탭 · 단일 · 신규</text></g>
+<path d="M340 252 V266 H185 V280" class="arr" marker-end="url(#n11)"/>
+<path d="M340 252 V266 H495 V280" class="arr" marker-end="url(#n11)"/>
+<g class="c-purple"><rect x="40" y="284" width="290" height="40" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="304" text-anchor="middle" dominant-baseline="central">모닝 탭</text></g>
+<path d="M185 324 V332 H50 V402" class="arr"/>
+<line x1="50" y1="358" x2="60" y2="358" class="arr" marker-end="url(#n11)"/>
+<line x1="50" y1="402" x2="60" y2="402" class="arr" marker-end="url(#n11)"/>
+<g class="c-coral"><rect x="64" y="340" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="358" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="140" y="358" dominant-baseline="central">제품 기록</text></g>
+<g class="c-coral"><rect x="64" y="384" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="402" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="140" y="402" dominant-baseline="central">피부 기록</text></g>
+<g class="c-purple"><rect x="350" y="284" width="290" height="40" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="304" text-anchor="middle" dominant-baseline="central">나이트 탭</text></g>
+<path d="M495 324 V332 H360 V402" class="arr"/>
+<line x1="360" y1="358" x2="370" y2="358" class="arr" marker-end="url(#n11)"/>
+<line x1="360" y1="402" x2="370" y2="402" class="arr" marker-end="url(#n11)"/>
+<g class="c-coral"><rect x="374" y="340" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="358" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="450" y="358" dominant-baseline="central">제품 기록</text></g>
+<g class="c-coral"><rect x="374" y="384" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="402" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="450" y="402" dominant-baseline="central">피부 기록</text></g>
+<g><rect class="box" x="64" y="446" width="576" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="464" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="140" y="464" dominant-baseline="central">완료 = 초록 + 체크 표시 / 미완료 = 빨강 + 빈 원</text></g>
+</svg>
+    </div>
+  </div>
+  <p>색만으로 상태를 구분하면 적록색약 사용자에게 두 상태가 같게 보입니다. 색과 함께 체크·빈 원 표시를 병행합니다.</p>
+
+  <h3>캘린더 점 표기</h3>
+  <p>하루 슬롯이 4개로 늘었지만 점은 2개만 씁니다. 위치 대응이 왼쪽 모닝, 오른쪽 나이트 하나뿐이라 별도 학습 없이 읽힙니다.</p>
+  <div class="fig">
+    <div class="strip"><span class="chip new">신규</span><span class="cap">날짜 셀 · 점 2개 × 상태 3종</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 370" role="img" xmlns="http://www.w3.org/2000/svg"><title>캘린더 날짜 셀 점 표기 방식</title><desc>날짜 아래 모닝과 나이트를 뜻하는 점 두 개를 두고 각 점이 채움 외곽선 없음 세 상태를 갖는 표기</desc>
+<text class="th" x="40" y="28" dominant-baseline="central">날짜 셀 구조</text>
+<rect class="box" x="60" y="48" width="140" height="120" rx="8" stroke-width="0.5" stroke-dasharray="4 4"/>
+<circle cx="130" cy="88" r="21" fill="var(--p)"/>
+<text class="ts" x="130" y="88" text-anchor="middle" dominant-baseline="central" fill="var(--bg2)">15</text>
+<circle cx="114" cy="132" r="6" fill="var(--p)"/>
+<circle cx="146" cy="132" r="6" fill="none" stroke="var(--p)" stroke-width="1.5"/>
+<line class="leader" x1="200" y1="88" x2="232" y2="88"/>
+<circle cx="200" cy="88" r="2" fill="var(--t)"/>
+<text class="ts" x="240" y="88" dominant-baseline="central">날짜 · 오늘은 강조</text>
+<line class="leader" x1="200" y1="132" x2="232" y2="132"/>
+<circle cx="200" cy="132" r="2" fill="var(--t)"/>
+<text class="ts" x="240" y="132" dominant-baseline="central">왼쪽 모닝 · 오른쪽 나이트</text>
+<text class="th" x="40" y="200" dominant-baseline="central">점 하나의 상태 3종</text>
+<g><rect class="box" x="40" y="220" width="186" height="64" rx="8" stroke-width="0.5"/>
+<circle cx="70" cy="252" r="7" fill="var(--p)"/>
+<text class="ts" x="94" y="243" dominant-baseline="central" font-weight="700">채움</text>
+<text class="ts" x="94" y="262" dominant-baseline="central">제품 · 피부 둘 다</text></g>
+<g><rect class="box" x="247" y="220" width="186" height="64" rx="8" stroke-width="0.5"/>
+<circle cx="277" cy="252" r="7" fill="none" stroke="var(--p)" stroke-width="1.5"/>
+<text class="ts" x="301" y="243" dominant-baseline="central" font-weight="700">외곽선</text>
+<text class="ts" x="301" y="262" dominant-baseline="central">하나만 완료</text></g>
+<g><rect class="box" x="454" y="220" width="186" height="64" rx="8" stroke-width="0.5"/>
+<circle cx="484" cy="252" r="7" fill="none" stroke="var(--t)" stroke-width="1" stroke-dasharray="2 2"/>
+<text class="ts" x="508" y="243" dominant-baseline="central" font-weight="700">흐림</text>
+<text class="ts" x="508" y="262" dominant-baseline="central">기록 없음</text></g>
+<g><rect class="box" x="40" y="304" width="600" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="52" y="322" dominant-baseline="central" font-weight="700">적용</text>
+<text class="ts" x="110" y="322" dominant-baseline="central">기록 탭은 이번 달 전체 · 밤 홈은 이번 주만</text></g>
+</svg>
+    </div>
+  </div>
+
+  <h3>리포트 · 쇼핑 · 마이페이지</h3>
+  <div class="fig">
+    <div class="strip"><span class="chip">S-19</span><span class="chip">S-21</span><span class="cap">상단 토글로 아래가 교체</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 448" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-19 리포트와 S-21 쇼핑 요소 구조</title><desc>두 화면의 요소별 종류와 성격, 토글에 따라 아래 영역이 교체되는 공통 패턴</desc>
+<defs><marker id="n12" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="48" text-anchor="middle" dominant-baseline="central">S-19 피부 리포트</text></g>
+<path d="M185 70 V82 H50 V334" class="arr"/>
+<line x1="50" y1="114" x2="60" y2="114" class="arr" marker-end="url(#n12)"/>
+<line x1="50" y1="158" x2="60" y2="158" class="arr" marker-end="url(#n12)"/>
+<line x1="50" y1="202" x2="60" y2="202" class="arr" marker-end="url(#n12)"/>
+<line x1="50" y1="246" x2="60" y2="246" class="arr" marker-end="url(#n12)"/>
+<line x1="50" y1="290" x2="60" y2="290" class="arr" marker-end="url(#n12)"/>
+<line x1="50" y1="334" x2="60" y2="334" class="arr" marker-end="url(#n12)"/>
+<g class="c-teal"><rect x="64" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="114" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="114" dominant-baseline="central">타이틀 · 리포트</text></g>
+<g class="c-coral"><rect x="64" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="158" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="140" y="158" dominant-baseline="central">7일 / 30일 · 단일</text></g>
+<g class="c-teal"><rect x="64" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="202" dominant-baseline="central" font-weight="700" font-size="11">CHART</text>
+<text class="ts" x="140" y="202" dominant-baseline="central">트러블 추이 바</text></g>
+<g class="c-teal"><rect x="64" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="246" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="140" y="246" dominant-baseline="central">인사이트 · 성분 기반</text></g>
+<g class="c-teal"><rect x="64" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="290" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="140" y="290" dominant-baseline="central">인사이트 · 환경 기반</text></g>
+<g class="c-coral"><rect x="64" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="334" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="140" y="334" dominant-baseline="central">요인 자세히 보기 행</text></g>
+<g class="c-purple"><rect x="350" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="48" text-anchor="middle" dominant-baseline="central">S-21 구매 전 확인</text></g>
+<path d="M495 70 V82 H360 V334" class="arr"/>
+<line x1="360" y1="114" x2="370" y2="114" class="arr" marker-end="url(#n12)"/>
+<line x1="360" y1="158" x2="370" y2="158" class="arr" marker-end="url(#n12)"/>
+<line x1="360" y1="202" x2="370" y2="202" class="arr" marker-end="url(#n12)"/>
+<line x1="360" y1="246" x2="370" y2="246" class="arr" marker-end="url(#n12)"/>
+<line x1="360" y1="290" x2="370" y2="290" class="arr" marker-end="url(#n12)"/>
+<line x1="360" y1="334" x2="370" y2="334" class="arr" marker-end="url(#n12)"/>
+<g class="c-teal"><rect x="374" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="114" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="114" dominant-baseline="central">타이틀 · 쇼핑</text></g>
+<g class="c-teal"><rect x="374" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="158" dominant-baseline="central">섹션 라벨 · 추천</text></g>
+<g class="c-coral"><rect x="374" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="202" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="450" y="202" dominant-baseline="central">추천 제품 행 + 배지</text></g>
+<g class="c-coral"><rect x="374" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="246" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="450" y="246" dominant-baseline="central">스캔 / 검색 · 단일</text></g>
+<g class="c-coral"><rect x="374" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="290" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="450" y="290" dominant-baseline="central">뷰파인더 · 스캔 모드</text></g>
+<g class="c-coral"><rect x="374" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="334" dominant-baseline="central" font-weight="700" font-size="11">INPUT</text>
+<text class="ts" x="450" y="334" dominant-baseline="central">제품명 검색 · 검색 모드</text></g>
+<g><rect class="box" x="64" y="372" width="576" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="390" dominant-baseline="central" font-weight="700" font-size="11">공통</text>
+<text class="ts" x="140" y="390" dominant-baseline="central">상단 선택 토글 값에 따라 아래 영역이 같은 자리에서 교체됨</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip new">변경</span><span class="chip">S-23</span><span class="cap">마이페이지 · 코인 카드 제거</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 424" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-23 마이페이지 요소 구조</title><desc>활동 통계 프로파일 완성도 성분 반응 목록과 설정 메뉴 구성</desc>
+<defs><marker id="n13" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="188" width="140" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="110" y="206" text-anchor="middle" dominant-baseline="central">S-23</text>
+<text class="ts" x="110" y="223" text-anchor="middle" dominant-baseline="central">마이페이지</text></g>
+<path d="M180 212 H188" class="arr"/>
+<line x1="188" y1="58" x2="188" y2="366" class="arr"/>
+<line x1="188" y1="58" x2="196" y2="58" class="arr" marker-end="url(#n13)"/>
+<line x1="188" y1="102" x2="196" y2="102" class="arr" marker-end="url(#n13)"/>
+<line x1="188" y1="146" x2="196" y2="146" class="arr" marker-end="url(#n13)"/>
+<line x1="188" y1="190" x2="196" y2="190" class="arr" marker-end="url(#n13)"/>
+<line x1="188" y1="234" x2="196" y2="234" class="arr" marker-end="url(#n13)"/>
+<line x1="188" y1="278" x2="196" y2="278" class="arr" marker-end="url(#n13)"/>
+<line x1="188" y1="322" x2="196" y2="322" class="arr" marker-end="url(#n13)"/>
+<line x1="188" y1="366" x2="196" y2="366" class="arr" marker-end="url(#n13)"/>
+<g class="c-teal"><rect x="200" y="40" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="58" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="58" dominant-baseline="central">이름 · 큰 제목</text></g>
+<g class="c-teal"><rect x="200" y="84" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="102" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="102" dominant-baseline="central">활동 통계 · 가입 N일째 · 기록 N회</text></g>
+<g class="c-teal"><rect x="200" y="128" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="146" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="290" y="146" dominant-baseline="central">내 성분 프로파일 묶음</text></g>
+<g class="c-teal"><rect x="200" y="172" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="190" dominant-baseline="central" font-weight="700" font-size="11">BAR</text>
+<text class="ts" x="290" y="190" dominant-baseline="central">완성도 게이지 · 퍼센트 표기</text></g>
+<g class="c-teal"><rect x="200" y="216" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="234" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="290" y="234" dominant-baseline="central">섹션 라벨 · 내 성분 반응</text></g>
+<g class="c-teal"><rect x="200" y="260" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="278" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="290" y="278" dominant-baseline="central">성분 행 + 배지 · 맞음 / 주의 / 데이터 부족</text></g>
+<g class="c-amber"><rect x="200" y="304" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="322" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="290" y="322" dominant-baseline="central">성분 전체 보기 행 · 대상 화면 제작 요청됨</text></g>
+<g class="c-coral"><rect x="200" y="348" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="366" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="290" y="366" dominant-baseline="central">설정 메뉴 3행 · 위치 / 알림 / 로그아웃</text></g>
+</svg>
+    </div>
+  </div>
+</section>
+
+<section id="record">
+  <h2 class="sec">06 · 기록 플로우 · S-11 ~ S-18</h2>
+  <p>제품 기록 4화면과 피부 기록 4화면입니다. 두 플로우 모두 마지막 화면에서 데이터가 저장됩니다.</p>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">S-11</span><span class="chip">S-12</span><span class="cap">제품 기록 · 검색어 유무로 분기</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 598" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-11과 S-12 제품 기록 요소 구조</title><desc>검색창과 스캔 아이콘이 공통으로 있고 검색어 유무에 따라 저장 목록 상태와 검색 결과 상태로 갈리는 구조</desc>
+<defs><marker id="n14" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="250" y="26" width="180" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="44" text-anchor="middle" dominant-baseline="central">제품 기록</text>
+<text class="ts" x="340" y="61" text-anchor="middle" dominant-baseline="central">S-11 · S-12</text></g>
+<path d="M340 74 V84 H188 V246" class="arr"/>
+<line x1="188" y1="114" x2="196" y2="114" class="arr" marker-end="url(#n14)"/>
+<line x1="188" y1="158" x2="196" y2="158" class="arr" marker-end="url(#n14)"/>
+<line x1="188" y1="202" x2="196" y2="202" class="arr" marker-end="url(#n14)"/>
+<line x1="188" y1="246" x2="196" y2="246" class="arr" marker-end="url(#n14)"/>
+<g class="c-gray"><rect x="200" y="96" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="114" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="290" y="114" dominant-baseline="central">뒤로가기 + 타이틀 · 제품 기록</text></g>
+<g class="c-coral"><rect x="200" y="140" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="158" dominant-baseline="central" font-weight="700" font-size="11">INPUT</text>
+<text class="ts" x="290" y="158" dominant-baseline="central">제품명 검색창 · 두 상태 모두에서 상시 노출</text></g>
+<g class="c-coral"><rect x="200" y="184" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="202" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="290" y="202" dominant-baseline="central">우측 아이콘 · 스캔과 지우기로 교체</text></g>
+<g><rect class="box" x="200" y="228" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="246" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="290" y="246" dominant-baseline="central">검색어 없음 → 아래 왼쪽 / 입력됨 → 아래 오른쪽</text></g>
+<path d="M340 264 V278 H185 V286" class="arr" marker-end="url(#n14)"/>
+<path d="M340 264 V278 H495 V286" class="arr" marker-end="url(#n14)"/>
+<g class="c-purple"><rect x="40" y="290" width="290" height="40" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="310" text-anchor="middle" dominant-baseline="central">S-11 기본 상태</text></g>
+<path d="M185 330 V338 H50 V540" class="arr"/>
+<line x1="50" y1="364" x2="60" y2="364" class="arr" marker-end="url(#n14)"/>
+<line x1="50" y1="408" x2="60" y2="408" class="arr" marker-end="url(#n14)"/>
+<line x1="50" y1="452" x2="60" y2="452" class="arr" marker-end="url(#n14)"/>
+<line x1="50" y1="496" x2="60" y2="496" class="arr" marker-end="url(#n14)"/>
+<line x1="50" y1="540" x2="60" y2="540" class="arr" marker-end="url(#n14)"/>
+<g class="c-teal"><rect x="64" y="346" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="364" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="364" dominant-baseline="central">섹션 · 자주 쓰는 루틴</text></g>
+<g class="c-coral"><rect x="64" y="390" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="408" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="140" y="408" dominant-baseline="central">루틴 행 · 이름 + 구성</text></g>
+<g class="c-teal"><rect x="64" y="434" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="452" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="452" dominant-baseline="central">섹션 · 저장된 제품</text></g>
+<g class="c-coral"><rect x="64" y="478" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="496" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="140" y="496" dominant-baseline="central">저장 제품 행 · 최근순</text></g>
+<g class="c-amber"><rect x="64" y="522" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="540" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="140" y="540" dominant-baseline="central">제품 등록 · 이동 없음</text></g>
+<g class="c-purple"><rect x="350" y="290" width="290" height="40" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="310" text-anchor="middle" dominant-baseline="central">S-12 검색 결과 상태</text></g>
+<path d="M495 330 V338 H360 V496" class="arr"/>
+<line x1="360" y1="364" x2="370" y2="364" class="arr" marker-end="url(#n14)"/>
+<line x1="360" y1="408" x2="370" y2="408" class="arr" marker-end="url(#n14)"/>
+<line x1="360" y1="452" x2="370" y2="452" class="arr" marker-end="url(#n14)"/>
+<line x1="360" y1="496" x2="370" y2="496" class="arr" marker-end="url(#n14)"/>
+<g class="c-teal"><rect x="374" y="346" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="364" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="364" dominant-baseline="central">검색 결과 개수</text></g>
+<g class="c-coral"><rect x="374" y="390" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="408" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="450" y="408" dominant-baseline="central">결과 행 + 추가 버튼</text></g>
+<g class="c-teal"><rect x="374" y="434" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="452" dominant-baseline="central" font-weight="700" font-size="11">TAG</text>
+<text class="ts" x="450" y="452" dominant-baseline="central">저장됨 배지 · 조건부</text></g>
+<g class="c-amber"><rect x="374" y="478" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="496" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="450" y="496" dominant-baseline="central">직접 등록 · 이동 없음</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">S-13</span><span class="chip">S-14</span><span class="cap">스캔 · 성분 확인 (제품 기록 저장 지점)</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 436" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-13 스캔과 S-14 성분 확인 요소 구조</title><desc>스캔 화면의 모드 토글과 카메라 영역, 성분 확인 화면의 성분 목록과 기록 완료 버튼</desc>
+<defs><marker id="n15" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="48" text-anchor="middle" dominant-baseline="central">S-13 스캔</text></g>
+<path d="M185 70 V82 H50 V334" class="arr"/>
+<line x1="50" y1="114" x2="60" y2="114" class="arr" marker-end="url(#n15)"/>
+<line x1="50" y1="158" x2="60" y2="158" class="arr" marker-end="url(#n15)"/>
+<line x1="50" y1="202" x2="60" y2="202" class="arr" marker-end="url(#n15)"/>
+<line x1="50" y1="246" x2="60" y2="246" class="arr" marker-end="url(#n15)"/>
+<line x1="50" y1="290" x2="60" y2="290" class="arr" marker-end="url(#n15)"/>
+<line x1="50" y1="334" x2="60" y2="334" class="arr" marker-end="url(#n15)"/>
+<g class="c-gray"><rect x="64" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="114" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="140" y="114" dominant-baseline="central">뒤로가기 · 타이틀 없음</text></g>
+<g class="c-coral"><rect x="64" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="158" dominant-baseline="central" font-weight="700" font-size="11">SELECT</text>
+<text class="ts" x="140" y="158" dominant-baseline="central">바코드 / 상품 사진</text></g>
+<g class="c-amber"><rect x="64" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="202" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="140" y="202" dominant-baseline="central">카메라 프리뷰 · 미구현</text></g>
+<g class="c-teal"><rect x="64" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="246" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="140" y="246" dominant-baseline="central">뷰파인더 프레임</text></g>
+<g class="c-teal"><rect x="64" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="290" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="290" dominant-baseline="central">안내 문구 · 모드별</text></g>
+<g class="c-amber"><rect x="64" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="334" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="140" y="334" dominant-baseline="central">인식 대상 확정 필요</text></g>
+<g class="c-purple"><rect x="350" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="48" text-anchor="middle" dominant-baseline="central">S-14 성분 확인</text></g>
+<path d="M495 70 V82 H360 V378" class="arr"/>
+<line x1="360" y1="114" x2="370" y2="114" class="arr" marker-end="url(#n15)"/>
+<line x1="360" y1="158" x2="370" y2="158" class="arr" marker-end="url(#n15)"/>
+<line x1="360" y1="202" x2="370" y2="202" class="arr" marker-end="url(#n15)"/>
+<line x1="360" y1="246" x2="370" y2="246" class="arr" marker-end="url(#n15)"/>
+<line x1="360" y1="290" x2="370" y2="290" class="arr" marker-end="url(#n15)"/>
+<line x1="360" y1="334" x2="370" y2="334" class="arr" marker-end="url(#n15)"/>
+<line x1="360" y1="378" x2="370" y2="378" class="arr" marker-end="url(#n15)"/>
+<g class="c-gray"><rect x="374" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="114" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="450" y="114" dominant-baseline="central">뒤로가기 + 성분 확인</text></g>
+<g class="c-teal"><rect x="374" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="158" dominant-baseline="central">제품명 · 큰 제목</text></g>
+<g class="c-teal"><rect x="374" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="202" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="202" dominant-baseline="central">분류 · 총 성분 개수</text></g>
+<g class="c-teal"><rect x="374" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="246" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="246" dominant-baseline="central">섹션 · 주요 성분</text></g>
+<g class="c-teal"><rect x="374" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="290" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="450" y="290" dominant-baseline="central">성분 행 반복</text></g>
+<g class="c-coral"><rect x="374" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="334" dominant-baseline="central" font-weight="700" font-size="11">CARD</text>
+<text class="ts" x="450" y="334" dominant-baseline="central">피부 기록 유도 · 조건부</text></g>
+<g class="c-coral"><rect x="374" y="360" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="378" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="450" y="378" dominant-baseline="central">기록 완료 · 저장 시점</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">S-15</span><span class="chip">S-16</span><span class="cap">촬영 가이드 · 얼굴 촬영</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 436" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-15 촬영 가이드와 S-16 얼굴 촬영 요소 구조</title><desc>가이드 화면의 예시 이미지와 팁 목록, 촬영 화면의 전면 카메라와 얼굴 윤곽 가이드</desc>
+<defs><marker id="n16" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="48" text-anchor="middle" dominant-baseline="central">S-15 촬영 가이드</text></g>
+<path d="M185 70 V82 H50 V290" class="arr"/>
+<line x1="50" y1="114" x2="60" y2="114" class="arr" marker-end="url(#n16)"/>
+<line x1="50" y1="158" x2="60" y2="158" class="arr" marker-end="url(#n16)"/>
+<line x1="50" y1="202" x2="60" y2="202" class="arr" marker-end="url(#n16)"/>
+<line x1="50" y1="246" x2="60" y2="246" class="arr" marker-end="url(#n16)"/>
+<line x1="50" y1="290" x2="60" y2="290" class="arr" marker-end="url(#n16)"/>
+<g class="c-gray"><rect x="64" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="114" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="140" y="114" dominant-baseline="central">뒤로가기 + 촬영 가이드</text></g>
+<g class="c-teal"><rect x="64" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="158" dominant-baseline="central">제목 + 설명</text></g>
+<g class="c-amber"><rect x="64" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="202" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="140" y="202" dominant-baseline="central">예시 이미지 · 에셋 미정</text></g>
+<g class="c-teal"><rect x="64" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="246" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="140" y="246" dominant-baseline="central">번호 팁 행 4개</text></g>
+<g class="c-coral"><rect x="64" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="290" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="140" y="290" dominant-baseline="central">촬영 시작 · 기본</text></g>
+<g class="c-purple"><rect x="350" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="48" text-anchor="middle" dominant-baseline="central">S-16 얼굴 촬영</text></g>
+<path d="M495 70 V82 H360 V334" class="arr"/>
+<line x1="360" y1="114" x2="370" y2="114" class="arr" marker-end="url(#n16)"/>
+<line x1="360" y1="158" x2="370" y2="158" class="arr" marker-end="url(#n16)"/>
+<line x1="360" y1="202" x2="370" y2="202" class="arr" marker-end="url(#n16)"/>
+<line x1="360" y1="246" x2="370" y2="246" class="arr" marker-end="url(#n16)"/>
+<line x1="360" y1="290" x2="370" y2="290" class="arr" marker-end="url(#n16)"/>
+<line x1="360" y1="334" x2="370" y2="334" class="arr" marker-end="url(#n16)"/>
+<g class="c-gray"><rect x="374" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="114" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="450" y="114" dominant-baseline="central">뒤로가기 · 타이틀 없음</text></g>
+<g class="c-amber"><rect x="374" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="158" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="450" y="158" dominant-baseline="central">전면 카메라 · 미구현</text></g>
+<g class="c-teal"><rect x="374" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="202" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="450" y="202" dominant-baseline="central">얼굴 윤곽 가이드</text></g>
+<g class="c-teal"><rect x="374" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="246" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="246" dominant-baseline="central">상단 · 하단 안내 문구</text></g>
+<g class="c-coral"><rect x="374" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="290" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="450" y="290" dominant-baseline="central">촬영 · 기본</text></g>
+<g class="c-amber"><rect x="374" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="334" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="450" y="334" dominant-baseline="central">재촬영 · 미리보기 단계</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">S-17</span><span class="chip">S-18</span><span class="cap">분석 중 · 분석 결과 (피부 기록 저장 지점)</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 436" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-17 분석 중과 S-18 분석 결과 요소 구조</title><desc>분석 중 화면의 단계 표시와 자동 이동 규칙, 결과 화면의 점수와 지표 바 구성</desc>
+<defs><marker id="n17" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="48" text-anchor="middle" dominant-baseline="central">S-17 분석 중</text></g>
+<path d="M185 70 V82 H50 V334" class="arr"/>
+<line x1="50" y1="114" x2="60" y2="114" class="arr" marker-end="url(#n17)"/>
+<line x1="50" y1="158" x2="60" y2="158" class="arr" marker-end="url(#n17)"/>
+<line x1="50" y1="202" x2="60" y2="202" class="arr" marker-end="url(#n17)"/>
+<line x1="50" y1="246" x2="60" y2="246" class="arr" marker-end="url(#n17)"/>
+<line x1="50" y1="290" x2="60" y2="290" class="arr" marker-end="url(#n17)"/>
+<line x1="50" y1="334" x2="60" y2="334" class="arr" marker-end="url(#n17)"/>
+<g class="c-teal"><rect x="64" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="114" dominant-baseline="central" font-weight="700" font-size="11">MEDIA</text>
+<text class="ts" x="140" y="114" dominant-baseline="central">촬영 사진 · 원형</text></g>
+<g class="c-teal"><rect x="64" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="158" dominant-baseline="central">제목 + 설명 2줄</text></g>
+<g class="c-teal"><rect x="64" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="202" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="140" y="202" dominant-baseline="central">단계 체크 행 4개</text></g>
+<g><rect class="box" x="64" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="246" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="140" y="246" dominant-baseline="central">완료 시 자동 이동</text></g>
+<g><rect class="box" x="64" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="290" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="140" y="290" dominant-baseline="central">얼굴 미인식 → 재촬영</text></g>
+<g class="c-amber"><rect x="64" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="334" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="140" y="334" dominant-baseline="central">분석 지연 시 대기 처리</text></g>
+<g class="c-purple"><rect x="350" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="48" text-anchor="middle" dominant-baseline="central">S-18 분석 결과</text></g>
+<path d="M495 70 V82 H360 V334" class="arr"/>
+<line x1="360" y1="114" x2="370" y2="114" class="arr" marker-end="url(#n17)"/>
+<line x1="360" y1="158" x2="370" y2="158" class="arr" marker-end="url(#n17)"/>
+<line x1="360" y1="202" x2="370" y2="202" class="arr" marker-end="url(#n17)"/>
+<line x1="360" y1="246" x2="370" y2="246" class="arr" marker-end="url(#n17)"/>
+<line x1="360" y1="290" x2="370" y2="290" class="arr" marker-end="url(#n17)"/>
+<line x1="360" y1="334" x2="370" y2="334" class="arr" marker-end="url(#n17)"/>
+<g class="c-gray"><rect x="374" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="114" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="450" y="114" dominant-baseline="central">뒤로가기 + 오늘의 피부</text></g>
+<g class="c-teal"><rect x="374" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="158" dominant-baseline="central">점수 · 큰 숫자</text></g>
+<g class="c-teal"><rect x="374" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="202" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="202" dominant-baseline="central">전일 대비 문구</text></g>
+<g class="c-teal"><rect x="374" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="246" dominant-baseline="central" font-weight="700" font-size="11">BAR</text>
+<text class="ts" x="450" y="246" dominant-baseline="central">지표 바 3개 · 증감</text></g>
+<g class="c-coral"><rect x="374" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="290" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="450" y="290" dominant-baseline="central">전체 리포트 보기 행</text></g>
+<g class="c-amber"><rect x="374" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="334" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="450" y="334" dominant-baseline="central">확인 · 저장 시점 재검토</text></g>
+</svg>
+    </div>
+  </div>
+  <p>피부 기록은 S-18의 확인 버튼에서 저장되는 구조라, 사용자가 확인을 누르지 않고 나가면 분석 결과가 사라질 수 있습니다. 분석 완료 시점에 저장하고 확인 버튼은 닫기로만 두는 방안을 백엔드와 검토 중입니다.</p>
+</section>
+
+<section id="detail">
+  <h2 class="sec">07 · 상세 화면 · S-20, S-22, S-24</h2>
+  <p>탭바 없이 스택 위에 올라가는 화면 3개입니다.</p>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">S-20</span><span class="chip">S-22</span><span class="cap">요인 상세 · 위험도 결과</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 480" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-20 요인 상세와 S-22 위험도 결과 요소 구조</title><desc>요인 상세의 추이 그래프와 이벤트 목록, 위험도 결과의 등급 표시와 근거 성분 목록</desc>
+<defs><marker id="n18" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="48" text-anchor="middle" dominant-baseline="central">S-20 요인 상세</text></g>
+<path d="M185 70 V82 H50 V422" class="arr"/>
+<line x1="50" y1="114" x2="60" y2="114" class="arr" marker-end="url(#n18)"/>
+<line x1="50" y1="158" x2="60" y2="158" class="arr" marker-end="url(#n18)"/>
+<line x1="50" y1="202" x2="60" y2="202" class="arr" marker-end="url(#n18)"/>
+<line x1="50" y1="246" x2="60" y2="246" class="arr" marker-end="url(#n18)"/>
+<line x1="50" y1="290" x2="60" y2="290" class="arr" marker-end="url(#n18)"/>
+<line x1="50" y1="334" x2="60" y2="334" class="arr" marker-end="url(#n18)"/>
+<line x1="50" y1="378" x2="60" y2="378" class="arr" marker-end="url(#n18)"/>
+<line x1="50" y1="422" x2="60" y2="422" class="arr" marker-end="url(#n18)"/>
+<g class="c-gray"><rect x="64" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="114" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="140" y="114" dominant-baseline="central">뒤로가기 + 타이틀</text></g>
+<g class="c-teal"><rect x="64" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="158" dominant-baseline="central">제목 · 트러블 추이</text></g>
+<g class="c-teal"><rect x="64" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="202" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="202" dominant-baseline="central">부제 · 기간 안내</text></g>
+<g class="c-amber"><rect x="64" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="246" dominant-baseline="central" font-weight="700" font-size="11">CHART</text>
+<text class="ts" x="140" y="246" dominant-baseline="central">추이 그래프 · 형식 미정</text></g>
+<g class="c-teal"><rect x="64" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="290" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="290" dominant-baseline="central">가로축 날짜 라벨</text></g>
+<g class="c-teal"><rect x="64" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="334" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="140" y="334" dominant-baseline="central">섹션 · 주요 이벤트</text></g>
+<g class="c-teal"><rect x="64" y="360" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="378" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="140" y="378" dominant-baseline="central">이벤트 행 · 날짜 + 영향</text></g>
+<g class="c-amber"><rect x="64" y="404" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="76" y="422" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="140" y="422" dominant-baseline="central">지표 전환 제공 여부</text></g>
+<g class="c-purple"><rect x="350" y="26" width="290" height="44" rx="8" stroke-width="0.5"/>
+<text class="th" x="495" y="48" text-anchor="middle" dominant-baseline="central">S-22 위험도 결과</text></g>
+<path d="M495 70 V82 H360 V422" class="arr"/>
+<line x1="360" y1="114" x2="370" y2="114" class="arr" marker-end="url(#n18)"/>
+<line x1="360" y1="158" x2="370" y2="158" class="arr" marker-end="url(#n18)"/>
+<line x1="360" y1="202" x2="370" y2="202" class="arr" marker-end="url(#n18)"/>
+<line x1="360" y1="246" x2="370" y2="246" class="arr" marker-end="url(#n18)"/>
+<line x1="360" y1="290" x2="370" y2="290" class="arr" marker-end="url(#n18)"/>
+<line x1="360" y1="334" x2="370" y2="334" class="arr" marker-end="url(#n18)"/>
+<line x1="360" y1="378" x2="370" y2="378" class="arr" marker-end="url(#n18)"/>
+<line x1="360" y1="422" x2="370" y2="422" class="arr" marker-end="url(#n18)"/>
+<g class="c-gray"><rect x="374" y="96" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="114" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="450" y="114" dominant-baseline="central">뒤로가기 · 타이틀 없음</text></g>
+<g class="c-teal"><rect x="374" y="140" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="158" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="158" dominant-baseline="central">제품명 · 작은 글씨</text></g>
+<g class="c-teal"><rect x="374" y="184" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="202" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="202" dominant-baseline="central">위험도 등급 · 큰 제목</text></g>
+<g class="c-teal"><rect x="374" y="228" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="246" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="246" dominant-baseline="central">등급 설명 한 줄</text></g>
+<g class="c-teal"><rect x="374" y="272" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="290" dominant-baseline="central" font-weight="700" font-size="11">TEXT</text>
+<text class="ts" x="450" y="290" dominant-baseline="central">섹션 · 근거 성분</text></g>
+<g class="c-teal"><rect x="374" y="316" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="334" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="450" y="334" dominant-baseline="central">성분 행 · 개인화 사유</text></g>
+<g class="c-teal"><rect x="374" y="360" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="378" dominant-baseline="central" font-weight="700" font-size="11">TAG</text>
+<text class="ts" x="450" y="378" dominant-baseline="central">맞음 / 주의 배지</text></g>
+<g class="c-amber"><rect x="374" y="404" width="266" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="386" y="422" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="450" y="422" dominant-baseline="central">등급별 색상 · 아이콘</text></g>
+</svg>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="strip"><span class="chip">S-24</span><span class="cap">위치 설정</span></div>
+    <div class="canvas">
+<svg viewBox="0 0 680 468" role="img" xmlns="http://www.w3.org/2000/svg"><title>S-24 위치 설정 요소 구조</title><desc>지역 검색과 목록, 저장 버튼과 저장 후 날씨 조회 기준 변경 규칙</desc>
+<defs><marker id="n19" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g class="c-purple"><rect x="40" y="210" width="140" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="110" y="228" text-anchor="middle" dominant-baseline="central">S-24</text>
+<text class="ts" x="110" y="245" text-anchor="middle" dominant-baseline="central">위치 설정</text></g>
+<path d="M180 234 H188" class="arr"/>
+<line x1="188" y1="58" x2="188" y2="410" class="arr"/>
+<line x1="188" y1="58" x2="196" y2="58" class="arr" marker-end="url(#n19)"/>
+<line x1="188" y1="102" x2="196" y2="102" class="arr" marker-end="url(#n19)"/>
+<line x1="188" y1="146" x2="196" y2="146" class="arr" marker-end="url(#n19)"/>
+<line x1="188" y1="190" x2="196" y2="190" class="arr" marker-end="url(#n19)"/>
+<line x1="188" y1="234" x2="196" y2="234" class="arr" marker-end="url(#n19)"/>
+<line x1="188" y1="278" x2="196" y2="278" class="arr" marker-end="url(#n19)"/>
+<line x1="188" y1="322" x2="196" y2="322" class="arr" marker-end="url(#n19)"/>
+<line x1="188" y1="366" x2="196" y2="366" class="arr" marker-end="url(#n19)"/>
+<line x1="188" y1="410" x2="196" y2="410" class="arr" marker-end="url(#n19)"/>
+<g class="c-gray"><rect x="200" y="40" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="58" dominant-baseline="central" font-weight="700" font-size="11">NAV</text>
+<text class="ts" x="290" y="58" dominant-baseline="central">뒤로가기 + 타이틀 · 위치 설정</text></g>
+<g class="c-coral"><rect x="200" y="84" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="102" dominant-baseline="central" font-weight="700" font-size="11">INPUT</text>
+<text class="ts" x="290" y="102" dominant-baseline="central">지역 검색 · 목록 실시간 필터</text></g>
+<g class="c-coral"><rect x="200" y="128" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="146" dominant-baseline="central" font-weight="700" font-size="11">LIST</text>
+<text class="ts" x="290" y="146" dominant-baseline="central">지역 목록 행 · 시 / 구 단위</text></g>
+<g class="c-teal"><rect x="200" y="172" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="190" dominant-baseline="central" font-weight="700" font-size="11">TAG</text>
+<text class="ts" x="290" y="190" dominant-baseline="central">현재 설정 표시 · 선택 체크</text></g>
+<g class="c-coral"><rect x="200" y="216" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="234" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="290" y="234" dominant-baseline="central">저장 · 기본</text></g>
+<g class="c-coral"><rect x="200" y="260" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="278" dominant-baseline="central" font-weight="700" font-size="11">BTN</text>
+<text class="ts" x="290" y="278" dominant-baseline="central">변경 없음 · 텍스트</text></g>
+<g><rect class="box" x="200" y="304" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="322" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="290" y="322" dominant-baseline="central">저장 후 날씨 조회가 GPS 대신 이 지역 기준</text></g>
+<g><rect class="box" x="200" y="348" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="366" dominant-baseline="central" font-weight="700" font-size="11">규칙</text>
+<text class="ts" x="290" y="366" dominant-baseline="central">위치 권한 미허용 시 이 화면으로 유도</text></g>
+<g class="c-amber"><rect x="200" y="392" width="440" height="36" rx="6" stroke-width="0.5"/>
+<text class="ts" x="212" y="410" dominant-baseline="central" font-weight="700" font-size="11">미정</text>
+<text class="ts" x="290" y="410" dominant-baseline="central">지역 데이터 출처 · 전국 목록 필요</text></g>
+</svg>
+    </div>
+  </div>
+</section>
+
+
+<section id="decided">
+  <h2 class="sec">08 · 확정된 결정</h2>
+  <p>구조를 세우며 확정한 항목입니다. 뒤집힌 결정은 표시해뒀습니다.</p>
+
+  <h3>온보딩</h3>
+  <table>
+    <tr><th>항목</th><th>결정</th><th>근거</th></tr>
+    <tr><td>기본 정보 화면</td><td>이름 · 성별 · 나이 한 화면 <span class="pill ok">확정</span></td><td>둘 다 필수라 분리할 이유 없음</td></tr>
+    <tr><td>입력 방식</td><td>순차 노출 · 입력하면 다음 필드 등장 <span class="pill ok">확정</span></td><td>한 번에 다 보이면 부담</td></tr>
+    <tr><td>피부 타입 화면</td><td>S-02로 신규 추가 <span class="pill ok">확정</span></td><td>성분 반응 해석의 초기 기준</td></tr>
+    <tr><td>피부 타입 선택지</td><td>지성 · 건성 · 민감성 · 모르겠음 <span class="pill ok">확정</span></td><td>각 타입에 판단 기준 설명 첨부</td></tr>
+    <tr><td>피부 타입 선택 방식</td><td>중복 선택 <span class="pill ok">확정</span></td><td>복합성 표현 가능</td></tr>
+    <tr><td>모르겠음 동작</td><td>나머지 3개 해제 + 선택 불가 <span class="pill ok">확정</span></td><td>논리적으로 공존할 수 없음</td></tr>
+    <tr><td>피부 타입 필수 여부</td><td>1개 이상 선택해야 다음 <span class="pill ok">확정</span></td><td>모르겠음이 있어 반필수 성립</td></tr>
+    <tr><td>생리 상태 선택지</td><td>생리 / 호르몬약 / 주사 / 폐경 <span class="pill ok">확정</span></td><td>호르몬 요인을 함께 반영</td></tr>
+    <tr><td>생리 상태 선택 방식</td><td>단일 선택 <span class="pill ok">확정</span></td><td>—</td></tr>
+    <tr><td>S-04 노출 조건</td><td>성별이 여성일 때만 <span class="pill ok">확정</span></td><td>판별용 저장 변수 필요</td></tr>
+    <tr><td>수면 시간 입력</td><td>온보딩에서 제거 <span class="pill chg">뒤집힘</span></td><td>v2의 수면 패턴 기반 판정을 폐기</td></tr>
+  </table>
+
+  <h3>홈 · 낮/밤</h3>
+  <table>
+    <tr><th>항목</th><th>결정</th><th>근거</th></tr>
+    <tr><td>낮/밤 판정 기준</td><td>06:00~18:00 낮 / 18:00~06:00 밤 <span class="pill chg">뒤집힘</span></td><td>수면 입력이 없어 전 사용자 동일 기준</td></tr>
+    <tr><td>낮/밤 토글</td><td>정식 기능으로 유지 <span class="pill ok">확정</span></td><td>판정이 어긋났을 때의 여지</td></tr>
+    <tr><td>S-07 · S-08</td><td>별도 화면으로 분리 <span class="pill ok">확정</span></td><td>공유 요소가 토글 하나뿐</td></tr>
+    <tr><td>낮 홈 구성</td><td>날씨 배경 · 큰 날씨 이미지 · 루틴 추천 <span class="pill ok">확정</span></td><td>—</td></tr>
+    <tr><td>밤 홈 구성</td><td>주간 캘린더 · 루틴 추천 · 리포트 카드 <span class="pill ok">확정</span></td><td>기록 완료 시 리포트 요약 노출</td></tr>
+  </table>
+
+  <h3>기록</h3>
+  <table>
+    <tr><th>항목</th><th>결정</th><th>근거</th></tr>
+    <tr><td>루틴 분리</td><td>모닝 / 나이트로 분리 저장 <span class="pill ok">확정</span></td><td>시간대별 제품이 다름</td></tr>
+    <tr><td>기록 허브 구조</td><td>탭 2개 × 버튼 2개 <span class="pill ok">확정</span></td><td>하루 기록 슬롯 4개</td></tr>
+    <tr><td>피부 기록 횟수</td><td>모닝 · 나이트 각각 <span class="pill ok">확정</span></td><td>하루 2회</td></tr>
+    <tr><td>완료 상태 표시</td><td>색 + 표시 병행 <span class="pill ok">확정</span></td><td>적록색약 고려 · 색만으로는 구분 불가</td></tr>
+    <tr><td>캘린더 점</td><td>점 2개 × 상태 3종 <span class="pill ok">확정</span></td><td>4개는 한 달치가 깔리면 읽히지 않음</td></tr>
+    <tr><td>캘린더 범위</td><td>기록 탭 이번 달 / 밤 홈 이번 주 <span class="pill ok">확정</span></td><td>중복 아닌 상세도 차이</td></tr>
+    <tr><td>리포트 최소 요건</td><td>피부 사진 필수 · 제품은 선택 <span class="pill ok">확정</span></td><td>—</td></tr>
+  </table>
+
+  <h3>마이페이지</h3>
+  <table>
+    <tr><th>항목</th><th>결정</th><th>근거</th></tr>
+    <tr><td>보유 코인 카드</td><td>제거 <span class="pill ok">확정</span></td><td>코인 시스템 설계 미완</td></tr>
+    <tr><td>성분 전체 보기</td><td>화면 신규 제작 <span class="pill ok">확정</span></td><td>디자인 담당에게 요청 완료</td></tr>
+  </table>
+</section>
+
+<section id="open">
+  <h2 class="sec">09 · 미정 항목</h2>
+  <p>다이어그램에서 주황색으로 표시된 항목들입니다. 담당별로 묶었습니다. 아래 <b>화면이 없어 막힌 것</b>은 사용자가 누를 수 있는 요소에 이동할 목적지가 없는 상태라, 구조상 구멍입니다.</p>
+
+  <h3>화면이 없어 막힌 것 <span class="pill todo">우선</span></h3>
+  <table>
+    <tr><th>위치</th><th>현재 상태</th><th>필요한 결정</th></tr>
+    <tr><td class="mono">S-11 · S-12</td><td>제품 직접 등록 버튼이 있으나 이동 대상 없음</td><td>화면 추가 또는 버튼 제거</td></tr>
+  </table>
+
+  <h3>기획 결정이 필요한 것</h3>
+  <table>
+    <tr><th>항목</th><th>현재 상태</th><th>메모</th></tr>
+    <tr><td>낮/밤 토글 유지 범위</td><td>미정</td><td>화면 이동 시 초기화 또는 앱 재실행 시 초기화 중 택일</td></tr>
+    <tr><td>온보딩 진행률 단계 수</td><td>미정</td><td>여성 3단계 / 그 외 2단계로 표시 방식이 달라짐</td></tr>
+    <tr><td>스캔 인식 대상</td><td>바코드 · 상품 사진 2모드로 가정</td><td>명세서 F-02가 TBD · 성분표 OCR 포함 여부</td></tr>
+    <tr><td>촬영 미리보기 단계</td><td>없음</td><td>명세서 F-07은 재촬영/확인을 요구하는데 화면 없음</td></tr>
+    <tr><td>리포트 정보 부족 시</td><td>미정</td><td>밤 홈에서 리포트를 만들 데이터가 없을 때의 안내 방식</td></tr>
+    <tr><td>S-20 지표 전환</td><td>트러블 고정</td><td>홍조 · 유수분으로도 전환 가능하게 할지</td></tr>
+  </table>
+
+  <h3>백엔드 확인이 필요한 것</h3>
+  <table>
+    <tr><th>항목</th><th>현재 상태</th><th>메모</th></tr>
+    <tr><td>피부 분석 비교 기준</td><td>미정</td><td>하루 2회 기록이므로 모닝은 전일 모닝과, 나이트는 전일 나이트와 비교하는 안. 같은 날 모닝 → 나이트 변화는 환경 요인만 분리해내므로 자외선 공변량 분석에 유리</td></tr>
+    <tr><td>피부 기록 저장 시점</td><td>S-18 확인 버튼</td><td>확인을 안 누르면 결과 유실 가능 · 분석 완료 시 저장 검토</td></tr>
+  </table>
+
+  <h3>디자인 에셋이 필요한 것</h3>
+  <table>
+    <tr><th>항목</th><th>현재 상태</th></tr>
+    <tr><td>탭바 아이콘 5종</td><td>글리프 문자로 임시 대체</td></tr>
+    <tr><td>날씨 이미지 · 배경 그라데이션</td><td>미제작</td></tr>
+    <tr><td>촬영 가이드 예시 이미지</td><td>회색 자리 표시</td></tr>
+    <tr><td>위험도 등급별 색상 · 아이콘</td><td>흑백만 사용 중</td></tr>
+  </table>
+
+  <h3>개발 판단이 필요한 것</h3>
+  <table>
+    <tr><th>항목</th><th>현재 상태</th><th>메모</th></tr>
+    <tr><td>추이 그래프 형식</td><td>단순 막대로 표현</td><td>선 그래프 필요 시 차트 라이브러리 도입 검토</td></tr>
+    <tr><td>지역 데이터 출처</td><td>샘플 6개</td><td>전국 시/구 목록 필요</td></tr>
+  </table>
+
+  <h3>추후 확장 논의</h3>
+  <p>4차 회의에서 나왔으나 이번 범위 밖으로 둔 항목입니다. 루틴 기록 시 기상·수면 시각 함께 입력, 나이트 루틴 추천 기능, 날씨와 루틴 기록 위젯, 시연용 화장대 일괄 입력 목업입니다.</p>
+</section>
+
+<footer>
+  기준 문서 · MVP 기능명세서, 페르소나&amp;MVP(최종), 4차 개발팀 회의록, 해커톤 1조 와이어프레임 · 이 문서는 구현 전 구조 정의 기준이며 v2를 대체합니다.
+</footer>
+
+</div>
