@@ -4,7 +4,7 @@
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
 - 최종 갱신: 2026-08-08
-- 기준 커밋: `fc75701` (feat: 백엔드 구조 초기세팅)
+- 기준 커밋: `1113328` (fix: 잘못된 timeSlot을 명세대로 400으로 응답)
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 ## 상태 표기
@@ -22,13 +22,16 @@
 
 | 영역 | 상태 | 비고 |
 | --- | --- | --- |
-| 백엔드 — 공통 인프라 | 🟡 | 응답/예외 envelope는 완비. **인증·스토리지 없음** |
+| 백엔드 — 공통 인프라 | 🟡 | 응답/예외 envelope 완비. 스토리지·날짜 유틸 추가. **인증은 임시 방편** |
 | 백엔드 — 엔티티 · 리포지토리 | ✅ | 전 도메인 정의 완료 |
-| 백엔드 — service / controller / dto | ⬜ | **전 도메인 통틀어 0개.** `HealthController` 하나뿐 |
+| 백엔드 — service / controller / dto | 🟡 | **SKIN-01 1개.** 나머지 도메인 미착수 |
 | 프론트엔드 | 🟡 | 기반 레이어 + 공통 컴포넌트 + S-00/S-01. 목업 모드로 동작 |
 | 배포 | ⬜ | 미착수. 로컬 실행만 |
 
-**현재 동작이 확인된 백엔드 엔드포인트는 `GET /api/v1/health` 하나다.**
+**동작이 확인된 백엔드 엔드포인트는 `GET /api/v1/health`와 `POST /api/v1/skin-records` 둘이다.**
+
+> ⚠️ 현재 인증은 `X-User-Id` 헤더를 그대로 신뢰하는 임시 방편이다(ADR 0006). **위조 가능하며
+> 배포 전 반드시 교체해야 한다.**
 
 ---
 
@@ -45,12 +48,16 @@
 | JPA Auditing | ✅ | `global/config/JpaAuditingConfig` · `BaseTimeEntity` |
 | CORS | 🟡 | `WebConfig` — 개발용 전체 허용. **배포 전 축소 필요** |
 | 헬스체크 | ✅ | `GET /api/v1/health` |
-| **인증 (JWT · Security)** | ⛔ | **의존성조차 없음.** `spring-boot-starter-security` 미포함, auth 패키지 없음 |
-| **이미지 업로드 · 스토리지** | ⬜ | multipart 설정 없음 |
-| 날짜 귀속 유틸 | ⬜ | ADR 0005 참조 |
+| **인증 (JWT · Security)** | 🟡 | **임시 방편만 있음.** `X-User-Id` 헤더 → `@CurrentUserId` (ADR 0006). 위조 가능 · 배포 전 교체 필수 |
+| 이미지 업로드 · 스토리지 | 🟡 | `ImageStorage` + `LocalImageStorage` (ADR 0007). multipart 10MB. **로컬 저장이라 다중 인스턴스·재배포 시 유실** |
+| 날짜 귀속 유틸 | ✅ | `global/util/RecordDateResolver` · 경계값 테스트 13종 (ADR 0005 — **`제안` 상태**) |
+| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` + 목업 (ADR 0003). 결정적 · 실패 재현 가능 |
 
-> ⚠️ **인증 부재가 현재 최대 블로커다.** `/health`를 제외한 모든 API가 "인증 필요"이며,
-> userId를 획득할 방법이 없어 어떤 도메인 API도 정상 구현할 수 없다.
+> ⚠️ **인증은 임시 방편으로 우회한 상태다.** 실제 인증(AUTH-01~03, A 담당)이 들어오기 전까지
+> 프로덕션 배포는 불가능하다.
+>
+> ⚠️ **ADR 0005가 `제안` 상태다.** `decisions/README.md`는 `제안` 상태 결정에 의존하는 코드를
+> 머지하면 안 된다고 규정한다. `RecordDateResolver`가 여기 해당하므로 **머지 전 A 담당과 합의가 필요하다.**
 
 ### 2.2 엔티티 · 리포지토리
 
@@ -85,9 +92,9 @@
 
 | API | 상태 | 선행 조건 |
 | --- | --- | --- |
-| SKIN-01 피부 기록 생성 및 분석 | ⛔ | 인증 · 스토리지 |
-| SKIN-02 오늘 피부 결과 조회 | ⛔ | 인증 |
-| SKIN-03 피부 기록 상세 조회 | ⛔ | 인증 |
+| SKIN-01 피부 기록 생성 및 분석 | ✅ | 임시 인증(ADR 0006) · 로컬 스토리지(ADR 0007)로 해소 |
+| SKIN-02 오늘 피부 결과 조회 | ⬜ | SKIN-01 DTO 재사용 가능 |
+| SKIN-03 피부 기록 상세 조회 | ⬜ | SKIN-01 DTO 재사용 가능 |
 | F-ANALYSIS-01 성분-피부 시차 분석 | ⬜ | SKIN-01 · 제품 기록(A) |
 | F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
 | F-ANALYSIS-03 호르몬 요인 반영 | ⬜ | 우선순위 L · **후순위** |
@@ -100,6 +107,25 @@
 | REPORT-01 리포트 조회 | ⬜ | SKIN-01 · 인사이트 |
 | REPORT-02 요인 상세 조회 | ⬜ | F-ANALYSIS-01 |
 | REPORT-03 일자별 리포트 조회 | ⬜ | SKIN-01 |
+
+### 2.4 SKIN-01 검증 내역
+
+`POST /api/v1/skin-records` — 로컬 MySQL + 목업 분석으로 동작 확인 (2026-08-08).
+
+| 시나리오 | 결과 |
+| --- | --- |
+| 첫 기록 | 201 · `comparison: null` · `capturedAt`에 `+09:00` |
+| 같은 슬롯 재요청 | 409 `SKIN_ALREADY_RECORDED_IN_SLOT` |
+| 같은 날 다른 슬롯 (MORNING → NIGHT) | 201 · 하루 2건 저장 |
+| 전일 동일 슬롯 존재 | `comparison` 계산 · 모닝이 전일 나이트와 비교되지 않음 |
+| `X-User-Id` 누락 | 401 `COMMON_UNAUTHORIZED` |
+| gif 업로드 | 422 `SKIN_IMAGE_INVALID_FORMAT` |
+| `timeSlot` 누락 | 422 `COMMON_VALIDATION_FAILED` |
+| 정의되지 않은 `timeSlot` | 400 `RECORD_INVALID_TIME_SLOT` |
+| DB 상태 | `skin_records` 1행당 `skin_metrics` 4행 · `COMPLETED` · `MOCK` |
+
+자동 테스트 46개 (`RecordDateResolver` 13 · 목업 분석 9 · 서비스 10 · 스토리지 5 · 인증 5 · 요청 DTO 4).
+`BackendApplicationTests`(1개)는 MySQL이 떠 있어야 통과한다.
 
 ---
 
@@ -123,14 +149,14 @@
 | --- | --- | --- |
 | `docs/PRD.md` | ✅ | |
 | `docs/기능명세서.md` | ✅ | TBD 항목 13장에 정리됨 |
-| `docs/api_명세서.md` | ✅ | TBD-10b · TBD-11 · TBD-12 미해결 |
+| `docs/api_명세서.md` | ✅ | **TBD-10b 해소**(ADR 0001) · TBD-11 · TBD-12 미해결 |
 | `docs/ERD.md` | ✅ | ADR 0002 반영 완료 (7장 `metric_type` 4종) |
 | `docs/공통응답포맷_예외처리코드.md` | ✅ | 8.1 날짜 귀속 규칙 확정됨 |
 | `docs/목업 데이터 구조 정의서.md` | ✅ | |
-| `docs/decisions/` | 🟡 | ADR 0001~0005 작성. **0005는 `제안` 상태** |
+| `docs/decisions/` | 🟡 | ADR 0001~0008 작성. **0005는 `제안` 상태** |
 | `docs/STATUS.md` | ✅ | 이 문서 |
 | `README.md` | ✅ | ADR 0002 반영 완료 (지표 소개 문구) |
-| `backend/README.md` | 🟡 | 스토리지 · 분석 provider 설정 추가 필요 |
+| `backend/README.md` | ✅ | 임시 인증 · 스토리지 · 분석 provider 설정 반영 |
 
 ---
 
@@ -140,13 +166,15 @@
 
 | # | 항목 | 영향 | 담당 |
 | --- | --- | --- | --- |
-| 1 | **인증 인프라 부재** | 전 도메인 API 착수 불가 | A(지우) · B는 대기 또는 임시 방편 |
-| 2 | 날짜 귀속 유틸 소유권 | A·B 중복 구현 시 분석 정확도 훼손 | ADR 0005 — **합의 필요** |
-| 3 | 이미지 스토리지 미결정 | SKIN-01 착수 불가 | B(윤진) |
+| 1 | **인증 인프라 부재** | 임시 방편(ADR 0006)으로 우회 중. **배포 불가 상태** | A(지우) |
+| 2 | **ADR 0005 `제안` 상태** | `RecordDateResolver`가 이에 의존. **머지 전 합의 필요** | A·B 합의 |
+| 3 | ~~이미지 스토리지 미결정~~ | ADR 0007로 해소 (로컬 저장 · 배포 시 외부 스토리지 전환) | — |
 | 4 | 리포트 일자별 대표값 규칙 (TBD-12) | REPORT-01 | 명세상 "나이트 우선" 제안 · 확정 필요 |
 | 5 | 리포트 요인 상세의 `metric` 전환 지원 여부 (TBD-11) | REPORT-02 | 응답 필드는 이미 포함됨 |
-| 6 | `MORNING` 슬롯 시각 불일치 요청 처리 | SKIN-01 · PRODUCT-05 | ADR 0005 미해결 항목 |
+| 6 | `MORNING` 슬롯 시각 불일치 요청 처리 | SKIN-01 · PRODUCT-05 | ADR 0005 미해결 항목 · **현재는 수용** |
 | 7 | 제품 직접 등록 (F-PRODUCT-08) | 우선순위 L | 명세 미정 |
+| 8 | `Idempotency-Key` 미구현 | 저장 API 4개 공통 | A·B 공통 인프라로 분리 |
+| 9 | `BackendApplicationTests`가 MySQL 없이 실패 | 로컬 테스트 | H2 또는 `application-test.yml` 필요 |
 
 ---
 

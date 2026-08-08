@@ -41,13 +41,32 @@ curl http://localhost:8080/api/v1/health
 `application.yml`은 `server.port=8080`, `spring.profiles.active=local`을 기본값으로 두고,
 DB 설정은 `application-local.yml`에 있습니다.
 
-| 환경변수 | 기본값 |
+| 환경변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `DB_HOST` | `localhost` | |
+| `DB_PORT` | `3306` | |
+| `DB_NAME` | `ildangbaek` | |
+| `DB_USERNAME` | `ildangbaek` | |
+| `DB_PASSWORD` | `ildangbaek1234` | |
+| `STORAGE_LOCAL_DIR` | `./uploads/images` | 이미지 저장 경로 ([ADR 0007](../docs/decisions/0007-이미지-스토리지.md)) |
+| `STORAGE_LOCAL_URL_PREFIX` | `/images/` | 반환 URL 접두사 |
+| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택 ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md)) |
+
+업로드 상한은 `spring.servlet.multipart.max-file-size=10MB`다. Spring 기본값(파일 1MB)이면
+정상 사진도 튕기므로 올려 두었다.
+
+**목업 분석 실패 재현** — `app.skin.analysis.mock.failure-mode`에 아래 값을 주면 해당 실패를 유발한다.
+
+| 값 | 결과 |
 | --- | --- |
-| `DB_HOST` | `localhost` |
-| `DB_PORT` | `3306` |
-| `DB_NAME` | `ildangbaek` |
-| `DB_USERNAME` | `ildangbaek` |
-| `DB_PASSWORD` | `ildangbaek1234` |
+| `face-not-detected` | 422 `SKIN_FACE_NOT_DETECTED` |
+| `timeout` | 504 `SKIN_ANALYSIS_TIMEOUT` |
+| `failed` | 500 `SKIN_ANALYSIS_FAILED` |
+| (미설정) | 정상 분석 |
+
+```bash
+./gradlew bootRun --args='--app.skin.analysis.mock.failure-mode=timeout'
+```
 
 기본값은 `docker-compose.yml`의 MySQL 컨테이너와 그대로 맞춰져 있어, 로컬에서는 별도 설정 없이 실행됩니다.
 
@@ -60,10 +79,13 @@ DB 설정은 `application-local.yml`에 있습니다.
 com.ildangbaek.backend
 ├── BackendApplication.java
 ├── global                     # 도메인에 종속되지 않는 공통 인프라
-│   ├── config                 # JpaAuditingConfig, WebConfig(CORS)
+│   ├── config                 # JpaAuditingConfig, WebConfig(CORS + ArgumentResolver)
 │   ├── entity                 # BaseTimeEntity (createdAt/updatedAt)
 │   ├── response               # ApiResponse, SuccessCode, ResultCode
-│   └── exception              # ErrorCode, BusinessException, GlobalExceptionHandler
+│   ├── exception              # ErrorCode, BusinessException, GlobalExceptionHandler
+│   ├── auth                   # @CurrentUserId — 임시 인증 (ADR 0006) ⚠️ 배포 전 교체
+│   ├── storage                # ImageStorage / LocalImageStorage (ADR 0007)
+│   └── util                   # RecordDateResolver — 날짜 귀속 규칙 (ADR 0005)
 ├── domain                     # 영속성 계층 — ERD 기준으로 묶은 엔티티/리포지토리
 │   ├── user                   # User, UserProfile, SkinType, UserSkinType, NotificationSetting
 │   ├── product                # Product, Ingredient, ProductIngredient, UserProduct
@@ -72,8 +94,9 @@ com.ildangbaek.backend
 │   ├── environment            # DailyEnvironment
 │   ├── analysis               # IngredientProfile, AnalysisInsight
 │   └── check                  # ProductRiskAssessment, ProductRiskIngredient
-└── api                        # 표현 계층(컨트롤러) — api_명세서.md 2장 도메인 구성과 맞춤
-    └── common/controller/HealthController.java   # 배선 확인용 예시
+└── api                        # 표현 계층 — api_명세서.md 2장 도메인 구성과 맞춤
+    ├── common/controller/HealthController.java   # 배선 확인용 예시
+    └── skin                   # SKIN-01 — controller / service / dto
 ```
 
 새 API를 붙일 때는 `api.{domain}.controller` / `.service` / `.dto` 하위에 추가하고,
@@ -87,6 +110,7 @@ com.ildangbaek.backend
 - Base URL은 `/api/v1`, 리소스는 복수형 · kebab-case, URI에 동사를 쓰지 않음
 - `PUT`은 사용하지 않고 부분 수정은 모두 `PATCH`
 - 인증은 `Authorization: Bearer {accessToken}` (예외: `POST /auth/login`, `POST /auth/refresh`)
+  — **다만 아직 구현되지 않았다.** 현재는 `X-User-Id` 헤더를 임시로 쓴다 (아래 「임시 인증」 참고)
 - `onboardingCompleted = false`인 사용자가 온보딩 외 API를 호출하면 `403 ONBOARD_NOT_COMPLETED`
 - 날짜/시간은 ISO-8601, ID는 `Long`, Enum은 문자열, 빈 목록은 `[]` (null 금지)
 - 저장 API(`POST /product-records`, `/routines/{id}/records`, `/skin-records`, `/checks`)는 `Idempotency-Key` 헤더로 중복 저장을 방지 — 처리 완료된 키는 최초 응답을 그대로 반환, 처리 중인 키는 `409 COMMON_DUPLICATE_REQUEST`
@@ -129,9 +153,41 @@ ERD.md와 api_명세서.md/기능명세서.md 사이에 값 체계가 다른 필
 **`SkinMetric.metricType`은 확정되었습니다.** 트러블(`TROUBLE`) · 홍조(`REDNESS`) · 모공(`PORES`) ·
 색소잡티(`PIGMENTATION`) 4종. ([ADR 0002](../docs/decisions/0002-피부-지표-체계.md))
 
+## 임시 인증 ⚠️
+
+인증이 아직 없어 `X-User-Id` 헤더로 사용자를 식별합니다. ([ADR 0006](../docs/decisions/0006-임시-인증-방편.md))
+
+```bash
+curl -X POST http://localhost:8080/api/v1/skin-records \
+  -H "X-User-Id: 1" -F "image=@face.jpg" -F "timeSlot=MORNING"
+```
+
+**이것은 인증이 아닙니다.** 헤더를 그대로 신뢰하므로 `X-User-Id: 2`를 보내면 누구나 2번 사용자로
+행세할 수 있습니다. 로컬 개발과 내부 시연에만 쓰고, **AUTH-01 완료 즉시 제거합니다.**
+교체 시 고칠 곳은 `CurrentUserIdArgumentResolver` 한 클래스입니다.
+
+사용자가 없으면 `USER_NOT_FOUND`가 납니다. 회원가입 경로가 아직 없으므로 직접 넣어야 합니다.
+
+```sql
+INSERT INTO users (provider, provider_user_id, onboarding_completed, account_status, created_at, updated_at)
+VALUES ('KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
+```
+
+## 구현된 API
+
+| API | 상태 |
+| --- | --- |
+| `GET /api/v1/health` | ✅ |
+| `POST /api/v1/skin-records` (SKIN-01) | ✅ 목업 분석 · 로컬 스토리지 |
+
 ## 아직 만들지 않은 것
 
-- 인증(JWT 발급/검증) 및 Spring Security 설정 — 이번 스캐폴딩 범위에서 의도적으로 제외했습니다.
-- 도메인별 컨트롤러/서비스/DTO — `HealthController`를 예시로 도메인별로 추가해나가면 됩니다.
-- `Idempotency-Key` 처리 로직 — 저장 API 구현 시 함께 붙여야 합니다.
-- 외부 연동(소셜 로그인, 날씨·자외선 API, AI 피부 분석) — PRD 11.1에 따라 목업 또는 간이 규칙으로 시작할 수 있습니다.
+- 인증(JWT 발급/검증) 및 Spring Security 설정 — A 담당 AUTH-01~03.
+- SKIN-02 · SKIN-03 조회 API — 응답 구조는 SKIN-01과 같아 DTO를 재사용할 수 있습니다.
+- 성분 프로파일 갱신(F-ANALYSIS-01·04) — 호출 훅(`IngredientProfileUpdater`)만 있고 내용은 비어
+  있습니다. 입력인 제품 기록(A 담당)이 선행되어야 합니다.
+- 그 외 도메인 컨트롤러/서비스/DTO — `api.skin`을 예시로 추가해나가면 됩니다.
+- `Idempotency-Key` 처리 로직 — 저장 API 4개가 공유할 공통 인프라라 단독 구현을 피했습니다.
+  SKIN-01은 슬롯 유니크 제약이 중복 저장을 막고 있습니다.
+- 외부 연동(소셜 로그인, 날씨·자외선 API) — AI 피부 분석과 이미지 스토리지는 인터페이스 뒤에
+  목업/로컬 구현이 들어가 있습니다 (ADR 0003 · 0007).
