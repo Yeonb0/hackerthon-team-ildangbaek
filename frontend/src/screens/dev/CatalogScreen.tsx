@@ -7,7 +7,11 @@ import { ProgressBar } from '@/components/base/ProgressBar';
 import { SegmentToggle } from '@/components/base/SegmentToggle';
 import { Input } from '@/components/base/Input';
 import { Chip } from '@/components/base/Chip';
+import { OptionCard } from '@/components/base/OptionCard';
 import { Stepper } from '@/components/base/Stepper';
+import { Calendar } from '@/components/base/Calendar';
+import { DateField } from '@/components/base/DateField';
+import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { MetricScoreList } from '@/components/domain/MetricScoreList';
 import { EmptyState } from '@/components/state/EmptyState';
@@ -15,6 +19,7 @@ import { ErrorState } from '@/components/state/ErrorState';
 import { LoadingState } from '@/components/state/LoadingState';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
+import { getTodayDateString } from '@/lib/date';
 import { color, space } from '@/theme/tokens';
 
 /**
@@ -31,6 +36,11 @@ export default function CatalogScreen() {
   const [nameInput, setNameInput] = useState('');
   const [chipSelected, setChipSelected] = useState<'a' | 'b' | 'c'>('a');
   const [stepperValue, setStepperValue] = useState(20);
+  const [optionCardSelected, setOptionCardSelected] = useState<string[]>(['OILY']);
+  const [calendarValue, setCalendarValue] = useState<string | null>(null);
+  const [dateFieldValue, setDateFieldValue] = useState<string | null>(null);
+  const [wheelAge, setWheelAge] = useState(20);
+  const [wheelCycle, setWheelCycle] = useState(28);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -127,6 +137,68 @@ export default function CatalogScreen() {
           ErrorState와 달리 화면을 덮지 않습니다 — 온보딩 저장 실패처럼 입력값을 지키면서 재시도 유도할 때
         </Text>
         <InlineErrorBanner message="저장에 실패했어요. 다시 시도해주세요." onRetry={() => {}} />
+      </Section>
+
+      <Section title="OptionCard (설명 문구가 있는 선택 카드)">
+        <Text style={styles.hint}>
+          S-02 피부 타입처럼 &ldquo;모르겠음&rdquo;이 나머지와 배타인 다중 선택 예시
+        </Text>
+        {[
+          { value: 'OILY', title: '지성', description: '유분이 많고 쉽게 번들거려요' },
+          { value: 'DRY', title: '건성', description: '당기고 각질이 잘 생겨요' },
+          { value: 'UNKNOWN', title: '모르겠음', description: '다른 항목과 함께 선택할 수 없어요' },
+        ].map((option) => (
+          <OptionCard
+            key={option.value}
+            title={option.title}
+            description={option.description}
+            selected={optionCardSelected.includes(option.value)}
+            onPress={() =>
+              setOptionCardSelected((prev) => {
+                if (option.value === 'UNKNOWN') {
+                  return prev.includes('UNKNOWN') ? [] : ['UNKNOWN'];
+                }
+                const withoutUnknown = prev.filter((v) => v !== 'UNKNOWN');
+                return withoutUnknown.includes(option.value)
+                  ? withoutUnknown.filter((v) => v !== option.value)
+                  : [...withoutUnknown, option.value];
+              })
+            }
+          />
+        ))}
+      </Section>
+
+      <Section title="Calendar (오늘 이후 선택 불가 예시)">
+        <Calendar
+          value={calendarValue}
+          onSelect={setCalendarValue}
+          maxDate={getTodayDateString()}
+        />
+        <Text style={styles.hint}>선택값: {calendarValue ?? '(없음)'}</Text>
+      </Section>
+
+      <Section title="DateField (탭하면 Calendar가 모달로 뜸)">
+        <DateField
+          label="최근 생리 시작일 (선택)"
+          value={dateFieldValue}
+          onChange={setDateFieldValue}
+          maxDate={getTodayDateString()}
+        />
+      </Section>
+
+      <Section title="WheelPicker (스크롤 선택, S-01 나이 — 세로)">
+        <WheelPicker value={wheelAge} onChange={setWheelAge} min={10} max={100} formatLabel={(v) => `${v}세`} />
+      </Section>
+
+      <Section title="WheelPicker (S-04 평균 주기 — 가로)">
+        <WheelPicker
+          orientation="horizontal"
+          value={wheelCycle}
+          onChange={setWheelCycle}
+          min={20}
+          max={45}
+          formatLabel={(v) => `${v}일`}
+        />
       </Section>
 
       <Section title="ProductCard">

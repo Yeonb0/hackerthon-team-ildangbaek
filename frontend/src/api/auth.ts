@@ -2,7 +2,9 @@
 import { apiClient } from '@/api/client';
 import { unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
-import { mockLoginResponse, mockOnboardingStatusResponse } from '@/api/mock/auth';
+import { buildMockLoginResponse, buildMockOnboardingStatusResponse } from '@/api/mock/auth';
+import { setMockOnboardingCompleted } from '@/api/mock/mockPersistence';
+import { resetMockSession } from '@/api/mock/onboarding';
 import type { AuthProvider, LoginResult, OnboardingStatus } from '@/types/auth';
 
 /**
@@ -20,7 +22,7 @@ export async function login(provider: AuthProvider): Promise<LoginResult> {
   const oauthAccessToken = await getOAuthToken(provider);
 
   if (USE_MOCK) {
-    return mockLoginResponse;
+    return buildMockLoginResponse();
   }
 
   // USE_MOCK=false여도 getOAuthToken이 아직 목업 토큰입니다.
@@ -31,12 +33,17 @@ export async function login(provider: AuthProvider): Promise<LoginResult> {
 
 export async function fetchOnboardingStatus(): Promise<OnboardingStatus> {
   if (USE_MOCK) {
-    return mockOnboardingStatusResponse;
+    return buildMockOnboardingStatusResponse();
   }
   return unwrap<OnboardingStatus>(apiClient.get('/users/me/onboarding'));
 }
 
 export async function logout(): Promise<void> {
-  if (USE_MOCK) return;
+  if (USE_MOCK) {
+    // 다음 목업 로그인을 "새 사용자" 시나리오로 되돌립니다.
+    await setMockOnboardingCompleted(false);
+    resetMockSession();
+    return;
+  }
   await unwrap<null>(apiClient.post('/auth/logout'));
 }
