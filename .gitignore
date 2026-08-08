@@ -1,0 +1,10 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# IntelliJ가 루트 프로젝트에 남기는 컴파일 출력 (.idea/misc.xml의 output 경로)
+/out/
+
+# OS
+.DS_Store
