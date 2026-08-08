@@ -1,0 +1,107 @@
+import React from 'react';
+import { ScrollView, StyleSheet, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/base/Button';
+import { Card } from '@/components/base/Card';
+import { RoutineRecommendationList } from '@/components/domain/RoutineRecommendationList';
+import { WeeklyRecordStrip } from '@/components/domain/WeeklyRecordStrip';
+import { TodayReportCard } from '@/components/domain/TodayReportCard';
+import { color, space, typography } from '@/theme';
+import type { HomeResponse } from '@/types/home';
+
+type NightHomeScreenProps = {
+  data: HomeResponse;
+  onPressRecordCta: () => void;
+  onPressReportCta: () => void;
+};
+
+// 홈 컨테이너(HomeScreen)가 낮/밤 공용 토글을 화면 위에 절대 위치로 띄우기 때문에,
+// 콘텐츠 상단 여백을 그만큼 더 확보합니다 (DayHomeScreen과 동일 수치).
+const TOGGLE_CLEARANCE = 72;
+
+/**
+ * S-08 밤 홈. 배경 그라데이션만 낮과 다르게 하고 나머지는 그대로 둡니다.
+ * 로드맵 4-4 확정: "낮/밤은 홈 배경에만 적용되고 다른 화면은 영향받지 않는다" —
+ * 그래서 ThemeProvider 없이 이 화면 안에서만 어두운 배경/밝은 텍스트를 씁니다.
+ */
+export function NightHomeScreen({
+  data,
+  onPressRecordCta,
+  onPressReportCta,
+}: NightHomeScreenProps) {
+  const insets = useSafeAreaInsets();
+  const nightSlot = data.todayRecord.night;
+  const nightCompleted = nightSlot.productCompleted && nightSlot.skinCompleted;
+
+  return (
+    <LinearGradient colors={[color.ink900, color.ink600]} style={styles.gradient}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + TOGGLE_CLEARANCE }]}
+      >
+        {/* greeting은 관리자 메모: 추후 기획에서 빠질 수도 있어서 조건부 렌더링으로 방어 */}
+        {data.greeting ? <Text style={styles.greeting}>{data.greeting}</Text> : null}
+        {data.recordPrompt ? <Text style={styles.prompt}>{data.recordPrompt}</Text> : null}
+
+        {data.weeklyCalendar && (
+          <Card style={styles.section}>
+            <Text style={styles.cardTitle}>이번 주 기록</Text>
+            <WeeklyRecordStrip days={data.weeklyCalendar} />
+          </Card>
+        )}
+
+        {data.todayReport && (
+          <TodayReportCard
+            report={data.todayReport}
+            onPress={onPressReportCta}
+            style={styles.section}
+          />
+        )}
+
+        <RoutineRecommendationList
+          timeSlot={data.routineRecommendation.timeSlot}
+          items={data.routineRecommendation.items}
+          style={styles.section}
+        />
+
+        <Button
+          label={nightCompleted ? '오늘 나이트루틴 완료!' : '나이트루틴 기록하러 가기'}
+          onPress={onPressRecordCta}
+          variant="secondary"
+          style={styles.cta}
+        />
+      </ScrollView>
+    </LinearGradient>
+  );
+}
+
+const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
+  content: {
+    padding: space[5],
+    paddingBottom: space[8],
+    gap: space[5],
+  },
+  greeting: {
+    ...typography.h1,
+    color: color.bg,
+  },
+  prompt: {
+    ...typography.body,
+    color: color.ink300,
+    marginTop: -space[3],
+  },
+  cardTitle: {
+    ...typography.h2,
+    color: color.ink900,
+    marginBottom: space[2],
+  },
+  section: {
+    width: '100%',
+  },
+  cta: {
+    marginTop: space[2],
+  },
+});

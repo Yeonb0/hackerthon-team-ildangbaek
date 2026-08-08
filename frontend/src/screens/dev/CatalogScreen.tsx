@@ -14,6 +14,13 @@ import { DateField } from '@/components/base/DateField';
 import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { MetricScoreList } from '@/components/domain/MetricScoreList';
+import { EnvironmentCard } from '@/components/domain/EnvironmentCard';
+import { RoutineRecommendationList } from '@/components/domain/RoutineRecommendationList';
+import { RecordDot } from '@/components/domain/RecordDot';
+import { WeeklyRecordStrip } from '@/components/domain/WeeklyRecordStrip';
+import { TodayReportCard } from '@/components/domain/TodayReportCard';
+import { RecordSlotCard } from '@/components/domain/RecordSlotCard';
+import { RecordCalendar } from '@/components/domain/RecordCalendar';
 import { EmptyState } from '@/components/state/EmptyState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { LoadingState } from '@/components/state/LoadingState';
@@ -41,6 +48,8 @@ export default function CatalogScreen() {
   const [dateFieldValue, setDateFieldValue] = useState<string | null>(null);
   const [wheelAge, setWheelAge] = useState(20);
   const [wheelCycle, setWheelCycle] = useState(28);
+  const [recordCalYear, setRecordCalYear] = useState(2026);
+  const [recordCalMonth, setRecordCalMonth] = useState(7); // 0-indexed, 8월
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -124,7 +133,11 @@ export default function CatalogScreen() {
         <Row>
           <Chip label="지성" selected={chipSelected === 'a'} onPress={() => setChipSelected('a')} />
           <Chip label="건성" selected={chipSelected === 'b'} onPress={() => setChipSelected('b')} />
-          <Chip label="민감성" selected={chipSelected === 'c'} onPress={() => setChipSelected('c')} />
+          <Chip
+            label="민감성"
+            selected={chipSelected === 'c'}
+            onPress={() => setChipSelected('c')}
+          />
         </Row>
       </Section>
 
@@ -134,7 +147,8 @@ export default function CatalogScreen() {
 
       <Section title="InlineErrorBanner">
         <Text style={styles.hint}>
-          ErrorState와 달리 화면을 덮지 않습니다 — 온보딩 저장 실패처럼 입력값을 지키면서 재시도 유도할 때
+          ErrorState와 달리 화면을 덮지 않습니다 — 온보딩 저장 실패처럼 입력값을 지키면서 재시도
+          유도할 때
         </Text>
         <InlineErrorBanner message="저장에 실패했어요. 다시 시도해주세요." onRetry={() => {}} />
       </Section>
@@ -187,7 +201,13 @@ export default function CatalogScreen() {
       </Section>
 
       <Section title="WheelPicker (스크롤 선택, S-01 나이 — 세로)">
-        <WheelPicker value={wheelAge} onChange={setWheelAge} min={10} max={100} formatLabel={(v) => `${v}세`} />
+        <WheelPicker
+          value={wheelAge}
+          onChange={setWheelAge}
+          min={10}
+          max={100}
+          formatLabel={(v) => `${v}세`}
+        />
       </Section>
 
       <Section title="WheelPicker (S-04 평균 주기 — 가로)">
@@ -223,6 +243,126 @@ export default function CatalogScreen() {
             { key: 'pore', label: '모공', score: 80, delta: null },
           ]}
         />
+      </Section>
+
+      <Section title="EnvironmentCard">
+        <EnvironmentCard
+          environment={{
+            location: '서울 강남구',
+            weather: 'SUNNY',
+            temperature: 28,
+            uvIndex: 7,
+            uvGrade: 'HIGH',
+            humidity: 55,
+            humidityGrade: 'NORMAL',
+          }}
+        />
+        <Text style={styles.hint}>failedSections에 environment가 포함된 부분 실패 상태:</Text>
+        <EnvironmentCard environment={null} hasFailed />
+      </Section>
+
+      <Section title="RoutineRecommendationList">
+        <RoutineRecommendationList
+          timeSlot="MORNING"
+          items={[
+            { rank: 1, productId: 21, name: '자외선 차단제', reason: '자외선 지수 높음' },
+            { rank: 2, productId: 15, name: '히알루론산 세럼', reason: '실내 건조 주의' },
+          ]}
+        />
+        <Text style={styles.hint}>등록된 제품이 없는 신규 사용자(빈 상태):</Text>
+        <RoutineRecommendationList timeSlot="MORNING" items={[]} onEmptyAction={() => {}} />
+      </Section>
+
+      <Section title="RecordDot">
+        <Text style={styles.hint}>
+          채움(FULL) · 외곽선(PARTIAL) · 흐림(NONE) — 색이 아니라 채움 방식으로 구분
+        </Text>
+        <View style={styles.row}>
+          <RecordDot status="FULL" />
+          <RecordDot status="PARTIAL" />
+          <RecordDot status="NONE" />
+        </View>
+      </Section>
+
+      <Section title="WeeklyRecordStrip">
+        <Card padding={4}>
+          <WeeklyRecordStrip
+            days={[
+              { date: '2026-08-03', morning: 'FULL', night: 'FULL' },
+              { date: '2026-08-04', morning: 'FULL', night: 'PARTIAL' },
+              { date: '2026-08-05', morning: 'PARTIAL', night: 'NONE' },
+              { date: '2026-08-06', morning: 'FULL', night: 'FULL' },
+              { date: '2026-08-07', morning: 'FULL', night: 'NONE' },
+            ]}
+          />
+        </Card>
+      </Section>
+
+      <Section title="TodayReportCard">
+        <TodayReportCard
+          report={{
+            skinRecordId: 31,
+            totalScore: 78,
+            previousScore: 72,
+            change: 6,
+            comparedTo: '2026-08-06 MORNING',
+            summary: '어제보다 좋아졌어요',
+          }}
+          onPress={() => {}}
+        />
+        <Text style={styles.hint}>비교 대상 없는 첫 기록:</Text>
+        <TodayReportCard
+          report={{
+            skinRecordId: 31,
+            totalScore: 78,
+            previousScore: null,
+            change: null,
+            comparedTo: null,
+            summary: '오늘의 피부 상태예요',
+          }}
+          onPress={() => {}}
+        />
+      </Section>
+
+      <Section title="RecordSlotCard">
+        <RecordSlotCard
+          label="제품 기록"
+          completed
+          summary="라운드랩 토너 외 2개"
+          onPress={() => {}}
+        />
+        <RecordSlotCard label="피부 기록" completed={false} summary={null} onPress={() => {}} />
+      </Section>
+
+      <Section title="RecordCalendar">
+        <Card padding={4}>
+          <RecordCalendar
+            year={recordCalYear}
+            month={recordCalMonth}
+            days={[
+              { date: '2026-08-01', morning: 'FULL', night: 'PARTIAL', today: false },
+              { date: '2026-08-02', morning: 'NONE', night: 'NONE', today: false },
+              { date: '2026-08-03', morning: 'FULL', night: 'FULL', today: false },
+              { date: '2026-08-07', morning: 'FULL', night: 'NONE', today: true },
+            ]}
+            onPrevMonth={() => {
+              if (recordCalMonth === 0) {
+                setRecordCalYear((y) => y - 1);
+                setRecordCalMonth(11);
+              } else {
+                setRecordCalMonth((m) => m - 1);
+              }
+            }}
+            onNextMonth={() => {
+              if (recordCalMonth === 11) {
+                setRecordCalYear((y) => y + 1);
+                setRecordCalMonth(0);
+              } else {
+                setRecordCalMonth((m) => m + 1);
+              }
+            }}
+          />
+        </Card>
       </Section>
 
       <Section title="EmptyState">

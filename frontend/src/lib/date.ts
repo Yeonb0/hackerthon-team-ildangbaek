@@ -26,11 +26,7 @@ export function isValidDateString(value: string): boolean {
   // UTC 변환 없이 로컬 시간으로 만든 뒤, 넣은 값 그대로 들어갔는지 구성요소만 비교합니다.
   // (예: 2025-02-30처럼 실존하지 않는 날짜는 Date가 3월로 넘겨버리므로 여기서 걸러집니다)
   const date = new Date(year, month - 1, day);
-  return (
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day
-  );
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
 export function isFutureDateString(value: string): boolean {
@@ -40,4 +36,58 @@ export function isFutureDateString(value: string): boolean {
 /** year/month(0-indexed)/day를 'YYYY-MM-DD'로 조합 — Calendar 컴포넌트의 그리드 셀 계산용 */
 export function formatDateString(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** year/month(0-indexed)를 'YYYY-MM'으로 조합 — RECORD-01 API의 yearMonth 쿼리 파라미터용 */
+export function formatYearMonthString(year: number, month: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+export interface MonthGridCell {
+  date: string; // 'YYYY-MM-DD'
+  day: number;
+  inCurrentMonth: boolean;
+}
+
+const TOTAL_GRID_CELLS = 42; // 6주 고정 — 달마다 그리드 높이가 바뀌지 않게 (Calendar.tsx와 동일 원칙)
+
+/**
+ * 지정한 달의 42칸 그리드(이전/다음 달 여백 포함)를 계산합니다.
+ * components/base/Calendar.tsx(S-04 날짜 선택)에서 쓰던 것과 같은 계산이라, 기록 허브
+ * 캘린더(F-RECORD-01)에서 재사용하려고 순수 함수로 분리했습니다. Calendar.tsx 자체는
+ * 이미 검증된 코드라 건드리지 않았고, 그 결과 지금은 그리드 계산이 두 군데 있습니다 —
+ * 여유 있을 때 Calendar.tsx도 이 함수를 쓰도록 정리하면 좋습니다.
+ */
+export function getMonthGridCells(year: number, month: number): MonthGridCell[] {
+  const startWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const leadingCount = startWeekday;
+  const trailingCount = TOTAL_GRID_CELLS - leadingCount - daysInMonth;
+
+  const prevTarget = month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 };
+  const nextTarget = month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 };
+
+  const cells: MonthGridCell[] = [];
+
+  for (let i = 0; i < leadingCount; i++) {
+    const day = daysInPrevMonth - leadingCount + 1 + i;
+    cells.push({
+      date: formatDateString(prevTarget.year, prevTarget.month, day),
+      day,
+      inCurrentMonth: false,
+    });
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push({ date: formatDateString(year, month, day), day, inCurrentMonth: true });
+  }
+  for (let day = 1; day <= trailingCount; day++) {
+    cells.push({
+      date: formatDateString(nextTarget.year, nextTarget.month, day),
+      day,
+      inCurrentMonth: false,
+    });
+  }
+
+  return cells;
 }

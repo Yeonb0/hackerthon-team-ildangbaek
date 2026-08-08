@@ -51,14 +51,14 @@ export type OnboardingStackParamList = {
 export type MainTabParamList = {
   [MainTabRoutes.Home]: undefined;
   [MainTabRoutes.Shopping]: undefined;
-  [MainTabRoutes.RecordHub]: undefined;
+  [MainTabRoutes.RecordHub]: { timeSlot?: TimeSlot } | undefined; // S-07/08 CTA가 진입 시점 시간대를 넘김 (F-RECORD-02 BR2)
   [MainTabRoutes.Report]: undefined;
   [MainTabRoutes.My]: undefined;
 };
 
 export type DetailStackParamList = {
   Tabs: undefined; // MainTabNavigator 내부의 탭 화면 자체
-  [DetailRoutes.ProductRecord]: undefined;
+  [DetailRoutes.ProductRecord]: { timeSlot: TimeSlot };
   [DetailRoutes.ProductScan]: undefined;
   [DetailRoutes.IngredientCheck]: { productId: number };
   [DetailRoutes.PhotoGuide]: { timeSlot: TimeSlot };
