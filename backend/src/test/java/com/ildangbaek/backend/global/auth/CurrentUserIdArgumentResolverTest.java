@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 임시 인증(X-User-Id)의 주입과 거절을 고정한다. (ADR 0006)
  * DB가 필요 없도록 @WebMvcTest 슬라이스로 검증한다.
  */
-@WebMvcTest
+@WebMvcTest(controllers = CurrentUserIdArgumentResolverTest.TestController.class)
 @Import({CurrentUserIdArgumentResolverTest.TestController.class, WebConfig.class,
         CurrentUserIdArgumentResolver.class, GlobalExceptionHandler.class})
 class CurrentUserIdArgumentResolverTest {

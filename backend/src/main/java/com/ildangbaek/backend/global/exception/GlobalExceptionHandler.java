@@ -46,17 +46,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(ApiResponse.error(ErrorCode.COMMON_VALIDATION_FAILED, new ValidationErrorResult(errors)));
     }
 
-    /**
-     * multipart 상한 초과. 이 핸들러가 없으면 아래 Exception 핸들러로 떨어져
-     * 500 COMMON_SERVER_ERROR가 되지만, 명세상 이미지 크기 초과는 422다.
-     */
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
-        log.warn("업로드 크기 초과: {}", e.getMessage());
-        return ResponseEntity.status(ErrorCode.SKIN_IMAGE_TOO_LARGE.getHttpStatus())
-                .body(ApiResponse.error(ErrorCode.SKIN_IMAGE_TOO_LARGE));
-    }
-
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(Exception e) {
         log.error("Unhandled exception", e);
@@ -84,6 +73,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleMissingServletRequestParameter(
             MissingServletRequestParameterException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return badRequest();
+    }
+
+    /**
+     * multipart 상한 초과. 부모가 이미 이 예외를 다루므로 @ExceptionHandler를 새로 달면
+     * 매핑이 충돌해 핸들러 자체가 뜨지 않는다. 반드시 재정의로 바꾼다.
+     * 기본 동작은 500이지만 명세상 이미지 크기 초과는 422다.
+     */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        log.warn("업로드 크기 초과: {}", ex.getMessage());
+        return ResponseEntity.status(ErrorCode.SKIN_IMAGE_TOO_LARGE.getHttpStatus())
+                .body(ApiResponse.error(ErrorCode.SKIN_IMAGE_TOO_LARGE));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
