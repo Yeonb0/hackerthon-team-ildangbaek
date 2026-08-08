@@ -104,7 +104,7 @@
 | CHECK-02 위험도 분석 | ⬜ | 프로파일 |
 | CHECK-03 확인 결과 조회 | ⬜ | CHECK-02 |
 | USER-02 성분 프로파일 전체 조회 | ⬜ | 프로파일 |
-| REPORT-01 리포트 조회 | ⬜ | SKIN-01 · 인사이트 |
+| REPORT-01 리포트 조회 | 🟡 | SKIN-01. `insights`는 F-ANALYSIS-01 미구현으로 항상 빈 배열. 서비스 단위 테스트만 확인, 실서버 동작 미확인 |
 | REPORT-02 요인 상세 조회 | ⬜ | F-ANALYSIS-01 |
 | REPORT-03 일자별 리포트 조회 | ⬜ | SKIN-01 |
 
@@ -140,6 +140,27 @@
 
 서비스 단위 테스트 6개 추가(정상 조회 2 · 최근 기록 자동 선택 1 · 404 2 · 소유자 검증 1).
 **로컬 MySQL로 실제 HTTP 요청까지 검증하지는 않았다** — SKIN-01처럼 서버를 띄운 통합 확인이 아직 없다.
+
+### 2.6 REPORT-01 구현 내역
+
+`GET /api/v1/reports` — 신규 `api/report` 패키지(`controller`/`dto`/`service`)로 구현. Analysis 결과를
+보여주기만 하며 분석 자체는 실행하지 않는다.
+
+- `period`는 7 또는 30만 허용. 그 외는 `422 REPORT_INVALID_PERIOD`.
+- 기간 내 피부 기록이 하나도 없으면 `409 REPORT_DATA_INSUFFICIENT`.
+- 기록이 없는 날짜의 `score`는 `null`이다(0으로 계산하지 않는다).
+- 하루 2건(모닝·나이트)이 있으면 나이트를 대표값으로 쓴다(TBD-12, 명세가 "제안"이라고 표시한 규칙을
+  그대로 채택 — 확정 시 백엔드 재확인 필요).
+- `metric` 쿼리 파라미터는 미지정 시 `TROUBLE`. 잘못된 값은 `422 COMMON_VALIDATION_FAILED`
+  (전용 에러 코드가 명세에 없어 SKIN-01의 `timeSlot` 처리 관례를 따름).
+- **`insights`는 항상 빈 배열이다.** F-ANALYSIS-01(성분-피부 시차 분석)이 미구현이라 `AnalysisInsight`에
+  실데이터가 없다. 명세 규칙("실제 분석 데이터가 있는 인사이트만 반환, 부족하면 빈 배열")과 정합적이다.
+  `AnalysisInsight.confidenceScore`(DECIMAL)를 응답의 `confidence`("OBSERVED"/"OBSERVING") 문자열로
+  변환하는 임계값 기준은 아직 정해지지 않았다 — F-ANALYSIS-01 구현 시 함께 결정해야 한다.
+- REPORT-02·REPORT-03은 이번 범위에 포함하지 않았다.
+
+서비스 단위 테스트 6개(기간 검증 1 · 데이터 부족 1 · 결측 null 1 · 나이트 우선 1 · insights 빈 배열 1 ·
+metric 필터링 1). **로컬 MySQL로 실제 HTTP 요청까지 검증하지는 않았다.**
 
 ---
 

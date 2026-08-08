@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SkinMetricRepository extends JpaRepository<SkinMetric, Long> {
 
     List<SkinMetric> findAllBySkinRecordId(Long skinRecordId);
+
+    List<SkinMetric> findAllBySkinRecordIdIn(List<Long> skinRecordIds);
 }
