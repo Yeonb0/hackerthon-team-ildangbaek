@@ -5,12 +5,16 @@ import { Card } from '@/components/base/Card';
 import { Tag } from '@/components/base/Tag';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { SegmentToggle } from '@/components/base/SegmentToggle';
+import { Input } from '@/components/base/Input';
+import { Chip } from '@/components/base/Chip';
+import { Stepper } from '@/components/base/Stepper';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { MetricScoreList } from '@/components/domain/MetricScoreList';
 import { EmptyState } from '@/components/state/EmptyState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { LoadingState } from '@/components/state/LoadingState';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
+import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
 import { color, space } from '@/theme/tokens';
 
 /**
@@ -18,11 +22,15 @@ import { color, space } from '@/theme/tokens';
  * Phase 2 전체(9종) 반영 완료:
  * 1차분 — Button / Card / Tag / ProgressBar
  * 2차분 — SegmentToggle / ProductCard / MetricScoreList / EmptyState / ErrorState / LoadingState / PermissionDenied
+ * Phase 3 S-01 추가분 — Input / Chip / Stepper / InlineErrorBanner
  */
 export default function CatalogScreen() {
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [dayNight, setDayNight] = useState<'day' | 'night'>('day');
   const [scanMode, setScanMode] = useState<'barcode' | 'photo'>('barcode');
+  const [nameInput, setNameInput] = useState('');
+  const [chipSelected, setChipSelected] = useState<'a' | 'b' | 'c'>('a');
+  const [stepperValue, setStepperValue] = useState(20);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -91,6 +99,36 @@ export default function CatalogScreen() {
         />
       </Section>
 
+      <Section title="Input">
+        <Input
+          label="이름"
+          placeholder="이름을 입력해주세요"
+          value={nameInput}
+          onChangeText={setNameInput}
+        />
+        <Text style={styles.hint}>에러 상태 (COMMON_VALIDATION_FAILED류 인라인 표시)</Text>
+        <Input label="이름" value="" error="이름은 필수입니다." />
+      </Section>
+
+      <Section title="Chip (단일/다중 선택은 사용처가 결정)">
+        <Row>
+          <Chip label="지성" selected={chipSelected === 'a'} onPress={() => setChipSelected('a')} />
+          <Chip label="건성" selected={chipSelected === 'b'} onPress={() => setChipSelected('b')} />
+          <Chip label="민감성" selected={chipSelected === 'c'} onPress={() => setChipSelected('c')} />
+        </Row>
+      </Section>
+
+      <Section title="Stepper">
+        <Stepper value={stepperValue} onChange={setStepperValue} min={10} max={100} />
+      </Section>
+
+      <Section title="InlineErrorBanner">
+        <Text style={styles.hint}>
+          ErrorState와 달리 화면을 덮지 않습니다 — 온보딩 저장 실패처럼 입력값을 지키면서 재시도 유도할 때
+        </Text>
+        <InlineErrorBanner message="저장에 실패했어요. 다시 시도해주세요." onRetry={() => {}} />
+      </Section>
+
       <Section title="ProductCard">
         <ProductCard
           brand="이니스프리"
@@ -103,7 +141,7 @@ export default function CatalogScreen() {
 
       <Section title="MetricScoreList">
         <Text style={styles.hint}>
-          score/delta 방향은 백엔드 정규화 확정 대기 중 — 지금은 "높을수록 좋음" 가정
+          score/delta 방향은 백엔드 정규화 확정 대기 중 — 지금은 &ldquo;높을수록 좋음&rdquo; 가정
         </Text>
         <MetricScoreList
           items={[
