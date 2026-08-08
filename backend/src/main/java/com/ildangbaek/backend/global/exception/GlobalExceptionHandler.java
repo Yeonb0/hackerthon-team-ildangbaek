@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -43,6 +44,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .toList();
         return ResponseEntity.status(ErrorCode.COMMON_VALIDATION_FAILED.getHttpStatus())
                 .body(ApiResponse.error(ErrorCode.COMMON_VALIDATION_FAILED, new ValidationErrorResult(errors)));
+    }
+
+    /**
+     * multipart 상한 초과. 이 핸들러가 없으면 아래 Exception 핸들러로 떨어져
+     * 500 COMMON_SERVER_ERROR가 되지만, 명세상 이미지 크기 초과는 422다.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        log.warn("업로드 크기 초과: {}", e.getMessage());
+        return ResponseEntity.status(ErrorCode.SKIN_IMAGE_TOO_LARGE.getHttpStatus())
+                .body(ApiResponse.error(ErrorCode.SKIN_IMAGE_TOO_LARGE));
     }
 
     @ExceptionHandler(Exception.class)

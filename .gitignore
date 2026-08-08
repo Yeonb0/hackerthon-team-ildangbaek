@@ -8,3 +8,6 @@
 
 # OS
 .DS_Store
+
+# 로컬 이미지 스토리지 (app.storage.local.directory)
+backend/uploads/
