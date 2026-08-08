@@ -122,10 +122,12 @@ ERD.md와 api_명세서.md/기능명세서.md 사이에 값 체계가 다른 필
 
 - `UserProfile.gender` — ERD `NOT_SELECTED` vs api 명세서 `UNSPECIFIED`
 - `UserProfile.menstrualStatus` — ERD 3종 vs api 명세서 `HormoneStatus` 4종(HORMONE_PILL/HORMONE_INJECTION 포함)
-- `SkinMetric.metricType` — ERD 3종(TROUBLE/REDNESS/MOISTURE_OIL) vs 기능명세서 F-SKIN-04 4종(+PORES/PIGMENTATION), PRD 8.4/9.6도 서로 다름 (TBD-11)
-- `IngredientProfile.reactionType` / `ProductRiskIngredient.reactionType` — ERD `SUITABLE` vs api 명세서 `IngredientStatus.GOOD`
+- `IngredientProfile.reactionType` / `ProductRiskIngredient.reactionType` — ERD `SUITABLE` vs api 명세서 `IngredientStatus.GOOD`. DB는 `SUITABLE` 유지, API 응답에서만 `GOOD`으로 매핑 확정 ([ADR 0004](../docs/decisions/0004-성분-반응-상태-명칭.md))
 
 팀 내에서 스키마가 확정되면 해당 enum과 주석만 정리하면 됩니다. 확정 내용은 새 ADR로 `docs/decisions/`에 남깁니다.
+
+**`SkinMetric.metricType`은 확정되었습니다.** 트러블(`TROUBLE`) · 홍조(`REDNESS`) · 모공(`PORES`) ·
+색소잡티(`PIGMENTATION`) 4종. ([ADR 0002](../docs/decisions/0002-피부-지표-체계.md))
 
 ## 아직 만들지 않은 것
 

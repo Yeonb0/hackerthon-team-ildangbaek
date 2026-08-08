@@ -37,7 +37,7 @@ User
 | 기록 | `ProductRecord` | 날짜·시간대별 제품 기록 |
 | 기록 | `ProductRecordItem` | 제품 기록에 포함된 개별 제품 |
 | 기록 | `SkinRecord` | 날짜·시간대별 피부 사진 및 분석 |
-| 기록 | `SkinMetric` | 트러블·홍조·유수분 분석값 |
+| 기록 | `SkinMetric` | 트러블·홍조·모공·색소잡티 분석값 |
 | 환경 | `DailyEnvironment` | 날짜별 날씨·자외선·습도 |
 | 분석 | `IngredientProfile` | 사용자별 성분 반응 프로파일 |
 | 분석 | `AnalysisInsight` | 피부 리포트의 분석 문구 |
@@ -287,7 +287,7 @@ UNIQUE(user_id, record_date, time_period)
 | --- | --- | --- | --- |
 | id | BIGINT | PK | 피부 지표 ID |
 | skin_record_id | BIGINT | FK | 피부 기록 ID |
-| metric_type | VARCHAR(30) | NOT NULL | TROUBLE, REDNESS, MOISTURE_OIL |
+| metric_type | VARCHAR(30) | NOT NULL | TROUBLE, REDNESS, PORES, PIGMENTATION |
 | metric_value | DECIMAL(8,2) | NOT NULL | 분석값 |
 | comparison_difference | DECIMAL(8,2) | NULL | 비교 대상과의 차이 |
 | trend_status | VARCHAR(20) | NULL | IMPROVED, MAINTAINED, WORSENED |
