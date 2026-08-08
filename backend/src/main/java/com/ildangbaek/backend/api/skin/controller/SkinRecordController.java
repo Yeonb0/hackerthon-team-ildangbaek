@@ -39,6 +39,6 @@ public class SkinRecordController {
             @CurrentUserId Long userId,
             @RequestPart("image") MultipartFile image,
             @Valid @ModelAttribute SkinRecordCreateRequest request) {
-        return ApiResponse.created(skinRecordService.create(userId, image, request.timeSlot()));
+        return ApiResponse.created(skinRecordService.create(userId, image, request.toTimeSlot()));
     }
 }
