@@ -13,4 +13,8 @@ public interface SkinRecordRepository extends JpaRepository<SkinRecord, Long> {
 
     List<SkinRecord> findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
             Long userId, LocalDate startDate, LocalDate endDate);
+
+    Optional<SkinRecord> findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(Long userId);
+
+    Optional<SkinRecord> findByIdAndUserId(Long id, Long userId);
 }

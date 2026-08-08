@@ -93,8 +93,8 @@
 | API | 상태 | 선행 조건 |
 | --- | --- | --- |
 | SKIN-01 피부 기록 생성 및 분석 | ✅ | 임시 인증(ADR 0006) · 로컬 스토리지(ADR 0007)로 해소 |
-| SKIN-02 오늘 피부 결과 조회 | ⬜ | SKIN-01 DTO 재사용 가능 |
-| SKIN-03 피부 기록 상세 조회 | ⬜ | SKIN-01 DTO 재사용 가능 |
+| SKIN-02 오늘 피부 결과 조회 | 🟡 | SKIN-01 DTO 재사용. 서비스 단위 테스트만 확인, 실서버 동작 미확인 |
+| SKIN-03 피부 기록 상세 조회 | 🟡 | SKIN-01 DTO 재사용. 서비스 단위 테스트만 확인, 실서버 동작 미확인 |
 | F-ANALYSIS-01 성분-피부 시차 분석 | ⬜ | SKIN-01 · 제품 기록(A) |
 | F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
 | F-ANALYSIS-03 호르몬 요인 반영 | ⬜ | 우선순위 L · **후순위** |
@@ -126,6 +126,20 @@
 
 자동 테스트 46개 (`RecordDateResolver` 13 · 목업 분석 9 · 서비스 10 · 스토리지 5 · 인증 5 · 요청 DTO 4).
 `BackendApplicationTests`(1개)는 MySQL이 떠 있어야 통과한다.
+
+### 2.5 SKIN-02 · SKIN-03 구현 내역
+
+`GET /api/v1/skin-records/today`, `GET /api/v1/skin-records/{skinRecordId}` — `SkinRecordService`에
+조회 메서드를 추가하고 SKIN-01의 `SkinRecordResponse`를 그대로 재사용한다.
+
+- SKIN-02: `timeSlot` 미지정 시 `findFirstByUserIdOrderByRecordDateDescCapturedAtDesc`로 최근 기록 조회.
+  지정 시 오늘 날짜 + 해당 슬롯으로 조회.
+- SKIN-03: `findByIdAndUserId`로 소유자 검증. 다른 사용자의 기록이거나 존재하지 않으면 둘 다
+  `404 SKIN_RECORD_NOT_FOUND`로 응답해 존재 여부를 숨긴다(명세에 없는 403 대신 채택한 판단).
+- `comparison`은 SKIN-01과 동일한 규칙(전일 동일 슬롯 비교)을 재사용한다.
+
+서비스 단위 테스트 6개 추가(정상 조회 2 · 최근 기록 자동 선택 1 · 404 2 · 소유자 검증 1).
+**로컬 MySQL로 실제 HTTP 요청까지 검증하지는 않았다** — SKIN-01처럼 서버를 띄운 통합 확인이 아직 없다.
 
 ---
 

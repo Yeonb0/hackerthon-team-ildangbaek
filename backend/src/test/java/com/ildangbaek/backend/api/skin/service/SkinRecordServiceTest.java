@@ -253,4 +253,75 @@ class SkinRecordServiceTest {
                 "/images/x.jpg", 1L, LocalDate.now(), TimeSlot.MORNING);
         assertThat(response.scores().trouble()).isEqualTo(expected.score(SkinMetricType.TROUBLE));
     }
+
+    @DisplayName("SKIN-02: timeSlot 미지정 시 가장 최근 기록을 반환한다")
+    @Test
+    void getTodayReturnsMostRecentWhenSlotOmitted() {
+        SkinRecord record = savedRecord(5L, LocalDate.now(), TimeSlot.NIGHT, 80);
+        when(skinRecordRepository.findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(1L))
+                .thenReturn(Optional.of(record));
+        when(skinMetricRepository.findAllBySkinRecordId(5L)).thenReturn(previousMetrics(record, 80));
+        when(skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
+                anyLong(), any(), eq(TimeSlot.NIGHT))).thenReturn(Optional.empty());
+
+        SkinRecordResponse response = service.getToday(1L, null);
+
+        assertThat(response.skinRecordId()).isEqualTo(5L);
+        verify(skinRecordRepository, never())
+                .findByUserIdAndRecordDateAndTimeSlot(eq(1L), eq(LocalDate.now()), eq(TimeSlot.NIGHT));
+    }
+
+    @DisplayName("SKIN-02: timeSlot 지정 시 오늘 해당 슬롯 기록을 반환한다")
+    @Test
+    void getTodayReturnsRecordForGivenSlot() {
+        LocalDate today = LocalDate.now();
+        SkinRecord record = savedRecord(6L, today, TimeSlot.MORNING, 60);
+        when(skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(1L, today, TimeSlot.MORNING))
+                .thenReturn(Optional.of(record));
+        when(skinMetricRepository.findAllBySkinRecordId(6L)).thenReturn(previousMetrics(record, 60));
+        when(skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(1L, today.minusDays(1), TimeSlot.MORNING))
+                .thenReturn(Optional.empty());
+
+        SkinRecordResponse response = service.getToday(1L, TimeSlot.MORNING);
+
+        assertThat(response.skinRecordId()).isEqualTo(6L);
+    }
+
+    @DisplayName("SKIN-02: 기록이 없으면 404 SKIN_RECORD_NOT_FOUND")
+    @Test
+    void getTodayThrowsWhenNotFound() {
+        when(skinRecordRepository.findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(1L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getToday(1L, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SKIN_RECORD_NOT_FOUND);
+    }
+
+    @DisplayName("SKIN-03: 소유자의 기록을 상세 조회한다")
+    @Test
+    void getDetailReturnsOwnedRecord() {
+        LocalDate date = LocalDate.now().minusDays(3);
+        SkinRecord record = savedRecord(7L, date, TimeSlot.NIGHT, 55);
+        when(skinRecordRepository.findByIdAndUserId(7L, 1L)).thenReturn(Optional.of(record));
+        when(skinMetricRepository.findAllBySkinRecordId(7L)).thenReturn(previousMetrics(record, 55));
+        when(skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(1L, date.minusDays(1), TimeSlot.NIGHT))
+                .thenReturn(Optional.empty());
+
+        SkinRecordResponse response = service.getDetail(1L, 7L);
+
+        assertThat(response.skinRecordId()).isEqualTo(7L);
+    }
+
+    @DisplayName("SKIN-03: 다른 사용자의 기록이거나 존재하지 않으면 404 SKIN_RECORD_NOT_FOUND")
+    @Test
+    void getDetailThrowsWhenNotOwnedOrMissing() {
+        when(skinRecordRepository.findByIdAndUserId(7L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getDetail(1L, 7L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SKIN_RECORD_NOT_FOUND);
+    }
 }

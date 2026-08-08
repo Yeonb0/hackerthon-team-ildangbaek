@@ -70,13 +70,44 @@ public class SkinRecordService {
         SkinAnalysisResult analysis = skinAnalysisClient.analyze(imageUrl, userId, recordDate, timeSlot);
         int totalScore = calculateTotalScore(analysis);
 
-        SkinComparisonResponse comparison = buildComparison(userId, recordDate, timeSlot, analysis);
+        SkinComparisonResponse comparison = buildComparison(userId, recordDate, timeSlot, analysis.scores());
 
         SkinRecord saved = skinRecordWriter.save(user, recordDate, timeSlot, imageUrl, capturedAt,
                 skinAnalysisClient.method(), analysis, totalScore);
         ingredientProfileUpdater.update(saved);
 
         return SkinRecordResponse.of(saved, SkinScoresResponse.from(analysis.scores()), comparison);
+    }
+
+    /**
+     * SKIN-02 · 오늘 피부 결과 조회. {@code timeSlot} 미지정 시 가장 최근 기록을 반환한다.
+     */
+    public SkinRecordResponse getToday(Long userId, TimeSlot timeSlot) {
+        SkinRecord record = (timeSlot == null
+                ? skinRecordRepository.findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(userId)
+                : skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(userId, LocalDate.now(), timeSlot))
+                .orElseThrow(() -> new BusinessException(ErrorCode.SKIN_RECORD_NOT_FOUND));
+        return toResponse(userId, record);
+    }
+
+    /**
+     * SKIN-03 · 피부 기록 상세 조회. 다른 사용자의 기록은 존재 여부를 숨기기 위해 404로 응답한다.
+     */
+    public SkinRecordResponse getDetail(Long userId, Long skinRecordId) {
+        SkinRecord record = skinRecordRepository.findByIdAndUserId(skinRecordId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SKIN_RECORD_NOT_FOUND));
+        return toResponse(userId, record);
+    }
+
+    private SkinRecordResponse toResponse(Long userId, SkinRecord record) {
+        Map<SkinMetricType, Integer> scores = new EnumMap<>(SkinMetricType.class);
+        skinMetricRepository.findAllBySkinRecordId(record.getId())
+                .forEach(metric -> scores.put(metric.getMetricType(), metric.getMetricValue().intValue()));
+
+        SkinComparisonResponse comparison =
+                buildComparison(userId, record.getRecordDate(), record.getTimeSlot(), scores);
+
+        return SkinRecordResponse.of(record, SkinScoresResponse.from(scores), comparison);
     }
 
     private void validateImage(MultipartFile image) {
@@ -107,7 +138,7 @@ public class SkinRecordService {
      * 비교 대상이 없으면 {@code null} — 첫 기록에서 정상인 상태다.
      */
     private SkinComparisonResponse buildComparison(Long userId, LocalDate recordDate, TimeSlot timeSlot,
-                                                   SkinAnalysisResult analysis) {
+                                                   Map<SkinMetricType, Integer> scores) {
         LocalDate previousDate = recordDate.minusDays(1);
         Optional<SkinRecord> previous =
                 skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(userId, previousDate, timeSlot);
@@ -123,7 +154,7 @@ public class SkinRecordService {
         Map<SkinMetricType, Integer> changes = new EnumMap<>(SkinMetricType.class);
         for (SkinMetricType type : SkinMetricType.values()) {
             Integer before = previousScores.get(type);
-            changes.put(type, before == null ? 0 : analysis.score(type) - before);
+            changes.put(type, before == null ? 0 : scores.get(type) - before);
         }
 
         return new SkinComparisonResponse(
