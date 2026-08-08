@@ -1,4 +1,4 @@
-# api 명세서
+# api 명세서 (최종)
 
 # 1. API Convention
 
@@ -243,6 +243,9 @@ json
 | `COMPLETE` | S-05 |
 | `NONE` | 메인 탭 (온보딩 완료) |
 
+> 기능명세서 F-AUTH-01 BR 6 — "온보딩 미완료 사용자는 마지막 미완료 단계부터 재개한다"를 구현하기 위한 필드입니다. 클라이언트가 저장된 프로필을 역산해 단계를 판단하지 않도록 **서버가 다음 단계를 알려줍니다.**
+> 
+
 **Error**
 
 | HTTP | Code |
@@ -257,6 +260,9 @@ json
 2. 사용자를 조회하고 없으면 생성한다.
 3. JWT Access Token · Refresh Token을 발급한다.
 4. 온보딩 진행 상태를 계산해 `nextStep`을 반환한다.
+
+> **TBD-01** — `EMAIL` provider의 MVP 포함 여부가 미정입니다. 범위에서 빠지면 `400 AUTH_UNSUPPORTED_PROVIDER`를 반환하고 S-00의 이메일 버튼을 비활성화합니다.
+> 
 
 ---
 
@@ -381,6 +387,9 @@ json
 1. `totalStepCount`는 성별에 따라 달라진다. `FEMALE`이면 3, 그 외는 2다.
 2. 성별이 아직 입력되지 않았다면 `totalStepCount`는 2로 반환하고, 성별 입력 후 재계산한다.
 3. `hormone.required`는 항상 `false`다. 건너뛸 수 있는 단계이기 때문이다. 단 성별이 `FEMALE`이 아니면 `steps`에서 아예 제외한다.
+
+> **TBD-02** — 성별에 따라 분모가 달라지는 진행률 표시 방식이 미정입니다. 위 응답은 (a) 분모 재계산 안을 전제로 설계했습니다. (b) 항상 3단계 고정으로 결정되면 `totalStepCount`를 상수로 내리고 비여성 사용자의 hormone 단계를 `completed: true`로 처리하면 됩니다. **필드 구조는 두 안 모두 수용 가능합니다.**
+> 
 
 ---
 
@@ -756,6 +765,11 @@ json
 }
 ```
 
+> `sleepTime` · `wakeTime` 필드는 **삭제되었습니다.** 온보딩에서 수면 시간 입력이 제거되고 낮/밤 판정이 고정 시각으로 바뀌었기 때문입니다. (v1 USER-04에 존재하던 필드)
+> 
+
+---
+
 ## USER-04 · 프로필 수정
 
 | 항목 | 내용 |
@@ -930,7 +944,7 @@ homeType 파라미터 있음?
 
 **전 사용자 동일한 고정 시각 기준이다.** 사용자별 수면 시간을 사용하지 않는다. 온보딩에서 수면 시간 입력이 제거되었기 때문이다.
 
-> 판정 로직은 서비스 계층의 단일 지점에 격리한다. 이후 루틴 기록 데이터가 쌓이면 이 부분만 개인화 로직으로 교체할 수 있어야 한다.
+> 판정 로직은 서비스 계층의 단일 지점에 격리한다. 이후 루틴 기록 데이터가 쌓이면 이 부분만 개인화 로직으로 교체할 수 있어야 한다. (F-HOME-01 BR 5)
 > 
 
 ---
@@ -1052,6 +1066,12 @@ json
 
 1. 오늘 피부 기록이 있어야 한다. **제품 기록은 선택이다.** 리포트 최소 요건이 "피부 사진 필수 · 제품 선택"이기 때문이다.
 2. 비교 대상(전일 동일 시간대)이 없으면 `previousScore` · `change`를 `null`로 내리고 `summary`에서 비교 문구를 뺀다.
+
+> **TBD-04** — 리포트를 만들 데이터가 부족할 때의 안내 방식이 미정입니다. 현재는 `todayReport: null`로 카드를 숨기는 안으로 설계했습니다. 안내 카드로 대체하기로 결정되면 `todayReport.status: "INSUFFICIENT"` 형태로 확장합니다.
+> 
+> 
+> **TBD-03** — 낮/밤 토글 상태의 유지 범위가 미정입니다. 현재 설계는 **클라이언트 상태**로 보고 쿼리 파라미터로만 전달합니다. 서버 저장이 필요해지면 `PATCH /users/me/home-preference`를 추가합니다.
+> 
 
 ---
 
@@ -1463,6 +1483,9 @@ json
 | 422 | `SCAN_LOW_IMAGE_QUALITY` | 화질 부족 |
 | 503 | `SCAN_SERVICE_UNAVAILABLE` | 스캔 서비스 장애 |
 
+> **TBD-05** — 스캔 인식 대상이 확정되지 않았습니다. 성분표 OCR이 추가되면 `scanMode`에 `INGREDIENT_LABEL`이 들어가고, 이 경우 응답이 `productId`가 아니라 **성분 목록**이 되므로 **응답 구조가 달라집니다.** 결정 전까지 이 API는 제품 식별 전용으로 봅니다.
+> 
+
 ---
 
 ## PRODUCT-05 · 제품 기록 저장 ⭐
@@ -1540,7 +1563,7 @@ COMMIT
 2. 저장 시 **날짜 + `timeSlot`** 을 함께 기록한다. 같은 날 모닝 토너와 나이트 토너는 별개 기록이다.
 3. 신규 제품은 `UserProduct`에 자동 추가한다.
 4. 기존 제품은 `lastUsedAt`을 갱신한다.
-5. 날짜 귀속은 **서버 시간 KST 00:00 기준**이다.
+5. 날짜 귀속은 서버 시간 기준으로 계산하되, **`timeSlot`이 `NIGHT`면 자정을 넘겨도 밤이 시작된 날짜(전날)로 저장한다.** `MORNING`은 기록 시각의 달력 날짜를 그대로 쓴다. (공통 응답 포맷 + 예외코드 8.1 참고)
 
 **중복 처리**
 
@@ -1711,7 +1734,7 @@ json
 1. 루틴에 포함된 제품 전체를 해당 슬롯의 기록으로 저장한다. 내부적으로 PRODUCT-05와 동일한 트랜잭션을 사용한다.
 2. 중복 제품은 한 번만 기록한다.
 3. **루틴의 `timeSlot`과 요청 `timeSlot`이 다르면 `409 ROUTINE_TIME_SLOT_MISMATCH`를 반환한다.** 차단이 아니라 확인이 목적이므로, 클라이언트가 경고 팝업을 띄우고 사용자가 진행하면 `force: true`로 재요청한다.
-4. 루틴 제품 중 일부가 삭제되었으면 `409 ROUTINE_PARTIALLY_MISSING`과 함께 사용 가능한 제품 목록을 반환한다. 남은 제품만으로 진행할 수 있게 한다.
+4. 루틴 제품 중 일부가 삭제되었으면 `409 ROUTINE_PRODUCT_PARTIALLY_MISSING`과 함께 사용 가능한 제품 목록을 반환한다. 남은 제품만으로 진행할 수 있게 한다.
 
 **Error**
 
@@ -1792,7 +1815,8 @@ json
     "scores": {
       "trouble": 74,
       "redness": 66,
-      "moisture": 82
+      "pores": 70,
+      "pigmentation": 80
     },
 
     "comparison": {
@@ -1801,7 +1825,8 @@ json
       "changes": {
         "trouble": -4,
         "redness": 1,
-        "moisture": 8
+        "pores": 3,
+        "pigmentation": 5
       }
     }
   }
@@ -1816,9 +1841,11 @@ json
 "comparison": null
 ```
 
+---
+
 **Business Rule**
 
-1. 결과를 **사용자 + 날짜 + `timeSlot`** 으로 저장한다. 하루 2건이 존재할 수 있다.
+1. 결과를 **사용자 + 날짜 + `timeSlot`** 으로 저장한다. 하루 2건이 존재할 수 있다. **날짜 귀속 규칙(`NIGHT`는 자정을 넘겨도 전날 날짜)은 공통 응답 포맷 + 예외코드 8.1을 따른다.**
 2. **비교 대상은 같은 시간대끼리다.** 모닝은 전일 모닝, 나이트는 전일 나이트와 비교한다.
 3. 첫 기록이거나 비교 대상이 없으면 `comparison`을 `null`로 반환한다. 오류가 아니다.
 4. 당일 환경 데이터(자외선 등)를 함께 연결해 저장한다. F-ANALYSIS-02의 입력이 된다.
@@ -1920,7 +1947,7 @@ COMMIT
 > 구매 전 확인은 Product Domain의 검색·스캔 API를 재사용한다. **여기서 조회한 제품은 사용 기록으로 저장하지 않는다.**
 > 
 
-## CHECK-01 · 제품 추천 조회
+## CHECK-01 · 쇼핑 홈 조회
 
 | 항목 | 내용 |
 | --- | --- |
@@ -2090,7 +2117,7 @@ BEGIN → Product 조회 → Ingredient 조회 → IngredientProfile 조회
 | Field | Type | Required | Validation |
 | --- | --- | --- | --- |
 | `period` | Integer | O | `7` 또는 `30` |
-| `metric` | Enum | X | `TROUBLE` / `REDNESS` / `MOISTURE` · 기본 `TROUBLE` |
+| `metric` | Enum | X | `TROUBLE` / `REDNESS` / `PORES` / `PIGMENTATION` · 기본 `TROUBLE` |
 
 **Success Response — 200**
 
@@ -2230,6 +2257,9 @@ json
 | --- | --- |
 | 404 | `REPORT_INSIGHT_NOT_FOUND` |
 
+> **TBD-11** — S-20의 지표가 현재 트러블로 고정입니다. `metric` 파라미터로 전환을 지원할지 결정이 필요합니다. 응답에는 `metric` 필드를 미리 포함했습니다.
+> 
+
 ---
 
 ## REPORT-03 · 일자별 리포트 조회
@@ -2283,8 +2313,6 @@ json
 | S-23 마이페이지 | `GET /users/me` |
 | S-24 위치 설정 | `GET /locations` → `PATCH /users/me/location` |
 | 성분 전체 보기 | `GET /users/me/ingredient-profile` |
-
----
 
 # 13. Function ↔ API Mapping
 
@@ -2370,7 +2398,9 @@ json
 | Report | REPORT-02 | GET | `/reports/insights/{insightId}` | O |
 | Report | REPORT-03 | GET | `/reports/daily` | O |
 
-**총 34개** 
+**총 34개** (⭐ 4개는 트랜잭션 · 멱등성 필수)
+
+---
 
 # 15. Transaction Rule
 
