@@ -173,6 +173,39 @@ INSERT INTO users (provider, provider_user_id, onboarding_completed, account_sta
 VALUES ('KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
 ```
 
+## F-ANALYSIS-01 시차 분석 · 목업 시드
+
+성분-피부 시차 분석은 **제품 기록**을 입력으로 씁니다. 그런데 제품 기록 저장 API(PRODUCT-05)는
+A 담당이라 아직 없어서, 실사용 경로로는 `product_records`를 채울 방법이 없습니다.
+검증용 시드 스크립트로 그 자리를 대신합니다.
+
+```bash
+# 앱을 한 번 띄워 스키마가 생성된 뒤에 실행합니다 (ddl-auto: update)
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek \
+  < backend/src/test/resources/seed/f-analysis-01-mockup.sql
+
+# 분석은 피부 기록 저장 시 실행됩니다. 사용자 9001로 기록을 남기면 트리거됩니다.
+curl -X POST http://localhost:8080/api/v1/skin-records \
+  -H "X-User-Id: 9001" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
+
+# 결과 확인
+curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-Id: 9001"
+```
+
+`--default-character-set=utf8mb4`를 빼면 성분 한글명이 깨져 들어갑니다.
+
+스크립트는 **의도한 패턴**을 심습니다 — 레티놀을 18·12·6일 전에 쓰고 그 2일 뒤 트러블을 +15 올려두므로
+`OBSERVED`로 확정되어야 하고, 판테놀은 뒤따르는 변화가 없어 `OBSERVING`에 머물러야 합니다.
+무작위 데이터로는 "분석기가 패턴을 제대로 잡았는지"를 확인할 수 없어 이렇게 만들었습니다 (ADR 0003).
+
+레티놀 세럼에 히알루론산이 함께 들어 있어 **두 성분이 같은 패턴으로 나오는데, 이는 의도된 동작입니다.**
+한 제품에 든 성분들은 항상 같이 노출되므로 기록만으로는 분리할 수 없습니다
+([ADR 0009](../docs/decisions/0009-시차-분석-패턴-확정-기준.md)의 알려진 한계).
+
+확정 임계값은 `LagCorrelationAnalyzer`의 상수 3개에 모여 있고, REPORT-01의 `OBSERVED` 임계값
+(`ReportService.OBSERVED_THRESHOLD`)과 같은 값이어야 합니다. **한쪽만 바꾸면 판정이 어긋납니다.**
+
 ## 구현된 API
 
 | API | 상태 |
@@ -184,8 +217,11 @@ VALUES ('KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
 
 - 인증(JWT 발급/검증) 및 Spring Security 설정 — A 담당 AUTH-01~03.
 - SKIN-02 · SKIN-03 조회 API — 응답 구조는 SKIN-01과 같아 DTO를 재사용할 수 있습니다.
-- 성분 프로파일 갱신(F-ANALYSIS-01·04) — 호출 훅(`IngredientProfileUpdater`)만 있고 내용은 비어
-  있습니다. 입력인 제품 기록(A 담당)이 선행되어야 합니다.
+- 성분 프로파일 갱신(F-ANALYSIS-04) — `IngredientProfile`은 여전히 비어 있습니다.
+  F-ANALYSIS-01(시차 분석)은 구현되어 `AnalysisInsight`를 남기지만, 그 결과를 프로파일로 승격하는
+  단계는 별도 기능이라 하지 않았습니다.
+- F-ANALYSIS-01의 실입력 — 로직은 완성됐지만 제품 기록 저장 API(A 담당 PRODUCT-05)가 없어
+  실사용 경로에서는 결과가 비어 있습니다. 검증은 위 목업 시드로 했습니다.
 - 그 외 도메인 컨트롤러/서비스/DTO — `api.skin`을 예시로 추가해나가면 됩니다.
 - `Idempotency-Key` 처리 로직 — 저장 API 4개가 공유할 공통 인프라라 단독 구현을 피했습니다.
   SKIN-01은 슬롯 유니크 제약이 중복 저장을 막고 있습니다.

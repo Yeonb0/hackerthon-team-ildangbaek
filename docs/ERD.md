@@ -373,11 +373,15 @@ UNIQUE(user_id, ingredient_id)
 | recommendation | TEXT | NULL | 관리 제안 |
 | start_date | DATE | NULL | 분석 기간 시작 |
 | end_date | DATE | NULL | 분석 기간 종료 |
-| confidence_score | DECIMAL(5,2) | NULL | 신뢰도 |
+| confidence_score | DECIMAL(5,2) | NULL | 신뢰도 (0~100) |
 | generated_at | DATETIME | NOT NULL | 생성 시각 |
 - 밤 피부 분석 완료 후 당일 리포트를 제공
 - 7일·30일 리포트는 누적 `SkinRecord`, `SkinMetric`을 조회해 구성
 - 상세 이벤트까지 저장할 필요가 있으면 `AnalysisEvidence` 테이블 추가
+- `confidence_score`는 F-ANALYSIS-01의 **동일 방향 변화 비율(0~100)**이다. REPORT-01은 67 이상을
+  `OBSERVED`, 미만을 `OBSERVING`으로 내려보낸다. (ADR 0009)
+- `insight_type = INGREDIENT` 행은 **새 피부 기록마다 재계산되어 이전 회차를 대체**한다.
+  `ENVIRONMENT` 행은 F-ANALYSIS-02가 따로 관리하므로 이 삭제 범위에 들어가지 않는다.
 
 ---
 

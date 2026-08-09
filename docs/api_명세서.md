@@ -2185,10 +2185,16 @@ json
 
 **`confidence` 값**
 
-| 값 | 의미 |
-| --- | --- |
-| `OBSERVED` | 반복 관찰된 패턴 |
-| `OBSERVING` | 확인 중 · 반복성 미확보 |
+| 값 | 의미 | 판정 기준 |
+| --- | --- | --- |
+| `OBSERVED` | 반복 관찰된 패턴 | `confidence_score` 67 이상 |
+| `OBSERVING` | 확인 중 · 반복성 미확보 | `confidence_score` 67 미만 또는 `null` |
+
+`confidence_score`는 F-ANALYSIS-01이 산출한 **동일 방향 변화 비율(0~100)**이며, 임계값 67은
+패턴 확정 기준과 같은 값이다. 한쪽만 바꾸면 두 판정이 어긋난다. (ADR 0009)
+
+`insights`는 F-ANALYSIS-01이 `analysis_insights`에 남긴 행을 신뢰도 내림차순으로 반환한다.
+성분 인사이트는 새 피부 기록마다 재계산되어 이전 회차를 대체하므로 누적되지 않는다.
 
 **Error**
 

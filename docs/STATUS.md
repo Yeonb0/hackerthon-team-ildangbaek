@@ -95,7 +95,7 @@
 | SKIN-01 피부 기록 생성 및 분석 | ✅ | 임시 인증(ADR 0006) · 로컬 스토리지(ADR 0007)로 해소 |
 | SKIN-02 오늘 피부 결과 조회 | 🟡 | SKIN-01 DTO 재사용. 서비스 단위 테스트만 확인, 실서버 동작 미확인 |
 | SKIN-03 피부 기록 상세 조회 | 🟡 | SKIN-01 DTO 재사용. 서비스 단위 테스트만 확인, 실서버 동작 미확인 |
-| F-ANALYSIS-01 성분-피부 시차 분석 | ⬜ | SKIN-01 · 제품 기록(A) |
+| F-ANALYSIS-01 성분-피부 시차 분석 | 🟡 | 분석 로직 구현 완료. **목업 시드 데이터로만 검증** — 실입력인 제품 기록(A · PRODUCT-05)이 없어 실사용 경로에서는 결과가 비어 있다 |
 | F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
 | F-ANALYSIS-03 호르몬 요인 반영 | ⬜ | 우선순위 L · **후순위** |
 | F-ANALYSIS-04 성분 프로파일 갱신 | ⬜ | F-ANALYSIS-01 |
@@ -104,7 +104,7 @@
 | CHECK-02 위험도 분석 | ⬜ | 프로파일 |
 | CHECK-03 확인 결과 조회 | ⬜ | CHECK-02 |
 | USER-02 성분 프로파일 전체 조회 | ⬜ | 프로파일 |
-| REPORT-01 리포트 조회 | 🟡 | SKIN-01. `insights`는 F-ANALYSIS-01 미구현으로 항상 빈 배열. 서비스 단위 테스트만 확인, 실서버 동작 미확인 |
+| REPORT-01 리포트 조회 | 🟡 | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다(목업 시드로 실서버 확인). 제품 기록이 없는 사용자에게는 빈 배열 |
 | REPORT-02 요인 상세 조회 | ⬜ | F-ANALYSIS-01 |
 | REPORT-03 일자별 리포트 조회 | ⬜ | SKIN-01 |
 
@@ -153,14 +153,58 @@
   그대로 채택 — 확정 시 백엔드 재확인 필요).
 - `metric` 쿼리 파라미터는 미지정 시 `TROUBLE`. 잘못된 값은 `422 COMMON_VALIDATION_FAILED`
   (전용 에러 코드가 명세에 없어 SKIN-01의 `timeSlot` 처리 관례를 따름).
-- **`insights`는 항상 빈 배열이다.** F-ANALYSIS-01(성분-피부 시차 분석)이 미구현이라 `AnalysisInsight`에
-  실데이터가 없다. 명세 규칙("실제 분석 데이터가 있는 인사이트만 반환, 부족하면 빈 배열")과 정합적이다.
-  `AnalysisInsight.confidenceScore`(DECIMAL)를 응답의 `confidence`("OBSERVED"/"OBSERVING") 문자열로
-  변환하는 임계값 기준은 아직 정해지지 않았다 — F-ANALYSIS-01 구현 시 함께 결정해야 한다.
+- **`insights`는 F-ANALYSIS-01의 결과를 반환한다.** `analysis_insights`를 신뢰도 내림차순으로 읽는다.
+  분석 결과가 없으면 빈 배열이며, 이는 명세 규칙("실제 분석 데이터가 있는 인사이트만 반환")과 정합적이다.
+  `confidenceScore` → `confidence`("OBSERVED"/"OBSERVING") 변환 임계값은 **67**로 확정했다.
+  패턴 확정 기준과 같은 값이라 한쪽만 바꾸면 어긋난다 ([ADR 0009](decisions/0009-시차-분석-패턴-확정-기준.md)).
 - REPORT-02·REPORT-03은 이번 범위에 포함하지 않았다.
 
-서비스 단위 테스트 6개(기간 검증 1 · 데이터 부족 1 · 결측 null 1 · 나이트 우선 1 · insights 빈 배열 1 ·
-metric 필터링 1). **로컬 MySQL로 실제 HTTP 요청까지 검증하지는 않았다.**
+서비스 단위 테스트 7개(기간 검증 1 · 데이터 부족 1 · 결측 null 1 · 나이트 우선 1 · insights 빈 배열 1 ·
+신뢰도 라벨 매핑 1 · metric 필터링 1). REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로
+확인했다(아래 2.7).
+
+### 2.7 F-ANALYSIS-01 구현 · 검증 내역
+
+성분-피부 시차 분석. 새 피부 기록이 저장될 때 `IngredientProfileUpdater` 훅에서 실행된다.
+
+| 클래스 | 역할 |
+| --- | --- |
+| `LagCorrelationAnalyzer` | 계산 전부. DB를 모르며 노출·관측 목록만 받는다 |
+| `IngredientLagAnalysisService` | 제품 기록 → 성분 노출, 피부 기록 → 관측으로 변환하는 DB 어댑터 |
+| `LagInsightWriter` | 패턴 후보를 `AnalysisInsight`로 저장 (회차마다 대체) |
+| `LagAnalysisProfileUpdater` | SKIN-01의 훅 구현. `NoOpIngredientProfileUpdater`를 대체 |
+
+확정 기준과 계산 규칙은 [ADR 0009](decisions/0009-시차-분석-패턴-확정-기준.md)에 있다.
+
+**제품 기록 저장 API(PRODUCT-05, A 담당)가 없어 실사용 경로에서는 결과가 항상 비어 있다.**
+엔티티와 테이블(`product_records` · `product_record_items` · `product_ingredients`)은 이미 있으므로,
+A의 API가 붙으면 **코드 변경 없이** 실데이터로 동작한다. 검증은 목업 시드로 했다.
+
+목업 시드(`backend/src/test/resources/seed/f-analysis-01-mockup.sql`)로 로컬 MySQL + 실서버 확인
+(2026-08-09). 무작위가 아니라 **의도한 패턴**을 심는다 — 그래야 분석기가 그 패턴을 잡았는지 알 수 있다.
+
+| 시나리오 | 기대 | 결과 |
+| --- | --- | --- |
+| 레티놀 18·12·6일 전 사용 → 2일 뒤 트러블 +15 | `OBSERVED` | 신뢰도 100 · "2일 뒤 트러블이 반복적으로 증가해요" |
+| 판테놀 18·11·8일 전 사용 → 뒤따르는 변화 없음 | `OBSERVING` | 신뢰도 33.33 · "확인 중이에요" |
+| 히알루론산(레티놀 세럼에 동봉) | 레티놀과 동일 패턴 | `OBSERVED` — **의도된 한계**(ADR 0009) |
+| REPORT-01 `insights` 정렬 | OBSERVED 우선 | 확정 2건이 앞, 확인 중 3건이 뒤 |
+| 같은 사용자 재분석 | 누적되지 않음 | 5행 유지(이전 회차 대체) |
+| 제품 기록 없는 사용자 | 빈 배열 · 오류 없음 | SKIN-01 201 · `insights: []` |
+
+자동 테스트 12개 — `LagCorrelationAnalyzerTest` 9개(확정 1 · 미확정 3 · 데이터 부족 2 · 시차 범위 1 ·
+슬롯 중복 제거 1 · 정렬 1)와 `IngredientLagAnalysisServiceTest` 3개(실패 기록 제외 1 · 제품 기록 없음 1 ·
+조회 횟수 고정 1). 전체 **71개 통과**.
+
+**조회 성능** — 노출 로딩은 제품 기록 수와 무관하게 쿼리 3번으로 고정된다(기록 · 항목 · 성분).
+이 분석이 SKIN-01 저장 경로에서 동기로 실행되므로 응답 시간에 그대로 얹히기 때문이다.
+실서버에서 제품 기록 5건 기준 `product_record_items` · `product_ingredients` 각 1회를 확인했다.
+
+**분석이 완료된 피부 기록만 관측으로 쓴다.** `analysisStatus != COMPLETED`인 기록은 지표를 믿을 수
+없는데, 그 값이 기준선이 되면 있지도 않은 변화를 패턴으로 잡는다.
+
+**아직 하지 않은 것** — F-ANALYSIS-02 환경 보정이 없어 자외선 영향과 성분 영향이 섞여 있다.
+`IngredientProfile` 갱신(F-ANALYSIS-04)은 이번 범위 밖이라 여전히 비어 있다.
 
 ---
 
