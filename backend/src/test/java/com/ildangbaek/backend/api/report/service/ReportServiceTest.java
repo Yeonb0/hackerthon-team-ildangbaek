@@ -2,13 +2,18 @@ package com.ildangbaek.backend.api.report.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 import com.ildangbaek.backend.api.report.dto.ReportGraphPointResponse;
+import com.ildangbaek.backend.api.report.dto.ReportInsightResponse;
 import com.ildangbaek.backend.api.report.dto.ReportResponse;
+import com.ildangbaek.backend.domain.analysis.entity.AnalysisInsight;
+import com.ildangbaek.backend.domain.analysis.entity.InsightType;
+import com.ildangbaek.backend.domain.analysis.repository.AnalysisInsightRepository;
 import com.ildangbaek.backend.domain.record.entity.AnalysisMethod;
 import com.ildangbaek.backend.domain.record.entity.SkinMetric;
 import com.ildangbaek.backend.domain.record.entity.SkinMetricType;
@@ -43,13 +48,15 @@ class ReportServiceTest {
     private SkinRecordRepository skinRecordRepository;
     @Mock
     private SkinMetricRepository skinMetricRepository;
+    @Mock
+    private AnalysisInsightRepository analysisInsightRepository;
 
     private ReportService service;
     private User user;
 
     @BeforeEach
     void setUp() {
-        service = new ReportService(skinRecordRepository, skinMetricRepository);
+        service = new ReportService(skinRecordRepository, skinMetricRepository, analysisInsightRepository);
         user = User.builder().provider(AuthProvider.KAKAO).providerUserId("u1").build();
     }
 
@@ -137,9 +144,9 @@ class ReportServiceTest {
         assertThat(todayPoint.score()).isEqualTo(90);
     }
 
-    @DisplayName("insights는 항상 빈 배열이다 — F-ANALYSIS-01 미구현")
+    @DisplayName("분석 인사이트가 없으면 insights는 빈 배열이다")
     @Test
-    void insightsAlwaysEmpty() {
+    void insightsEmptyWhenNoAnalysis() {
         LocalDate today = LocalDate.now();
         SkinRecord onlyRecord = record(1L, today, TimeSlot.MORNING);
 
@@ -147,11 +154,49 @@ class ReportServiceTest {
                 anyLong(), any(), any())).thenReturn(List.of(onlyRecord));
         when(skinMetricRepository.findAllBySkinRecordIdIn(anyList()))
                 .thenReturn(List.of(metric(onlyRecord, SkinMetricType.TROUBLE, 74)));
+        when(analysisInsightRepository.findAllByUserIdAndStartDateGreaterThanEqualOrderByConfidenceScoreDesc(
+                anyLong(), any())).thenReturn(List.of());
 
         ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
 
         assertThat(response.insights()).isEmpty();
         assertThat(response.failedSections()).isEmpty();
+    }
+
+    @DisplayName("신뢰도 임계값을 넘으면 OBSERVED, 못 넘으면 OBSERVING으로 내려간다")
+    @Test
+    void mapsConfidenceScoreToLabel() {
+        LocalDate today = LocalDate.now();
+        SkinRecord onlyRecord = record(1L, today, TimeSlot.MORNING);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of(onlyRecord));
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList()))
+                .thenReturn(List.of(metric(onlyRecord, SkinMetricType.TROUBLE, 74)));
+        when(analysisInsightRepository.findAllByUserIdAndStartDateGreaterThanEqualOrderByConfidenceScoreDesc(
+                anyLong(), any())).thenReturn(List.of(
+                        insight(101L, "레티놀", BigDecimal.valueOf(80)),
+                        insight(102L, "나이아신아마이드", BigDecimal.valueOf(50))));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        assertThat(response.insights()).extracting(
+                        ReportInsightResponse::insightId, ReportInsightResponse::confidence)
+                .containsExactly(tuple(101L, "OBSERVED"), tuple(102L, "OBSERVING"));
+        assertThat(response.insights().get(0).type()).isEqualTo("INGREDIENT");
+    }
+
+    private AnalysisInsight insight(Long id, String title, BigDecimal confidenceScore) {
+        AnalysisInsight insight = AnalysisInsight.builder()
+                .user(user)
+                .insightType(InsightType.INGREDIENT)
+                .metricType(SkinMetricType.TROUBLE)
+                .title(title)
+                .description("%s 사용 후 2일 뒤 트러블이 반복적으로 증가해요".formatted(title))
+                .confidenceScore(confidenceScore)
+                .build();
+        ReflectionTestUtils.setField(insight, "id", id);
+        return insight;
     }
 
     @DisplayName("metric 파라미터에 해당하는 지표만 그래프에 반영한다")
