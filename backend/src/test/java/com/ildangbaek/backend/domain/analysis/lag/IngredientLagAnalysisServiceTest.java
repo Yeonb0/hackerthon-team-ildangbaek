@@ -67,6 +67,8 @@ class IngredientLagAnalysisServiceTest {
     private SkinMetricRepository skinMetricRepository;
     @Mock
     private LagInsightWriter insightWriter;
+    @Mock
+    private IngredientProfileWriter profileWriter;
 
     private IngredientLagAnalysisService service;
     private User user;
@@ -77,7 +79,7 @@ class IngredientLagAnalysisServiceTest {
     void setUp() {
         service = new IngredientLagAnalysisService(productRecordRepository, productRecordItemRepository,
                 productIngredientRepository, skinRecordRepository, skinMetricRepository,
-                new LagCorrelationAnalyzer(), insightWriter);
+                new LagCorrelationAnalyzer(), insightWriter, profileWriter);
 
         user = User.builder().provider(AuthProvider.KAKAO).providerUserId("u1").build();
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -151,6 +153,63 @@ class IngredientLagAnalysisServiceTest {
 
         assertThat(service.analyzeAndStore(user, TODAY)).isZero();
         verify(insightWriter, never()).write(any(), anyList(), any(), any());
+    }
+
+    @DisplayName("확정 패턴이 없어도 성분 프로파일은 갱신한다 — USER-02가 데이터 부족 성분도 보여준다")
+    @Test
+    void updatesProfileEvenWithoutConfirmedPattern() {
+        // 모든 날 트러블 50으로 평탄해 확정될 패턴이 없다. 그래도 레티놀을 3일 썼다는 사실은 남아야 한다.
+        List<SkinRecord> records = new ArrayList<>();
+        List<SkinMetric> metrics = new ArrayList<>();
+        for (int day = 0; day < 20; day++) {
+            SkinRecord record = skinRecord((long) day + 1, TODAY.minusDays(day), true);
+            records.add(record);
+            metrics.add(metric(record, 50));
+        }
+
+        List<ProductRecord> productRecords = new ArrayList<>();
+        List<ProductRecordItem> items = new ArrayList<>();
+        for (int day : List.of(14, 8, 2)) {
+            ProductRecord productRecord = productRecord((long) day + 1, TODAY.minusDays(day));
+            productRecords.add(productRecord);
+            items.add(productRecordItem(productRecord, serum));
+        }
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(records);
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList())).thenReturn(metrics);
+        when(productRecordRepository.findAllByUserIdAndRecordDateBetween(anyLong(), any(), any()))
+                .thenReturn(productRecords);
+        when(productRecordItemRepository.findAllWithProductByProductRecordIdIn(anyList())).thenReturn(items);
+        when(productIngredientRepository.findAllWithIngredientByProductIdIn(anyList()))
+                .thenReturn(List.of(productIngredient(serum, retinol)));
+        when(insightWriter.write(any(), anyList(), any(), any())).thenReturn(List.of());
+
+        service.analyzeAndStore(user, TODAY);
+
+        verify(profileWriter).write(any(), anyList(), anyList());
+    }
+
+    @DisplayName("제품 기록이 없으면 프로파일도 갱신하지 않는다")
+    @Test
+    void skipsProfileWhenNoProductRecords() {
+        List<SkinRecord> records = new ArrayList<>();
+        List<SkinMetric> metrics = new ArrayList<>();
+        for (int day = 0; day < 10; day++) {
+            SkinRecord record = skinRecord((long) day + 1, TODAY.minusDays(day), true);
+            records.add(record);
+            metrics.add(metric(record, 50));
+        }
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(records);
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList())).thenReturn(metrics);
+        when(productRecordRepository.findAllByUserIdAndRecordDateBetween(anyLong(), any(), any()))
+                .thenReturn(List.of());
+
+        service.analyzeAndStore(user, TODAY);
+
+        verify(profileWriter, never()).write(any(), anyList(), anyList());
     }
 
     @DisplayName("제품 기록 수와 무관하게 노출 조회는 3번이다 — 기록마다 조회하면 N+1이 된다")

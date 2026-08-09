@@ -355,6 +355,16 @@ UNIQUE(user_id, ingredient_id)
 
 - 밤 피부 기록 완료 후 신규 데이터를 기반으로 갱신
 - 데이터가 부족하면 맞음이나 주의로 임의 분류하지 않음
+- `reaction_type`은 F-ANALYSIS-01이 **확정한** 패턴에서만 나온다. 확정된 악화 패턴이 있으면 `CAUTION`,
+  개선뿐이면 `SUITABLE`, 없으면 `INSUFFICIENT`다. 민감성 사용자는 악화 방향 변화량 기준만 완화된다. (ADR 0010)
+- `observation_count`는 분석 기간 내 **해당 성분의 노출 일수**다. 같은 날 모닝·나이트에 모두 썼으면 1일로 센다.
+  USER-02의 `recordCount`가 이 값이다.
+- `positive_count` · `negative_count`는 확정된 개선 · 악화 **패턴 수**다(관측 쌍 수가 아니다).
+  같은 지표에서 시차만 다른 패턴은 **1건으로 센다** — 현상 하나가 근거 여러 건으로 부풀지 않게 한다.
+- `profile_score`는 대표 패턴의 평균 변화량, `confidence_score`는 대표 패턴의 동일 방향 비율(0~100)이다.
+  `INSUFFICIENT` 행은 두 값과 `reason_summary`가 모두 `NULL`이다 — 판단하지 않은 성분에 근거를 만들지 않는다.
+- 행은 **삭제하지 않고 갱신한다.** `UNIQUE(user_id, ingredient_id)` 기준으로 덮어쓰므로 id가 유지된다.
+  회차마다 삭제·재삽입하는 `AnalysisInsight`와 다르다. (ADR 0010)
 
 ---
 

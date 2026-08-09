@@ -206,6 +206,47 @@ curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-
 확정 임계값은 `LagCorrelationAnalyzer`의 상수 3개에 모여 있고, REPORT-01의 `OBSERVED` 임계값
 (`ReportService.OBSERVED_THRESHOLD`)과 같은 값이어야 합니다. **한쪽만 바꾸면 판정이 어긋납니다.**
 
+## F-ANALYSIS-04 성분 프로파일
+
+같은 시드로 성분 프로파일도 함께 갱신됩니다. 위 `POST /skin-records` 호출 뒤 표를 직접 확인합니다.
+
+```bash
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek -e \
+  "SELECT i.korean_name, p.reaction_type, p.observation_count, p.reason_summary
+     FROM ingredient_profiles p JOIN ingredients i ON i.id = p.ingredient_id
+    WHERE p.user_id = 9001;"
+```
+
+레티놀·히알루론산은 `CAUTION`, 판테놀은 `INSUFFICIENT`(근거 `NULL`)로 나옵니다. 로컬 MySQL에서
+확인한 결과입니다 (2026-08-10). 분류 기준은
+[ADR 0010](../docs/decisions/0010-성분-프로파일-분류-기준.md)에 있습니다.
+
+같은 기록으로 다시 분석해도 **행 id가 유지되고 행 수도 늘지 않습니다.** 인사이트와 달리 프로파일은
+지웠다 다시 만들지 않기 때문입니다(ADR 0010). 재실행 후 `id`를 비교하면 확인됩니다.
+
+### 민감성 완화(BR 3) 확인
+
+위 시드만으로는 확인할 수 없습니다 — 레티놀의 변화량이 +15라 기본 기준으로도 확정되기 때문입니다.
+완화 전용 시드를 이어서 적용합니다.
+
+```bash
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek \
+  < backend/src/test/resources/seed/f-analysis-04-sensitive.sql
+```
+
+판테놀이 `INSUFFICIENT` → `CAUTION`(`profile_score` 2.5000)으로 바뀌고 근거에 `민감성 피부 기준 ·`
+접두어가 붙습니다. `DELETE FROM user_skin_types WHERE user_id = 9001;` 로 되돌리면 다시
+`INSUFFICIENT`가 되어 대조군이 됩니다.
+
+> ⚠️ **실사용 경로에서는 이 완화가 아직 동작하지 않습니다.** `skin_types` 마스터가 비어 있고
+> 온보딩(F-ONBOARD-02, A 담당)이 없어 `user_skin_types`에 아무도 없기 때문입니다. 위 시드가
+> 그 자리를 대신합니다. 온보딩이 붙으면 코드 변경 없이 켜집니다.
+
+민감성 완화 임계값(`IngredientProfileWriter.SENSITIVE_WORSENED_DELTA`)은 `LagCorrelationAnalyzer`의
+변화량 기준과 짝입니다. **한쪽을 바꾸면 다른 쪽도 함께 봐야 합니다.**
+
 ## 구현된 API
 
 | API | 상태 |
@@ -217,9 +258,12 @@ curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-
 
 - 인증(JWT 발급/검증) 및 Spring Security 설정 — A 담당 AUTH-01~03.
 - SKIN-02 · SKIN-03 조회 API — 응답 구조는 SKIN-01과 같아 DTO를 재사용할 수 있습니다.
-- 성분 프로파일 갱신(F-ANALYSIS-04) — `IngredientProfile`은 여전히 비어 있습니다.
-  F-ANALYSIS-01(시차 분석)은 구현되어 `AnalysisInsight`를 남기지만, 그 결과를 프로파일로 승격하는
-  단계는 별도 기능이라 하지 않았습니다.
+- 프로파일 완성도 계산(F-ANALYSIS-05) — 성분 프로파일 갱신(F-ANALYSIS-04)은 구현되어
+  `ingredient_profiles`를 채우지만, 완성도 퍼센트를 내는 단계는 별도 기능이라 하지 않았습니다.
+- `ingredient_profiles`를 읽는 API(USER-02 · F-CHECK) — 표는 채워지지만 아직 읽는 쪽이 없습니다.
+  그래서 F-ANALYSIS-04는 DB 행까지만 확인했고 응답 경로로는 검증하지 못했습니다.
+- `skin_types` 마스터 데이터 적재 — 표가 비어 있어 민감성 완화(F-ANALYSIS-04 BR 3)가 실사용
+  경로에서 켜지지 않습니다. 온보딩(F-ONBOARD-02) 구현과 함께 운영 시드가 필요합니다.
 - F-ANALYSIS-01의 실입력 — 로직은 완성됐지만 제품 기록 저장 API(A 담당 PRODUCT-05)가 없어
   실사용 경로에서는 결과가 비어 있습니다. 검증은 위 목업 시드로 했습니다.
 - 그 외 도메인 컨트롤러/서비스/DTO — `api.skin`을 예시로 추가해나가면 됩니다.

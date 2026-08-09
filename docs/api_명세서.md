@@ -728,6 +728,9 @@ json
 1. `status`가 `INSUFFICIENT`인 성분의 `reason`은 `null`이다. **데이터가 부족한 성분에 판단 근거를 지어내지 않는다.**
 2. `recordCount`는 해당 성분이 포함된 제품의 기록 횟수다. 사용자가 왜 아직 데이터 부족인지 이해할 수 있게 한다.
 3. 정렬은 `GOOD` → `CAUTION` → `INSUFFICIENT` 순, 그룹 내에서는 `recordCount` 내림차순이다.
+4. 응답은 `ingredient_profiles`를 읽는다. F-ANALYSIS-04가 새 피부 기록마다 이 표를 갱신한다.
+   `status`는 `reaction_type`이며 `SUITABLE`은 `GOOD`으로 변환한다(ADR 0004). `reason`은 `reason_summary`,
+   `recordCount`는 `observation_count`(성분 노출 일수)다. 판정 기준은 ADR 0010에 있다.
 
 > 대상 화면이 디자인 담당에게 제작 요청된 상태입니다. 화면 확정 후 필드가 추가될 수 있습니다.
 > 

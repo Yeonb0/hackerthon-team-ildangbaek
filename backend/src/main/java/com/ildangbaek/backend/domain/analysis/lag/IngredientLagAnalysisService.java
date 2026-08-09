@@ -30,7 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * F-ANALYSIS-01의 DB 어댑터. 제품 기록과 피부 기록을 읽어 {@link LagCorrelationAnalyzer}에 넘기고,
- * 나온 패턴 후보를 인사이트로 남긴다.
+ * 나온 패턴 후보를 인사이트({@link LagInsightWriter})와 성분 프로파일({@link IngredientProfileWriter},
+ * F-ANALYSIS-04)로 남긴다.
  *
  * <p>계산은 전부 분석기에 있다. 이 클래스는 조회와 형변환만 한다.
  *
@@ -54,6 +55,7 @@ public class IngredientLagAnalysisService {
     private final SkinMetricRepository skinMetricRepository;
     private final LagCorrelationAnalyzer analyzer;
     private final LagInsightWriter insightWriter;
+    private final IngredientProfileWriter profileWriter;
 
     /**
      * 사용자 한 명의 최근 기록을 분석해 인사이트를 갱신한다.
@@ -77,6 +79,11 @@ public class IngredientLagAnalysisService {
         }
 
         List<LagPattern> patterns = analyzer.analyze(exposures, observations);
+
+        // 패턴이 없어도 프로파일은 갱신한다. 노출된 성분에 "아직 데이터가 부족하다"는 상태를 남겨야
+        // USER-02가 그 성분을 몇 번 썼는지 보여줄 수 있다. (F-ANALYSIS-04)
+        profileWriter.write(user, exposures, patterns);
+
         if (patterns.isEmpty()) {
             return 0;
         }
