@@ -21,6 +21,7 @@ import { WeeklyRecordStrip } from '@/components/domain/WeeklyRecordStrip';
 import { TodayReportCard } from '@/components/domain/TodayReportCard';
 import { RecordSlotCard } from '@/components/domain/RecordSlotCard';
 import { RecordCalendar } from '@/components/domain/RecordCalendar';
+import { FaceGuideOverlay } from '@/components/domain/FaceGuideOverlay';
 import { EmptyState } from '@/components/state/EmptyState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { LoadingState } from '@/components/state/LoadingState';
@@ -35,6 +36,7 @@ import { color, space } from '@/theme/tokens';
  * 1차분 — Button / Card / Tag / ProgressBar
  * 2차분 — SegmentToggle / ProductCard / MetricScoreList / EmptyState / ErrorState / LoadingState / PermissionDenied
  * Phase 3 S-01 추가분 — Input / Chip / Stepper / InlineErrorBanner
+ * Phase 5 S-16 추가분 — FaceGuideOverlay
  */
 export default function CatalogScreen() {
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -239,8 +241,8 @@ export default function CatalogScreen() {
           items={[
             { key: 'trouble', label: '트러블', score: 72, delta: 5 },
             { key: 'redness', label: '홍조', score: 58, delta: -3 },
-            { key: 'pigment', label: '색소침착', score: 64, delta: 0 },
-            { key: 'pore', label: '모공', score: 80, delta: null },
+            { key: 'pores', label: '모공', score: 80, delta: null },
+            { key: 'pigmentation', label: '색소침착', score: 64, delta: 0 },
           ]}
         />
       </Section>
@@ -365,6 +367,15 @@ export default function CatalogScreen() {
         </Card>
       </Section>
 
+      <Section title="FaceGuideOverlay">
+        <Text style={styles.hint}>
+          S-16 카메라 라이브 뷰 위에 겹쳐 그리는 순수 안내선입니다 — 얼굴 인식 로직은 없습니다.
+        </Text>
+        <View style={styles.faceGuidePreview}>
+          <FaceGuideOverlay />
+        </View>
+      </Section>
+
       <Section title="EmptyState">
         <Card padding={4}>
           <EmptyState
@@ -455,5 +466,11 @@ const styles = StyleSheet.create({
   },
   progressSpacing: {
     marginBottom: space[3],
+  },
+  faceGuidePreview: {
+    alignItems: 'center',
+    backgroundColor: color.ink900,
+    borderRadius: 16,
+    paddingVertical: space[5],
   },
 });

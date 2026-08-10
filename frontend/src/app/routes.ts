@@ -26,9 +26,9 @@ export const DetailRoutes = {
   ProductScan: 'ProductScan', // S-13
   IngredientCheck: 'IngredientCheck', // S-14 · 제품 기록 저장 지점
   PhotoGuide: 'PhotoGuide', // S-15
-  FaceCapture: 'FaceCapture', // S-16
+  FaceCapture: 'FaceCapture', // S-16 — 촬영/프리뷰·재촬영 내부 상태 (화면 구조상 별도 미리보기 화면 없음)
   AnalyzingSkin: 'AnalyzingSkin', // S-17
-  SkinResult: 'SkinResult', // S-18 · 피부 기록 저장 지점
+  SkinResult: 'SkinResult', // S-18 · 분석 결과 표시 (저장은 SKIN-01 POST 시점에 이미 완료 — TBD-10b A안)
   MetricDetail: 'MetricDetail', // S-20
   CheckResult: 'CheckResult', // S-22
   LocationSettings: 'LocationSettings', // S-24
@@ -63,7 +63,8 @@ export type DetailStackParamList = {
   [DetailRoutes.IngredientCheck]: { productId: number };
   [DetailRoutes.PhotoGuide]: { timeSlot: TimeSlot };
   [DetailRoutes.FaceCapture]: { timeSlot: TimeSlot };
-  [DetailRoutes.AnalyzingSkin]: { timeSlot: TimeSlot };
+  // imageUri: S-16에서 촬영을 마친 로컬 파일 URI. S-17이 이 값을 압축·업로드합니다.
+  [DetailRoutes.AnalyzingSkin]: { timeSlot: TimeSlot; imageUri: string };
   [DetailRoutes.SkinResult]: { timeSlot?: TimeSlot };
   [DetailRoutes.MetricDetail]: { metricKey: string };
   [DetailRoutes.CheckResult]: { productId: number };
