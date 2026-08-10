@@ -8,15 +8,17 @@ type SegmentOption<T extends string> = {
 };
 
 type SegmentToggleProps<T extends string> = {
-  /** 정확히 2개 — 낮/밤 홈 토글, 스캐너 바코드/사진 모드 전환 등 */
-  options: [SegmentOption<T>, SegmentOption<T>];
+  /** 2개 이상 — flex:1로 균등 배분되므로 몇 개든 그립니다. 기존엔 2지선다 전용이었지만
+   * S-19 기간 토글(7/14/30일, 관리자님 요청 2026-08-10)에서 3개가 필요해져 배열로
+   * 완화했습니다. 렌더링이 이미 .map() 기반이라 동작 변화는 없습니다. */
+  options: SegmentOption<T>[];
   value: T;
   onChange: (value: T) => void;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
- * 2지선다 토글. 낮/밤 홈, 스캐너 2모드 전환에 재사용합니다.
+ * N지선다 토글(기본은 2지선다로 써왔음 — 낮/밤 홈, 스캐너 2모드 전환, S-19 기간 3택).
  */
 export function SegmentToggle<T extends string>({
   options,

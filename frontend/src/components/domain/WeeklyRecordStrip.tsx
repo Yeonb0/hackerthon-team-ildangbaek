@@ -6,7 +6,13 @@ import { color, space, typography } from '@/theme';
 import type { WeeklyCalendarDay } from '@/types/home';
 
 type WeeklyRecordStripProps = {
-  /** 이번 주(월~오늘)만 옵니다 — 명세서 HOME-01 규칙, 이번 달 전체는 기록 허브(F-RECORD-01) 담당 */
+  /**
+   * 명세상으로는 "이번 주(월~오늘)"만 옵니다(HOME-01 BR1) — 이번 달 전체는 기록
+   * 허브(F-RECORD-01) 담당. 다만 이 규칙대로면 월요일엔 1칸만 와서(관리자님 확인,
+   * 2026-08-10) 최근 7일(롤링)로 바꿔달라고 백엔드에 요청해뒀습니다
+   * (request-weekly-calendar-rolling-7days.md 참고). 목업은 이미 롤링 7일을 주므로,
+   * 이 컴포넌트는 며칠이 오든 그대로 그리기만 합니다 — 개수를 가정하지 않습니다.
+   */
   days: WeeklyCalendarDay[];
   style?: StyleProp<ViewStyle>;
 };

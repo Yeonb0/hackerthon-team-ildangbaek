@@ -51,15 +51,28 @@ export interface MonthGridCell {
 
 const TOTAL_GRID_CELLS = 42; // 6주 고정 — 달마다 그리드 높이가 바뀌지 않게 (Calendar.tsx와 동일 원칙)
 
+export type WeekStart = 'SUNDAY' | 'MONDAY';
+
 /**
  * 지정한 달의 42칸 그리드(이전/다음 달 여백 포함)를 계산합니다.
  * components/base/Calendar.tsx(S-04 날짜 선택)에서 쓰던 것과 같은 계산이라, 기록 허브
  * 캘린더(F-RECORD-01)에서 재사용하려고 순수 함수로 분리했습니다. Calendar.tsx 자체는
  * 이미 검증된 코드라 건드리지 않았고, 그 결과 지금은 그리드 계산이 두 군데 있습니다 —
  * 여유 있을 때 Calendar.tsx도 이 함수를 쓰도록 정리하면 좋습니다.
+ *
+ * weekStart 기본값을 'MONDAY'로 바꿨습니다(관리자님 요청, 2026-08-10 — 기록 허브
+ * 캘린더만 대상, Calendar.tsx는 별도 구현이라 영향 없음). 나중에 설정 화면에서
+ * 사용자가 고를 수 있게 할 계획이라 하드코딩하지 않고 파라미터로 열어뒀습니다.
  */
-export function getMonthGridCells(year: number, month: number): MonthGridCell[] {
-  const startWeekday = new Date(year, month, 1).getDay();
+export function getMonthGridCells(
+  year: number,
+  month: number,
+  weekStart: WeekStart = 'MONDAY'
+): MonthGridCell[] {
+  const rawStartWeekday = new Date(year, month, 1).getDay(); // 0(일)~6(토)
+  // 월요일 시작 그리드에서는 "1일이 몇 번째 칸인지"가 다르게 계산됩니다.
+  // 일요일(0)이면 월요일 시작 기준 6번째 칸, 월요일(1)이면 0번째 칸이 됩니다.
+  const startWeekday = weekStart === 'MONDAY' ? (rawStartWeekday + 6) % 7 : rawStartWeekday;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
   const leadingCount = startWeekday;

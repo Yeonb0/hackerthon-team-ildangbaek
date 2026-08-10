@@ -13,6 +13,12 @@
 //   그대로 유지되고, 다음에 홈에 진입하면 온보딩부터 다시 시작합니다.
 // - 피부 기록 초기화: 오늘 새로 완료한 피부 기록의 목업 세션만 지웁니다. 기록 허브가
 //   다시 "미완료"로 보이게 됩니다. 로그인/온보딩 상태는 그대로입니다.
+// - 리포트 목업 전환: S-19가 GET /reports 목업으로부터 "기록 있음"(정상 데이터) 또는
+//   "기록 부족"(REPORT_DATA_INSUFFICIENT 409) 중 어떤 응답을 받을지 즉시 바꿉니다.
+//   예전엔 .env의 EXPO_PUBLIC_MOCK_REPORT_INSUFFICIENT + 앱 재시작으로 전환했는데,
+//   매번 재시작해야 해서 여기서 바로 전환하도록 옮겼습니다(관리자님 요청). 전환할 때마다
+//   해당 리포트 쿼리를 무효화하고, S-19의 "아직 리포트를 만들 수 없어요" 팝업을 다시 볼 수
+//   있도록 1회 노출 상태(reportUiStore)도 같이 초기화합니다.
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,6 +27,8 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { setMockOnboardingCompleted } from '@/api/mock/mockPersistence';
 import { resetMockSession } from '@/api/mock/onboarding';
 import { resetMockRecordSession } from '@/api/mock/record';
+import { setMockReportScenario } from '@/api/mock/report';
+import { useReportUiStore } from '@/store/reportUiStore';
 import { color, radius, space } from '@/theme/tokens';
 
 export function DevResetButton() {
@@ -64,6 +72,26 @@ export function DevResetButton() {
           // (AnalyzingSkinScreen에서 분석 성공 후 하는 것과 같은 이유).
           queryClient.invalidateQueries({ queryKey: ['recordToday'] });
           queryClient.invalidateQueries({ queryKey: ['recordCalendar'] });
+        }),
+    },
+    {
+      label: '리포트 목업 → 기록 있음',
+      onPress: () =>
+        runReset(() => {
+          setMockReportScenario('sufficient');
+          useReportUiStore.getState().resetInsufficientPopupSeen();
+          // queryKey가 ['report', period, metric]이라 ['report']만 넘기면 부분 일치로
+          // 모든 기간·지표 조합이 함께 무효화됩니다.
+          queryClient.invalidateQueries({ queryKey: ['report'] });
+        }),
+    },
+    {
+      label: '리포트 목업 → 기록 부족',
+      onPress: () =>
+        runReset(() => {
+          setMockReportScenario('insufficient');
+          useReportUiStore.getState().resetInsufficientPopupSeen();
+          queryClient.invalidateQueries({ queryKey: ['report'] });
         }),
     },
   ];

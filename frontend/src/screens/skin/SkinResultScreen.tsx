@@ -12,7 +12,7 @@ import { MetricScoreList } from '@/components/domain/MetricScoreList';
 import { toMetricList } from '@/api/adapters';
 import { getSkinRecordToday } from '@/api/skin';
 import { ApiError } from '@/api/unwrap';
-import { DetailStackParamList } from '@/app/routes';
+import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { SkinRecordResult } from '@/types/skin';
 
@@ -23,10 +23,17 @@ type NavProp = NativeStackNavigationProp<DetailStackParamList>;
  * 마치고 들어온 경우든, 기록 허브에서 이미 완료된 기록을 다시 보러 들어온 경우든
  * "오늘 이 시간대 기록을 보여준다"는 점에서 동일해서 같은 코드 경로로 처리합니다.
  *
- * 확인 버튼: TBD-10b A안(관리자 확인, 2026-08-09) — 기록은 SKIN-01 POST 시점에 이미
- * 저장이 끝난 상태라, 이 버튼은 추가 저장 없이 화면만 닫습니다. S-17에서 replace로
- * 넘어온 경우든 기록 허브에서 navigate로 들어온 경우든, 바로 이전 화면이 항상
- * 기록 허브(Tabs)라서 goBack 하나로 충분합니다.
+ * 확인 버튼 → 닫기/리포트 보러가기 2버튼 (관리자님 요청, 2026-08-10): TBD-10b A안
+ * (관리자 확인, 2026-08-09) — 기록은 SKIN-01 POST 시점에 이미 저장이 끝난 상태라
+ * 둘 다 추가 저장은 하지 않습니다.
+ * - 닫기: 그냥 화면을 닫습니다(goBack). S-17에서 replace로 넘어온 경우든 기록
+ *   허브에서 navigate로 들어온 경우든, 바로 이전 화면이 항상 기록 허브(Tabs)라서
+ *   goBack 하나로 충분합니다.
+ * - 리포트 보러가기: S-19(리포트 탭)로 이동합니다. 이 시점부터는 촬영 플로우로
+ *   돌아갈 이유가 없어서(같은 시간대 재기록은 서버가 409로 막음), navigate 대신
+ *   reset으로 스택을 [Tabs(Report)] 하나로 정리합니다 — FaceCaptureScreen의 reset
+ *   패턴과 동일한 이유(state 없이 'Tabs'만 넣으면 탭 내비게이터가 기본 탭인 홈으로
+ *   열리는 버그가 있어서, Report 탭 상태를 명시합니다).
  *
  * ⚠️ 기록이 아예 없는 상태로 이 화면에 들어오는 건(SKIN_RECORD_NOT_FOUND) 정상 흐름상
  * 발생하지 않습니다 — 기록 허브가 completed일 때만 이 화면으로 보내기 때문입니다.
@@ -56,8 +63,22 @@ export function SkinResultScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleConfirm = () => {
+  const handleClose = () => {
     navigation.goBack();
+  };
+
+  const handleGoToReport = () => {
+    navigation.reset({
+      index: 0,
+      routes: [
+        {
+          name: 'Tabs',
+          state: {
+            routes: [{ name: MainTabRoutes.Report }],
+          },
+        },
+      ],
+    });
   };
 
   if (loadError) {
@@ -95,7 +116,15 @@ export function SkinResultScreen() {
         <MetricScoreList items={metrics} />
       </Card>
 
-      <Button label="확인" variant="primary" onPress={handleConfirm} style={styles.confirmButton} />
+      <View style={styles.buttonRow}>
+        <Button label="닫기" variant="secondary" onPress={handleClose} style={styles.buttonHalf} />
+        <Button
+          label="리포트 보러가기"
+          variant="primary"
+          onPress={handleGoToReport}
+          style={styles.buttonHalf}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -139,7 +168,12 @@ const styles = StyleSheet.create({
   metricsCard: {
     marginTop: space[3],
   },
-  confirmButton: {
+  buttonRow: {
+    flexDirection: 'row',
+    gap: space[3],
     marginTop: space[5],
+  },
+  buttonHalf: {
+    flex: 1,
   },
 });
