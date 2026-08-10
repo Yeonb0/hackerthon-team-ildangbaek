@@ -33,14 +33,14 @@ const MOCK_DAY_HOME: HomeResponse = {
   failedSections: [],
 };
 
-// F-HOME-06 BR1: "이번 주(월~오늘)만 표시한다." 날짜를 고정 배열로 박아두면 오늘이
-// 무슨 요일이냐에 따라 칸 수가 안 맞습니다(월요일이면 1칸, 일요일이면 7칸이어야 정상).
-// 그래서 실행 시점의 실제 오늘 날짜 기준으로 이번 주 월요일부터 오늘까지를 매번 계산합니다.
+// ⚠️ 실제 명세(F-HOME-06 BR1)는 "이번 주(월~오늘)만 표시한다"입니다 — 요일에 따라
+// 1~7칸으로 들쭉날쭉하고, 특히 월요일엔 1칸만 나와서 위젯 정보량이 거의 없어집니다.
+// 관리자님 요청(2026-08-10)으로 화면 검증용 목업은 먼저 "최근 7일(롤링)"로 바꿨습니다.
+// 실서버는 아직 명세대로 동작합니다 — 백엔드에 변경 요청 문서를 별도로 전달했습니다
+// (request-weekly-calendar-rolling-7days.md). 확정되면 여기 주석도 정리해주세요.
 function buildMockWeeklyCalendar(): WeeklyCalendarDay[] {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0=일 ~ 6=토
-  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const numDays = daysSinceMonday + 1; // 이번 주 월요일부터 오늘까지 칸 수
+  const numDays = 7; // 요일 무관하게 항상 최근 7일(오늘 포함)
 
   // 오늘(마지막 칸)은 아래 MOCK_NIGHT_HOME.todayRecord.night와 값을 맞춰서(모닝 완료 ·
   // 나이트 미완료) 데모 데이터끼리 앞뒤가 맞게 했습니다. 그 이전 날짜들은 데모용으로

@@ -22,13 +22,18 @@ import { TodayReportCard } from '@/components/domain/TodayReportCard';
 import { RecordSlotCard } from '@/components/domain/RecordSlotCard';
 import { RecordCalendar } from '@/components/domain/RecordCalendar';
 import { FaceGuideOverlay } from '@/components/domain/FaceGuideOverlay';
+import { InsightCard } from '@/components/domain/InsightCard';
 import { EmptyState } from '@/components/state/EmptyState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { LoadingState } from '@/components/state/LoadingState';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
+import { Popup } from '@/components/base/Popup';
+import { TrendGraph } from '@/components/chart/TrendGraph';
+import { RadarChart, RadarChartItem } from '@/components/chart/RadarChart';
 import { getTodayDateString } from '@/lib/date';
 import { color, space } from '@/theme/tokens';
+import type { GraphPoint } from '@/types/report';
 
 /**
  * 개발용 컴포넌트 카탈로그.
@@ -37,7 +42,33 @@ import { color, space } from '@/theme/tokens';
  * 2차분 — SegmentToggle / ProductCard / MetricScoreList / EmptyState / ErrorState / LoadingState / PermissionDenied
  * Phase 3 S-01 추가분 — Input / Chip / Stepper / InlineErrorBanner
  * Phase 5 S-16 추가분 — FaceGuideOverlay
+ * Phase 6 추가분 — TrendGraph / RadarChart(실제 화면 미배치, 카탈로그 전용) / Popup / InsightCard
  */
+
+// Phase 6 데모용 표본 데이터 생성 함수 — 실제 화면 코드가 아니라 카탈로그 전용입니다.
+function buildDemoGraphPoints(count: number): GraphPoint[] {
+  const points: GraphPoint[] = [];
+  const today = new Date();
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`;
+    const score = i % 3 === 0 ? null : 60 + Math.round(Math.sin(i) * 20);
+    points.push({ date, score });
+  }
+  return points;
+}
+
+const RADAR_POOL: RadarChartItem[] = [
+  { key: 'trouble', label: '트러블', score: 72 },
+  { key: 'redness', label: '홍조', score: 58 },
+  { key: 'pores', label: '모공', score: 80 },
+  { key: 'pigmentation', label: '색소침착', score: 64 },
+  { key: 'moisture', label: '수분', score: 45 },
+  { key: 'oil', label: '유분', score: 70 },
+];
 export default function CatalogScreen() {
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [dayNight, setDayNight] = useState<'day' | 'night'>('day');
@@ -52,6 +83,10 @@ export default function CatalogScreen() {
   const [wheelCycle, setWheelCycle] = useState(28);
   const [recordCalYear, setRecordCalYear] = useState(2026);
   const [recordCalMonth, setRecordCalMonth] = useState(7); // 0-indexed, 8월
+  const [trendVariant, setTrendVariant] = useState<'bar' | 'line'>('line');
+  const [trendPointCount, setTrendPointCount] = useState<0 | 1 | 7 | 30>(7);
+  const [radarCount, setRadarCount] = useState<3 | 4 | 6>(4);
+  const [popupVisible, setPopupVisible] = useState(false);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -420,6 +455,96 @@ export default function CatalogScreen() {
           <PermissionDenied type="notification" onOpenSettings={() => {}} />
         </Card>
       </Section>
+
+      <Section title="TrendGraph (S-19/S-20 둘 다 선 사용 — 막대는 예비 옵션)">
+        <Text style={styles.hint}>
+          완료 기준 검증용 — 아래에서 데이터 0/1/7/30일차를 전부 눌러 화면이 죽지 않는지
+          확인하세요. line 모드에서 1일차는 점 하나로만 표시됩니다(선을 그릴 수 없음).
+        </Text>
+        <SegmentToggle
+          options={[
+            { value: 'bar', label: '막대' },
+            { value: 'line', label: '선 (실사용)' },
+          ]}
+          value={trendVariant}
+          onChange={setTrendVariant}
+        />
+        <Row>
+          {([0, 1, 7, 30] as const).map((count) => (
+            <Chip
+              key={count}
+              label={`${count}일`}
+              selected={trendPointCount === count}
+              onPress={() => setTrendPointCount(count)}
+            />
+          ))}
+        </Row>
+        <Card padding={4}>
+          <TrendGraph points={buildDemoGraphPoints(trendPointCount)} variant={trendVariant} />
+        </Card>
+      </Section>
+
+      <Section title="RadarChart (실제 화면 미배치 — 카탈로그 전용)">
+        <Text style={styles.hint}>
+          REPORT-01/02 API에는 여러 지표를 한 시점에 동시 비교하는 데이터가 없어서(관리자
+          확인, 2026-08-10) S-19/S-20에는 배치하지 않았습니다. n각형 범용 동작만 여기서
+          검증합니다 — 지표 3→4→6개로 바꿔도 라벨이 도형을 파고들지 않아야 합니다.
+        </Text>
+        <Row>
+          {([3, 4, 6] as const).map((count) => (
+            <Chip
+              key={count}
+              label={`${count}개`}
+              selected={radarCount === count}
+              onPress={() => setRadarCount(count)}
+            />
+          ))}
+        </Row>
+        <View style={styles.radarPreview}>
+          <RadarChart items={RADAR_POOL.slice(0, radarCount)} />
+        </View>
+      </Section>
+
+      <Section title="Popup">
+        <Text style={styles.hint}>
+          S-19 데이터부족(REPORT_DATA_INSUFFICIENT) 안내에 처음 쓰는 base 컴포넌트입니다.
+          문구는 기획 확정 전 placeholder입니다.
+        </Text>
+        <Button label="데이터부족 팝업 열기" variant="secondary" onPress={() => setPopupVisible(true)} />
+        <Popup
+          visible={popupVisible}
+          title="아직 리포트를 만들 수 없어요"
+          description="피부 기록이 더 쌓이면 리포트를 확인할 수 있어요. (placeholder 문구 — 기획 확정 대기)"
+          primaryLabel="기록하러 가기"
+          onPrimaryPress={() => setPopupVisible(false)}
+          secondaryLabel="닫기"
+          onSecondaryPress={() => setPopupVisible(false)}
+          onRequestClose={() => setPopupVisible(false)}
+        />
+      </Section>
+
+      <Section title="InsightCard">
+        <InsightCard
+          insight={{
+            insightId: 101,
+            type: 'INGREDIENT',
+            title: '레티놀',
+            description: '레티놀 세럼 사용 후 2일 뒤 트러블이 반복적으로 증가해요',
+            confidence: 'OBSERVED',
+          }}
+          onPress={() => {}}
+        />
+        <InsightCard
+          insight={{
+            insightId: 103,
+            type: 'ENVIRONMENT',
+            title: '자외선',
+            description: '자외선 높은 날 다음 날 홍조 수치가 높아지는 경향을 확인하는 중이에요',
+            confidence: 'OBSERVING',
+          }}
+          onPress={() => {}}
+        />
+      </Section>
     </ScrollView>
   );
 }
@@ -472,5 +597,9 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink900,
     borderRadius: 16,
     paddingVertical: space[5],
+  },
+  radarPreview: {
+    alignItems: 'center',
+    paddingVertical: space[3],
   },
 });

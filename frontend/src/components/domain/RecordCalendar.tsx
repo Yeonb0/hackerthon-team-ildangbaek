@@ -3,6 +3,7 @@ import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-n
 import { Ionicons } from '@expo/vector-icons';
 import { RecordDot } from '@/components/domain/RecordDot';
 import { getMonthGridCells, isFutureDateString } from '@/lib/date';
+import type { WeekStart } from '@/lib/date';
 import { color, space, typography } from '@/theme';
 import type { RecordCalendarDay } from '@/types/record';
 
@@ -13,10 +14,14 @@ type RecordCalendarProps = {
   days: RecordCalendarDay[];
   onPrevMonth: () => void;
   onNextMonth: () => void;
+  /** 주 시작 요일. 기본값을 월요일로 바꿨습니다(관리자님 요청, 2026-08-10). 나중에
+   * 설정 화면에서 사용자가 고를 수 있게 할 계획이라 prop으로 열어뒀습니다. */
+  weekStart?: WeekStart;
   style?: StyleProp<ViewStyle>;
 };
 
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_LABELS_SUNDAY_FIRST = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_LABELS_MONDAY_FIRST = ['월', '화', '수', '목', '금', '토', '일'];
 const CELL_SIZE = 44;
 
 /**
@@ -35,9 +40,11 @@ export function RecordCalendar({
   days,
   onPrevMonth,
   onNextMonth,
+  weekStart = 'MONDAY',
   style,
 }: RecordCalendarProps) {
-  const cells = getMonthGridCells(year, month);
+  const cells = getMonthGridCells(year, month, weekStart);
+  const weekdayLabels = weekStart === 'MONDAY' ? WEEKDAY_LABELS_MONDAY_FIRST : WEEKDAY_LABELS_SUNDAY_FIRST;
   const dayMap = new Map(days.map((d) => [d.date, d]));
 
   return (
@@ -69,7 +76,7 @@ export function RecordCalendar({
       </View>
 
       <View style={styles.weekdayRow}>
-        {WEEKDAY_LABELS.map((label) => (
+        {weekdayLabels.map((label) => (
           <Text key={label} style={styles.weekdayLabel}>
             {label}
           </Text>

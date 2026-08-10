@@ -66,7 +66,9 @@ export type DetailStackParamList = {
   // imageUri: S-16에서 촬영을 마친 로컬 파일 URI. S-17이 이 값을 압축·업로드합니다.
   [DetailRoutes.AnalyzingSkin]: { timeSlot: TimeSlot; imageUri: string };
   [DetailRoutes.SkinResult]: { timeSlot?: TimeSlot };
-  [DetailRoutes.MetricDetail]: { metricKey: string };
+  // REPORT-02(GET /reports/insights/{insightId}) 기준 — 화면 이름(MetricDetail)은
+  // Phase 0 명명을 그대로 두지만, 실제로는 지표가 아니라 인사이트 단위로 조회합니다.
+  [DetailRoutes.MetricDetail]: { insightId: number };
   [DetailRoutes.CheckResult]: { productId: number };
   [DetailRoutes.LocationSettings]: undefined;
 };
