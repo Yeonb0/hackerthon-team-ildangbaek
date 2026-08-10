@@ -126,7 +126,15 @@ export function RecordHubScreen() {
           label="피부 기록"
           completed={slots.skin.completed}
           summary={slots.skin.summary}
-          onPress={() => navigation.navigate(DetailRoutes.PhotoGuide, { timeSlot: currentTab })}
+          // 이미 오늘 이 시간대 피부 기록이 있으면(체크 표시) 촬영 화면(S-15)이 아니라
+          // 그 결과를 보여주는 S-18로 보냅니다. 서버도 같은 슬롯 재촬영을 409
+          // SKIN_ALREADY_RECORDED_IN_SLOT으로 막기 때문에, 프론트에서 애초에 촬영
+          // 진입 자체를 막는 게 자연스럽습니다.
+          onPress={() =>
+            slots.skin.completed
+              ? navigation.navigate(DetailRoutes.SkinResult, { timeSlot: currentTab })
+              : navigation.navigate(DetailRoutes.PhotoGuide, { timeSlot: currentTab })
+          }
         />
       </View>
     </ScrollView>

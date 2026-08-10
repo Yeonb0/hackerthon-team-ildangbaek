@@ -3,6 +3,7 @@ import { formatDateString, getTodayDateString } from '@/lib/date';
 import { getFixedHomeType } from '@/lib/dayNight';
 import type { RecordCalendarResponse, RecordTodayResponse } from '@/types/record';
 import type { RecordDotStatus } from '@/types/home';
+import type { TimeSlot } from '@/app/routes';
 
 // 데모용 패턴을 날짜별로 순환시켜서 채움/외곽선/흐림이 섞여 보이게 합니다.
 // 오늘 이후 날짜는 전부 NONE으로 덮어씁니다(RECORD-01 BR3: 미래 날짜도 NONE으로 포함).
@@ -46,8 +47,27 @@ export function buildMockRecordCalendar(yearMonth?: string): RecordCalendarRespo
   };
 }
 
+// ---------------------------------------------------------------------------
+// 목업 세션 (오늘 새로 완료한 피부 기록 기억 — S-17에서 mock 분석이 끝나면
+// recordMockSkinCompletion()으로 여기 기록해두고, 기록 허브가 다시 조회할 때
+// 반영합니다. 실제 백엔드는 DB에 바로 저장되니 이런 게 필요 없지만, mock은 상태가
+// 없어서 매번 아래 고정값만 내려주면 "촬영 → 분석 후에도 기록 허브가 계속 미완료로
+// 보이는" 문제가 생깁니다. 앱 재시작하면 초기화되는 세션 한정 메모리입니다.)
+// ---------------------------------------------------------------------------
+const mockSkinCompletions: Partial<Record<TimeSlot, { summary: string }>> = {};
+
+export function recordMockSkinCompletion(timeSlot: TimeSlot, summary: string): void {
+  mockSkinCompletions[timeSlot] = { summary };
+}
+
+/** DevResetButton(개발용 초기화 버튼)에서 호출합니다 — onboarding.ts의 resetMockSession과 같은 역할. */
+export function resetMockRecordSession(): void {
+  delete mockSkinCompletions.MORNING;
+  delete mockSkinCompletions.NIGHT;
+}
+
 export function buildMockRecordToday(): RecordTodayResponse {
-  return {
+  const base: RecordTodayResponse = {
     date: getTodayDateString(),
     // 낮/밤 판정(getFixedHomeType)을 그대로 재사용 — DAY→MORNING, NIGHT→NIGHT
     // (F-HOME-05의 CTA 매핑과 동일한 대응 관계입니다)
@@ -61,4 +81,15 @@ export function buildMockRecordToday(): RecordTodayResponse {
       skin: { completed: false, skinRecordId: null, summary: null },
     },
   };
+
+  const morningCompletion = mockSkinCompletions.MORNING;
+  if (morningCompletion) {
+    base.morning.skin = { completed: true, skinRecordId: 9999, summary: morningCompletion.summary };
+  }
+  const nightCompletion = mockSkinCompletions.NIGHT;
+  if (nightCompletion) {
+    base.night.skin = { completed: true, skinRecordId: 9999, summary: nightCompletion.summary };
+  }
+
+  return base;
 }
