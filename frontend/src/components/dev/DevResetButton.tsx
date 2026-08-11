@@ -26,8 +26,10 @@ import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { setMockOnboardingCompleted } from '@/api/mock/mockPersistence';
 import { resetMockSession } from '@/api/mock/onboarding';
-import { resetMockRecordSession } from '@/api/mock/record';
+import { resetMockRecordSession, resetMockProductCompletion } from '@/api/mock/record';
+import { resetMockProductSession, setMockScanScenario } from '@/api/mock/product';
 import { setMockReportScenario } from '@/api/mock/report';
+import { setMockCheckScenario } from '@/api/mock/check';
 import { useReportUiStore } from '@/store/reportUiStore';
 import { color, radius, space } from '@/theme/tokens';
 
@@ -72,6 +74,24 @@ export function DevResetButton() {
           // (AnalyzingSkinScreen에서 분석 성공 후 하는 것과 같은 이유).
           queryClient.invalidateQueries({ queryKey: ['recordToday'] });
           queryClient.invalidateQueries({ queryKey: ['recordCalendar'] });
+          queryClient.invalidateQueries({ queryKey: ['home'] });
+        }),
+    },
+    {
+      // Phase 7-A 추가 — savedProducts/routines/alreadyRecorded 세션을 초기값으로 되돌립니다.
+      // S-11 루틴 바로 기록의 중복(PRODUCT_ALREADY_RECORDED_IN_SLOT) 케이스를 다시 보고 싶을 때 씁니다.
+      // 기록 허브 체크 표시(mockProductCompletions)도 같이 지우고, recordToday·recordCalendar·
+      // home 캐시를 무효화해야 기록 허브·밤 홈 캘린더에 즉시 반영됩니다(2026-08-10 버그 수정과 짝).
+      label: '제품 기록 초기화',
+      onPress: () =>
+        runReset(() => {
+          resetMockProductSession();
+          resetMockProductCompletion();
+          queryClient.invalidateQueries({ queryKey: ['productRecordHome'] });
+          queryClient.invalidateQueries({ queryKey: ['productSearch'] });
+          queryClient.invalidateQueries({ queryKey: ['recordToday'] });
+          queryClient.invalidateQueries({ queryKey: ['recordCalendar'] });
+          queryClient.invalidateQueries({ queryKey: ['home'] });
         }),
     },
     {
@@ -93,6 +113,39 @@ export function DevResetButton() {
           useReportUiStore.getState().resetInsufficientPopupSeen();
           queryClient.invalidateQueries({ queryKey: ['report'] });
         }),
+    },
+    {
+      // Phase 7-B 추가 — S-13 스캔(PRODUCT-04)이 실기기에서 정말 인식되는지는 사전에
+      // 보장할 수 없는 "데모 최대 리스크" 구간이라(로드맵 명시), 실패 케이스를 일부러
+      // 재현해서 재스캔/검색 전환 경로가 제대로 뜨는지 미리 확인할 수 있게 했습니다.
+      label: '스캔 목업 → 성공(기본값)',
+      onPress: () => runReset(() => setMockScanScenario('SUCCESS')),
+    },
+    {
+      label: '스캔 목업 → 인식 실패',
+      onPress: () => runReset(() => setMockScanScenario('NOT_DETECTED')),
+    },
+    {
+      label: '스캔 목업 → 화질 부족',
+      onPress: () => runReset(() => setMockScanScenario('LOW_QUALITY')),
+    },
+    {
+      label: '스캔 목업 → 서비스 장애',
+      onPress: () => runReset(() => setMockScanScenario('UNAVAILABLE')),
+    },
+    {
+      // Phase 7-2 추가 — S-22의 두 가지 409(빈 상태) 케이스를 재현합니다. 빨간 오류 UI가
+      // 아니라 안내 문구로 뜨는지 확인할 때 씁니다.
+      label: '구매 전 확인 목업 → 성공(기본값)',
+      onPress: () => runReset(() => setMockCheckScenario('SUCCESS')),
+    },
+    {
+      label: '구매 전 확인 목업 → 프로필 부족',
+      onPress: () => runReset(() => setMockCheckScenario('PROFILE_NOT_READY')),
+    },
+    {
+      label: '구매 전 확인 목업 → 성분 데이터 부족',
+      onPress: () => runReset(() => setMockCheckScenario('INGREDIENT_INSUFFICIENT')),
     },
   ];
 

@@ -1,0 +1,462 @@
+// src/api/mock/product.ts
+//
+// Phase 7-A 범위: PRODUCT-01(홈) · PRODUCT-02(검색) · PRODUCT-08(루틴 바로 기록).
+// Phase 7-B 추가: PRODUCT-03(상세) · PRODUCT-04(스캔) · PRODUCT-05(개별 저장).
+//
+// record.ts의 mockSkinCompletions와 동일한 패턴 — 세션 한정 메모리(앱 재시작 시 초기화),
+// DevResetButton "제품 기록 초기화"에서 resetMockProductSession()으로 되돌립니다.
+import { ApiError } from '@/api/unwrap';
+import { ErrorCode } from '@/types/errorCodes';
+import type { TimeSlot } from '@/app/routes';
+import type {
+  IngredientItem,
+  KeyIngredient,
+  ProductCategory,
+  ProductDetailResult,
+  ProductRecordHomeResult,
+  ProductSearchResult,
+  RoutineListItem,
+  RoutineProductItem,
+  RoutineQuickRecordResult,
+  RoutineSummaryItem,
+  SaveProductRecordResult,
+  SavedProductSummary,
+  ScanMode,
+  ScanResult,
+  SearchedProduct,
+} from '@/types/product';
+
+// ---------------------------------------------------------------------------
+// 고정 제품 카탈로그 — 검색·저장 제품·루틴이 전부 이 목록을 참조합니다.
+// productId는 api_명세서.md 예시값을 그대로 재사용했습니다(문서·구현 대조가 쉽도록).
+// ---------------------------------------------------------------------------
+export interface CatalogProduct {
+  productId: number;
+  name: string;
+  brand: string;
+  category: ProductCategory;
+}
+
+const CATALOG: CatalogProduct[] = [
+  { productId: 11, name: '라운드랩 자작나무 수분 토너', brand: '라운드랩', category: 'TONER' },
+  { productId: 12, name: '라운드랩 1025 독도 토너', brand: '라운드랩', category: 'TONER' },
+  { productId: 15, name: '이니스프리 어성초 세럼', brand: '이니스프리', category: 'SERUM' },
+  { productId: 18, name: '조선미녀 맑은쌀 선크림', brand: '조선미녀', category: 'SUNCREAM' },
+  { productId: 21, name: '닥터지 선베이스', brand: '닥터지', category: 'SUNCREAM' },
+  { productId: 71, name: '라로슈포제 시카플라스트', brand: '라로슈포제', category: 'CREAM' },
+  { productId: 82, name: '마누카 히알루론산 토너', brand: '마누카', category: 'TONER' },
+];
+
+export function findCatalogProduct(productId: number): CatalogProduct | undefined {
+  return CATALOG.find((p) => p.productId === productId);
+}
+
+// ---------------------------------------------------------------------------
+// 목업 세션 상태
+// ---------------------------------------------------------------------------
+
+// 시간대별 오늘 기록 여부 — PRODUCT-01의 alreadyRecorded, PRODUCT-08 중복 판정에 씀
+const recordedSlots = new Set<TimeSlot>();
+
+// 저장된 제품(마지막 사용 시각 포함) — 최초엔 데모용으로 2개가 이미 저장돼 있는 상태로 시작
+const savedProducts = new Map<number, string>([
+  [11, '2026-08-06T08:12:00+09:00'],
+  [15, '2026-08-05T08:30:00+09:00'],
+]);
+
+const ROUTINES: { routineId: number; name: string; timeSlot: TimeSlot; productIds: number[] }[] = [
+  { routineId: 1, name: '모닝루틴', timeSlot: 'MORNING', productIds: [11, 15, 21] },
+  { routineId: 2, name: '나이트루틴', timeSlot: 'NIGHT', productIds: [11, 18] },
+];
+
+export function resetMockProductSession(): void {
+  recordedSlots.clear();
+  savedProducts.clear();
+  savedProducts.set(11, '2026-08-06T08:12:00+09:00');
+  savedProducts.set(15, '2026-08-05T08:30:00+09:00');
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT-07 · 루틴 목록 조회 (S-11 루틴 펼치기 — 관리자님 요청, 2026-08-10)
+// ---------------------------------------------------------------------------
+export function listMockRoutines(timeSlot?: TimeSlot): RoutineListItem[] {
+  return ROUTINES.filter((r) => !timeSlot || r.timeSlot === timeSlot).map((r) => ({
+    routineId: r.routineId,
+    name: r.name,
+    timeSlot: r.timeSlot,
+    productCount: r.productIds.length,
+    products: r.productIds
+      .map((id) => {
+        const product = findCatalogProduct(id);
+        return product ? { productId: product.productId, name: product.name } : null;
+      })
+      .filter((p): p is RoutineProductItem => p !== null),
+  }));
+}
+
+function buildProductSummary(productIds: number[]): string {
+  return productIds
+    .map((id) => findCatalogProduct(id)?.category)
+    .filter((category): category is string => Boolean(category))
+    .join(' · ');
+}
+
+/**
+ * 기록 허브(S-09/10)의 완료 요약 문구용 — "라운드랩 자작나무 수분 토너 외 2개" 형태.
+ * Phase 7-A 버그 수정(관리자님 실기기 확인, 2026-08-10): 루틴 바로 기록이 성공해도
+ * 기록 허브 체크 표시가 안 바뀌던 문제 — api/queries/product.ts가 이 문구를 만들어
+ * record.ts의 recordMockProductCompletion()에 넘겨줍니다.
+ */
+export function buildRoutineRecordSummary(routineId: number): string {
+  const routine = ROUTINES.find((r) => r.routineId === routineId);
+  if (!routine || routine.productIds.length === 0) return '제품 기록';
+  const first = findCatalogProduct(routine.productIds[0]);
+  const firstName = first?.name ?? '제품';
+  return routine.productIds.length > 1
+    ? `${firstName} 외 ${routine.productIds.length - 1}개`
+    : firstName;
+}
+
+/** 위와 같은 용도 · S-14 개별 저장(PRODUCT-05)에서 씁니다 — 루틴이 아니라 productId 배열 기준. */
+export function buildProductRecordSummary(productIds: number[]): string {
+  if (productIds.length === 0) return '제품 기록';
+  const first = findCatalogProduct(productIds[0]);
+  const firstName = first?.name ?? '제품';
+  return productIds.length > 1 ? `${firstName} 외 ${productIds.length - 1}개` : firstName;
+}
+
+function toSavedProductSummary(productId: number, lastUsedAt: string): SavedProductSummary | null {
+  const product = findCatalogProduct(productId);
+  if (!product) return null;
+  return { ...product, lastUsedAt };
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT-01 · 제품 기록 화면 조회
+// ---------------------------------------------------------------------------
+export function buildMockProductRecordHome(timeSlot: TimeSlot): ProductRecordHomeResult {
+  const routines: RoutineSummaryItem[] = [...ROUTINES]
+    // BR2: 요청한 timeSlot의 루틴을 먼저 정렬. 다른 시간대 루틴도 함께 반환.
+    .sort((a, b) => (a.timeSlot === timeSlot ? -1 : 0) - (b.timeSlot === timeSlot ? -1 : 0))
+    .map((r) => ({
+      routineId: r.routineId,
+      name: r.name,
+      timeSlot: r.timeSlot,
+      productCount: r.productIds.length,
+      productSummary: buildProductSummary(r.productIds),
+    }));
+
+  const saved: SavedProductSummary[] = Array.from(savedProducts.entries())
+    .map(([id, lastUsedAt]) => toSavedProductSummary(id, lastUsedAt))
+    .filter((p): p is SavedProductSummary => p !== null)
+    // BR3: lastUsedAt 내림차순
+    .sort((a, b) => (a.lastUsedAt < b.lastUsedAt ? 1 : -1));
+
+  return {
+    timeSlot,
+    alreadyRecorded: recordedSlots.has(timeSlot),
+    routines,
+    savedProducts: saved,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT-02 · 제품 검색
+// ---------------------------------------------------------------------------
+export function searchMockProducts(keyword: string): ProductSearchResult {
+  const normalized = keyword.trim().toLowerCase();
+  const matched = normalized
+    ? CATALOG.filter(
+        (p) =>
+          p.name.toLowerCase().includes(normalized) || p.brand.toLowerCase().includes(normalized)
+      )
+    : [];
+
+  const products: SearchedProduct[] = matched.slice(0, 20).map((p) => ({
+    ...p,
+    saved: savedProducts.has(p.productId),
+  }));
+
+  return { keyword, totalCount: matched.length, products };
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT-08 · 루틴 바로 기록
+// ---------------------------------------------------------------------------
+export function recordMockRoutineQuickRecord(
+  routineId: number,
+  timeSlot: TimeSlot,
+  force: boolean
+): RoutineQuickRecordResult {
+  const routine = ROUTINES.find((r) => r.routineId === routineId);
+  if (!routine) {
+    throw new ApiError(ErrorCode.ROUTINE_NOT_FOUND, '루틴을 찾을 수 없어요.');
+  }
+  if (routine.productIds.length === 0) {
+    throw new ApiError(ErrorCode.ROUTINE_EMPTY, '빈 루틴은 바로 기록할 수 없어요.');
+  }
+  // BR3: 루틴의 timeSlot과 요청 timeSlot이 다르면 확인이 필요합니다 (차단이 아님).
+  if (routine.timeSlot !== timeSlot && !force) {
+    throw new ApiError(
+      ErrorCode.ROUTINE_TIME_SLOT_MISMATCH,
+      `${routine.timeSlot === 'MORNING' ? '모닝' : '나이트'} 루틴이에요. 그래도 기록할까요?`
+    );
+  }
+  if (recordedSlots.has(timeSlot) && !force) {
+    throw new ApiError(
+      ErrorCode.PRODUCT_ALREADY_RECORDED_IN_SLOT,
+      '이미 오늘 기록한 시간대예요. 기존 기록을 갱신할까요?'
+    );
+  }
+
+  const now = new Date().toISOString();
+  routine.productIds.forEach((id) => savedProducts.set(id, now));
+  recordedSlots.add(timeSlot);
+
+  return {
+    recordId: Math.floor(Math.random() * 1000) + 100,
+    timeSlot,
+    productCount: routine.productIds.length,
+    skippedProductIds: [],
+    skinRecordSuggested: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT-03 · 제품 상세 · 성분 조회
+// ---------------------------------------------------------------------------
+
+// 필러용 성분 이름 풀 — 실제 화장품 성분명을 그대로 썼습니다. 데모에서 "총 N개 성분"
+// 숫자와 실제 나열되는 성분 개수를 맞추기 위한 용도라, 순서·조합에 특별한 의미는 없습니다.
+const FILLER_INGREDIENTS = [
+  '글리세린',
+  '부틸렌글라이콜',
+  '1,2-헥산다이올',
+  '다이소듐이디티에이',
+  '잔탄검',
+  '카보머',
+  '트로메타민',
+  '토코페릴아세테이트',
+  '알지닌',
+  '베타인',
+  '소듐하이알루로네이트',
+  '아데노신',
+  '다이메티콘',
+  '페녹시에탄올',
+  '에틸헥실글리세린',
+  '비사보롤',
+  '콜레스테롤',
+  '스쿠알란',
+  '다이프로필렌글라이콜',
+  '카프릴릴글라이콜',
+];
+
+let nextFillerIngredientId = 1000;
+
+interface ProductIngredientProfile {
+  ingredientCount: number;
+  keyIngredients: KeyIngredient[];
+}
+
+// productId 82(마누카 히알루론산 토너)는 일부러 프로필에서 뺐습니다 — PRODUCT-03 BR4
+// "성분 데이터가 없는 제품" 데모용입니다(오류가 아니라 200 + ingredientCount:0 + 빈 배열).
+const PRODUCT_INGREDIENT_PROFILES: Record<number, ProductIngredientProfile> = {
+  11: {
+    ingredientCount: 32,
+    keyIngredients: [
+      { ingredientId: 1, name: '정제수', status: 'INSUFFICIENT' },
+      { ingredientId: 2, name: '자작나무수액', status: 'GOOD', note: '50%' },
+      { ingredientId: 3, name: '나이아신아마이드', status: 'GOOD' },
+      { ingredientId: 4, name: '향료', status: 'CAUTION' },
+    ],
+  },
+  12: {
+    ingredientCount: 28,
+    keyIngredients: [
+      { ingredientId: 1, name: '정제수', status: 'INSUFFICIENT' },
+      { ingredientId: 2, name: '판테놀', status: 'GOOD' },
+      { ingredientId: 3, name: '알란토인', status: 'GOOD' },
+      { ingredientId: 4, name: '향료', status: 'CAUTION' },
+    ],
+  },
+  15: {
+    ingredientCount: 24,
+    keyIngredients: [
+      { ingredientId: 1, name: '어성초추출물', status: 'GOOD', note: '70%' },
+      { ingredientId: 2, name: '나이아신아마이드', status: 'GOOD' },
+      { ingredientId: 3, name: '알코올', status: 'CAUTION' },
+      { ingredientId: 4, name: '정제수', status: 'INSUFFICIENT' },
+    ],
+  },
+  18: {
+    ingredientCount: 20,
+    keyIngredients: [
+      { ingredientId: 1, name: '티타늄디옥사이드', status: 'GOOD' },
+      { ingredientId: 2, name: '징크옥사이드', status: 'GOOD' },
+      { ingredientId: 3, name: '알코올', status: 'CAUTION' },
+      { ingredientId: 4, name: '향료', status: 'CAUTION' },
+    ],
+  },
+  21: {
+    ingredientCount: 18,
+    keyIngredients: [
+      { ingredientId: 1, name: '호모살레이트', status: 'CAUTION' },
+      { ingredientId: 2, name: '옥토크릴렌', status: 'CAUTION' },
+      { ingredientId: 3, name: '나이아신아마이드', status: 'GOOD' },
+      { ingredientId: 4, name: '정제수', status: 'INSUFFICIENT' },
+    ],
+  },
+  71: {
+    ingredientCount: 22,
+    keyIngredients: [
+      { ingredientId: 1, name: '마데카소사이드', status: 'GOOD', note: '시카 유래' },
+      { ingredientId: 2, name: '판테놀', status: 'GOOD' },
+      { ingredientId: 3, name: '세라마이드엔피', status: 'GOOD' },
+      { ingredientId: 4, name: '정제수', status: 'INSUFFICIENT' },
+    ],
+  },
+};
+
+function buildIngredientList(keyIngredients: KeyIngredient[], targetCount: number): IngredientItem[] {
+  const seen = new Set<string>();
+  const list: IngredientItem[] = [];
+
+  keyIngredients.forEach((k) => {
+    if (seen.has(k.name)) return;
+    seen.add(k.name);
+    list.push({ ingredientId: k.ingredientId, name: k.name });
+  });
+
+  let i = 0;
+  while (list.length < targetCount && i < FILLER_INGREDIENTS.length) {
+    const name = FILLER_INGREDIENTS[i];
+    i += 1;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    list.push({ ingredientId: nextFillerIngredientId, name });
+    nextFillerIngredientId += 1;
+  }
+
+  return list;
+}
+
+export function getMockProductDetail(productId: number): ProductDetailResult {
+  const product = findCatalogProduct(productId);
+  if (!product) {
+    throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '제품을 찾을 수 없어요.');
+  }
+
+  const profile = PRODUCT_INGREDIENT_PROFILES[productId];
+  const ingredientCount = profile?.ingredientCount ?? 0;
+  const keyIngredients = profile?.keyIngredients ?? [];
+  const ingredients = profile ? buildIngredientList(keyIngredients, ingredientCount) : [];
+
+  return {
+    ...product,
+    saved: savedProducts.has(productId),
+    ingredientCount,
+    keyIngredients,
+    ingredients,
+    // 관리자님 요청(2026-08-10)으로 타입엔 자리를 만들었지만, 실제 이미지 파이프라인·백엔드
+    // 필드가 아직 없어서 목업은 항상 null입니다 — ProductCard와 같은 "항상 placeholder" 패턴.
+    imageUrl: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT-04 · 제품 스캔
+// ---------------------------------------------------------------------------
+
+export type MockScanScenario = 'SUCCESS' | 'NOT_DETECTED' | 'LOW_QUALITY' | 'UNAVAILABLE';
+
+// 데모 최대 리스크 구간(로드맵 명시) — 실기기 스캔 인식률을 사전에 보장할 수 없어서,
+// DevResetButton에서 강제로 시나리오를 바꿔볼 수 있게 했습니다. 기본은 항상 성공입니다.
+let scanScenario: MockScanScenario = 'SUCCESS';
+
+export function setMockScanScenario(scenario: MockScanScenario): void {
+  scanScenario = scenario;
+}
+
+export function getMockScanScenario(): MockScanScenario {
+  return scanScenario;
+}
+
+// 모드별로 다른 제품을 인식한 것처럼 보여줘서 두 모드가 실제로 다르게 동작한다는 걸
+// 확인할 수 있게 했습니다. BARCODE 쪽은 api_명세서.md PRODUCT-04 예시와 같은 productId(15)를 씁니다.
+const SCAN_DEMO_PRODUCT_ID: Record<ScanMode, number> = {
+  BARCODE: 15,
+  PRODUCT_IMAGE: 18,
+};
+
+export function scanMockProduct(scanMode: ScanMode): ScanResult {
+  if (scanScenario === 'NOT_DETECTED') {
+    throw new ApiError(ErrorCode.SCAN_PRODUCT_NOT_DETECTED, '제품을 인식하지 못했어요.');
+  }
+  if (scanScenario === 'LOW_QUALITY') {
+    throw new ApiError(
+      ErrorCode.SCAN_LOW_IMAGE_QUALITY,
+      '화질이 낮아 인식할 수 없어요. 다시 촬영해 주세요.'
+    );
+  }
+  if (scanScenario === 'UNAVAILABLE') {
+    throw new ApiError(
+      ErrorCode.SCAN_SERVICE_UNAVAILABLE,
+      '스캔 서비스에 일시적인 문제가 있어요. 잠시 후 다시 시도해 주세요.'
+    );
+  }
+
+  const productId = SCAN_DEMO_PRODUCT_ID[scanMode];
+  const product = findCatalogProduct(productId);
+  if (!product) {
+    throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '인식했지만 제품 정보를 찾을 수 없어요.');
+  }
+
+  return {
+    productId: product.productId,
+    name: product.name,
+    brand: product.brand,
+    // BR2: confidence는 PRODUCT_IMAGE 모드에서만 유효. BARCODE는 항상 1.0.
+    confidence: scanMode === 'BARCODE' ? 1.0 : 0.94,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT-05 · 제품 기록 저장 (S-14 "기록 완료")
+// ---------------------------------------------------------------------------
+export function saveMockProductRecord(
+  timeSlot: TimeSlot,
+  productIds: number[],
+  force: boolean
+): SaveProductRecordResult {
+  if (productIds.length === 0) {
+    throw new ApiError(ErrorCode.PRODUCT_RECORD_EMPTY, '기록할 제품이 없어요.');
+  }
+  if (productIds.length > 30) {
+    throw new ApiError(
+      ErrorCode.PRODUCT_RECORD_LIMIT_EXCEEDED,
+      '한 번에 최대 30개까지 기록할 수 있어요.'
+    );
+  }
+  const hasMissingProduct = productIds.some((id) => !findCatalogProduct(id));
+  if (hasMissingProduct) {
+    throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '존재하지 않는 제품이 포함돼 있어요.');
+  }
+  if (recordedSlots.has(timeSlot) && !force) {
+    throw new ApiError(
+      ErrorCode.PRODUCT_ALREADY_RECORDED_IN_SLOT,
+      `이미 오늘 ${timeSlot === 'MORNING' ? '모닝' : '나이트'}에 기록한 제품이에요. 기존 기록을 갱신할까요?`
+    );
+  }
+
+  const now = new Date().toISOString();
+  productIds.forEach((id) => savedProducts.set(id, now));
+  recordedSlots.add(timeSlot);
+
+  return {
+    recordId: Math.floor(Math.random() * 1000) + 100,
+    timeSlot,
+    recordedAt: now,
+    productCount: productIds.length,
+    skinRecordSuggested: true,
+  };
+}

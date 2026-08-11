@@ -13,6 +13,10 @@ import { Calendar } from '@/components/base/Calendar';
 import { DateField } from '@/components/base/DateField';
 import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProductCard } from '@/components/domain/ProductCard';
+import { ProductSearchBar } from '@/components/domain/ProductSearchBar';
+import { RoutineQuickRecordCard } from '@/components/domain/RoutineQuickRecordCard';
+import { SkinRecordSuggestionCard } from '@/components/domain/SkinRecordSuggestionCard';
+import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { MetricScoreList } from '@/components/domain/MetricScoreList';
 import { EnvironmentCard } from '@/components/domain/EnvironmentCard';
 import { RoutineRecommendationList } from '@/components/domain/RoutineRecommendationList';
@@ -29,11 +33,13 @@ import { LoadingState } from '@/components/state/LoadingState';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
 import { Popup } from '@/components/base/Popup';
+import { Toast } from '@/components/base/Toast';
 import { TrendGraph } from '@/components/chart/TrendGraph';
 import { RadarChart, RadarChartItem } from '@/components/chart/RadarChart';
 import { getTodayDateString } from '@/lib/date';
 import { color, space } from '@/theme/tokens';
 import type { GraphPoint } from '@/types/report';
+import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
 
 /**
  * 개발용 컴포넌트 카탈로그.
@@ -43,6 +49,11 @@ import type { GraphPoint } from '@/types/report';
  * Phase 3 S-01 추가분 — Input / Chip / Stepper / InlineErrorBanner
  * Phase 5 S-16 추가분 — FaceGuideOverlay
  * Phase 6 추가분 — TrendGraph / RadarChart(실제 화면 미배치, 카탈로그 전용) / Popup / InsightCard
+ * Phase 7-A 추가분 — ProductSearchBar / RoutineQuickRecordCard / ProductCard badgeLabel / Toast
+ * Phase 7-B 추가분 — SkinRecordSuggestionCard (S-13/S-14는 카메라·저장 흐름이라 카탈로그
+ * 데모 대상에서 제외 — FaceCaptureScreen과 같은 이유)
+ * Phase 7-B 조정 — ProductCard selected(체크 표시), RoutineQuickRecordCard 펼침+순서변경
+ * ·삭제(데모 전용, 미영속)
  */
 
 // Phase 6 데모용 표본 데이터 생성 함수 — 실제 화면 코드가 아니라 카탈로그 전용입니다.
@@ -87,6 +98,7 @@ export default function CatalogScreen() {
   const [trendPointCount, setTrendPointCount] = useState<0 | 1 | 7 | 30>(7);
   const [radarCount, setRadarCount] = useState<3 | 4 | 6>(4);
   const [popupVisible, setPopupVisible] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -266,6 +278,49 @@ export default function CatalogScreen() {
           onPress={() => {}}
         />
         <ProductCard brand="아누아" name="어성초 77 토너" category="토너" onPress={() => {}} />
+        <ProductCard brand="라운드랩" name="1025 독도 토너" category="토너" badgeLabel="저장됨" onPress={() => {}} />
+        <ProductCard brand="조선미녀" name="맑은쌀 선크림" category="선크림" selected onPress={() => {}} />
+        <ProductCard brand="닥터지" name="선베이스" category="선크림" selected={false} onPress={() => {}} />
+        <ProductCard
+          brand="라로슈포제"
+          name="시카플라스트"
+          category="크림"
+          onPress={() => {}}
+          onViewIngredients={() => {}}
+        />
+      </Section>
+
+      <Section title="ProductSearchBar (Phase 7)">
+        <ProductSearchBar value="" onChangeText={() => {}} onScanPress={() => {}} />
+        <ProductSearchBar value="토너" onChangeText={() => {}} onScanPress={() => {}} style={{ marginTop: space[2] }} />
+      </Section>
+
+      <Section title="RoutineQuickRecordCard (Phase 7 — 탭하면 펼쳐짐)">
+        <RoutineQuickRecordCard
+          name="모닝루틴"
+          timeSlot="MORNING"
+          productCount={3}
+          productSummary="토너 · 세럼 · 선크림"
+          onQuickRecord={() => {}}
+          products={[
+            { productId: 11, name: '라운드랩 자작나무 수분 토너' },
+            { productId: 15, name: '이니스프리 어성초 세럼' },
+            { productId: 21, name: '닥터지 선베이스' },
+          ]}
+        />
+      </Section>
+
+      <Section title="SkinRecordSuggestionCard (Phase 7-B)">
+        <SkinRecordSuggestionCard onPress={() => {}} />
+      </Section>
+
+      <Section title="CategoryFilterBar (Phase 7 — 초기화는 고정, 나머지는 옆으로 스크롤)">
+        <CategoryFilterBar
+          categories={[...PRODUCT_CATEGORIES]}
+          selected={null}
+          onSelect={() => {}}
+          getLabel={(c) => PRODUCT_CATEGORY_LABELS[c] ?? c}
+        />
       </Section>
 
       <Section title="MetricScoreList">
@@ -520,6 +575,22 @@ export default function CatalogScreen() {
           secondaryLabel="닫기"
           onSecondaryPress={() => setPopupVisible(false)}
           onRequestClose={() => setPopupVisible(false)}
+        />
+      </Section>
+
+      <Section title="Toast (Phase 7 — 확인 없이 자동으로 사라짐)">
+        <Text style={styles.hint}>
+          Popup과 달리 화면을 막지 않고, 몇 초 후 스스로 닫힙니다. &ldquo;정보 전달&rdquo;용 — 결정이
+          필요한 안내는 계속 Popup을 씁니다.
+        </Text>
+        <Button label="기록 완료 토스트 열기" variant="secondary" onPress={() => setToastVisible(true)} />
+        <Toast
+          visible={toastVisible}
+          message="기록 완료! 라운드랩 자작나무 수분 토너 외 2개"
+          icon="checkmark-circle"
+          actionLabel="피부도 기록하기"
+          onActionPress={() => {}}
+          onDismiss={() => setToastVisible(false)}
         />
       </Section>
 

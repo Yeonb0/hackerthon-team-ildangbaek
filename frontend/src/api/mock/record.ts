@@ -38,13 +38,37 @@ export function buildMockRecordCalendar(yearMonth?: string): RecordCalendarRespo
   const year = Number(yearStr);
   const month = Number(monthStr) - 1; // 0-indexed
 
+  const days = buildMockCalendarDays(year, month);
+
+  // 관리자님 요청(2026-08-10): 오늘 칸의 빈(NONE) → 테두리(PARTIAL) → 채워짐(FULL) 진행이
+  // 실제 기록 여부와 무관하게 DEMO_PATTERN 고정값으로만 보였습니다. 오늘 칸만 실제 완료
+  // 상태(buildMockRecordToday — mockProductCompletions/mockSkinCompletions 반영 결과)로
+  // 덮어써서, 제품·피부 기록을 실제로 완료하면 캘린더에도 즉시 반영되게 합니다.
+  // (오늘이 아닌 날짜는 계속 DEMO_PATTERN을 씁니다 — 과거 기록까지 목업으로 재현할 근거가 없음)
+  const todayIndex = days.findIndex((d) => d.today);
+  if (todayIndex !== -1) {
+    const today = buildMockRecordToday();
+    days[todayIndex] = {
+      ...days[todayIndex],
+      morning: computeDotStatus(today.morning.product.completed, today.morning.skin.completed),
+      night: computeDotStatus(today.night.product.completed, today.night.skin.completed),
+    };
+  }
+
   return {
     yearMonth: base,
-    days: buildMockCalendarDays(year, month),
+    days,
     // 데모용 고정값 — 실제로는 days에서 집계되어야 하지만(RECORD-01 BR4), mock에서는
     // 명세서 예시 숫자를 그대로 씁니다. days 패턴과 정확히 일치하진 않습니다.
     monthlySummary: { productRecordCount: 15, skinRecordCount: 12 },
   };
+}
+
+/** 제품·피부 기록 완료 여부 2개를 캘린더 점 상태로 변환 — RecordDot의 빈/테두리/채워짐과 1:1 대응. */
+function computeDotStatus(productDone: boolean, skinDone: boolean): RecordDotStatus {
+  if (productDone && skinDone) return 'FULL';
+  if (productDone || skinDone) return 'PARTIAL';
+  return 'NONE';
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +90,23 @@ export function resetMockRecordSession(): void {
   delete mockSkinCompletions.NIGHT;
 }
 
+// Phase 7-A 추가 — 위 mockSkinCompletions와 정확히 같은 이유·같은 패턴입니다. 제품 기록
+// (S-11 검색/스캔/루틴 바로 기록으로 완료)도 기록 허브가 "미완료"로 계속 보이던 문제가
+// 있었습니다(관리자님 실기기 확인, 2026-08-10) — api/queries/product.ts의 목업 저장 성공
+// 시점에 여기 기록해두고, buildMockRecordToday()가 이 값을 우선 반영합니다.
+const mockProductCompletions: Partial<Record<TimeSlot, { summary: string }>> = {};
+
+export function recordMockProductCompletion(timeSlot: TimeSlot, summary: string): void {
+  mockProductCompletions[timeSlot] = { summary };
+}
+
+/** DevResetButton "제품 기록 초기화"에서 호출합니다. resetMockRecordSession과 분리한 이유는
+ * 같은 파일 상단 주석 참고 — 피부/제품 초기화를 각자 따로 할 수 있어야 합니다. */
+export function resetMockProductCompletion(): void {
+  delete mockProductCompletions.MORNING;
+  delete mockProductCompletions.NIGHT;
+}
+
 export function buildMockRecordToday(): RecordTodayResponse {
   const base: RecordTodayResponse = {
     date: getTodayDateString(),
@@ -82,13 +123,26 @@ export function buildMockRecordToday(): RecordTodayResponse {
     },
   };
 
-  const morningCompletion = mockSkinCompletions.MORNING;
-  if (morningCompletion) {
-    base.morning.skin = { completed: true, skinRecordId: 9999, summary: morningCompletion.summary };
+  const morningSkinCompletion = mockSkinCompletions.MORNING;
+  if (morningSkinCompletion) {
+    base.morning.skin = { completed: true, skinRecordId: 9999, summary: morningSkinCompletion.summary };
   }
-  const nightCompletion = mockSkinCompletions.NIGHT;
-  if (nightCompletion) {
-    base.night.skin = { completed: true, skinRecordId: 9999, summary: nightCompletion.summary };
+  const nightSkinCompletion = mockSkinCompletions.NIGHT;
+  if (nightSkinCompletion) {
+    base.night.skin = { completed: true, skinRecordId: 9999, summary: nightSkinCompletion.summary };
+  }
+
+  const morningProductCompletion = mockProductCompletions.MORNING;
+  if (morningProductCompletion) {
+    base.morning.product = {
+      completed: true,
+      recordId: 9999,
+      summary: morningProductCompletion.summary,
+    };
+  }
+  const nightProductCompletion = mockProductCompletions.NIGHT;
+  if (nightProductCompletion) {
+    base.night.product = { completed: true, recordId: 9999, summary: nightProductCompletion.summary };
   }
 
   return base;
