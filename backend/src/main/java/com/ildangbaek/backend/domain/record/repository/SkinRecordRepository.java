@@ -22,6 +22,9 @@ public interface SkinRecordRepository extends JpaRepository<SkinRecord, Long> {
     List<SkinRecord> findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
             Long userId, LocalDate startDate, LocalDate endDate);
 
+    /** REPORT-03. 하루치 기록을 모닝 → 나이트 순으로 읽는다 (enum 선언 순서). */
+    List<SkinRecord> findAllByUserIdAndRecordDateOrderByTimeSlotAsc(Long userId, LocalDate recordDate);
+
     Optional<SkinRecord> findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(Long userId);
 
     Optional<SkinRecord> findByIdAndUserId(Long id, Long userId);

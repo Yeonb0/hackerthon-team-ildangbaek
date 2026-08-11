@@ -99,7 +99,13 @@ public class SkinRecordService {
         return toResponse(userId, record);
     }
 
-    private SkinRecordResponse toResponse(Long userId, SkinRecord record) {
+    /**
+     * 저장된 기록 하나를 응답 형태로 만든다. 지표 4종과 전일 동일 슬롯 비교를 함께 채운다.
+     *
+     * <p>REPORT-03(일자별 리포트 조회)이 같은 구조를 내려주기 위해 이 메서드를 쓴다. 비교 계산을
+     * 두 벌로 두면 같은 기록이 화면마다 다른 증감을 보일 수 있다.
+     */
+    public SkinRecordResponse toResponse(Long userId, SkinRecord record) {
         Map<SkinMetricType, Integer> scores = new EnumMap<>(SkinMetricType.class);
         skinMetricRepository.findAllBySkinRecordId(record.getId())
                 .forEach(metric -> scores.put(metric.getMetricType(), metric.getMetricValue().intValue()));
