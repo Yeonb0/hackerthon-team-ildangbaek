@@ -666,6 +666,8 @@ json
 3. `totalRecordCount`는 실제 저장된 기록 수다. 하루 2회 구조이므로 모닝·나이트를 각각 1회로 센다.
 4. `topIngredients`는 마이페이지 요약 노출용으로 최대 8건을 반환한다. 전체 목록은 USER-02를 사용한다.
 5. `completionRate`는 F-ANALYSIS-05 값을 그대로 사용하며, 구매 전 확인 화면과 동일한 값이어야 한다.
+   산출식은 ADR 0011에 있고 `ProfileCompletionCalculator`가 단독으로 계산한다 — 이 API가 자체
+   계산하면 안 된다. 위 예시의 `65`는 산출식과 무관한 임의값이다.
 
 ---
 
@@ -731,6 +733,17 @@ json
 4. 응답은 `ingredient_profiles`를 읽는다. F-ANALYSIS-04가 새 피부 기록마다 이 표를 갱신한다.
    `status`는 `reaction_type`이며 `SUITABLE`은 `GOOD`으로 변환한다(ADR 0004). `reason`은 `reason_summary`,
    `recordCount`는 `observation_count`(성분 노출 일수)다. 판정 기준은 ADR 0010에 있다.
+5. **프로파일이 비어 있어도 오류가 아니다.** `ingredients`를 빈 배열로 반환한다. 아직 기록이 없는
+   사용자에게 정상적으로 나타나는 상태이며, 이 API는 분석을 실행하지 않고 읽기만 한다.
+6. `completionRate`는 `status` 필터와 무관하게 항상 전체 기준이다. 필터는 목록에만 적용된다.
+7. `status`에 `GOOD` · `CAUTION` · `INSUFFICIENT` 외의 값이 오면 422다. **DB 표기인 `SUITABLE`도
+   거부한다** — API 경계는 `GOOD` 표기만 받는다(ADR 0004).
+
+**Error**
+
+| HTTP | Code | 조건 |
+| --- | --- | --- |
+| 422 | `COMMON_VALIDATION_FAILED` | `status`가 허용 값이 아님 |
 
 > 대상 화면이 디자인 담당에게 제작 요청된 상태입니다. 화면 확정 후 필드가 추가될 수 있습니다.
 > 

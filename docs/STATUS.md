@@ -4,7 +4,7 @@
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
 - 최종 갱신: 2026-08-11
-- 기준 커밋: `3b7fdc2` (merge) + F-ANALYSIS-05 작업분
+- 기준 커밋: `0bf7642` (feat: F-ANALYSIS-05) + USER-02 작업분
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 ## 상태 표기
@@ -24,11 +24,12 @@
 | --- | --- | --- |
 | 백엔드 — 공통 인프라 | 🟡 | 응답/예외 envelope 완비. 스토리지·날짜 유틸 추가. **인증은 임시 방편** |
 | 백엔드 — 엔티티 · 리포지토리 | ✅ | 전 도메인 정의 완료 |
-| 백엔드 — service / controller / dto | 🟡 | **SKIN-01 1개.** 나머지 도메인 미착수 |
+| 백엔드 — service / controller / dto | 🟡 | **skin · report · user 3개 도메인.** 나머지 미착수 |
 | 프론트엔드 | 🟡 | 기반 레이어 + 공통 컴포넌트 + S-00/S-01. 목업 모드로 동작 |
 | 배포 | ⬜ | 미착수. 로컬 실행만 |
 
-**동작이 확인된 백엔드 엔드포인트는 `GET /api/v1/health`와 `POST /api/v1/skin-records` 둘이다.**
+**실서버로 동작이 확인된 백엔드 엔드포인트는 넷이다** — `GET /api/v1/health` ·
+`POST /api/v1/skin-records` · `GET /api/v1/reports` · `GET /api/v1/users/me/ingredient-profile`.
 
 > ⚠️ 현재 인증은 `X-User-Id` 헤더를 그대로 신뢰하는 임시 방편이다(ADR 0006). **위조 가능하며
 > 배포 전 반드시 교체해야 한다.**
@@ -98,12 +99,12 @@
 | F-ANALYSIS-01 성분-피부 시차 분석 | 🟡 | 분석 로직 구현 완료. **목업 시드 데이터로만 검증** — 실입력인 제품 기록(A · PRODUCT-05)이 없어 실사용 경로에서는 결과가 비어 있다 |
 | F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
 | F-ANALYSIS-03 호르몬 요인 반영 | ⬜ | 우선순위 L · **후순위** |
-| F-ANALYSIS-04 성분 프로파일 갱신 | 🟡 | 분류 로직 구현 완료(ADR 0010). **단위 테스트만 확인 · 실서버 미확인** — F-ANALYSIS-01과 같은 이유로 실사용 경로에서는 결과가 비어 있다 |
-| F-ANALYSIS-05 프로파일 완성도 계산 | 🟡 | 산출식 구현 완료(ADR 0011). **호출자가 없다** — 소비처 USER-01 · USER-02 · CHECK-01이 모두 미구현이라 화면에서 값을 볼 수 없다 |
+| F-ANALYSIS-04 성분 프로파일 갱신 | 🟡 | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11) — 목업 시드가 만든 행이 JSON까지 나온다. 다만 입력이 여전히 목업 시드라, 실입력인 제품 기록(A · PRODUCT-05)이 없는 사용자에게는 결과가 비어 있다 |
+| F-ANALYSIS-05 프로파일 완성도 계산 | 🟡 | 산출식 구현 완료(ADR 0011). **호출자 생김** — USER-02가 `completionRate`를 싣는다(실서버 확인). USER-01 · CHECK-01은 여전히 미구현이라 세 곳 값 일치(BR 4)는 아직 검증 못 했다 |
 | CHECK-01 쇼핑 홈 | ⬜ | 프로파일 · `ProductRepository`(A) |
 | CHECK-02 위험도 분석 | ⬜ | 프로파일 |
 | CHECK-03 확인 결과 조회 | ⬜ | CHECK-02 |
-| USER-02 성분 프로파일 전체 조회 | ⬜ | 프로파일 — **선행 조건 해소됨**(F-ANALYSIS-04가 `ingredient_profiles`를 채운다) |
+| USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
 | REPORT-01 리포트 조회 | 🟡 | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다(목업 시드로 실서버 확인). 제품 기록이 없는 사용자에게는 빈 배열 |
 | REPORT-02 요인 상세 조회 | ⬜ | F-ANALYSIS-01 |
 | REPORT-03 일자별 리포트 조회 | ⬜ | SKIN-01 |
@@ -254,7 +255,8 @@ A의 API가 붙으면 **코드 변경 없이** 실데이터로 동작한다. 검
 **쿼리 수는 성분·기록 수와 무관하게 고정이다.** `ingredients` · `user_skin_types` 각 1회, 갱신은
 행당 `UPDATE` 1회다. 이 분석이 SKIN-01 저장 경로에서 동기로 돌기 때문에 확인했다.
 
-**아직 응답 경로로는 확인하지 못했다.** 이 표를 읽는 API(USER-02 · F-CHECK)가 없어 DB 행까지만 봤다.
+**응답 경로 확인 완료** (2026-08-11 · 아래 2.10). USER-02를 구현해 위 표의 세 행이 JSON으로
+나오는 것까지 확인했다. F-CHECK는 여전히 미구현이다.
 
 > ⚠️ **민감성 완화(BR 3)는 실사용 경로에서 아직 동작하지 않는다.** 검증 중 발견 —
 > `skin_types` 마스터가 비어 있고 온보딩 API(F-ONBOARD-02, A 담당)가 없어 `user_skin_types`에
@@ -303,8 +305,9 @@ completionRate = round((A * 0.5 + B * 0.5) * 100)
 태워 실행되는 것과 계산기가 스프링 컨텍스트에 정상 주입되는 것까지 확인한 뒤, 임시 의존성과
 테스트는 되돌렸다.
 
-> ⚠️ **이 계산기는 아직 아무도 호출하지 않는다.** 소비처인 USER-01 · USER-02 · CHECK-01이 모두
-> 미구현이다. 세 API가 **같은 값을 써야 하므로**(BR 4) 각 구현 시 이 컴포넌트를 호출해야 한다.
+> ⚠️ **소비처 3곳 중 1곳만 붙었다.** USER-02가 `completionRate`를 싣는다(2026-08-11 · 아래 2.10).
+> USER-01 · CHECK-01은 아직 미구현이며, 세 API가 **같은 값을 써야 하므로**(BR 4) 각 구현 시
+> 이 컴포넌트를 호출해야 한다 — 값 일치는 세 곳이 다 붙어야 검증할 수 있다.
 > 또한 제품 기록 저장 API(PRODUCT-05, A 담당)가 없어 실사용 경로에서는 B축이 항상 0이다 —
 > 즉 현재 실사용 최대치는 50%다. F-ANALYSIS-01 · 04와 같은 제약이다.
 
@@ -313,6 +316,57 @@ completionRate = round((A * 0.5 + B * 0.5) * 100)
 S-23 구현 시 확정해야 한다.
 
 **목표치 30일 · 20종에 이론적 근거는 없다.** ADR 0009의 3점, 0010의 2점과 같은 성격의 초기값이다.
+
+### 2.10 USER-02 구현 내역
+
+성분 프로파일 전체 조회. `ingredient_profiles`를 읽어 목록으로 내려준다. 분석을 실행하지 않는다.
+
+| 클래스 | 역할 |
+| --- | --- |
+| `UserController` | `GET /api/v1/users/me/ingredient-profile` · `status` 파싱 |
+| `UserIngredientProfileService` | 필터 · 정렬 · 근거 비우기 |
+| `IngredientStatus` | `ReactionType` 양방향 변환 (ADR 0004 공용 매핑) |
+
+**변환은 `IngredientStatus` 한 곳에만 있다.** ADR 0004가 "공용 매핑 한 곳을 두고 양쪽이 참조한다"고
+정했으므로 `analysis` 도메인에 두었다. CHECK-02 · 03 구현 시 이 enum을 그대로 쓴다 —
+변환을 다시 만들면 안 된다.
+
+**역방향 변환은 쿼리 파라미터 때문에 필요하다.** `?status=GOOD`이 오면 `SUITABLE` 행을 찾는다.
+반대로 **DB 표기인 `SUITABLE`을 쿼리로 보내면 422**다. API 경계에서 두 표기가 섞이면 ADR 0004가
+분리해 둔 계층 구분이 무너진다.
+
+**`INSUFFICIENT`의 근거는 표현 계층에서 한 번 더 비운다.** F-ANALYSIS-04가 이미 `null`로 쓰지만,
+민감성 해제처럼 상태가 되돌아가는 경로가 있어 이전 근거가 남을 여지가 있다. BR 1은 "지어내지
+않는다"이므로 나가는 쪽에서 막는 편이 안전하다.
+
+**`completionRate`는 필터와 무관하게 전체 기준이다.** `ProfileCompletionCalculator`를 그대로
+호출하며 이 서비스는 자체 계산하지 않는다(ADR 0011 BR 4).
+
+**N+1을 피하려고 fetch join을 썼다.** `findAllByUserIdWithIngredient` — 성분명을 함께 내리므로
+기본 `findAllByUserId`를 쓰면 성분 수만큼 추가 조회가 붙는다.
+
+자동 테스트 11개 — `UserIngredientProfileServiceTest` 6개(상태 정렬 1 · 그룹 내 노출 일수 정렬 1 ·
+근거 비우기 1 · 필터 1 · 완성도 위임 1 · 빈 프로파일 1)와 `IngredientStatusTest` 5개(양방향 변환 2 ·
+대소문자 1 · `SUITABLE` 거부 1 · 이름 일치 값 1). 전체 **108개 통과**.
+
+**로컬 MySQL 실서버 검증** (2026-08-11). 2.8이 남긴 `user_id=9001`의 3행을 그대로 사용했다.
+
+| 시나리오 | 결과 |
+| --- | --- |
+| 전체 조회 | 200 · 3건 · `completionRate: 41` |
+| `SUITABLE` 행 | 응답에 `"status": "GOOD"` |
+| 정렬 | `GOOD`(12) → `CAUTION`(3) → `INSUFFICIENT`(1) |
+| `?status=GOOD` | `SUITABLE` 행 1건만 · 필터해도 `completionRate` 전체 기준 |
+| `INSUFFICIENT` 행 | `reason_summary`가 DB에 있어도 `reason: null` |
+| `?status=BOGUS` · `?status=SUITABLE` | 422 `COMMON_VALIDATION_FAILED` |
+| `X-User-Id` 누락 | 401 `COMMON_UNAUTHORIZED` |
+| 프로파일 없는 사용자 | 200 · `ingredients: []` |
+
+**이것이 F-ANALYSIS-04 · 05의 첫 응답 경로 확인이다.** 두 기능 모두 그동안 DB 행과 단위 테스트까지만
+확인돼 있었다. 다만 **입력은 여전히 목업 시드다** — 제품 기록 저장(PRODUCT-05, A 담당)이 없어
+실사용자에게는 `ingredients`가 빈 배열이다.
+
+**아직 하지 않은 것** — 대상 화면이 미확정이라 프론트 연동이 없다. 화면 확정 시 필드가 추가될 수 있다.
 
 ---
 
