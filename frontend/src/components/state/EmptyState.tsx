@@ -5,7 +5,7 @@ import { Button } from '@/components/base/Button';
 import { color, space } from '@/theme/tokens';
 
 type EmptyStateProps = {
-  /** Checkpoint 9-B: 신규 세트에 대응 아이콘이 있으면 그 이름, 없으면 계속 Ionicons 이름을 씁니다. */
+  /** 신규 세트에 대응 아이콘이 있으면 그 이름, 없으면 계속 Ionicons 이름을 씁니다. */
   icon?: AppIconName;
   title: string;
   description?: string;
@@ -19,7 +19,7 @@ type EmptyStateProps = {
  * 예: 기록이 없는 캘린더 날짜, 검색 결과 없음 등.
  */
 export function EmptyState({
-  icon = 'file-tray-outline',
+  icon = 'trayEmpty',
   title,
   description,
   actionLabel,

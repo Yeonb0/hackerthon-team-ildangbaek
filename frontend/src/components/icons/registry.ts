@@ -28,8 +28,27 @@ import { IconSearch } from './IconSearch';
 import { IconTip } from './IconTip';
 import { IconWarning } from './IconWarning';
 import { IconWifiOff } from './IconWifiOff';
+// 아래 17개는 2026-08-12 디자이너 추가 전달분 — Checkpoint 9-B에서 대응 아이콘이 없어
+// Ionicons로 임시 유지했던 자리를 채웁니다 (예: ellipse-outline → circleEmpty).
+import { IconArrowUp } from './IconArrowUp';
+import { IconArrowDown } from './IconArrowDown';
+import { IconCalendar } from './IconCalendar';
+import { IconChevronUp } from './IconChevronUp';
+import { IconChevronDown } from './IconChevronDown';
+import { IconCircleEmpty } from './IconCircleEmpty';
+import { IconFilter } from './IconFilter';
+import { IconFlask } from './IconFlask';
+import { IconHelpCircle } from './IconHelpCircle';
+import { IconImagePlaceholder } from './IconImagePlaceholder';
+import { IconInfo } from './IconInfo';
+import { IconList } from './IconList';
+import { IconLocationPin } from './IconLocationPin';
+import { IconLogout } from './IconLogout';
+import { IconPersonCircle } from './IconPersonCircle';
+import { IconTrash } from './IconTrash';
+import { IconTrayEmpty } from './IconTrayEmpty';
 
-/** 카탈로그 화면·AppIcon 등에서 25개를 이름으로 순회/조회할 때 쓰는 이름→컴포넌트 맵. */
+/** 카탈로그 화면·AppIcon 등에서 42개를 이름으로 순회/조회할 때 쓰는 이름→컴포넌트 맵. */
 export const ICONS = {
   navHome: IconNavHome,
   navShop: IconNavShop,
@@ -56,6 +75,23 @@ export const ICONS = {
   tip: IconTip,
   warning: IconWarning,
   wifiOff: IconWifiOff,
+  arrowUp: IconArrowUp,
+  arrowDown: IconArrowDown,
+  calendar: IconCalendar,
+  chevronUp: IconChevronUp,
+  chevronDown: IconChevronDown,
+  circleEmpty: IconCircleEmpty,
+  filter: IconFilter,
+  flask: IconFlask,
+  helpCircle: IconHelpCircle,
+  imagePlaceholder: IconImagePlaceholder,
+  info: IconInfo,
+  list: IconList,
+  locationPin: IconLocationPin,
+  logout: IconLogout,
+  personCircle: IconPersonCircle,
+  trash: IconTrash,
+  trayEmpty: IconTrayEmpty,
 } as const;
 
 export type IconName = keyof typeof ICONS;

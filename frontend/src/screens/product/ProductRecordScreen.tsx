@@ -404,7 +404,7 @@ function HomeSection({
             />
             {filteredSavedProducts.length === 0 ? (
               <EmptyState
-                icon="filter-outline"
+                icon="filter"
                 title="해당 카테고리의 제품이 없어요"
                 description="초기화를 눌러 전체 제품을 다시 볼 수 있어요."
               />

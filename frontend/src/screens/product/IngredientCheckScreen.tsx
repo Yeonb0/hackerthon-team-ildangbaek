@@ -8,8 +8,7 @@ import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { IconCheck } from '@/components/icons';
+import { IconCheck, IconImagePlaceholder } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
 import { Tag, TagVariant } from '@/components/base/Tag';
@@ -160,7 +159,7 @@ export function IngredientCheckScreen() {
             {product.imageUrl ? (
               <Image source={{ uri: product.imageUrl }} style={styles.image} resizeMode="cover" />
             ) : (
-              <Ionicons name="image-outline" size={32} color={color.ink300} />
+              <IconImagePlaceholder size={32} color={color.ink300} />
             )}
           </View>
           <Text style={styles.brand}>{product.brand}</Text>

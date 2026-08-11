@@ -9,8 +9,7 @@ import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { IconChevronRight } from '@/components/icons';
+import { IconChevronRight, IconImagePlaceholder } from '@/components/icons';
 import { SegmentToggle } from '@/components/base/SegmentToggle';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
@@ -108,7 +107,7 @@ export function ShoppingScreen() {
               >
                 <View style={styles.recommendationThumbnail}>
                   {/* ProductCard와 같은 패턴 — 이미지 파이프라인 붙기 전까지 항상 placeholder */}
-                  <Ionicons name="image-outline" size={20} color={color.ink300} />
+                  <IconImagePlaceholder size={20} color={color.ink300} />
                 </View>
                 <View style={styles.recommendationInfo}>
                   <Text style={styles.recommendationBrand}>{rec.brand}</Text>

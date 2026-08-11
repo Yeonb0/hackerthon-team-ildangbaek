@@ -17,7 +17,7 @@ type TagProps = {
 // - caution: statusCaution (statusWatch보다 경고 성격이 강해서 채택)
 // - insufficient: 위험도 판정이 아니라 "모름" 상태라 상태색 대신 ink600(중립 회색) 사용
 // 아이콘: Checkpoint 9-B에서 match/caution은 신규 세트(check/warning)로 교체.
-// insufficient(help-circle-outline)는 대응 아이콘이 없어 Ionicons 유지 — AppIcon이 자동 폴백합니다.
+// insufficient(help-circle-outline)도 2026-08-12 추가분(helpCircle)으로 교체 완료.
 const VARIANT_CONFIG: Record<
   TagVariant,
   { defaultLabel: string; tint: string; icon: AppIconName }
@@ -27,7 +27,7 @@ const VARIANT_CONFIG: Record<
   insufficient: {
     defaultLabel: '데이터부족',
     tint: color.ink600,
-    icon: 'help-circle-outline',
+    icon: 'helpCircle',
   },
 };
 

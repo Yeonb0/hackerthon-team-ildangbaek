@@ -16,8 +16,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { IconBell, IconChevronRight } from '@/components/icons';
+import { IconBell, IconChevronRight, IconLocationPin, IconLogout } from '@/components/icons';
 import { Card } from '@/components/base/Card';
 import { Tag, TagVariant } from '@/components/base/Tag';
 import { ProgressBar } from '@/components/base/ProgressBar';
@@ -138,7 +137,7 @@ export function MyPageScreen() {
             onPress={() => navigation.navigate(DetailRoutes.LocationSettings, undefined)}
             accessibilityRole="button"
           >
-            <Ionicons name="location-outline" size={20} color={color.ink600} />
+            <IconLocationPin size={20} color={color.ink600} />
             <Text style={styles.menuLabel}>위치 설정</Text>
             <Text style={styles.menuValue}>{data.location ?? '설정 안 됨'}</Text>
             <IconChevronRight size={18} color={color.ink300} />
@@ -159,7 +158,7 @@ export function MyPageScreen() {
             onPress={() => setLogoutPopupVisible(true)}
             accessibilityRole="button"
           >
-            <Ionicons name="log-out-outline" size={20} color={color.statusCaution} />
+            <IconLogout size={20} color={color.statusCaution} />
             <Text style={[styles.menuLabel, { color: color.statusCaution }]}>로그아웃</Text>
           </Pressable>
         </Card>

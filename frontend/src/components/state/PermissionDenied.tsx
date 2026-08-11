@@ -15,7 +15,7 @@ type PermissionDeniedProps = {
 
 // ⚠️ 임시 카피 — 기획 문구 확정 전까지 사용하는 placeholder입니다.
 // 아이콘: Checkpoint 9-B에서 camera/notification은 신규 세트(camera/bell)로 교체.
-// location(위치 핀 모양)은 대응 아이콘이 없어 Ionicons 유지.
+// location(위치 핀 모양)도 2026-08-12 추가분(locationPin)으로 교체 완료.
 const TYPE_COPY: Record<
   PermissionType,
   { icon: AppIconName; title: string; description: string }
@@ -26,7 +26,7 @@ const TYPE_COPY: Record<
     description: '설정에서 카메라 접근을 허용해 주세요.',
   },
   location: {
-    icon: 'location-outline',
+    icon: 'locationPin',
     title: '위치 권한이 필요해요',
     description: '설정에서 위치 접근을 허용해 주세요.',
   },

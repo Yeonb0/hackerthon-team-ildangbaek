@@ -1,8 +1,7 @@
 // src/components/base/OptionCard.tsx
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { IconCheck } from '@/components/icons';
+import { IconCheck, IconCircleEmpty } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 
 type OptionCardProps = {
@@ -47,8 +46,7 @@ export function OptionCard({
       {selected ? (
         <IconCheck size={22} color={color.brand500} />
       ) : (
-        // 미선택 상태(빈 원)는 신규 세트에 대응 아이콘이 없어 Ionicons 유지 (Checkpoint 9-B)
-        <Ionicons name="ellipse-outline" size={22} color={color.ink300} />
+        <IconCircleEmpty size={22} color={color.ink300} />
       )}
     </Pressable>
   );

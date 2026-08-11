@@ -4,8 +4,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
-import { IconCheck, IconFaceScan } from '@/components/icons';
+import { IconCheck, IconCircleEmpty, IconFaceScan } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { ErrorState, type ErrorVariant } from '@/components/state/ErrorState';
 import { createSkinRecord } from '@/api/skin';
@@ -151,9 +150,7 @@ export function AnalyzingSkinScreen() {
             {index < stageIndex ? (
               <IconCheck size={18} color={color.brand500} />
             ) : (
-              // 진행 전 단계(빈 원)는 신규 세트에 대응 아이콘이 없어 Ionicons 유지 (Checkpoint 9-B)
-              <Ionicons
-                name="ellipse-outline"
+              <IconCircleEmpty
                 size={18}
                 color={index <= stageIndex ? color.brand500 : color.ink300}
               />
