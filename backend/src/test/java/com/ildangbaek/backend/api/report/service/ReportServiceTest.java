@@ -38,7 +38,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * REPORT-01의 업무 규칙을 고정한다 — 기간 검증 · 결측 null · 나이트 우선 대표값.
+ * REPORT-01의 업무 규칙을 고정한다 — 기간 검증 · 결측 null · 모닝/나이트 분리 반환(ADR 0012).
  * DB 없이 돌도록 리포지토리는 목으로 둔다.
  */
 @ExtendWith(MockitoExtension.class)
@@ -103,9 +103,9 @@ class ReportServiceTest {
                 .isEqualTo(ErrorCode.REPORT_DATA_INSUFFICIENT);
     }
 
-    @DisplayName("기록이 없는 날짜는 score가 null이다 — 0으로 계산하지 않는다")
+    @DisplayName("기록이 없는 날짜는 두 슬롯 모두 null이다 — 0으로 계산하지 않는다")
     @Test
-    void missingDateHasNullScore() {
+    void missingDateHasNullScores() {
         LocalDate today = LocalDate.now();
         SkinRecord onlyRecord = record(1L, today, TimeSlot.MORNING);
 
@@ -117,16 +117,15 @@ class ReportServiceTest {
         ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
 
         assertThat(response.graph()).hasSize(7);
-        long nullCount = response.graph().stream().filter(p -> p.score() == null).count();
-        assertThat(nullCount).isEqualTo(6);
-        ReportGraphPointResponse todayPoint = response.graph().stream()
-                .filter(p -> p.date().equals(today)).findFirst().orElseThrow();
-        assertThat(todayPoint.score()).isEqualTo(74);
+        long emptyDays = response.graph().stream()
+                .filter(p -> p.morningScore() == null && p.nightScore() == null).count();
+        assertThat(emptyDays).isEqualTo(6);
+        assertThat(pointOf(response, today).morningScore()).isEqualTo(74);
     }
 
-    @DisplayName("하루 2건이면 나이트 기록을 대표값으로 쓴다")
+    @DisplayName("하루 2건이면 모닝·나이트를 각각 내려준다 — 대표값으로 접지 않는다")
     @Test
-    void nightTakesPriorityOverMorning() {
+    void keepsBothSlotsForOneDate() {
         LocalDate today = LocalDate.now();
         SkinRecord morning = record(1L, today, TimeSlot.MORNING);
         SkinRecord night = record(2L, today, TimeSlot.NIGHT);
@@ -139,9 +138,32 @@ class ReportServiceTest {
 
         ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
 
-        ReportGraphPointResponse todayPoint = response.graph().stream()
-                .filter(p -> p.date().equals(today)).findFirst().orElseThrow();
-        assertThat(todayPoint.score()).isEqualTo(90);
+        ReportGraphPointResponse todayPoint = pointOf(response, today);
+        assertThat(todayPoint.morningScore()).isEqualTo(60);
+        assertThat(todayPoint.nightScore()).isEqualTo(90);
+    }
+
+    @DisplayName("하루에 한쪽만 기록한 날은 없는 슬롯이 null이다")
+    @Test
+    void missingSlotIsNullOnPartiallyRecordedDate() {
+        LocalDate today = LocalDate.now();
+        SkinRecord morning = record(1L, today, TimeSlot.MORNING);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of(morning));
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList()))
+                .thenReturn(List.of(metric(morning, SkinMetricType.TROUBLE, 60)));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        ReportGraphPointResponse todayPoint = pointOf(response, today);
+        assertThat(todayPoint.morningScore()).isEqualTo(60);
+        assertThat(todayPoint.nightScore()).isNull();
+    }
+
+    private ReportGraphPointResponse pointOf(ReportResponse response, LocalDate date) {
+        return response.graph().stream()
+                .filter(p -> p.date().equals(date)).findFirst().orElseThrow();
     }
 
     @DisplayName("분석 인사이트가 없으면 insights는 빈 배열이다")
@@ -213,9 +235,7 @@ class ReportServiceTest {
 
         ReportResponse response = service.getReport(1L, 7, SkinMetricType.REDNESS);
 
-        ReportGraphPointResponse todayPoint = response.graph().stream()
-                .filter(p -> p.date().equals(today)).findFirst().orElseThrow();
-        assertThat(todayPoint.score()).isEqualTo(66);
+        assertThat(pointOf(response, today).morningScore()).isEqualTo(66);
         assertThat(response.metric()).isEqualTo(SkinMetricType.REDNESS);
     }
 }

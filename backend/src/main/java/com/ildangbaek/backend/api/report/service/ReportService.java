@@ -16,6 +16,7 @@ import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,14 +60,14 @@ public class ReportService {
             throw new BusinessException(ErrorCode.REPORT_DATA_INSUFFICIENT);
         }
 
-        Map<LocalDate, SkinRecord> representativeByDate = pickRepresentativePerDate(records);
-        Map<Long, Integer> scoreByRecordId = loadMetricScores(representativeByDate.values(), metric);
+        Map<Long, Integer> scoreByRecordId = loadMetricScores(records, metric);
+        Map<LocalDate, Map<TimeSlot, Integer>> scoreByDateAndSlot = groupScoresByDateAndSlot(records, scoreByRecordId);
 
         List<ReportGraphPointResponse> graph = startDate.datesUntil(endDate.plusDays(1))
                 .map(date -> {
-                    SkinRecord record = representativeByDate.get(date);
-                    Integer score = record == null ? null : scoreByRecordId.get(record.getId());
-                    return new ReportGraphPointResponse(date, score);
+                    Map<TimeSlot, Integer> slots = scoreByDateAndSlot.getOrDefault(date, Map.of());
+                    return new ReportGraphPointResponse(
+                            date, slots.get(TimeSlot.MORNING), slots.get(TimeSlot.NIGHT));
                 })
                 .toList();
 
@@ -99,17 +100,23 @@ public class ReportService {
     }
 
     /**
-     * 하루 2건(모닝·나이트)이 있을 수 있다. 대표값은 나이트 우선, 없으면 모닝이다. (TBD-12, 제안 규칙)
+     * 하루 2건(모닝·나이트)을 접지 않고 슬롯별로 나눠 담는다. (ADR 0012)
+     *
+     * <p>지표 값이 없는 기록(분석 미완료 등)은 담지 않는다 — 해당 슬롯이 {@code null}로 남아
+     * 결측과 같게 표현된다.
      */
-    private Map<LocalDate, SkinRecord> pickRepresentativePerDate(List<SkinRecord> records) {
-        Map<LocalDate, SkinRecord> representative = new HashMap<>();
+    private Map<LocalDate, Map<TimeSlot, Integer>> groupScoresByDateAndSlot(
+            List<SkinRecord> records, Map<Long, Integer> scoreByRecordId) {
+        Map<LocalDate, Map<TimeSlot, Integer>> grouped = new HashMap<>();
         for (SkinRecord record : records) {
-            SkinRecord current = representative.get(record.getRecordDate());
-            if (current == null || record.getTimeSlot() == TimeSlot.NIGHT) {
-                representative.put(record.getRecordDate(), record);
+            Integer score = scoreByRecordId.get(record.getId());
+            if (score == null) {
+                continue;
             }
+            grouped.computeIfAbsent(record.getRecordDate(), date -> new EnumMap<>(TimeSlot.class))
+                    .put(record.getTimeSlot(), score);
         }
-        return representative;
+        return grouped;
     }
 
     private Map<Long, Integer> loadMetricScores(java.util.Collection<SkinRecord> records, SkinMetricType metric) {
