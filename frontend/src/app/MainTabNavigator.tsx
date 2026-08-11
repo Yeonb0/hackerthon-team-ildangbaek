@@ -1,6 +1,14 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabRoutes, DetailRoutes, MainTabParamList, DetailStackParamList } from './routes';
+import { navIcon } from '@/theme/tokens';
+import {
+  IconNavHome,
+  IconNavShop,
+  IconNavRecord,
+  IconNavReport,
+  IconNavMy,
+} from '@/components/icons';
 
 import { HomeScreen } from '@/screens/home/HomeScreen';
 import { ShoppingScreen } from '@/screens/product/ShoppingScreen';
@@ -24,14 +32,52 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<DetailStackParamList>();
 
 // 하단 탭 5개 — 탭 전환은 상태 교체, 탭별 뒤로가기 없음 (구조 정의서 확정 규칙)
+// 아이콘 색상은 라벨 색과 맞추기 위해 tabBarActiveTintColor/tabBarInactiveTintColor에도
+// 동일한 navIcon 토큰을 씁니다 (Checkpoint 9-A. 라벨 텍스트 자체는 이번 범위 아님).
 function Tabs() {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }}>
-      <Tab.Screen name={MainTabRoutes.Home} component={HomeScreen} />
-      <Tab.Screen name={MainTabRoutes.Shopping} component={ShoppingScreen} />
-      <Tab.Screen name={MainTabRoutes.RecordHub} component={RecordHubScreen} />
-      <Tab.Screen name={MainTabRoutes.Report} component={ReportScreen} />
-      <Tab.Screen name={MainTabRoutes.My} component={MyPageScreen} />
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: navIcon.active,
+        tabBarInactiveTintColor: navIcon.inactive,
+      }}
+    >
+      <Tab.Screen
+        name={MainTabRoutes.Home}
+        component={HomeScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <IconNavHome color={color} size={size} />,
+        }}
+      />
+      <Tab.Screen
+        name={MainTabRoutes.Shopping}
+        component={ShoppingScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <IconNavShop color={color} size={size} />,
+        }}
+      />
+      <Tab.Screen
+        name={MainTabRoutes.RecordHub}
+        component={RecordHubScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <IconNavRecord color={color} size={size} />,
+        }}
+      />
+      <Tab.Screen
+        name={MainTabRoutes.Report}
+        component={ReportScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <IconNavReport color={color} size={size} />,
+        }}
+      />
+      <Tab.Screen
+        name={MainTabRoutes.My}
+        component={MyPageScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <IconNavMy color={color} size={size} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }

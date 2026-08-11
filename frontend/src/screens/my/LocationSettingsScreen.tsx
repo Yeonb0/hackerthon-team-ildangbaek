@@ -17,7 +17,7 @@ import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { IconCheck } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
 import { Popup } from '@/components/base/Popup';
@@ -92,7 +92,7 @@ export function LocationSettingsScreen() {
         <Text style={styles.rowText}>{item.name}</Text>
         <View style={styles.rowTrailing}>
           {item.current && <Text style={styles.currentBadge}>현재 설정</Text>}
-          {isSelected && <Ionicons name="checkmark" size={18} color={color.brand700} />}
+          {isSelected && <IconCheck size={18} color={color.brand700} />}
         </View>
       </Pressable>
     );
@@ -140,7 +140,7 @@ export function LocationSettingsScreen() {
       ) : (
         // USER-05 BR3: 검색 결과 없음은 오류가 아니라 빈 배열 — EmptyState로 처리.
         <View style={styles.centerFill}>
-          <EmptyState icon="search-outline" title="검색 결과가 없어요" />
+          <EmptyState icon="search" title="검색 결과가 없어요" />
         </View>
       )}
 

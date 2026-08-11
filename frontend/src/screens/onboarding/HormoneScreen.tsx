@@ -56,6 +56,9 @@ export function HormoneScreen() {
 
   // MENOPAUSE는 최근 시작일·평균 주기가 의미 없음 (F-ONBOARD-03 BR7)
   const showCycleFields = hormoneStatus !== null && hormoneStatus !== 'MENOPAUSE';
+  // 평균 주기는 "최근 생리(휴약기) 시작일"이 있어야 기준점이 생기는 값이라, 날짜를
+  // 아직 안 골랐으면 기본값(28일)이 마치 실제 입력인 것처럼 보이지 않게 필드 자체를
+  // 숨깁니다 — 날짜 선택 후에만 나타남 (관리자 요청, 2026-08-11).
 
   const goToComplete = () => navigation.navigate(OnboardingRoutes.OnboardingComplete);
 
@@ -75,8 +78,7 @@ export function HormoneScreen() {
     try {
       await saveHormoneInfo({
         hormoneStatus,
-        ...(showCycleFields && lastPeriodStartDate ? { lastPeriodStartDate } : {}),
-        ...(showCycleFields ? { averageCycleDays } : {}),
+        ...(showCycleFields && lastPeriodStartDate ? { lastPeriodStartDate, averageCycleDays } : {}),
       });
       goToComplete();
     } catch (e) {
@@ -133,20 +135,22 @@ export function HormoneScreen() {
               error={fieldErrors.lastPeriodStartDate}
             />
 
-            <View style={styles.cycleField}>
-              <Text style={styles.sectionLabel}>평균 주기 (선택)</Text>
-              <WheelPicker
-                orientation="horizontal"
-                value={averageCycleDays}
-                onChange={setAverageCycleDays}
-                min={CYCLE_MIN}
-                max={CYCLE_MAX}
-                formatLabel={(v) => `${v}일`}
-              />
-              {fieldErrors.averageCycleDays ? (
-                <Text style={styles.fieldError}>{fieldErrors.averageCycleDays}</Text>
-              ) : null}
-            </View>
+            {lastPeriodStartDate && (
+              <View style={styles.cycleField}>
+                <Text style={styles.sectionLabel}>평균 주기 (선택)</Text>
+                <WheelPicker
+                  orientation="horizontal"
+                  value={averageCycleDays}
+                  onChange={setAverageCycleDays}
+                  min={CYCLE_MIN}
+                  max={CYCLE_MAX}
+                  formatLabel={(v) => `${v}일`}
+                />
+                {fieldErrors.averageCycleDays ? (
+                  <Text style={styles.fieldError}>{fieldErrors.averageCycleDays}</Text>
+                ) : null}
+              </View>
+            )}
           </View>
         )}
 

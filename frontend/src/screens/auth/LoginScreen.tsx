@@ -1,6 +1,6 @@
 // src/screens/auth/LoginScreen.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Image, Text, StyleSheet } from 'react-native';
 import { Button } from '@/components/base/Button';
 import { useAuthStore } from '@/store/authStore';
 import { login as loginApi } from '@/api/auth';
@@ -39,8 +39,13 @@ export function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.brand}>
-        <Text style={styles.title}>skinteller</Text>
-        <Text style={styles.subtitle}>성분과 피부 변화를 연결해서 기록해요</Text>
+        {/*
+          Checkpoint 9-C — 로고 안에 이미 영문 태그라인("TELL YOUR SKIN STORY")이 있어서
+          기존 한글 부제("성분과 피부 변화를 연결해서 기록해요")는 중복으로 보여 삭제했습니다
+          (관리자님 확인 2026-08-11). 아이콘용 크롭본은 디자인팀에서 받는 대로 별도 적용 예정 —
+          여기 쓰는 건 전체 로고(마스코트+워드마크+태그라인) 원본입니다.
+        */}
+        <Image source={require('../../../assets/skinteller-logo.png')} style={styles.logo} resizeMode="contain" />
       </View>
 
       <View style={styles.buttonGroup}>
@@ -78,16 +83,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: space[8],
   },
-  title: {
-    fontSize: s(32),
-    fontWeight: '700',
-    color: color.ink900,
-    marginBottom: space[2],
-  },
-  subtitle: {
-    fontSize: s(14),
-    color: color.ink600,
-    textAlign: 'center',
+  logo: {
+    width: s(290),
+    height: s(290),
   },
   buttonGroup: {
     width: '100%',

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconCamera } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Card } from '@/components/base/Card';
 import { color, space, typography } from '@/theme';
@@ -20,7 +20,7 @@ type SkinRecordSuggestionCardProps = {
 export function SkinRecordSuggestionCard({ onPress, style }: SkinRecordSuggestionCardProps) {
   return (
     <Card padding={4} style={[styles.card, style]}>
-      <Ionicons name="camera-outline" size={24} color={color.brand700} />
+      <IconCamera size={24} color={color.brand700} />
       <View style={styles.textArea}>
         <Text style={styles.title}>피부 기록도 남겨보세요</Text>
         <Text style={styles.description}>지금 촬영하면 이 제품 효과를 더 정확히 볼 수 있어요.</Text>
