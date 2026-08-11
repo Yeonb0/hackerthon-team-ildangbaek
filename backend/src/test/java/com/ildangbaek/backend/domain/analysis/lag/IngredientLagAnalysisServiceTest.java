@@ -190,6 +190,37 @@ class IngredientLagAnalysisServiceTest {
         verify(profileWriter).write(any(), anyList(), anyList());
     }
 
+    @DisplayName("관측 쌍이 없어 패턴이 비면 이전 성분 인사이트를 정리하도록 writer를 호출한다")
+    @SuppressWarnings("unchecked")
+    @Test
+    void clearsInsightsWhenNoPatternsRemain() {
+        List<SkinRecord> records = new ArrayList<>();
+        List<SkinMetric> metrics = new ArrayList<>();
+        for (int day = 0; day < 20; day++) {
+            SkinRecord record = skinRecord((long) day + 1, TODAY.minusDays(day), true);
+            records.add(record);
+            metrics.add(metric(record, 50));
+        }
+        ProductRecord latestProductRecord = productRecord(1L, TODAY);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(records);
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList())).thenReturn(metrics);
+        when(productRecordRepository.findAllByUserIdAndRecordDateBetween(anyLong(), any(), any()))
+                .thenReturn(List.of(latestProductRecord));
+        when(productRecordItemRepository.findAllWithProductByProductRecordIdIn(anyList()))
+                .thenReturn(List.of(productRecordItem(latestProductRecord, serum)));
+        when(productIngredientRepository.findAllWithIngredientByProductIdIn(anyList()))
+                .thenReturn(List.of(productIngredient(serum, retinol)));
+        when(insightWriter.write(any(), anyList(), any(), any())).thenReturn(List.of());
+
+        assertThat(service.analyzeAndStore(user, TODAY)).isZero();
+
+        ArgumentCaptor<List<LagPattern>> captor = ArgumentCaptor.forClass(List.class);
+        verify(insightWriter).write(any(), captor.capture(), any(), any());
+        assertThat(captor.getValue()).isEmpty();
+    }
+
     @DisplayName("제품 기록이 없으면 프로파일도 갱신하지 않는다")
     @Test
     void skipsProfileWhenNoProductRecords() {

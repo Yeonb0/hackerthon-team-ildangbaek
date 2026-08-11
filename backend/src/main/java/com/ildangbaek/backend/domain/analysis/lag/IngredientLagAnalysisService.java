@@ -83,10 +83,8 @@ public class IngredientLagAnalysisService {
         // USER-02가 그 성분을 몇 번 썼는지 보여줄 수 있다. (F-ANALYSIS-04)
         profileWriter.write(user, exposures, patterns);
 
-        if (patterns.isEmpty()) {
-            return 0;
-        }
-
+        // 빈 후보도 이번 분석의 최신 결과다. writer가 기존 성분 인사이트를 지운 뒤 빈 목록을 저장해
+        // 분석 창에서 근거가 사라진 카드를 계속 노출하지 않게 한다.
         return insightWriter.write(user, patterns, startDate, today).size();
     }
 
