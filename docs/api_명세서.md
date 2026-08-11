@@ -904,6 +904,21 @@ json
 { "enabled": true }
 ```
 
+**Success Response — 200** `확정`
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "알림 설정이 변경되었습니다.",
+  "result": {
+    "enabled": true
+  }
+}
+```
+
 **Business Rule**
 
 1. 앱 내부 알림 설정만 변경한다. **OS 권한과는 별도로 관리한다.**
@@ -1021,6 +1036,8 @@ json
     },
 
     "weeklyCalendar": [
+      { "date": "2026-08-01", "morning": "NONE",    "night": "NONE"    },
+      { "date": "2026-08-02", "morning": "PARTIAL", "night": "NONE"    },
       { "date": "2026-08-03", "morning": "FULL",    "night": "FULL"    },
       { "date": "2026-08-04", "morning": "FULL",    "night": "PARTIAL" },
       { "date": "2026-08-05", "morning": "PARTIAL", "night": "NONE"    },
@@ -1051,8 +1068,12 @@ json
 | `environment` | **낮에만** 조회한다. 밤에는 `null`. S-08에 날씨 영역이 없기 때문 |
 | `routineRecommendation` | 낮은 `MORNING`, 밤은 `NIGHT` 루틴 대상. 각 항목에 `reason` 필수 |
 | `todayRecord` | 4개 슬롯 전체 상태. 낮/밤 무관하게 항상 반환 |
-| `weeklyCalendar` | **밤에만** 반환. 이번 주(월~오늘)만. 이번 달 전체는 RECORD-01 담당 |
+| `weeklyCalendar` | **밤에만** 반환. 오늘 포함 최근 7일(오늘부터 6일 전까지) 롤링 범위. 이번 달 전체는 RECORD-01 담당 |
 | `todayReport` | **밤 + 오늘 피부 기록 존재** 시에만. 조건 미충족 시 `null` |
+
+**`environment.weather` 값** `확정`
+
+`SUNNY`, `CLOUDY`, `OVERCAST`, `RAIN`, `SNOW`, `YELLOW_DUST`, `THUNDERSTORM` 중 하나를 반환한다.
 
 **`weeklyCalendar` 점 상태**
 
@@ -1286,6 +1307,7 @@ json
         "name": "라운드랩 자작나무 수분 토너",
         "brand": "라운드랩",
         "category": "TONER",
+        "imageUrl": "https://example.com/products/roundlab-birch-toner.jpg",
         "lastUsedAt": "2026-08-06T08:12:00+09:00"
       },
       {
@@ -1293,6 +1315,7 @@ json
         "name": "이니스프리 어성초 세럼",
         "brand": "이니스프리",
         "category": "SERUM",
+        "imageUrl": "https://example.com/products/innisfree-serum.jpg",
         "lastUsedAt": "2026-08-05T08:30:00+09:00"
       }
     ]
@@ -1344,6 +1367,7 @@ json
         "name": "라운드랩 자작나무 수분 토너",
         "brand": "라운드랩",
         "category": "TONER",
+        "imageUrl": "https://example.com/products/roundlab-toner.jpg",
         "saved": true
       },
       {
@@ -1351,6 +1375,7 @@ json
         "name": "라운드랩 1025 독도 토너",
         "brand": "라운드랩",
         "category": "TONER",
+        "imageUrl": "https://example.com/products/roundlab-toner.jpg",
         "saved": false
       }
     ]
@@ -1365,6 +1390,8 @@ json
 3. `saved`는 이미 저장한 제품 여부다. `저장됨` 배지에 사용한다.
 4. 동일 제품이 중복 노출되지 않는다.
 5. 결과 0건은 빈 배열 + `totalCount: 0`이며 **오류가 아니다.**
+6. `category`는 `TONER`, `ESSENCE`, `SERUM`, `AMPOULE`, `GEL`, `LOTION`, `CREAM`, `BALM`, `OIL`, `SUNCREAM`, `CLEANSING`, `MASK` 중 하나만 반환한다.
+7. 목록 응답의 `imageUrl`은 문자열 또는 `null`이며, 값이 없으면 클라이언트가 placeholder를 표시한다.
 
 **Error**
 
@@ -1398,6 +1425,7 @@ json
     "name": "라운드랩 자작나무 수분 토너",
     "brand": "라운드랩",
     "category": "TONER",
+    "imageUrl": "https://example.com/products/roundlab-birch-toner.jpg",
     "saved": true,
     "ingredientCount": 32,
 
@@ -1422,6 +1450,7 @@ json
 2. `ingredients`는 전체 성분 목록이다.
 3. `ingredientCount`는 전체 개수이며 S-14의 "총 N개 성분" 표시에 사용한다.
 4. 성분 데이터가 없는 제품은 `ingredientCount: 0` + 빈 배열로 반환한다. 오류가 아니며 클라이언트가 "성분 데이터 부족" 안내를 표시한다.
+5. `imageUrl`은 문자열 또는 `null`이다. S-14 상단 제품 이미지 표시 영역에서 사용한다.
 
 **Error**
 
@@ -1462,6 +1491,8 @@ json
     "productId": 15,
     "name": "라운드랩 1025 독도 토너",
     "brand": "라운드랩",
+    "category": "TONER",
+    "imageUrl": "https://example.com/products/roundlab-dokdo-toner.jpg",
     "confidence": 0.94
   }
 }
@@ -1470,8 +1501,9 @@ json
 **Business Rule**
 
 1. 인식 성공 시 `productId`를 반환하고 클라이언트는 PRODUCT-03으로 상세를 조회한다.
-2. `confidence`는 `PRODUCT_IMAGE` 모드에서만 유효하다. `BARCODE`는 항상 `1.0`이다.
-3. 인식 실패 시 클라이언트는 재스캔과 함께 **검색 전환 경로를 반드시 제공**한다.
+2. `BARCODE` 모드는 인식된 바코드를 `Product.barcode`와 먼저 매칭한다. 데모 시연용 제품 3~5개는 `data_source = SAMPLE`로 사전 등록한다.
+3. `confidence`는 `PRODUCT_IMAGE` 모드에서만 유효하다. `BARCODE`는 항상 `1.0`이다.
+4. 인식 실패 시 클라이언트는 재스캔과 함께 **검색 전환 경로를 반드시 제공**한다.
 
 **Error**
 
@@ -1665,9 +1697,9 @@ json
       "timeSlot": "MORNING",
       "productCount": 3,
       "products": [
-        { "productId": 11, "name": "라운드랩 자작나무 수분 토너" },
-        { "productId": 15, "name": "이니스프리 어성초 세럼" },
-        { "productId": 21, "name": "닥터지 선베이스" }
+        { "productId": 11, "name": "라운드랩 자작나무 수분 토너", "brand": "라운드랩", "category": "TONER", "imageUrl": "https://example.com/products/roundlab-birch-toner.jpg" },
+        { "productId": 15, "name": "이니스프리 어성초 세럼", "brand": "이니스프리", "category": "SERUM", "imageUrl": "https://example.com/products/innisfree-serum.jpg" },
+        { "productId": 21, "name": "닥터지 선베이스", "brand": "닥터지", "category": "SUNCREAM", "imageUrl": "https://example.com/products/drg-sunscreen.jpg" }
       ]
     },
     {
@@ -1683,7 +1715,8 @@ json
 
 > 루틴은 **모닝 / 나이트로 분리 저장**된다. 시간대별 사용 제품이 다르기 때문이다. (F-PRODUCT-05 BR 4)
 > 
-
+> MVP 데모 범위에서는 루틴 생성·수정·삭제 API를 제공하지 않는다. 루틴은 조회(`GET /routines`)와 바로 기록(`POST /routines/{routineId}/records`)만 지원하며, 구성 변경 API는 후순위로 둔다.
+> 
 ---
 
 ## PRODUCT-08 · 루틴 바로 기록 ⭐
