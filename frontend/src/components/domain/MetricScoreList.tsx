@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { IconMinus } from '@/components/icons';
 import { MetricListItem } from '@/api/adapters';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { color, space } from '@/theme/tokens';
@@ -43,7 +44,7 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   if (delta === 0) {
     return (
       <View style={styles.deltaRow}>
-        <Ionicons name="remove" size={12} color={color.ink600} />
+        <IconMinus size={12} color={color.ink600} />
         <Text style={styles.deltaNeutral}>변화 없음</Text>
       </View>
     );
@@ -51,6 +52,7 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   const isUp = delta > 0;
   return (
     <View style={styles.deltaRow}>
+      {/* 위/아래 화살표는 신규 세트에 대응 아이콘이 없어 Ionicons 유지 (Checkpoint 9-B) */}
       <Ionicons
         name={isUp ? 'arrow-up' : 'arrow-down'}
         size={12}

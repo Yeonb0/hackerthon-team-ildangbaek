@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon, AppIconName } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 
 export type TagVariant = 'match' | 'caution' | 'insufficient';
@@ -12,15 +12,17 @@ type TagProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-// ⚠️ 임시 매핑 (관리자 확인 필요) — 디자인 아이콘/컬러 확정 시 교체
+// ⚠️ 임시 매핑 (관리자 확인 필요) — 디자인 컬러 확정 시 교체
 // - match: statusGood
 // - caution: statusCaution (statusWatch보다 경고 성격이 강해서 채택)
 // - insufficient: 위험도 판정이 아니라 "모름" 상태라 상태색 대신 ink600(중립 회색) 사용
+// 아이콘: Checkpoint 9-B에서 match/caution은 신규 세트(check/warning)로 교체.
+// insufficient(help-circle-outline)는 대응 아이콘이 없어 Ionicons 유지 — AppIcon이 자동 폴백합니다.
 const VARIANT_CONFIG: Record<
   TagVariant,
-  { defaultLabel: string; tint: string; icon: keyof typeof Ionicons.glyphMap }
+  { defaultLabel: string; tint: string; icon: AppIconName }
 > = {
-  match: { defaultLabel: '맞음', tint: color.statusGood, icon: 'checkmark-circle' },
+  match: { defaultLabel: '맞음', tint: color.statusGood, icon: 'check' },
   caution: { defaultLabel: '주의', tint: color.statusCaution, icon: 'warning' },
   insufficient: {
     defaultLabel: '데이터부족',
@@ -44,7 +46,7 @@ export function Tag({ variant, label, style }: TagProps) {
       accessibilityRole="text"
       accessibilityLabel={`${displayLabel} 태그`}
     >
-      <Ionicons name={config.icon} size={14} color={tint} style={styles.icon} />
+      <AppIcon name={config.icon} size={14} color={tint} style={styles.icon} />
       <Text style={[styles.label, { color: tint }]}>{displayLabel}</Text>
     </View>
   );

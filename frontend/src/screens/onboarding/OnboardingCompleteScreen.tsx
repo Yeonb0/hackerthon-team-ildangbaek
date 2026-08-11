@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
+import { IconCheck } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Card } from '@/components/base/Card';
 import { LoadingState } from '@/components/state/LoadingState';
@@ -74,7 +74,7 @@ export function OnboardingCompleteScreen() {
 
   return (
     <View style={styles.container}>
-      <Ionicons name="checkmark-circle" size={64} color={color.brand500} style={styles.icon} />
+      <IconCheck size={64} color={color.brand500} style={styles.icon} />
 
       <Text style={styles.title}>프로파일이 완성되었어요</Text>
       <Text style={styles.description}>

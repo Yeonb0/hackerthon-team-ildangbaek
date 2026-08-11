@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { EnvironmentCard } from '@/components/domain/EnvironmentCard';
+import { EnvironmentTipCard } from '@/components/domain/EnvironmentTipCard';
 import { RoutineRecommendationList } from '@/components/domain/RoutineRecommendationList';
 import { s } from '@/lib/scale';
 import { color, radius, space, typography } from '@/theme';
@@ -29,10 +30,13 @@ const HEADER_COLLAPSE_SCROLL_RANGE = s(120);
 /**
  * S-07 낮 홈.
  *
- * 배경 그라데이션은 brand50→brand100 고정 2단 그라데이션입니다. 원래 계획(날씨별 그라데이션
- * 팔레트)은 디자인 쪽 색상표가 아직 없어서(Figma Variables 미확정), 확정되면 이 파일의
- * colors 배열만 날씨 조건별 분기로 바꾸면 됩니다. 화장대·태양 일러스트(SVG)도 같은 이유로
- * 이번 체크포인트에는 넣지 않았습니다.
+ * 배경 그라데이션은 brand50→brand100 고정 2단 그라데이션입니다. Checkpoint 9-D에서
+ * brand50/100이 라벤더 톤으로 바뀌면서 배경도 자동으로 옅은 라벤더 느낌이 됐습니다
+ * (관리자 결정 — 낮은 하늘색 기조 유지 + 살짝만 색감 변화, 2026-08-11). 날씨별
+ * 그라데이션 팔레트로 나누는 원래 계획은 디자인 쪽 색상표가 아직 없어서(Figma
+ * Variables 미확정) 보류 상태이고, 확정되면 이 파일의 colors 배열만 날씨 조건별
+ * 분기로 바꾸면 됩니다. 화장대·태양 일러스트(SVG)도 같은 이유로 이번 체크포인트에는
+ * 넣지 않았습니다.
  *
  * Collapsing header는 환경 정보 카드(날씨 영역)에만 적용했습니다 — 밤 홈은 이 영역이 아예
  * 없어서(environment: null) 체크포인트 C 범위에서 제외했습니다.
@@ -72,6 +76,14 @@ export function DayHomeScreen({ data, onPressRecordCta }: DayHomeScreenProps) {
           <EnvironmentCard environment={data.environment} hasFailed={hasEnvironmentFailure} />
         </Animated.View>
 
+        {/*
+          목업(HOME01)엔 이 자리에 화장대 일러스트가 있지만, SVG 에셋이 아직 없어서
+          체크포인트 A 시점 결정대로 계속 생략합니다 — 자리표시자조차 넣지 않습니다.
+        */}
+        {data.environment && !hasEnvironmentFailure && (
+          <EnvironmentTipCard environment={data.environment} style={styles.section} />
+        )}
+
         <RoutineRecommendationList
           timeSlot={data.routineRecommendation.timeSlot}
           items={data.routineRecommendation.items}
@@ -81,6 +93,7 @@ export function DayHomeScreen({ data, onPressRecordCta }: DayHomeScreenProps) {
         <Button
           label={morningCompleted ? '오늘 모닝루틴 완료!' : '모닝루틴 기록하러 가기'}
           onPress={onPressRecordCta}
+          variant="gradient"
           style={styles.cta}
         />
       </Animated.ScrollView>

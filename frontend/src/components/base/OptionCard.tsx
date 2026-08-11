@@ -2,6 +2,7 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { IconCheck } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 
 type OptionCardProps = {
@@ -43,11 +44,12 @@ export function OptionCard({
         <Text style={[styles.title, selected && styles.titleSelected]}>{title}</Text>
         {description ? <Text style={styles.description}>{description}</Text> : null}
       </View>
-      <Ionicons
-        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-        size={22}
-        color={selected ? color.brand500 : color.ink300}
-      />
+      {selected ? (
+        <IconCheck size={22} color={color.brand500} />
+      ) : (
+        // 미선택 상태(빈 원)는 신규 세트에 대응 아이콘이 없어 Ionicons 유지 (Checkpoint 9-B)
+        <Ionicons name="ellipse-outline" size={22} color={color.ink300} />
+      )}
     </Pressable>
   );
 }

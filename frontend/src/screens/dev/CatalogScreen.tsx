@@ -19,6 +19,7 @@ import { SkinRecordSuggestionCard } from '@/components/domain/SkinRecordSuggesti
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { MetricScoreList } from '@/components/domain/MetricScoreList';
 import { EnvironmentCard } from '@/components/domain/EnvironmentCard';
+import { EnvironmentTipCard } from '@/components/domain/EnvironmentTipCard';
 import { RoutineRecommendationList } from '@/components/domain/RoutineRecommendationList';
 import { RecordDot } from '@/components/domain/RecordDot';
 import { WeeklyRecordStrip } from '@/components/domain/WeeklyRecordStrip';
@@ -36,8 +37,9 @@ import { Popup } from '@/components/base/Popup';
 import { Toast } from '@/components/base/Toast';
 import { TrendGraph } from '@/components/chart/TrendGraph';
 import { RadarChart, RadarChartItem } from '@/components/chart/RadarChart';
+import { ICONS } from '@/components/icons';
 import { getTodayDateString } from '@/lib/date';
-import { color, space } from '@/theme/tokens';
+import { color, navIcon, space } from '@/theme/tokens';
 import type { GraphPoint } from '@/types/report';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
 
@@ -54,6 +56,8 @@ import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
  * 데모 대상에서 제외 — FaceCaptureScreen과 같은 이유)
  * Phase 7-B 조정 — ProductCard selected(체크 표시), RoutineQuickRecordCard 펼침+순서변경
  * ·삭제(데모 전용, 미영속)
+ * Phase 9 Checkpoint A 추가분 — 아이콘 25종 전시 (컴포넌트 자체는 components/icons/,
+ * 여기선 ICONS 레지스트리로 순회만 함)
  */
 
 // Phase 6 데모용 표본 데이터 생성 함수 — 실제 화면 코드가 아니라 카탈로그 전용입니다.
@@ -353,6 +357,49 @@ export default function CatalogScreen() {
         <EnvironmentCard environment={null} hasFailed />
       </Section>
 
+      <Section title="EnvironmentTipCard (Checkpoint 9-D)">
+        <Text style={styles.hint}>자외선 높음 → 자외선 팁이 우선 표시됩니다.</Text>
+        <EnvironmentTipCard
+          environment={{
+            location: '서울 강남구',
+            weather: 'SUNNY',
+            temperature: 28,
+            uvIndex: 7,
+            uvGrade: 'HIGH',
+            humidity: 55,
+            humidityGrade: 'NORMAL',
+          }}
+        />
+        <Text style={[styles.hint, styles.progressSpacing]}>
+          자외선 평범 + 습도 낮음 → 건조 팁으로 대체됩니다.
+        </Text>
+        <EnvironmentTipCard
+          environment={{
+            location: '서울 강남구',
+            weather: 'SUNNY',
+            temperature: 22,
+            uvIndex: 3,
+            uvGrade: 'MODERATE',
+            humidity: 25,
+            humidityGrade: 'LOW',
+          }}
+        />
+        <Text style={[styles.hint, styles.progressSpacing]}>
+          둘 다 평범 → 카드 자체가 렌더링되지 않습니다(아래 빈 공간이 정상):
+        </Text>
+        <EnvironmentTipCard
+          environment={{
+            location: '서울 강남구',
+            weather: 'CLOUDY',
+            temperature: 20,
+            uvIndex: 2,
+            uvGrade: 'LOW',
+            humidity: 50,
+            humidityGrade: 'NORMAL',
+          }}
+        />
+      </Section>
+
       <Section title="RoutineRecommendationList">
         <RoutineRecommendationList
           timeSlot="MORNING"
@@ -587,7 +634,7 @@ export default function CatalogScreen() {
         <Toast
           visible={toastVisible}
           message="기록 완료! 라운드랩 자작나무 수분 토너 외 2개"
-          icon="checkmark-circle"
+          icon="check"
           actionLabel="피부도 기록하기"
           onActionPress={() => {}}
           onDismiss={() => setToastVisible(false)}
@@ -615,6 +662,35 @@ export default function CatalogScreen() {
           }}
           onPress={() => {}}
         />
+      </Section>
+
+      <Section title="아이콘 (Phase 9 Checkpoint A — 25종)">
+        <Text style={styles.hint}>
+          24×24 SVG, color prop 하나로 색이 바뀝니다. barcode/celebrate/cloud-error/
+          product-bottle/wifi-off 5개는 원본이 고정 검정이었던 걸 currentColor로 정규화했습니다.
+        </Text>
+        <Row>
+          {Object.entries(ICONS).map(([name, IconComponent]) => (
+            <View key={name} style={styles.iconSwatch}>
+              <IconComponent color={color.ink600} size={24} />
+              <Text style={styles.iconLabel}>{name}</Text>
+            </View>
+          ))}
+        </Row>
+
+        <Text style={[styles.hint, styles.progressSpacing]}>
+          탭바 실제 색상(활성 / 비활성) — MainTabNavigator와 동일한 navIcon 토큰입니다.
+        </Text>
+        <Row>
+          <View style={styles.iconSwatch}>
+            <ICONS.navHome color={navIcon.active} size={28} />
+            <Text style={styles.iconLabel}>active</Text>
+          </View>
+          <View style={styles.iconSwatch}>
+            <ICONS.navHome color={navIcon.inactive} size={28} />
+            <Text style={styles.iconLabel}>inactive</Text>
+          </View>
+        </Row>
       </Section>
     </ScrollView>
   );
@@ -672,5 +748,15 @@ const styles = StyleSheet.create({
   radarPreview: {
     alignItems: 'center',
     paddingVertical: space[3],
+  },
+  iconSwatch: {
+    alignItems: 'center',
+    gap: space[1],
+    width: 64,
+  },
+  iconLabel: {
+    fontSize: 10,
+    color: color.ink600,
+    textAlign: 'center',
   },
 });

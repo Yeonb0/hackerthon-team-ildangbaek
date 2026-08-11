@@ -10,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { IconChevronRight } from '@/components/icons';
 import { SegmentToggle } from '@/components/base/SegmentToggle';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
@@ -91,7 +92,7 @@ export function ShoppingScreen() {
           <ErrorState variant="network" onRetry={() => checkHomeQuery.refetch()} />
         ) : checkHomeQuery.data.recommendations.length === 0 ? (
           <EmptyState
-            icon="sparkles-outline"
+            icon="celebrate"
             title="아직 추천할 제품이 없어요"
             description="기록이 쌓이면 나에게 맞는 제품을 추천해드려요."
           />
@@ -114,7 +115,7 @@ export function ShoppingScreen() {
                   <Text style={styles.recommendationName}>{rec.name}</Text>
                   <Text style={styles.recommendationReason}>{rec.reason}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={color.ink300} />
+                <IconChevronRight size={18} color={color.ink300} />
               </Pressable>
             ))}
           </View>
@@ -226,7 +227,7 @@ function SearchArea({
       ) : query.isError || !query.data ? (
         <ErrorState variant="network" onRetry={() => query.refetch()} />
       ) : query.data.totalCount === 0 ? (
-        <EmptyState icon="search-outline" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
+        <EmptyState icon="search" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
       ) : (
         <View style={styles.list}>
           {query.data.products.map((product) => (

@@ -295,7 +295,7 @@ export function ProductRecordScreen() {
       <Toast
         visible={successInfo !== null}
         message={successInfo ? `기록 완료! ${successInfo.summary}` : ''}
-        icon="checkmark-circle"
+        icon="check"
         actionLabel={successInfo?.skinRecordSuggested ? '피부도 기록하기' : undefined}
         onActionPress={handleGoToSkinRecord}
         onDismiss={() => setSuccessInfo(null)}
@@ -390,7 +390,7 @@ function HomeSection({
         </View>
         {savedProducts.length === 0 ? (
           <EmptyState
-            icon="bag-handle-outline"
+            icon="navShop"
             title="아직 저장된 제품이 없어요"
             description="검색하거나 스캔해서 첫 제품을 기록해보세요."
           />
@@ -458,7 +458,7 @@ function SearchResultsSection({
   if (totalCount === 0) {
     return (
       <View style={styles.sections}>
-        <EmptyState icon="search-outline" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
+        <EmptyState icon="search" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
         <DirectRegisterButton />
       </View>
     );

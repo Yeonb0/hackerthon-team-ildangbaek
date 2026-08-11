@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { IconChevronRight } from '@/components/icons';
 import { Card } from '@/components/base/Card';
 import { Button } from '@/components/base/Button';
 import { color, space, typography } from '@/theme';
@@ -104,11 +105,12 @@ export function RoutineQuickRecordCard({
         onPress={() => setExpanded((v) => !v)}
         style={styles.row}
       >
-        <Ionicons
-          name={expanded ? 'chevron-down' : 'chevron-forward'}
-          size={16}
-          color={color.ink600}
-        />
+        {expanded ? (
+          // chevron-down은 신규 세트에 대응 아이콘이 없어 Ionicons 유지 (Checkpoint 9-B)
+          <Ionicons name="chevron-down" size={16} color={color.ink600} />
+        ) : (
+          <IconChevronRight size={16} color={color.ink600} />
+        )}
         <View style={styles.info}>
           <View style={styles.nameRow}>
             <Text style={styles.name} numberOfLines={1}>

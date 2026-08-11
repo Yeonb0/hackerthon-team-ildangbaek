@@ -211,7 +211,7 @@ class ReportServiceTest {
                 anyLong(), any(), any())).thenReturn(List.of(onlyRecord));
         when(skinMetricRepository.findAllBySkinRecordIdIn(anyList()))
                 .thenReturn(List.of(metric(onlyRecord, SkinMetricType.TROUBLE, 74)));
-        when(analysisInsightRepository.findAllByUserIdAndStartDateGreaterThanEqualOrderByConfidenceScoreDesc(
+        when(analysisInsightRepository.findAllByUserIdAndEndDateGreaterThanEqualOrderByConfidenceScoreDesc(
                 anyLong(), any())).thenReturn(List.of());
 
         ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
@@ -230,7 +230,7 @@ class ReportServiceTest {
                 anyLong(), any(), any())).thenReturn(List.of(onlyRecord));
         when(skinMetricRepository.findAllBySkinRecordIdIn(anyList()))
                 .thenReturn(List.of(metric(onlyRecord, SkinMetricType.TROUBLE, 74)));
-        when(analysisInsightRepository.findAllByUserIdAndStartDateGreaterThanEqualOrderByConfidenceScoreDesc(
+        when(analysisInsightRepository.findAllByUserIdAndEndDateGreaterThanEqualOrderByConfidenceScoreDesc(
                 anyLong(), any())).thenReturn(List.of(
                         insight(101L, "레티놀", BigDecimal.valueOf(80)),
                         insight(102L, "나이아신아마이드", BigDecimal.valueOf(50))));
@@ -241,6 +241,25 @@ class ReportServiceTest {
                         ReportInsightResponse::insightId, ReportInsightResponse::confidence)
                 .containsExactly(tuple(101L, "OBSERVED"), tuple(102L, "OBSERVING"));
         assertThat(response.insights().get(0).type()).isEqualTo("INGREDIENT");
+    }
+
+    @DisplayName("7일 리포트도 최근 30일 분석이 오늘 끝났으면 인사이트를 반환한다")
+    @Test
+    void includesRecentThirtyDayInsightInSevenDayReport() {
+        LocalDate today = LocalDate.now();
+        SkinRecord onlyRecord = record(1L, today, TimeSlot.MORNING);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of(onlyRecord));
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList()))
+                .thenReturn(List.of(metric(onlyRecord, SkinMetricType.TROUBLE, 74)));
+        when(analysisInsightRepository.findAllByUserIdAndEndDateGreaterThanEqualOrderByConfidenceScoreDesc(
+                1L, today.minusDays(6)))
+                .thenReturn(List.of(insight(101L, "레티놀", BigDecimal.valueOf(80))));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        assertThat(response.insights()).extracting(ReportInsightResponse::insightId).containsExactly(101L);
     }
 
     private AnalysisInsight insight(Long id, String title, BigDecimal confidenceScore) {

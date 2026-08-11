@@ -7,7 +7,7 @@
 //    필요해서, 이번에 만드는 그리드 계산 로직을 그대로 재사용할 수 있게 base 컴포넌트로 뺐습니다.
 import React, { useState } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconBack, IconChevronRight } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 import { formatDateString, getTodayDateString } from '@/lib/date';
 
@@ -95,7 +95,7 @@ export function Calendar({ value, onSelect, maxDate, minDate, style }: CalendarP
             hitSlop={8}
             style={styles.navButton}
           >
-            <Ionicons name="chevron-back" size={20} color={color.ink600} />
+            <IconBack size={20} color={color.ink600} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -104,7 +104,7 @@ export function Calendar({ value, onSelect, maxDate, minDate, style }: CalendarP
             hitSlop={8}
             style={styles.navButton}
           >
-            <Ionicons name="chevron-forward" size={20} color={color.ink600} />
+            <IconChevronRight size={20} color={color.ink600} />
           </Pressable>
         </View>
       </View>

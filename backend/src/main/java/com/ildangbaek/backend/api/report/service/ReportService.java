@@ -185,7 +185,7 @@ public class ReportService {
      */
     private List<ReportInsightResponse> loadInsights(Long userId, LocalDate startDate) {
         return analysisInsightRepository
-                .findAllByUserIdAndStartDateGreaterThanEqualOrderByConfidenceScoreDesc(userId, startDate)
+                .findAllByUserIdAndEndDateGreaterThanEqualOrderByConfidenceScoreDesc(userId, startDate)
                 .stream()
                 .map(insight -> new ReportInsightResponse(
                         insight.getId(),

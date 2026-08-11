@@ -8,7 +8,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AnalysisInsightRepository extends JpaRepository<AnalysisInsight, Long> {
 
-    List<AnalysisInsight> findAllByUserIdAndStartDateGreaterThanEqualOrderByConfidenceScoreDesc(
+    /**
+     * 리포트 기간 안에 분석이 끝난 인사이트를 읽는다.
+     *
+     * <p>성분 분석 창은 30일이므로, 7일 리포트에서 {@code startDate}로 거르면 최신 분석 결과까지
+     * 빠진다. 분석 종료일을 기준으로 기간과 겹치는 결과를 고른다.
+     */
+    List<AnalysisInsight> findAllByUserIdAndEndDateGreaterThanEqualOrderByConfidenceScoreDesc(
             Long userId, LocalDate startDate);
 
     /**

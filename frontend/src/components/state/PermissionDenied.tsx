@@ -1,6 +1,6 @@
 import React from 'react';
 import { Linking, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon, AppIconName } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { color, space } from '@/theme/tokens';
 
@@ -14,12 +14,14 @@ type PermissionDeniedProps = {
 };
 
 // ⚠️ 임시 카피 — 기획 문구 확정 전까지 사용하는 placeholder입니다.
+// 아이콘: Checkpoint 9-B에서 camera/notification은 신규 세트(camera/bell)로 교체.
+// location(위치 핀 모양)은 대응 아이콘이 없어 Ionicons 유지.
 const TYPE_COPY: Record<
   PermissionType,
-  { icon: keyof typeof Ionicons.glyphMap; title: string; description: string }
+  { icon: AppIconName; title: string; description: string }
 > = {
   camera: {
-    icon: 'camera-outline',
+    icon: 'camera',
     title: '카메라 권한이 필요해요',
     description: '설정에서 카메라 접근을 허용해 주세요.',
   },
@@ -29,7 +31,7 @@ const TYPE_COPY: Record<
     description: '설정에서 위치 접근을 허용해 주세요.',
   },
   notification: {
-    icon: 'notifications-outline',
+    icon: 'bell',
     title: '알림 권한이 꺼져 있어요',
     description: '설정에서 알림을 허용하면 기록 리마인드를 받을 수 있어요.',
   },
@@ -45,7 +47,7 @@ export function PermissionDenied({ type, onOpenSettings, style }: PermissionDeni
 
   return (
     <View style={[styles.container, style]}>
-      <Ionicons name={copy.icon} size={40} color={color.ink300} />
+      <AppIcon name={copy.icon} size={40} color={color.ink300} />
       <Text style={styles.title}>{copy.title}</Text>
       <Text style={styles.description}>{copy.description}</Text>
       <Button label="설정 열기" variant="secondary" onPress={handlePress} style={styles.action} />

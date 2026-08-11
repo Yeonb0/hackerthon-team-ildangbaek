@@ -9,6 +9,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { IconCheck } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
 import { Tag, TagVariant } from '@/components/base/Tag';
@@ -120,7 +121,7 @@ export function IngredientCheckScreen() {
       <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.successArea}>
-            <Ionicons name="checkmark-circle" size={40} color={color.statusGood} />
+            <IconCheck size={40} color={color.statusGood} />
             <Text style={styles.successTitle}>기록을 저장했어요</Text>
             <Text style={styles.successSubtitle}>{product.name}</Text>
           </View>
