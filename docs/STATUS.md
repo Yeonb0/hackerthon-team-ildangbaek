@@ -163,8 +163,24 @@
 한쪽 슬롯만 기록 1 · insights 빈 배열 1 · 신뢰도 라벨 매핑 1 · metric 필터링 1).
 REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로 확인했다(아래 2.7).
 
-> ⚠️ **응답 구조 변경분은 실서버로 확인하지 않았다.** 단위 테스트까지만 통과했다. 프론트 연동 전
-> `GET /api/v1/reports`를 실제로 호출해 두 슬롯이 JSON에 나오는지 확인해야 한다.
+**로컬 MySQL 실서버 검증** (2026-08-11). 목업 시드가 `NIGHT`만 심어 네 조합을 만들 수 없어,
+`MORNING` 기록을 얹는 보조 시드(`seed/report-01-slots.sql`)를 함께 썼다.
+
+| 시나리오 | 기대 | 결과 |
+| --- | --- | --- |
+| 모닝 · 나이트 모두 기록 | 두 값 다 반환 | `morningScore: 40` · `nightScore: 50` — 접히지 않음 |
+| 모닝만 기록 | 나이트 결측 | `40` · `null` |
+| 나이트만 기록 | 모닝 결측 | `null` · `50` |
+| 기록 없는 날 | 둘 다 결측 | `null` · `null` |
+| `score` 필드 | 제거됨 | 응답 키가 `date` · `morningScore` · `nightScore` 3개뿐 |
+| `metric=REDNESS` · `period=30` | 지표 · 기간 전환 | 30개 지점 · 지표별 값 정상 |
+| `period=14` | 422 | `REPORT_INVALID_PERIOD` |
+| `X-User-Id` 누락 | 401 | `COMMON_UNAUTHORIZED` |
+| 기록 없는 사용자 | 409 | `REPORT_DATA_INSUFFICIENT` |
+
+> ⚠️ **`insights`는 이번 회차에서 빈 배열이었다.** 보조 시드가 "모닝만" 케이스를 만들려고 레티놀
+> 패턴의 스파이크일 하나를 지웠기 때문이며, 시차 분석은 SKIN-01 저장 경로에서만 돌아 DB 직접
+> 조작으로는 재실행되지 않는다. `insights` 자체는 2.7에서 실서버로 확인된 상태다.
 
 ### 2.7 F-ANALYSIS-01 구현 · 검증 내역
 
