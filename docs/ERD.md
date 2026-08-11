@@ -133,13 +133,18 @@ UNIQUE(user_id, skin_type_id)
 | id | BIGINT | PK | 제품 ID |
 | brand_name | VARCHAR(100) | NULL | 브랜드명 |
 | product_name | VARCHAR(200) | NOT NULL | 제품명 |
-| category | VARCHAR(50) | NOT NULL | 토너, 세럼, 크림 등 |
-| barcode | VARCHAR(100) | NULL, UNIQUE | 바코드 |
-| image_url | VARCHAR(500) | NULL | 제품 이미지 |
+| category | VARCHAR(50) | NOT NULL | TONER, ESSENCE, SERUM, AMPOULE, GEL, LOTION, CREAM, BALM, OIL, SUNCREAM, CLEANSING, MASK |
+| barcode | VARCHAR(100) | NULL, UNIQUE | 제품 스캔 식별용 바코드 |
+| image_url | VARCHAR(500) | NULL | 제품 이미지 URL |
 | data_source | VARCHAR(30) | NOT NULL | SAMPLE, API, USER |
 | active | BOOLEAN | NOT NULL | 사용 가능 여부 |
 | created_at | DATETIME | NOT NULL | 생성 시각 |
 | updated_at | DATETIME | NOT NULL | 수정 시각 |
+
+- `category`는 프론트 필터와 API 응답 일관성을 위해 위 12개 영문 코드 중 하나만 사용한다.
+- `image_url`이 없는 제품은 API 응답에서 `imageUrl: null`로 반환한다.
+- 데모 시연용 제품 3~5개는 `data_source = SAMPLE`로 사전 등록한다.
+- 스캔 API는 우선 `barcode` 기준으로 제품을 조회한다.
 
 ## Ingredient
 
@@ -201,7 +206,8 @@ UNIQUE(user_id, time_period)
 ```
 
 - MVP에서는 사용자당 모닝 루틴 1개, 나이트 루틴 1개로 제한
-- 루틴 생성·수정 UI까지 구현할지는 별도 확정 필요
+- MVP 데모 범위에서는 루틴 생성·수정·삭제 API를 제공하지 않고, 조회 및 바로 기록만 지원한다.
+- 사용자당 모닝 루틴 1개, 나이트 루틴 1개를 샘플 또는 기본 루틴으로 제공한다.
 
 ## RoutineProduct
 
@@ -312,7 +318,7 @@ UNIQUE(skin_record_id, metric_type)
 | user_id | BIGINT | FK | 사용자 ID |
 | record_date | DATE | NOT NULL | 날짜 |
 | region_name | VARCHAR(100) | NOT NULL | 조회 지역 |
-| weather_condition | VARCHAR(50) | NULL | 날씨 |
+| weather_condition | VARCHAR(50) | NULL | SUNNY, CLOUDY, OVERCAST, RAIN, SNOW, YELLOW_DUST, THUNDERSTORM |
 | temperature | DECIMAL(5,2) | NULL | 기온 |
 | humidity | DECIMAL(5,2) | NULL | 습도 |
 | uv_index_current | DECIMAL(5,2) | NULL | 현재 자외선 |
@@ -327,6 +333,7 @@ UNIQUE(user_id, record_date)
 - 아침 추천: 현재·예상 환경 기준
 - 밤 추천: 당일 누적 환경 및 최고 자외선 기준
 - 추천 결과를 저장하지 않는다면 API 조회 시 계산 가능
+- 날씨 코드는 홈 API의 `environment.weather`와 동일한 7개 영문 코드를 사용한다.
 
 ---
 
