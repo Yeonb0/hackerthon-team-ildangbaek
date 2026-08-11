@@ -155,6 +155,33 @@ class IngredientLagAnalysisServiceTest {
         verify(insightWriter, never()).write(any(), anyList(), any(), any());
     }
 
+    @DisplayName("피부 기록이 3일 미만이어도 노출 성분을 데이터 부족 프로파일로 저장한다")
+    @SuppressWarnings("unchecked")
+    @Test
+    void writesInsufficientProfileWhenSkinRecordsAreBelowThreeDays() {
+        SkinRecord firstRecord = skinRecord(1L, TODAY.minusDays(1), true);
+        SkinRecord secondRecord = skinRecord(2L, TODAY, true);
+        ProductRecord productRecord = productRecord(1L, TODAY);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of(firstRecord, secondRecord));
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList()))
+                .thenReturn(List.of(metric(firstRecord, 50), metric(secondRecord, 55)));
+        when(productRecordRepository.findAllByUserIdAndRecordDateBetween(anyLong(), any(), any()))
+                .thenReturn(List.of(productRecord));
+        when(productRecordItemRepository.findAllWithProductByProductRecordIdIn(anyList()))
+                .thenReturn(List.of(productRecordItem(productRecord, serum)));
+        when(productIngredientRepository.findAllWithIngredientByProductIdIn(anyList()))
+                .thenReturn(List.of(productIngredient(serum, retinol)));
+
+        assertThat(service.analyzeAndStore(user, TODAY)).isZero();
+
+        ArgumentCaptor<List<LagPattern>> captor = ArgumentCaptor.forClass(List.class);
+        verify(profileWriter).write(any(), anyList(), captor.capture());
+        assertThat(captor.getValue()).isEmpty();
+        verify(insightWriter, never()).write(any(), anyList(), any(), any());
+    }
+
     @DisplayName("확정 패턴이 없어도 성분 프로파일은 갱신한다 — USER-02가 데이터 부족 성분도 보여준다")
     @Test
     void updatesProfileEvenWithoutConfirmedPattern() {

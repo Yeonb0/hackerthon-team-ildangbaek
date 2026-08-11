@@ -66,14 +66,18 @@ public class IngredientLagAnalysisService {
         LocalDate startDate = today.minusDays(ANALYSIS_WINDOW_DAYS - 1L);
 
         List<SkinObservation> observations = loadObservations(user.getId(), startDate, today);
-        if (observations.size() < LagCorrelationAnalyzer.MIN_RECORD_DAYS) {
-            log.debug("기록 부족으로 시차 분석을 건너뜁니다. userId={} days={}", user.getId(), observations.size());
-            return 0;
-        }
-
         List<IngredientExposure> exposures = loadExposures(user.getId(), startDate, today);
         if (exposures.isEmpty()) {
             log.debug("제품 기록이 없어 시차 분석을 건너뜁니다. userId={}", user.getId());
+            return 0;
+        }
+
+        long observedDays = observations.stream().map(SkinObservation::date).distinct().count();
+        if (observedDays < LagCorrelationAnalyzer.MIN_RECORD_DAYS) {
+            // 패턴을 판단하기엔 이르지만, 사용한 성분과 횟수는 USER-02에 보여야 한다.
+            // 빈 패턴으로 쓰면 모든 노출 성분이 INSUFFICIENT로 저장된다.
+            profileWriter.write(user, exposures, List.of());
+            log.debug("기록 부족으로 시차 패턴 분석을 건너뜁니다. userId={} days={}", user.getId(), observedDays);
             return 0;
         }
 
