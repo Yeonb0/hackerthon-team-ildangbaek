@@ -116,9 +116,9 @@ class LagCorrelationAnalyzerTest {
         assertThat(patterns).noneMatch(LagPattern::confirmed);
     }
 
-    @DisplayName("같은 날 모닝·나이트에 모두 쓴 성분은 노출 1건으로 센다")
+    @DisplayName("같은 날 모닝·나이트에 모두 쓴 성분은 각 슬롯의 관측과 따로 비교한다")
     @Test
-    void countsSameDayBothSlotsOnce() {
+    void keepsSameDayBothSlotsSeparate() {
         MockupBuilder mockup = new MockupBuilder().baseline(SkinMetricType.TROUBLE, 50);
         List.of(0, 6, 12).forEach(day -> {
             mockup.use(RETINOL, "레티놀", day, TimeSlot.MORNING);
@@ -128,8 +128,28 @@ class LagCorrelationAnalyzerTest {
 
         List<LagPattern> patterns = analyzer.analyze(mockup.exposures(), mockup.observations(20));
 
-        // 슬롯을 따로 셌다면 6건이 된다.
-        assertThat(pick(patterns, SkinMetricType.TROUBLE, 2).observationCount()).isEqualTo(3);
+        assertThat(pick(patterns, SkinMetricType.TROUBLE, 2).observationCount()).isEqualTo(6);
+    }
+
+    @DisplayName("나이트 제품은 모닝 피부 점수가 아니라 나이트 피부 점수와 비교한다")
+    @Test
+    void matchesExposureWithSameTimeSlotObservation() {
+        List<IngredientExposure> exposures = List.of(
+                new IngredientExposure(RETINOL, "레티놀", DAY_ONE, TimeSlot.NIGHT),
+                new IngredientExposure(RETINOL, "레티놀", DAY_ONE.plusDays(6), TimeSlot.NIGHT),
+                new IngredientExposure(RETINOL, "레티놀", DAY_ONE.plusDays(12), TimeSlot.NIGHT));
+        List<SkinObservation> observations = new ArrayList<>();
+        for (int day = 0; day < 20; day++) {
+            int morningScore = day == 2 || day == 8 || day == 14 ? 90 : 10;
+            observations.add(observation(DAY_ONE.plusDays(day), TimeSlot.MORNING, morningScore));
+            observations.add(observation(DAY_ONE.plusDays(day), TimeSlot.NIGHT, 50));
+        }
+
+        List<LagPattern> patterns = analyzer.analyze(exposures, observations);
+
+        LagPattern nightPattern = pick(patterns, SkinMetricType.TROUBLE, 2);
+        assertThat(nightPattern.averageDelta()).isZero();
+        assertThat(nightPattern.confirmed()).isFalse();
     }
 
     @DisplayName("확정된 패턴이 확인 중인 패턴보다 앞에 온다")
@@ -199,9 +219,14 @@ class LagCorrelationAnalyzerTest {
                 Map<SkinMetricType, Integer> dayBumps = bumps.getOrDefault(day, Map.of());
                 baselines.forEach((metric, base) ->
                         values.put(metric, (double) (base + dayBumps.getOrDefault(metric, 0))));
-                observations.add(new SkinObservation(DAY_ONE.plusDays(day), values));
+                observations.add(new SkinObservation(DAY_ONE.plusDays(day), TimeSlot.MORNING, values));
+                observations.add(new SkinObservation(DAY_ONE.plusDays(day), TimeSlot.NIGHT, values));
             }
             return observations;
         }
+    }
+
+    private SkinObservation observation(LocalDate date, TimeSlot timeSlot, int troubleScore) {
+        return new SkinObservation(date, timeSlot, Map.of(SkinMetricType.TROUBLE, (double) troubleScore));
     }
 }

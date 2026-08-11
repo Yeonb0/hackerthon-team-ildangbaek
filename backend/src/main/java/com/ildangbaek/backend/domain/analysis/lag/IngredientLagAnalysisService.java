@@ -14,7 +14,6 @@ import com.ildangbaek.backend.domain.record.repository.SkinMetricRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import com.ildangbaek.backend.domain.user.entity.User;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -91,9 +90,7 @@ public class IngredientLagAnalysisService {
         return insightWriter.write(user, patterns, startDate, today).size();
     }
 
-    /**
-     * 날짜별 피부 관측값. 하루 2건이면 지표별 평균으로 합친다.
-     */
+    /** 날짜·시간대별 피부 관측값. 제품 노출과 같은 슬롯을 비교하기 위해 평균으로 접지 않는다. */
     private List<SkinObservation> loadObservations(Long userId, LocalDate startDate, LocalDate endDate) {
         List<SkinRecord> records = skinRecordRepository
                 .findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(userId, startDate, endDate);
@@ -103,36 +100,31 @@ public class IngredientLagAnalysisService {
 
         // 분석이 완료된 기록만 쓴다. 실패·진행 중 기록은 지표가 없거나 믿을 수 없는데,
         // 이 값이 기준선이 되면 있지도 않은 변화를 패턴으로 잡는다.
-        Map<Long, LocalDate> dateByRecordId = new HashMap<>();
+        Map<Long, SkinRecord> recordById = new HashMap<>();
         records.stream()
                 .filter(record -> record.getAnalysisStatus() == AnalysisStatus.COMPLETED)
-                .forEach(record -> dateByRecordId.put(record.getId(), record.getRecordDate()));
-        if (dateByRecordId.isEmpty()) {
+                .forEach(record -> recordById.put(record.getId(), record));
+        if (recordById.isEmpty()) {
             return List.of();
         }
 
-        Map<LocalDate, Map<SkinMetricType, List<Double>>> collected = new HashMap<>();
-        for (SkinMetric metric : skinMetricRepository.findAllBySkinRecordIdIn(List.copyOf(dateByRecordId.keySet()))) {
-            LocalDate date = dateByRecordId.get(metric.getSkinRecord().getId());
-            if (date == null) {
+        Map<Long, Map<SkinMetricType, Double>> valuesByRecordId = new HashMap<>();
+        for (SkinMetric metric : skinMetricRepository.findAllBySkinRecordIdIn(List.copyOf(recordById.keySet()))) {
+            Long recordId = metric.getSkinRecord().getId();
+            if (!recordById.containsKey(recordId)) {
                 continue;
             }
-            collected.computeIfAbsent(date, key -> new EnumMap<>(SkinMetricType.class))
-                    .computeIfAbsent(metric.getMetricType(), key -> new ArrayList<>())
-                    .add(metric.getMetricValue().doubleValue());
+            valuesByRecordId.computeIfAbsent(recordId, ignored -> new EnumMap<>(SkinMetricType.class))
+                    .put(metric.getMetricType(), metric.getMetricValue().doubleValue());
         }
 
-        return collected.entrySet().stream()
-                .map(entry -> new SkinObservation(entry.getKey(), averageByMetric(entry.getValue())))
-                .sorted(Comparator.comparing(SkinObservation::date))
+        return recordById.values().stream()
+                .filter(record -> valuesByRecordId.containsKey(record.getId()))
+                .map(record -> new SkinObservation(
+                        record.getRecordDate(), record.getTimeSlot(), valuesByRecordId.get(record.getId())))
+                .sorted(Comparator.comparing(SkinObservation::date)
+                        .thenComparing(SkinObservation::timeSlot))
                 .toList();
-    }
-
-    private Map<SkinMetricType, Double> averageByMetric(Map<SkinMetricType, List<Double>> values) {
-        Map<SkinMetricType, Double> averaged = new EnumMap<>(SkinMetricType.class);
-        values.forEach((metric, list) ->
-                averaged.put(metric, list.stream().mapToDouble(Double::doubleValue).average().orElse(0.0)));
-        return averaged;
     }
 
     /**

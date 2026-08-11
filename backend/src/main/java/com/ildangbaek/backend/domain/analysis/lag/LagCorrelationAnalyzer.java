@@ -1,6 +1,7 @@
 package com.ildangbaek.backend.domain.analysis.lag;
 
 import com.ildangbaek.backend.domain.record.entity.SkinMetricType;
+import com.ildangbaek.backend.domain.record.entity.TimeSlot;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -9,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
@@ -53,26 +53,29 @@ public class LagCorrelationAnalyzer {
 
     /**
      * @param exposures    성분 사용 이력. 같은 성분이 같은 날 여러 슬롯에 있어도 된다.
-     * @param observations 날짜별 피부 관측값
+     * @param observations 날짜·시간대별 피부 관측값
      * @return 성분별 패턴 후보. 확정된 것과 확인 중인 것이 모두 들어 있다.
      */
     public List<LagPattern> analyze(List<IngredientExposure> exposures, List<SkinObservation> observations) {
-        if (observations.size() < MIN_RECORD_DAYS || exposures.isEmpty()) {
+        long observedDays = observations.stream().map(SkinObservation::date).distinct().count();
+        if (observedDays < MIN_RECORD_DAYS || exposures.isEmpty()) {
             return List.of();
         }
 
-        Map<LocalDate, Map<SkinMetricType, Double>> byDate = observations.stream()
-                .collect(Collectors.toMap(SkinObservation::date, SkinObservation::values, (a, b) -> a));
+        Map<ObservationKey, Map<SkinMetricType, Double>> byDateAndSlot = observations.stream()
+                .collect(Collectors.toMap(
+                        observation -> new ObservationKey(observation.date(), observation.timeSlot()),
+                        SkinObservation::values,
+                        (first, ignored) -> first));
 
-        // 같은 성분이 같은 날 모닝·나이트 모두에 있으면 노출일은 하루로 합친다. 같은 날을 두 번 세면
-        // 반복성이 실제보다 부풀려진다.
+        // 같은 성분이라도 모닝과 나이트는 노출 시점이 다르므로 각각의 동일 슬롯 관측과 비교한다.
         Map<Long, IngredientUsage> usageByIngredient = groupUsageByIngredient(exposures);
 
         List<LagPattern> patterns = new ArrayList<>();
         for (IngredientUsage usage : usageByIngredient.values()) {
             for (SkinMetricType metric : SkinMetricType.values()) {
                 for (int lag = MIN_LAG_DAYS; lag <= MAX_LAG_DAYS; lag++) {
-                    collectPattern(usage, metric, lag, byDate).ifPresent(patterns::add);
+                    collectPattern(usage, metric, lag, byDateAndSlot).ifPresent(patterns::add);
                 }
             }
         }
@@ -90,9 +93,9 @@ public class LagCorrelationAnalyzer {
         for (IngredientExposure exposure : exposures) {
             usageByIngredient
                     .computeIfAbsent(exposure.ingredientId(),
-                            id -> new IngredientUsage(id, exposure.ingredientName(), new TreeSet<>()))
-                    .dates()
-                    .add(exposure.date());
+                            id -> new IngredientUsage(id, exposure.ingredientName(), new java.util.HashSet<>()))
+                    .observationKeys()
+                    .add(new ObservationKey(exposure.date(), exposure.timeSlot()));
         }
         return usageByIngredient;
     }
@@ -101,11 +104,12 @@ public class LagCorrelationAnalyzer {
      * 한 (성분, 지표, 시차) 조합의 패턴 후보를 만든다. 관측 쌍이 하나도 없으면 후보 자체가 없다.
      */
     private Optional<LagPattern> collectPattern(IngredientUsage usage, SkinMetricType metric, int lagDays,
-                                                Map<LocalDate, Map<SkinMetricType, Double>> byDate) {
+                                                Map<ObservationKey, Map<SkinMetricType, Double>> byDateAndSlot) {
         List<Double> deltas = new ArrayList<>();
-        for (LocalDate usedOn : usage.dates()) {
-            Double baseline = valueAt(byDate, usedOn, metric);
-            Double after = valueAt(byDate, usedOn.plusDays(lagDays), metric);
+        for (ObservationKey usedOn : usage.observationKeys()) {
+            Double baseline = valueAt(byDateAndSlot, usedOn, metric);
+            Double after = valueAt(byDateAndSlot,
+                    new ObservationKey(usedOn.date().plusDays(lagDays), usedOn.timeSlot()), metric);
             if (baseline == null || after == null) {
                 continue;
             }
@@ -132,13 +136,17 @@ public class LagCorrelationAnalyzer {
                 lagDays, direction, observations, agreement, averageDelta, confirmed));
     }
 
-    private Double valueAt(Map<LocalDate, Map<SkinMetricType, Double>> byDate, LocalDate date,
+    private Double valueAt(Map<ObservationKey, Map<SkinMetricType, Double>> byDateAndSlot, ObservationKey key,
                            SkinMetricType metric) {
-        Map<SkinMetricType, Double> values = byDate.get(date);
+        Map<SkinMetricType, Double> values = byDateAndSlot.get(key);
         return values == null ? null : values.get(metric);
     }
 
-    /** 성분 하나와 그 성분을 쓴 날짜들(중복 제거·오름차순). */
-    private record IngredientUsage(Long ingredientId, String ingredientName, Set<LocalDate> dates) {
+    /** 성분 하나와 그 성분을 쓴 날짜·슬롯 조합(중복 제거). */
+    private record IngredientUsage(Long ingredientId, String ingredientName, Set<ObservationKey> observationKeys) {
+    }
+
+    /** 분석에서 기준선과 이후 값을 연결하는 키. */
+    private record ObservationKey(LocalDate date, TimeSlot timeSlot) {
     }
 }
