@@ -30,6 +30,7 @@ import { resetMockRecordSession, resetMockProductCompletion } from '@/api/mock/r
 import { resetMockProductSession, setMockScanScenario } from '@/api/mock/product';
 import { setMockReportScenario } from '@/api/mock/report';
 import { setMockCheckScenario } from '@/api/mock/check';
+import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
 import { color, radius, space } from '@/theme/tokens';
 
@@ -146,6 +147,19 @@ export function DevResetButton() {
     {
       label: '구매 전 확인 목업 → 성분 데이터 부족',
       onPress: () => runReset(() => setMockCheckScenario('INGREDIENT_INSUFFICIENT')),
+    },
+    {
+      // Phase 8 추가 — 위치(GPS/검색 선택)·알림 토글 mock 상태를 초기값(서울 강남구·
+      // 알림 켜짐)으로 되돌립니다. 알림은 platformStorage에 저장되므로 앱 재시작으로는
+      // 안 지워져서 이 버튼이 유일한 초기화 경로입니다.
+      label: '위치 · 알림 초기화',
+      onPress: () =>
+        runReset(async () => {
+          await resetMockUserSession();
+          queryClient.invalidateQueries({ queryKey: ['myPage'] });
+          queryClient.invalidateQueries({ queryKey: ['locationSearch'] });
+          queryClient.invalidateQueries({ queryKey: ['home'] });
+        }),
     },
   ];
 

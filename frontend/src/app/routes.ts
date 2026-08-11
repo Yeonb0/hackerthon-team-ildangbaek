@@ -1,6 +1,8 @@
 // 화면 이름 상수 + 네비게이션 파라미터 타입
 // 상수 옆 주석은 대응하는 화면 ID(S-XX)입니다
 
+import type { IngredientStatus } from '@/types/user';
+
 export const AuthRoutes = {
   Login: 'Login', // S-00
 } as const;
@@ -32,6 +34,7 @@ export const DetailRoutes = {
   MetricDetail: 'MetricDetail', // S-20
   CheckResult: 'CheckResult', // S-22
   LocationSettings: 'LocationSettings', // S-24
+  IngredientList: 'IngredientList', // 성분 전체 보기 (F-MY-03 신규 화면, S-23에서 진입)
 } as const;
 
 export type TimeSlot = 'MORNING' | 'NIGHT';
@@ -74,6 +77,9 @@ export type DetailStackParamList = {
   [DetailRoutes.MetricDetail]: { insightId: number };
   [DetailRoutes.CheckResult]: { productId: number };
   [DetailRoutes.LocationSettings]: undefined;
+  // initialStatus: 마이페이지 요약 카드에서 특정 배지(맞음/주의/데이터부족)를 탭해 들어온
+  // 경우 그 상태로 필터를 미리 켜둡니다. 없으면 전체 목록.
+  [DetailRoutes.IngredientList]: { initialStatus?: IngredientStatus } | undefined;
 };
 
 // Root: Auth ↔ Onboarding ↔ Main 전체 교체 (뒤로가기로 못 돌아감)
