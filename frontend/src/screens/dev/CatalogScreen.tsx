@@ -67,7 +67,7 @@ function buildDemoGraphPoints(count: number): GraphPoint[] {
       d.getDate()
     ).padStart(2, '0')}`;
     const score = i % 3 === 0 ? null : 60 + Math.round(Math.sin(i) * 20);
-    points.push({ date, score });
+    points.push({ date, morningScore: score === null ? null : score - 5, nightScore: score });
   }
   return points;
 }
