@@ -110,9 +110,14 @@ export const ErrorCode = {
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 // 빈 상태 안내 코드 — 빨간 오류 UI 금지. 기록이 부족한 신규 사용자의 "정상" 상태입니다.
+// Phase 7-A 수정: CHECK_INGREDIENT_DATA_INSUFFICIENT가 빠져 있었습니다. api_명세서.md
+// CHECK-02 문서에 "두 409 코드 모두 빈 상태 안내로 처리한다"고 명시돼 있는데
+// CHECK_PROFILE_NOT_READY만 들어가 있어서, 이대로면 성분 데이터 부족 케이스가
+// ErrorState(빨간 UI)로 잘못 떴을 것입니다.
 export const EMPTY_STATE_CODES: ErrorCode[] = [
   ErrorCode.ANALYSIS_DATA_INSUFFICIENT,
   ErrorCode.CHECK_PROFILE_NOT_READY,
+  ErrorCode.CHECK_INGREDIENT_DATA_INSUFFICIENT,
   ErrorCode.REPORT_DATA_INSUFFICIENT,
 ];
 

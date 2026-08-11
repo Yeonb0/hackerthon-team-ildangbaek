@@ -6,7 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
 import { Chip } from '@/components/base/Chip';
-import { Stepper } from '@/components/base/Stepper';
+import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
 import { saveBasicInfo } from '@/api/onboarding';
@@ -137,7 +137,13 @@ export function BasicInfoScreen() {
         {showAgeSection && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>나이</Text>
-            <Stepper value={age} onChange={setAge} min={AGE_MIN} max={AGE_MAX} />
+            <WheelPicker
+              value={age}
+              onChange={setAge}
+              min={AGE_MIN}
+              max={AGE_MAX}
+              formatLabel={(v) => `${v}세`}
+            />
             {fieldErrors.age ? <Text style={styles.fieldError}>{fieldErrors.age}</Text> : null}
           </View>
         )}

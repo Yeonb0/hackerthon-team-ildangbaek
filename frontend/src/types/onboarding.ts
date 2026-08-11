@@ -23,3 +23,41 @@ export interface BasicInfoResult {
   nextStep: 'SKIN_TYPE';
   totalStepCount: number;
 }
+
+/** PATCH /users/me/onboarding/skin-types 요청 */
+export interface SkinTypeInput {
+  skinTypes: SkinTypeCode[];
+}
+
+/** PATCH /users/me/onboarding/skin-types 응답 (result) */
+export interface SkinTypeResult {
+  nextStep: 'HORMONE' | 'COMPLETE';
+}
+
+/** PATCH /users/me/onboarding/hormone 요청. lastPeriodStartDate/averageCycleDays는 선택 */
+export interface HormoneInput {
+  hormoneStatus: HormoneStatus;
+  lastPeriodStartDate?: string; // 'YYYY-MM-DD'
+  averageCycleDays?: number;
+}
+
+/** PATCH /users/me/onboarding/hormone 응답 (result) */
+export interface HormoneResult {
+  nextStep: 'COMPLETE';
+}
+
+export interface OnboardingSummaryRow {
+  label: string;
+  value: string;
+}
+
+/** POST /users/me/onboarding/complete 응답 (result) */
+export interface CompleteOnboardingResult {
+  onboardingCompleted: true;
+  summary: OnboardingSummaryRow[];
+}
+
+/** PATCH /users/me/notification 요청 (S-06, S-23 공용) */
+export interface NotificationSettingInput {
+  enabled: boolean;
+}
