@@ -68,6 +68,9 @@ public class LagInsightWriter {
                 .startDate(startDate)
                 .endDate(endDate)
                 .confidenceScore(confidenceScore(pattern))
+                // 문구로 접고 버리면 REPORT-02가 같은 값을 다시 계산해야 한다. 원본을 남긴다.
+                .lagDays(pattern.lagDays())
+                .averageDelta(BigDecimal.valueOf(pattern.averageDelta()).setScale(2, RoundingMode.HALF_UP))
                 .build();
     }
 
