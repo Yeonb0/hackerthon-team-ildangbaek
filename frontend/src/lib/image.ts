@@ -71,3 +71,39 @@ function computeResize(originalSize: { width: number; height: number }) {
     height: Math.round(originalSize.height * scale),
   };
 }
+
+/**
+ * S-13에서 촬영한 바코드/제품 사진을 업로드 전 상태로 가공합니다 — 리사이즈 + 압축만
+ * 합니다. prepareSkinPhoto와 달리 좌우반전 보정이 없습니다: 후면 카메라(facing='back')로
+ * 찍기 때문에 셀피 좌우반전 이슈(위 prepareSkinPhoto 설명 참고)가 아예 발생하지 않습니다.
+ *
+ * @param uri 원본 촬영 파일 URI
+ * @param originalSize takePictureAsync 결과의 width/height (종횡비 유지용)
+ */
+export async function prepareProductPhoto(
+  uri: string,
+  originalSize: { width: number; height: number },
+): Promise<{ uri: string }> {
+  const hasValidSize =
+    Number.isFinite(originalSize.width) &&
+    Number.isFinite(originalSize.height) &&
+    originalSize.width > 0 &&
+    originalSize.height > 0;
+
+  if (!hasValidSize && __DEV__) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[prepareProductPhoto] 촬영 결과에 width/height가 없어 리사이즈를 건너뜁니다.',
+      originalSize,
+    );
+  }
+
+  const result = hasValidSize
+    ? await manipulateAsync(uri, [{ resize: computeResize(originalSize) }], {
+        compress: JPEG_COMPRESS,
+        format: SaveFormat.JPEG,
+      })
+    : await manipulateAsync(uri, [], { compress: JPEG_COMPRESS, format: SaveFormat.JPEG });
+
+  return { uri: result.uri };
+}

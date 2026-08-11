@@ -59,8 +59,11 @@ export type MainTabParamList = {
 export type DetailStackParamList = {
   Tabs: undefined; // MainTabNavigator 내부의 탭 화면 자체
   [DetailRoutes.ProductRecord]: { timeSlot: TimeSlot };
-  [DetailRoutes.ProductScan]: undefined;
-  [DetailRoutes.IngredientCheck]: { productId: number };
+  // Phase 7-A 수정: PRODUCT-05 저장(POST /product-records) 시 timeSlot이 필수인데
+  // 기존엔 이 라우트들에 안 실려 있었습니다. S-11에서 스캔·제품 선택 시점의 시간대를
+  // 여기 실어서 S-13/S-14까지 그대로 들고 가도록 고쳤습니다.
+  [DetailRoutes.ProductScan]: { timeSlot: TimeSlot };
+  [DetailRoutes.IngredientCheck]: { productId: number; timeSlot: TimeSlot };
   [DetailRoutes.PhotoGuide]: { timeSlot: TimeSlot };
   [DetailRoutes.FaceCapture]: { timeSlot: TimeSlot };
   // imageUri: S-16에서 촬영을 마친 로컬 파일 URI. S-17이 이 값을 압축·업로드합니다.

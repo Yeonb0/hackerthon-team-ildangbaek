@@ -74,12 +74,13 @@ export function AnalyzingSkinScreen() {
     try {
       await createSkinRecord({ timeSlot, imageUri });
       if (!isMountedRef.current) return;
-      // 기록 허브(useRecordToday/useRecordCalendar)가 이 캐시를 보고 완료 여부를
-      // 그리는데, 방금 새로 생긴 기록을 반영하려면 무효화해야 다음에 기록 허브로
-      // 돌아갔을 때 미완료로 남아있지 않고 갱신됩니다. mock/실서버 둘 다 필요한
-      // 처리입니다.
+      // 기록 허브(useRecordToday/useRecordCalendar)뿐 아니라 홈 화면(useHome)도 오늘 완료
+      // 여부를 캐시해서 보여줍니다 — 여기서도 무효화해야 밤 홈 "이번 주 기록" 캘린더가
+      // 방금 끝낸 피부 기록을 바로 반영합니다(관리자님 실기기 확인, 2026-08-10 — 기록 허브
+      // 캘린더는 되는데 밤 홈 캘린더는 안 바뀌던 문제와 같은 원인).
       queryClient.invalidateQueries({ queryKey: ['recordToday'] });
       queryClient.invalidateQueries({ queryKey: ['recordCalendar'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
       const elapsed = Date.now() - startedAtRef.current;
       const wait = Math.max(0, MIN_DISPLAY_MS - elapsed);
       setTimeout(() => {
