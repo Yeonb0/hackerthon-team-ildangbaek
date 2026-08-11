@@ -2257,27 +2257,21 @@ json
     "subtitle": "최근 30일 · 이벤트와 상관관계",
 
     "graph": [
-      { "date": "2026-07-08", "score": 68 },
-      { "date": "2026-07-15", "score": 74 }
+      { "date": "2026-07-08", "morningScore": 64, "nightScore": 68 },
+      { "date": "2026-07-15", "morningScore": null, "nightScore": 74 }
     ],
 
     "events": [
       {
         "date": "2026-07-10",
-        "label": "독도어성초크림 첫 사용",
+        "label": "레티놀 이 기간 첫 사용",
         "impact": "이후 2일 뒤 트러블 수치 +18",
         "confidence": "OBSERVED"
       },
       {
         "date": "2026-07-22",
-        "label": "자외선 지수 9 이상 3일 연속",
-        "impact": "이후 홍조 수치 +12",
-        "confidence": "OBSERVED"
-      },
-      {
-        "date": "2026-08-01",
-        "label": "나이아신아마이드 세럼 재시작",
-        "impact": "트러블 개선 추세 확인 중",
+        "label": "자외선 지수 8 이상 3일 연속",
+        "impact": "이 기간 트러블 변화를 확인 중이에요",
         "confidence": "OBSERVING"
       }
     ]
@@ -2289,6 +2283,23 @@ json
 
 1. `events`는 날짜 오름차순이다.
 2. 확정되지 않은 패턴은 `confidence: "OBSERVING"`으로 반환하고 `impact` 문구도 단정하지 않는다.
+   확정된 패턴만 시차 일수와 변화량을 문구에 싣는다.
+3. `graph`는 REPORT-01과 같이 모닝·나이트를 각각 싣는다. 기록이 없는 슬롯은 `null`이다 (ADR 0012·0013).
+   기간은 인사이트가 만들어진 `[start_date, end_date]`이며, 이벤트도 같은 창에서 도출된다.
+4. `events`는 저장하지 않고 조회 시점에 기록에서 도출한다 (ADR 0013). 도출 유형은 **성분 첫 사용**과
+   **자외선 급증** 둘이다. "성분 재시작"은 기록 부재를 사용 중단으로 판정할 수 없어 제외한다.
+5. `insightId`는 영속 식별자가 아니다. F-ANALYSIS-01이 피부 기록 저장마다 성분 인사이트를 지우고
+   다시 넣으므로, 이전에 받은 id로 조회하면 404가 나는 것이 정상이다.
+6. 도출할 이벤트가 없으면 빈 배열이며 오류가 아니다.
+
+**이벤트 도출 기준**
+
+| 유형 | 조건 | `label` | `confidence` |
+| --- | --- | --- | --- |
+| 성분 첫 사용 | 인사이트 제목과 이름이 같은 성분의 기간 내 최초 사용일 | `{성분명} 이 기간 첫 사용` | 인사이트의 값 |
+| 자외선 급증 | `uv_index_max` 8 이상이 2일 이상 연속 | `자외선 지수 8 이상 {n}일 연속` | 성분 인사이트에서는 항상 `OBSERVING` |
+
+환경 데이터가 없는 날은 연속을 끊는다 — 결측을 0으로도 이어짐으로도 취급하지 않는다.
 
 **Error**
 
@@ -2296,7 +2307,12 @@ json
 | --- | --- |
 | 404 | `REPORT_INSIGHT_NOT_FOUND` |
 
-> **TBD-11** — S-20의 지표가 현재 트러블로 고정입니다. `metric` 파라미터로 전환을 지원할지 결정이 필요합니다. 응답에는 `metric` 필드를 미리 포함했습니다.
+다른 사용자의 인사이트도 403이 아니라 404다 — 존재 여부를 알리지 않는다.
+
+> **TBD-11 해소 (2026-08-11, ADR 0013)** — `metric` 파라미터로의 지표 전환을 **지원하지 않는다.**
+> 인사이트가 다루는 지표(`metric_type`)를 응답 필드로 그대로 반환하고, 지표가 없으면 `TROUBLE`로
+> 대체한다. S-20은 특정 인사이트의 근거를 보는 화면이라 그 인사이트와 무관한 지표로 갈아끼우는
+> 동작에 의미가 없다.
 > 
 
 ---
@@ -2308,18 +2324,77 @@ json
 | Method | `GET` |
 | URI | `/api/v1/reports/daily` |
 | 인증 | 필요 |
+| 관련 기능 | F-REPORT-04 |
+
+> ⚠️ **엔드포인트 코드 REPORT-03 ≠ 기능 ID F-REPORT-03이다.** F-REPORT-03은 요인 상세 조회
+> (엔드포인트 REPORT-02)를 가리킨다. 일자별 조회의 기능 ID는 **F-REPORT-04**다.
+> 
 
 **Query Parameter**
 
-| Field | Type | Required |
-| --- | --- | --- |
-| `date` | Date | O |
-| `timeSlot` | Enum | X |
+| Field | Type | Required | 설명 |
+| --- | --- | --- | --- |
+| `date` | Date | O | `yyyy-MM-dd`. 형식이 어긋나거나 누락되면 `400 COMMON_BAD_REQUEST` |
+| `timeSlot` | Enum | X | `MORNING` · `NIGHT`. 미지정 시 그 날짜의 모든 기록 |
+
+**Success Response — 200**
+
+`records`의 각 원소는 SKIN-01 · SKIN-02 · SKIN-03과 **같은 구조**다(`SkinRecordResponse`).
+비교 계산을 두 벌로 두면 같은 기록이 화면마다 다른 증감을 보이므로 조회 로직을 공유한다.
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "요청에 성공했습니다.",
+  "result": {
+    "date": "2026-08-11",
+    "records": [
+      {
+        "skinRecordId": 262,
+        "timeSlot": "MORNING",
+        "capturedAt": "2026-08-11T08:00:00+09:00",
+        "totalScore": 70,
+        "scores": { "trouble": 40, "redness": 42, "pores": 42, "pigmentation": 42 },
+        "comparison": {
+          "comparedTo": "2026-08-10 MORNING",
+          "previousTotalScore": 70,
+          "changes": { "trouble": 0, "redness": 0, "pores": 0, "pigmentation": 0 }
+        }
+      },
+      {
+        "skinRecordId": 231,
+        "timeSlot": "NIGHT",
+        "capturedAt": "2026-08-11T22:00:00+09:00",
+        "totalScore": 60,
+        "scores": { "trouble": 50, "redness": 45, "pores": 45, "pigmentation": 45 },
+        "comparison": null
+      }
+    ]
+  }
+}
+```
 
 **Business Rule**
 
-1. `timeSlot` 미지정 시 해당 날짜의 모든 기록을 배열로 반환한다.
-2. 미래 날짜는 `422 RECORD_FUTURE_DATE_NOT_ALLOWED`다.
+1. `timeSlot` 미지정 시 해당 날짜의 모든 기록을 배열로 반환한다. 순서는 모닝 → 나이트다.
+2. 미래 날짜는 `422 RECORD_FUTURE_DATE_NOT_ALLOWED`다. **오늘은 미래가 아니다.**
+3. **하루 2건을 대표값으로 접지 않고 각각 배열 원소로 싣는다.** REPORT-01 그래프와 같은 원칙이다. (ADR 0012)
+4. **기록이 없으면 빈 배열이며 오류가 아니다.** 지정한 `timeSlot`에 기록이 없을 때도 마찬가지다.
+   캘린더에서 임의 날짜를 여는 화면이라 "그날은 기록이 없다"가 정상 상태다.
+5. 다른 사용자의 기록은 조회되지 않는다. 소유자 필터가 걸려 있어 빈 배열이 된다.
+6. `comparison`은 SKIN-01과 같은 규칙(전일 동일 슬롯 비교)이며, 비교 대상이 없으면 `null`이다.
+
+**Error**
+
+| HTTP | Code |
+| --- | --- |
+| 422 | `RECORD_FUTURE_DATE_NOT_ALLOWED` |
+| 400 | `RECORD_INVALID_TIME_SLOT` |
+| 400 | `COMMON_BAD_REQUEST` (`date` 누락 · 형식 오류) |
+| 401 | `COMMON_UNAUTHORIZED` |
 
 ---
 
@@ -2389,6 +2464,7 @@ json
 | F-REPORT-01 | `GET /reports` |
 | F-REPORT-02 | `GET /reports` (`insights`) |
 | F-REPORT-03 | `GET /reports/insights/{insightId}` |
+| F-REPORT-04 | `GET /reports/daily` |
 | F-MY-01 | `GET /users/me` |
 | F-MY-02 | `GET /users/me` (`ingredientProfile`) |
 | F-MY-03 | `GET /users/me/ingredient-profile` |
@@ -2652,7 +2728,7 @@ service/external/
 | TBD-03 | 낮/밤 토글 유지 범위 | 서버 저장 결정 시 `PATCH /users/me/home-preference` 추가 | 낮음 |
 | TBD-02 | 온보딩 진행률 | 필드 구조는 두 안 모두 수용 가능 | 낮음 |
 | TBD-04 | 리포트 부족 시 안내 | `todayReport` 필드 확장 | 낮음 |
-| TBD-11 | S-20 지표 전환 | `metric` 파라미터 이미 반영 | 낮음 |
+| TBD-11 | S-20 지표 전환 | **해소** — 지원하지 않고 인사이트의 지표를 그대로 반환 (ADR 0013) | — |
 | TBD-12 | 일자 대표값 | **해소** — 대표값을 쓰지 않고 모닝·나이트를 각각 반환 (ADR 0012) | — |
 | TBD-01 | 이메일 로그인 | `provider` Enum 확장 | 낮음 |
 

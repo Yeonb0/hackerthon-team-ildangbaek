@@ -391,10 +391,16 @@ UNIQUE(user_id, ingredient_id)
 | start_date | DATE | NULL | 분석 기간 시작 |
 | end_date | DATE | NULL | 분석 기간 종료 |
 | confidence_score | DECIMAL(5,2) | NULL | 신뢰도 (0~100) |
+| lag_days | INT | NULL | 사용 후 며칠 뒤의 변화인지 (1~7). 성분 인사이트만 |
+| average_delta | DECIMAL(6,2) | NULL | 관측된 지표 변화량의 평균. 양수면 증상 악화 |
 | generated_at | DATETIME | NOT NULL | 생성 시각 |
 - 밤 피부 분석 완료 후 당일 리포트를 제공
 - 7일·30일 리포트는 누적 `SkinRecord`, `SkinMetric`을 조회해 구성
-- 상세 이벤트까지 저장할 필요가 있으면 `AnalysisEvidence` 테이블 추가
+- ~~상세 이벤트까지 저장할 필요가 있으면 `AnalysisEvidence` 테이블 추가~~
+  → **신설하지 않는다 (ADR 0013).** REPORT-02의 이벤트는 `product_records`·`daily_environments`에서
+  조회 시점에 도출한다. 저장하면 원본과 어긋날 수 있는 사본이 하나 더 생긴다.
+- `lag_days`·`average_delta`는 F-ANALYSIS-01이 이미 계산하던 값이다(`LagPattern`). 문구로 접고
+  버리는 대신 남겨 REPORT-02가 이벤트 문구에 쓴다. (ADR 0013)
 - `confidence_score`는 F-ANALYSIS-01의 **동일 방향 변화 비율(0~100)**이다. REPORT-01은 67 이상을
   `OBSERVED`, 미만을 `OBSERVING`으로 내려보낸다. (ADR 0009)
 - `insight_type = INGREDIENT` 행은 **새 피부 기록마다 재계산되어 이전 회차를 대체**한다.

@@ -206,6 +206,40 @@ curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-
 확정 임계값은 `LagCorrelationAnalyzer`의 상수 3개에 모여 있고, REPORT-01의 `OBSERVED` 임계값
 (`ReportService.OBSERVED_THRESHOLD`)과 같은 값이어야 합니다. **한쪽만 바꾸면 판정이 어긋납니다.**
 
+## REPORT-02 요인 상세 검증
+
+위 시드를 그대로 씁니다. **`insightId`를 먼저 받아 와야 합니다** — 시차 분석이 피부 기록 저장마다
+성분 인사이트를 지우고 다시 넣으므로 id가 매번 바뀝니다
+([ADR 0013](../docs/decisions/0013-요인-상세-응답-구성.md)).
+
+```bash
+# 1) 위 POST /skin-records를 먼저 실행한 뒤, 인사이트 목록에서 id를 확인합니다
+curl -s "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-Id: 9001"
+
+# 2) 레티놀 인사이트의 insightId로 상세를 조회합니다
+curl -s "http://localhost:8080/api/v1/reports/insights/{위에서 받은 id}" -H "X-User-Id: 9001"
+```
+
+기대값 — `title: "레티놀 추이"`, `subtitle: "최근 30일 · 이벤트와 상관관계"`, `graph` 30개(시드가
+NIGHT 슬롯만 심으므로 `morningScore`는 전부 `null`), `events`에 18일 전 "레티놀 이 기간 첫 사용"
+1건과 `confidence: "OBSERVED"`. 판테놀은 `OBSERVING`이라 `impact`가 "확인 중" 문구입니다.
+
+자외선 이벤트는 `daily_environments`에 시드가 없어 임시로 넣어야 확인됩니다. 이 표는
+F-ANALYSIS-01 시드의 범위가 아니라 시드 파일에 넣지 않았습니다.
+
+```bash
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek -e \
+  "INSERT INTO daily_environments (user_id, record_date, region_name, uv_index_max, data_source, fetched_at)
+   VALUES (9001, CURDATE() - INTERVAL 7 DAY, '서울', 9.0, 'MOCK', NOW()),
+          (9001, CURDATE() - INTERVAL 6 DAY, '서울', 9.0, 'MOCK', NOW()),
+          (9001, CURDATE() - INTERVAL 5 DAY, '서울', 9.0, 'MOCK', NOW());"
+```
+
+7일 전 날짜에 "자외선 지수 8 이상 3일 연속" 이벤트가 붙고, 성분 인사이트에 붙은 자외선 이벤트라
+`confidence`는 항상 `OBSERVING`입니다. 임계값(8 이상 · 2일 연속)은 `ReportService`의 상수 2개에
+있습니다.
+
 ## F-ANALYSIS-04 성분 프로파일
 
 같은 시드로 성분 프로파일도 함께 갱신됩니다. 위 `POST /skin-records` 호출 뒤 표를 직접 확인합니다.
