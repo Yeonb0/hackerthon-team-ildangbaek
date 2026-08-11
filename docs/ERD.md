@@ -293,7 +293,7 @@ UNIQUE(user_id, record_date, time_period)
 | --- | --- | --- | --- |
 | id | BIGINT | PK | 피부 지표 ID |
 | skin_record_id | BIGINT | FK | 피부 기록 ID |
-| metric_type | VARCHAR(30) | NOT NULL | TROUBLE, REDNESS, PORE, PIGMENTATION |
+| metric_type | VARCHAR(30) | NOT NULL | TROUBLE, REDNESS, PORES, PIGMENTATION |
 | metric_value | DECIMAL(8,2) | NOT NULL | 분석값 |
 | comparison_difference | DECIMAL(8,2) | NULL | 비교 대상과의 차이 |
 | trend_status | VARCHAR(20) | NULL | IMPROVED, MAINTAINED, WORSENED |
@@ -349,7 +349,7 @@ UNIQUE(user_id, record_date)
 | reaction_type | VARCHAR(30) | NOT NULL | SUITABLE, CAUTION, INSUFFICIENT |
 | profile_score | DECIMAL(8,4) | NULL | 분석 점수 |
 | confidence_score | DECIMAL(5,2) | NULL | 신뢰도 |
-| observation_count | INT | NOT NULL | 분석 횟수 |
+| observation_count | INT | NOT NULL | 성분 노출 일수 |
 | positive_count | INT | NOT NULL | 긍정 반응 횟수 |
 | negative_count | INT | NOT NULL | 부정 반응 횟수 |
 | representative_lag_days | INT | NULL | 대표 반응 지연일 |
@@ -362,6 +362,16 @@ UNIQUE(user_id, ingredient_id)
 
 - 밤 피부 기록 완료 후 신규 데이터를 기반으로 갱신
 - 데이터가 부족하면 맞음이나 주의로 임의 분류하지 않음
+- `reaction_type`은 F-ANALYSIS-01이 **확정한** 패턴에서만 나온다. 확정된 악화 패턴이 있으면 `CAUTION`,
+  개선뿐이면 `SUITABLE`, 없으면 `INSUFFICIENT`다. 민감성 사용자는 악화 방향 변화량 기준만 완화된다. (ADR 0010)
+- `observation_count`는 분석 기간 내 **해당 성분의 노출 일수**다. 같은 날 모닝·나이트에 모두 썼으면 1일로 센다.
+  USER-02의 `recordCount`가 이 값이다.
+- `positive_count` · `negative_count`는 확정된 개선 · 악화 **패턴 수**다(관측 쌍 수가 아니다).
+  같은 지표에서 시차만 다른 패턴은 **1건으로 센다** — 현상 하나가 근거 여러 건으로 부풀지 않게 한다.
+- `profile_score`는 대표 패턴의 평균 변화량, `confidence_score`는 대표 패턴의 동일 방향 비율(0~100)이다.
+  `INSUFFICIENT` 행은 두 값과 `reason_summary`가 모두 `NULL`이다 — 판단하지 않은 성분에 근거를 만들지 않는다.
+- 행은 **삭제하지 않고 갱신한다.** `UNIQUE(user_id, ingredient_id)` 기준으로 덮어쓰므로 id가 유지된다.
+  회차마다 삭제·재삽입하는 `AnalysisInsight`와 다르다. (ADR 0010)
 
 ---
 
@@ -374,17 +384,27 @@ UNIQUE(user_id, ingredient_id)
 | id | BIGINT | PK | 인사이트 ID |
 | user_id | BIGINT | FK | 사용자 ID |
 | insight_type | VARCHAR(30) | NOT NULL | INGREDIENT, ENVIRONMENT |
-| metric_type | VARCHAR(30) | NULL | TROUBLE, REDNESS, PORE, PIGMENTATION |
+| metric_type | VARCHAR(30) | NULL | TROUBLE, REDNESS, PORES, PIGMENTATION |
 | title | VARCHAR(200) | NOT NULL | 제목 |
 | description | TEXT | NOT NULL | 분석 설명 |
 | recommendation | TEXT | NULL | 관리 제안 |
 | start_date | DATE | NULL | 분석 기간 시작 |
 | end_date | DATE | NULL | 분석 기간 종료 |
-| confidence_score | DECIMAL(5,2) | NULL | 신뢰도 |
+| confidence_score | DECIMAL(5,2) | NULL | 신뢰도 (0~100) |
+| lag_days | INT | NULL | 사용 후 며칠 뒤의 변화인지 (1~7). 성분 인사이트만 |
+| average_delta | DECIMAL(6,2) | NULL | 관측된 지표 변화량의 평균. 양수면 증상 악화 |
 | generated_at | DATETIME | NOT NULL | 생성 시각 |
 - 밤 피부 분석 완료 후 당일 리포트를 제공
 - 7일·30일 리포트는 누적 `SkinRecord`, `SkinMetric`을 조회해 구성
-- 상세 이벤트까지 저장할 필요가 있으면 `AnalysisEvidence` 테이블 추가
+- ~~상세 이벤트까지 저장할 필요가 있으면 `AnalysisEvidence` 테이블 추가~~
+  → **신설하지 않는다 (ADR 0013).** REPORT-02의 이벤트는 `product_records`·`daily_environments`에서
+  조회 시점에 도출한다. 저장하면 원본과 어긋날 수 있는 사본이 하나 더 생긴다.
+- `lag_days`·`average_delta`는 F-ANALYSIS-01이 이미 계산하던 값이다(`LagPattern`). 문구로 접고
+  버리는 대신 남겨 REPORT-02가 이벤트 문구에 쓴다. (ADR 0013)
+- `confidence_score`는 F-ANALYSIS-01의 **동일 방향 변화 비율(0~100)**이다. REPORT-01은 67 이상을
+  `OBSERVED`, 미만을 `OBSERVING`으로 내려보낸다. (ADR 0009)
+- `insight_type = INGREDIENT` 행은 **새 피부 기록마다 재계산되어 이전 회차를 대체**한다.
+  `ENVIRONMENT` 행은 F-ANALYSIS-02가 따로 관리하므로 이 삭제 범위에 들어가지 않는다.
 
 ---
 

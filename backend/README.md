@@ -41,13 +41,32 @@ curl http://localhost:8080/api/v1/health
 `application.yml`은 `server.port=8080`, `spring.profiles.active=local`을 기본값으로 두고,
 DB 설정은 `application-local.yml`에 있습니다.
 
-| 환경변수 | 기본값 |
+| 환경변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `DB_HOST` | `localhost` | |
+| `DB_PORT` | `3306` | |
+| `DB_NAME` | `ildangbaek` | |
+| `DB_USERNAME` | `ildangbaek` | |
+| `DB_PASSWORD` | `ildangbaek1234` | |
+| `STORAGE_LOCAL_DIR` | `./uploads/images` | 이미지 저장 경로 ([ADR 0007](../docs/decisions/0007-이미지-스토리지.md)) |
+| `STORAGE_LOCAL_URL_PREFIX` | `/images/` | 반환 URL 접두사 |
+| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택 ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md)) |
+
+업로드 상한은 `spring.servlet.multipart.max-file-size=10MB`다. Spring 기본값(파일 1MB)이면
+정상 사진도 튕기므로 올려 두었다.
+
+**목업 분석 실패 재현** — `app.skin.analysis.mock.failure-mode`에 아래 값을 주면 해당 실패를 유발한다.
+
+| 값 | 결과 |
 | --- | --- |
-| `DB_HOST` | `localhost` |
-| `DB_PORT` | `3306` |
-| `DB_NAME` | `ildangbaek` |
-| `DB_USERNAME` | `ildangbaek` |
-| `DB_PASSWORD` | `ildangbaek1234` |
+| `face-not-detected` | 422 `SKIN_FACE_NOT_DETECTED` |
+| `timeout` | 504 `SKIN_ANALYSIS_TIMEOUT` |
+| `failed` | 500 `SKIN_ANALYSIS_FAILED` |
+| (미설정) | 정상 분석 |
+
+```bash
+./gradlew bootRun --args='--app.skin.analysis.mock.failure-mode=timeout'
+```
 
 기본값은 `docker-compose.yml`의 MySQL 컨테이너와 그대로 맞춰져 있어, 로컬에서는 별도 설정 없이 실행됩니다.
 
@@ -60,10 +79,13 @@ DB 설정은 `application-local.yml`에 있습니다.
 com.ildangbaek.backend
 ├── BackendApplication.java
 ├── global                     # 도메인에 종속되지 않는 공통 인프라
-│   ├── config                 # JpaAuditingConfig, WebConfig(CORS)
+│   ├── config                 # JpaAuditingConfig, WebConfig(CORS + ArgumentResolver)
 │   ├── entity                 # BaseTimeEntity (createdAt/updatedAt)
 │   ├── response               # ApiResponse, SuccessCode, ResultCode
-│   └── exception              # ErrorCode, BusinessException, GlobalExceptionHandler
+│   ├── exception              # ErrorCode, BusinessException, GlobalExceptionHandler
+│   ├── auth                   # @CurrentUserId — 임시 인증 (ADR 0006) ⚠️ 배포 전 교체
+│   ├── storage                # ImageStorage / LocalImageStorage (ADR 0007)
+│   └── util                   # RecordDateResolver — 날짜 귀속 규칙 (ADR 0005)
 ├── domain                     # 영속성 계층 — ERD 기준으로 묶은 엔티티/리포지토리
 │   ├── user                   # User, UserProfile, SkinType, UserSkinType, NotificationSetting
 │   ├── product                # Product, Ingredient, ProductIngredient, UserProduct
@@ -72,8 +94,9 @@ com.ildangbaek.backend
 │   ├── environment            # DailyEnvironment
 │   ├── analysis               # IngredientProfile, AnalysisInsight
 │   └── check                  # ProductRiskAssessment, ProductRiskIngredient
-└── api                        # 표현 계층(컨트롤러) — api_명세서.md 2장 도메인 구성과 맞춤
-    └── common/controller/HealthController.java   # 배선 확인용 예시
+└── api                        # 표현 계층 — api_명세서.md 2장 도메인 구성과 맞춤
+    ├── common/controller/HealthController.java   # 배선 확인용 예시
+    └── skin                   # SKIN-01 — controller / service / dto
 ```
 
 새 API를 붙일 때는 `api.{domain}.controller` / `.service` / `.dto` 하위에 추가하고,
@@ -87,6 +110,7 @@ com.ildangbaek.backend
 - Base URL은 `/api/v1`, 리소스는 복수형 · kebab-case, URI에 동사를 쓰지 않음
 - `PUT`은 사용하지 않고 부분 수정은 모두 `PATCH`
 - 인증은 `Authorization: Bearer {accessToken}` (예외: `POST /auth/login`, `POST /auth/refresh`)
+  — **다만 아직 구현되지 않았다.** 현재는 `X-User-Id` 헤더를 임시로 쓴다 (아래 「임시 인증」 참고)
 - `onboardingCompleted = false`인 사용자가 온보딩 외 API를 호출하면 `403 ONBOARD_NOT_COMPLETED`
 - 날짜/시간은 ISO-8601, ID는 `Long`, Enum은 문자열, 빈 목록은 `[]` (null 금지)
 - 저장 API(`POST /product-records`, `/routines/{id}/records`, `/skin-records`, `/checks`)는 `Idempotency-Key` 헤더로 중복 저장을 방지 — 처리 완료된 키는 최초 응답을 그대로 반환, 처리 중인 키는 `409 COMMON_DUPLICATE_REQUEST`
@@ -122,14 +146,162 @@ ERD.md와 api_명세서.md/기능명세서.md 사이에 값 체계가 다른 필
 
 - `UserProfile.gender` — ERD `NOT_SELECTED` vs api 명세서 `UNSPECIFIED`
 - `UserProfile.menstrualStatus` — ERD 3종 vs api 명세서 `HormoneStatus` 4종(HORMONE_PILL/HORMONE_INJECTION 포함)
-- `SkinMetric.metricType` — ERD 3종(TROUBLE/REDNESS/MOISTURE_OIL) vs 기능명세서 F-SKIN-04 4종(+PORES/PIGMENTATION), PRD 8.4/9.6도 서로 다름 (TBD-11)
-- `IngredientProfile.reactionType` / `ProductRiskIngredient.reactionType` — ERD `SUITABLE` vs api 명세서 `IngredientStatus.GOOD`
+- `IngredientProfile.reactionType` / `ProductRiskIngredient.reactionType` — ERD `SUITABLE` vs api 명세서 `IngredientStatus.GOOD`. DB는 `SUITABLE` 유지, API 응답에서만 `GOOD`으로 매핑 확정 ([ADR 0004](../docs/decisions/0004-성분-반응-상태-명칭.md))
 
 팀 내에서 스키마가 확정되면 해당 enum과 주석만 정리하면 됩니다. 확정 내용은 새 ADR로 `docs/decisions/`에 남깁니다.
 
+**`SkinMetric.metricType`은 확정되었습니다.** 트러블(`TROUBLE`) · 홍조(`REDNESS`) · 모공(`PORES`) ·
+색소잡티(`PIGMENTATION`) 4종. ([ADR 0002](../docs/decisions/0002-피부-지표-체계.md))
+
+## 임시 인증 ⚠️
+
+인증이 아직 없어 `X-User-Id` 헤더로 사용자를 식별합니다. ([ADR 0006](../docs/decisions/0006-임시-인증-방편.md))
+
+```bash
+curl -X POST http://localhost:8080/api/v1/skin-records \
+  -H "X-User-Id: 1" -F "image=@face.jpg" -F "timeSlot=MORNING"
+```
+
+**이것은 인증이 아닙니다.** 헤더를 그대로 신뢰하므로 `X-User-Id: 2`를 보내면 누구나 2번 사용자로
+행세할 수 있습니다. 로컬 개발과 내부 시연에만 쓰고, **AUTH-01 완료 즉시 제거합니다.**
+교체 시 고칠 곳은 `CurrentUserIdArgumentResolver` 한 클래스입니다.
+
+사용자가 없으면 `USER_NOT_FOUND`가 납니다. 회원가입 경로가 아직 없으므로 직접 넣어야 합니다.
+
+```sql
+INSERT INTO users (provider, provider_user_id, onboarding_completed, account_status, created_at, updated_at)
+VALUES ('KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
+```
+
+## F-ANALYSIS-01 시차 분석 · 목업 시드
+
+성분-피부 시차 분석은 **제품 기록**을 입력으로 씁니다. 그런데 제품 기록 저장 API(PRODUCT-05)는
+A 담당이라 아직 없어서, 실사용 경로로는 `product_records`를 채울 방법이 없습니다.
+검증용 시드 스크립트로 그 자리를 대신합니다.
+
+```bash
+# 앱을 한 번 띄워 스키마가 생성된 뒤에 실행합니다 (ddl-auto: update)
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek \
+  < backend/src/test/resources/seed/f-analysis-01-mockup.sql
+
+# 분석은 피부 기록 저장 시 실행됩니다. 사용자 9001로 기록을 남기면 트리거됩니다.
+curl -X POST http://localhost:8080/api/v1/skin-records \
+  -H "X-User-Id: 9001" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
+
+# 결과 확인
+curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-Id: 9001"
+```
+
+`--default-character-set=utf8mb4`를 빼면 성분 한글명이 깨져 들어갑니다.
+
+스크립트는 **의도한 패턴**을 심습니다 — 레티놀을 18·12·6일 전에 쓰고 그 2일 뒤 트러블을 +15 올려두므로
+`OBSERVED`로 확정되어야 하고, 판테놀은 뒤따르는 변화가 없어 `OBSERVING`에 머물러야 합니다.
+무작위 데이터로는 "분석기가 패턴을 제대로 잡았는지"를 확인할 수 없어 이렇게 만들었습니다 (ADR 0003).
+
+레티놀 세럼에 히알루론산이 함께 들어 있어 **두 성분이 같은 패턴으로 나오는데, 이는 의도된 동작입니다.**
+한 제품에 든 성분들은 항상 같이 노출되므로 기록만으로는 분리할 수 없습니다
+([ADR 0009](../docs/decisions/0009-시차-분석-패턴-확정-기준.md)의 알려진 한계).
+
+확정 임계값은 `LagCorrelationAnalyzer`의 상수 3개에 모여 있고, REPORT-01의 `OBSERVED` 임계값
+(`ReportService.OBSERVED_THRESHOLD`)과 같은 값이어야 합니다. **한쪽만 바꾸면 판정이 어긋납니다.**
+
+## REPORT-02 요인 상세 검증
+
+위 시드를 그대로 씁니다. **`insightId`를 먼저 받아 와야 합니다** — 시차 분석이 피부 기록 저장마다
+성분 인사이트를 지우고 다시 넣으므로 id가 매번 바뀝니다
+([ADR 0013](../docs/decisions/0013-요인-상세-응답-구성.md)).
+
+```bash
+# 1) 위 POST /skin-records를 먼저 실행한 뒤, 인사이트 목록에서 id를 확인합니다
+curl -s "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-Id: 9001"
+
+# 2) 레티놀 인사이트의 insightId로 상세를 조회합니다
+curl -s "http://localhost:8080/api/v1/reports/insights/{위에서 받은 id}" -H "X-User-Id: 9001"
+```
+
+기대값 — `title: "레티놀 추이"`, `subtitle: "최근 30일 · 이벤트와 상관관계"`, `graph` 30개(시드가
+NIGHT 슬롯만 심으므로 `morningScore`는 전부 `null`), `events`에 18일 전 "레티놀 이 기간 첫 사용"
+1건과 `confidence: "OBSERVED"`. 판테놀은 `OBSERVING`이라 `impact`가 "확인 중" 문구입니다.
+
+자외선 이벤트는 `daily_environments`에 시드가 없어 임시로 넣어야 확인됩니다. 이 표는
+F-ANALYSIS-01 시드의 범위가 아니라 시드 파일에 넣지 않았습니다.
+
+```bash
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek -e \
+  "INSERT INTO daily_environments (user_id, record_date, region_name, uv_index_max, data_source, fetched_at)
+   VALUES (9001, CURDATE() - INTERVAL 7 DAY, '서울', 9.0, 'MOCK', NOW()),
+          (9001, CURDATE() - INTERVAL 6 DAY, '서울', 9.0, 'MOCK', NOW()),
+          (9001, CURDATE() - INTERVAL 5 DAY, '서울', 9.0, 'MOCK', NOW());"
+```
+
+7일 전 날짜에 "자외선 지수 8 이상 3일 연속" 이벤트가 붙고, 성분 인사이트에 붙은 자외선 이벤트라
+`confidence`는 항상 `OBSERVING`입니다. 임계값(8 이상 · 2일 연속)은 `ReportService`의 상수 2개에
+있습니다.
+
+## F-ANALYSIS-04 성분 프로파일
+
+같은 시드로 성분 프로파일도 함께 갱신됩니다. 위 `POST /skin-records` 호출 뒤 표를 직접 확인합니다.
+
+```bash
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek -e \
+  "SELECT i.korean_name, p.reaction_type, p.observation_count, p.reason_summary
+     FROM ingredient_profiles p JOIN ingredients i ON i.id = p.ingredient_id
+    WHERE p.user_id = 9001;"
+```
+
+레티놀·히알루론산은 `CAUTION`, 판테놀은 `INSUFFICIENT`(근거 `NULL`)로 나옵니다. 로컬 MySQL에서
+확인한 결과입니다 (2026-08-10). 분류 기준은
+[ADR 0010](../docs/decisions/0010-성분-프로파일-분류-기준.md)에 있습니다.
+
+같은 기록으로 다시 분석해도 **행 id가 유지되고 행 수도 늘지 않습니다.** 인사이트와 달리 프로파일은
+지웠다 다시 만들지 않기 때문입니다(ADR 0010). 재실행 후 `id`를 비교하면 확인됩니다.
+
+### 민감성 완화(BR 3) 확인
+
+위 시드만으로는 확인할 수 없습니다 — 레티놀의 변화량이 +15라 기본 기준으로도 확정되기 때문입니다.
+완화 전용 시드를 이어서 적용합니다.
+
+```bash
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek \
+  < backend/src/test/resources/seed/f-analysis-04-sensitive.sql
+```
+
+판테놀이 `INSUFFICIENT` → `CAUTION`(`profile_score` 2.5000)으로 바뀌고 근거에 `민감성 피부 기준 ·`
+접두어가 붙습니다. `DELETE FROM user_skin_types WHERE user_id = 9001;` 로 되돌리면 다시
+`INSUFFICIENT`가 되어 대조군이 됩니다.
+
+> ⚠️ **실사용 경로에서는 이 완화가 아직 동작하지 않습니다.** `skin_types` 마스터가 비어 있고
+> 온보딩(F-ONBOARD-02, A 담당)이 없어 `user_skin_types`에 아무도 없기 때문입니다. 위 시드가
+> 그 자리를 대신합니다. 온보딩이 붙으면 코드 변경 없이 켜집니다.
+
+민감성 완화 임계값(`IngredientProfileWriter.SENSITIVE_WORSENED_DELTA`)은 `LagCorrelationAnalyzer`의
+변화량 기준과 짝입니다. **한쪽을 바꾸면 다른 쪽도 함께 봐야 합니다.**
+
+## 구현된 API
+
+| API | 상태 |
+| --- | --- |
+| `GET /api/v1/health` | ✅ |
+| `POST /api/v1/skin-records` (SKIN-01) | ✅ 목업 분석 · 로컬 스토리지 |
+
 ## 아직 만들지 않은 것
 
-- 인증(JWT 발급/검증) 및 Spring Security 설정 — 이번 스캐폴딩 범위에서 의도적으로 제외했습니다.
-- 도메인별 컨트롤러/서비스/DTO — `HealthController`를 예시로 도메인별로 추가해나가면 됩니다.
-- `Idempotency-Key` 처리 로직 — 저장 API 구현 시 함께 붙여야 합니다.
-- 외부 연동(소셜 로그인, 날씨·자외선 API, AI 피부 분석) — PRD 11.1에 따라 목업 또는 간이 규칙으로 시작할 수 있습니다.
+- 인증(JWT 발급/검증) 및 Spring Security 설정 — A 담당 AUTH-01~03.
+- SKIN-02 · SKIN-03 조회 API — 응답 구조는 SKIN-01과 같아 DTO를 재사용할 수 있습니다.
+- 프로파일 완성도 계산(F-ANALYSIS-05) — 성분 프로파일 갱신(F-ANALYSIS-04)은 구현되어
+  `ingredient_profiles`를 채우지만, 완성도 퍼센트를 내는 단계는 별도 기능이라 하지 않았습니다.
+- `ingredient_profiles`를 읽는 API(USER-02 · F-CHECK) — 표는 채워지지만 아직 읽는 쪽이 없습니다.
+  그래서 F-ANALYSIS-04는 DB 행까지만 확인했고 응답 경로로는 검증하지 못했습니다.
+- `skin_types` 마스터 데이터 적재 — 표가 비어 있어 민감성 완화(F-ANALYSIS-04 BR 3)가 실사용
+  경로에서 켜지지 않습니다. 온보딩(F-ONBOARD-02) 구현과 함께 운영 시드가 필요합니다.
+- F-ANALYSIS-01의 실입력 — 로직은 완성됐지만 제품 기록 저장 API(A 담당 PRODUCT-05)가 없어
+  실사용 경로에서는 결과가 비어 있습니다. 검증은 위 목업 시드로 했습니다.
+- 그 외 도메인 컨트롤러/서비스/DTO — `api.skin`을 예시로 추가해나가면 됩니다.
+- `Idempotency-Key` 처리 로직 — 저장 API 4개가 공유할 공통 인프라라 단독 구현을 피했습니다.
+  SKIN-01은 슬롯 유니크 제약이 중복 저장을 막고 있습니다.
+- 외부 연동(소셜 로그인, 날씨·자외선 API) — AI 피부 분석과 이미지 스토리지는 인터페이스 뒤에
+  목업/로컬 구현이 들어가 있습니다 (ADR 0003 · 0007).
