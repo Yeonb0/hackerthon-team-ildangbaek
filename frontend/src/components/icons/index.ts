@@ -1,5 +1,5 @@
 // src/components/icons/index.ts
-// 아이콘 25종(nav 5 + ui/state/section 20) + AppIcon 배럴 export.
+// 아이콘 42종(nav 5 + ui/state/section 20 + 2026-08-12 추가분 17) + AppIcon 배럴 export.
 // 화면 코드에서는 개별 컴포넌트를 직접 import해서 쓰고(예: <IconBack />),
 // ICONS/IconName은 카탈로그 화면처럼 "전체를 순회"해야 하는 곳에서만 씁니다.
 // ICONS/IconName 실제 정의는 registry.ts에 있습니다 (AppIcon.tsx와의 순환 참조 방지 — 주석 참고).
@@ -29,6 +29,23 @@ import { IconSearch } from './IconSearch';
 import { IconTip } from './IconTip';
 import { IconWarning } from './IconWarning';
 import { IconWifiOff } from './IconWifiOff';
+import { IconArrowUp } from './IconArrowUp';
+import { IconArrowDown } from './IconArrowDown';
+import { IconCalendar } from './IconCalendar';
+import { IconChevronUp } from './IconChevronUp';
+import { IconChevronDown } from './IconChevronDown';
+import { IconCircleEmpty } from './IconCircleEmpty';
+import { IconFilter } from './IconFilter';
+import { IconFlask } from './IconFlask';
+import { IconHelpCircle } from './IconHelpCircle';
+import { IconImagePlaceholder } from './IconImagePlaceholder';
+import { IconInfo } from './IconInfo';
+import { IconList } from './IconList';
+import { IconLocationPin } from './IconLocationPin';
+import { IconLogout } from './IconLogout';
+import { IconPersonCircle } from './IconPersonCircle';
+import { IconTrash } from './IconTrash';
+import { IconTrayEmpty } from './IconTrayEmpty';
 import { AppIcon } from './AppIcon';
 
 export * from './types';
@@ -63,4 +80,21 @@ export {
   IconTip,
   IconWarning,
   IconWifiOff,
+  IconArrowUp,
+  IconArrowDown,
+  IconCalendar,
+  IconChevronUp,
+  IconChevronDown,
+  IconCircleEmpty,
+  IconFilter,
+  IconFlask,
+  IconHelpCircle,
+  IconImagePlaceholder,
+  IconInfo,
+  IconList,
+  IconLocationPin,
+  IconLogout,
+  IconPersonCircle,
+  IconTrash,
+  IconTrayEmpty,
 };

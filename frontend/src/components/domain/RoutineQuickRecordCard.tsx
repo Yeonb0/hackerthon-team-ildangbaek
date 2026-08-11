@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { IconChevronRight } from '@/components/icons';
+import { IconChevronDown, IconChevronRight, IconChevronUp, IconTrash } from '@/components/icons';
 import { Card } from '@/components/base/Card';
 import { Button } from '@/components/base/Button';
 import { color, space, typography } from '@/theme';
@@ -106,8 +105,7 @@ export function RoutineQuickRecordCard({
         style={styles.row}
       >
         {expanded ? (
-          // chevron-down은 신규 세트에 대응 아이콘이 없어 Ionicons 유지 (Checkpoint 9-B)
-          <Ionicons name="chevron-down" size={16} color={color.ink600} />
+          <IconChevronDown size={16} color={color.ink600} />
         ) : (
           <IconChevronRight size={16} color={color.ink600} />
         )}
@@ -167,11 +165,7 @@ export function RoutineQuickRecordCard({
                     hitSlop={6}
                     style={styles.iconButton}
                   >
-                    <Ionicons
-                      name="chevron-up"
-                      size={16}
-                      color={index === 0 ? color.ink300 : color.ink600}
-                    />
+                    <IconChevronUp size={16} color={index === 0 ? color.ink300 : color.ink600} />
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
@@ -181,8 +175,7 @@ export function RoutineQuickRecordCard({
                     hitSlop={6}
                     style={styles.iconButton}
                   >
-                    <Ionicons
-                      name="chevron-down"
+                    <IconChevronDown
                       size={16}
                       color={index === localProducts.length - 1 ? color.ink300 : color.ink600}
                     />
@@ -194,7 +187,7 @@ export function RoutineQuickRecordCard({
                     hitSlop={6}
                     style={styles.iconButton}
                   >
-                    <Ionicons name="trash-outline" size={16} color={color.statusCaution} />
+                    <IconTrash size={16} color={color.statusCaution} />
                   </Pressable>
                 </View>
               ))}

@@ -74,7 +74,7 @@ export function IngredientListScreen() {
       {!isLoading && !isError && data && data.ingredients.length === 0 && (
         <View style={styles.centerFill}>
           <EmptyState
-            icon="flask-outline"
+            icon="flask"
             title="해당하는 성분이 없어요"
             description="필터를 바꾸거나 기록을 더 쌓아보세요."
           />

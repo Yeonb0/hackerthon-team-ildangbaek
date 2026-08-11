@@ -516,7 +516,7 @@ export default function CatalogScreen() {
       <Section title="EmptyState">
         <Card padding={4}>
           <EmptyState
-            icon="calendar-outline"
+            icon="calendar"
             title="아직 기록이 없어요"
             description="오늘의 피부 기록을 남겨보세요."
             actionLabel="기록하러 가기"
@@ -664,10 +664,12 @@ export default function CatalogScreen() {
         />
       </Section>
 
-      <Section title="아이콘 (Phase 9 Checkpoint A — 25종)">
+      <Section title="아이콘 (Phase 9 Checkpoint A~B — 42종)">
         <Text style={styles.hint}>
           24×24 SVG, color prop 하나로 색이 바뀝니다. barcode/celebrate/cloud-error/
-          product-bottle/wifi-off 5개는 원본이 고정 검정이었던 걸 currentColor로 정규화했습니다.
+          product-bottle/wifi-off 5개와 2026-08-12 추가분 중 6개(trash/help-circle/
+          image-placeholder/info/location-pin/person-circle)는 원본이 고정 검정이었던 걸
+          currentColor로 정규화했습니다.
         </Text>
         <Row>
           {Object.entries(ICONS).map(([name, IconComponent]) => (
