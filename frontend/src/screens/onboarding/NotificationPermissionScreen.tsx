@@ -14,7 +14,7 @@
 // 5) 온보딩 완료 플래그(authStore)는 이 화면의 두 버튼에서 최종적으로 바뀝니다.
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconBell } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Card } from '@/components/base/Card';
 import { saveNotificationSetting } from '@/api/notification';
@@ -58,7 +58,7 @@ export function NotificationPermissionScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Ionicons name="notifications" size={32} color={color.brand500} />
+        <IconBell size={32} color={color.brand500} />
       </View>
 
       <Text style={styles.title}>알림을 받을까요?</Text>
@@ -68,7 +68,7 @@ export function NotificationPermissionScreen() {
 
       <Card style={styles.previewCard}>
         <View style={styles.previewIcon}>
-          <Ionicons name="notifications" size={16} color={color.bg} />
+          <IconBell size={16} color={color.bg} />
         </View>
         <View style={styles.previewTextGroup}>
           <Text style={styles.previewTitle}>skinteller</Text>

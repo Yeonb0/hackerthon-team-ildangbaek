@@ -9,9 +9,10 @@ import {
   TextStyle,
   ViewStyle,
 } from 'react-native';
-import { color, radius, space } from '@/theme/tokens';
+import { LinearGradient } from 'expo-linear-gradient';
+import { color, gradient, radius, space } from '@/theme/tokens';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'gradient';
 
 type ButtonProps = {
   label: string;
@@ -55,6 +56,19 @@ export function Button({
       ]}
     >
       {/*
+        gradient variant는 배경색 하나로 못 표현해서 LinearGradient를 절대 위치로 깔고
+        그 위에 라벨을 얹습니다. base 스타일의 overflow:hidden이 둥근 모서리 밖으로
+        그라데이션이 삐져나가지 않게 잘라줍니다 (Checkpoint 9-D).
+      */}
+      {variant === 'gradient' && (
+        <LinearGradient
+          colors={gradient.brand}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+      {/*
         로딩 중에도 텍스트를 그대로 렌더링(투명하게)해서 버튼 너비/높이를 유지합니다.
         텍스트를 스피너로 아예 교체하면 내용물이 짧아져 버튼 크기가 줄어드는
         레이아웃 흔들림이 생기기 때문입니다 (구조적 문제, 디자인 문제 아님).
@@ -66,7 +80,7 @@ export function Button({
         <ActivityIndicator
           style={styles.spinnerOverlay}
           size="small"
-          color={variant === 'primary' ? color.bg : color.brand700}
+          color={variant === 'primary' || variant === 'gradient' ? color.bg : color.brand700}
         />
       )}
     </Pressable>
@@ -96,6 +110,11 @@ const VARIANT_STYLES: Record<
     pressed: { opacity: 0.6 },
     label: { color: color.ink900 },
   },
+  gradient: {
+    container: { backgroundColor: 'transparent' },
+    pressed: { opacity: 0.85 },
+    label: { color: color.bg },
+  },
 };
 
 const styles = StyleSheet.create({
@@ -105,6 +124,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   disabled: {
     opacity: 0.4,

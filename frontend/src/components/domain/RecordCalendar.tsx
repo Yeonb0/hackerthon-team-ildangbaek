@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconBack, IconChevronRight } from '@/components/icons';
 import { RecordDot } from '@/components/domain/RecordDot';
 import { getMonthGridCells, isFutureDateString } from '@/lib/date';
 import type { WeekStart } from '@/lib/date';
@@ -61,7 +61,7 @@ export function RecordCalendar({
             hitSlop={8}
             style={styles.navButton}
           >
-            <Ionicons name="chevron-back" size={20} color={color.ink600} />
+            <IconBack size={20} color={color.ink600} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -70,7 +70,7 @@ export function RecordCalendar({
             hitSlop={8}
             style={styles.navButton}
           >
-            <Ionicons name="chevron-forward" size={20} color={color.ink600} />
+            <IconChevronRight size={20} color={color.ink600} />
           </Pressable>
         </View>
       </View>

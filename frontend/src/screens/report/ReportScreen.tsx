@@ -137,7 +137,7 @@ export function ReportScreen() {
 
         {isDataInsufficient ? (
           <EmptyState
-            icon="bar-chart-outline"
+            icon="navReport"
             title="아직 리포트를 만들 수 없어요"
             description="피부 기록이 조금 더 쌓이면 리포트를 확인할 수 있어요."
             actionLabel="기록하러 가기"
@@ -161,7 +161,7 @@ export function ReportScreen() {
                 </View>
               ) : (
                 <EmptyState
-                  icon="bulb-outline"
+                  icon="tip"
                   title="아직 발견된 인사이트가 없어요"
                   description="기록이 더 쌓이면 성분·환경별 패턴을 알려드려요."
                 />

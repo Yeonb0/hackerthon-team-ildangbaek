@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { IconBell, IconChevronRight } from '@/components/icons';
 import { Card } from '@/components/base/Card';
 import { Tag, TagVariant } from '@/components/base/Tag';
 import { ProgressBar } from '@/components/base/ProgressBar';
@@ -126,7 +127,7 @@ export function MyPageScreen() {
             accessibilityRole="button"
           >
             <Text style={styles.viewAllText}>성분 전체 보기</Text>
-            <Ionicons name="chevron-forward" size={18} color={color.ink300} />
+            <IconChevronRight size={18} color={color.ink300} />
           </Pressable>
         </Card>
 
@@ -140,11 +141,11 @@ export function MyPageScreen() {
             <Ionicons name="location-outline" size={20} color={color.ink600} />
             <Text style={styles.menuLabel}>위치 설정</Text>
             <Text style={styles.menuValue}>{data.location ?? '설정 안 됨'}</Text>
-            <Ionicons name="chevron-forward" size={18} color={color.ink300} />
+            <IconChevronRight size={18} color={color.ink300} />
           </Pressable>
 
           <View style={styles.menuRow}>
-            <Ionicons name="notifications-outline" size={20} color={color.ink600} />
+            <IconBell size={20} color={color.ink600} />
             <Text style={styles.menuLabel}>알림 설정</Text>
             <Switch
               value={data.notificationEnabled}
