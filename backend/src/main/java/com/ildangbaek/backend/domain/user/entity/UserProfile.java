@@ -92,10 +92,14 @@ public class UserProfile extends BaseTimeEntity {
     }
 
     public void updateHormoneInfo(MenstrualStatus menstrualStatus, LocalDate lastMenstrualStartDate,
-                                   Short menstrualCycleDays) {
+                                   Short menstrualCycleDays, boolean oralContraceptive,
+                                   boolean progesteroneInjection, boolean hormoneReplacementTherapy) {
         this.menstrualStatus = menstrualStatus;
         this.lastMenstrualStartDate = lastMenstrualStartDate;
         this.menstrualCycleDays = menstrualCycleDays;
+        this.oralContraceptive = oralContraceptive;
+        this.progesteroneInjection = progesteroneInjection;
+        this.hormoneReplacementTherapy = hormoneReplacementTherapy;
     }
 
     public void updateRegion(String regionName) {

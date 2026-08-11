@@ -1,11 +1,15 @@
 package com.ildangbaek.backend.api.onboard.service;
 
 import com.ildangbaek.backend.api.onboard.dto.request.BasicInfoRequest;
+import com.ildangbaek.backend.api.onboard.dto.request.HormoneRequest;
+import com.ildangbaek.backend.api.onboard.dto.request.HormoneStatus;
 import com.ildangbaek.backend.api.onboard.dto.request.SkinTypesRequest;
+import com.ildangbaek.backend.api.onboard.dto.response.HormoneResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingCompleteResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingStatusResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingStatusResponse.StepStatus;
 import com.ildangbaek.backend.domain.user.entity.Gender;
+import com.ildangbaek.backend.domain.user.entity.MenstrualStatus;
 import com.ildangbaek.backend.domain.user.entity.SkinType;
 import com.ildangbaek.backend.domain.user.entity.SkinTypeCode;
 import com.ildangbaek.backend.domain.user.entity.User;
@@ -17,6 +21,7 @@ import com.ildangbaek.backend.domain.user.repository.UserRepository;
 import com.ildangbaek.backend.domain.user.repository.UserSkinTypeRepository;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
+import java.time.LocalDate;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -80,6 +85,36 @@ public class OnboardingService {
     }
 
     @Transactional
+    public HormoneResponse saveHormone(User user, HormoneRequest request) {
+        UserProfile profile = userProfileRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ONBOARD_STEP_NOT_ALLOWED));
+        if (profile.getGender() != Gender.FEMALE) {
+            throw new BusinessException(ErrorCode.ONBOARD_HORMONE_NOT_APPLICABLE);
+        }
+        validateHormoneDate(request.lastPeriodStartDate());
+
+        HormoneMapping mapping = mapHormoneStatus(request.hormoneStatus());
+        LocalDate startDate = request.hormoneStatus() == HormoneStatus.MENOPAUSE
+                ? null
+                : request.lastPeriodStartDate();
+        Short cycleDays = request.hormoneStatus() == HormoneStatus.MENOPAUSE || request.averageCycleDays() == null
+                ? null
+                : request.averageCycleDays().shortValue();
+
+        profile.updateHormoneInfo(
+                mapping.menstrualStatus(),
+                startDate,
+                cycleDays,
+                mapping.oralContraceptive(),
+                mapping.progesteroneInjection(),
+                false
+        );
+        userProfileRepository.save(profile);
+
+        return new HormoneResponse("COMPLETE");
+    }
+
+    @Transactional
     public OnboardingCompleteResponse complete(User user) {
         if (user.isOnboardingCompleted()) {
             throw new BusinessException(ErrorCode.ONBOARD_ALREADY_COMPLETED);
@@ -98,7 +133,7 @@ public class OnboardingService {
         boolean basicInfoCompleted = hasBasicInfo(user);
         boolean skinTypeCompleted = hasSkinTypes(user);
         boolean hormoneIncluded = isFemale(user);
-        boolean hormoneCompleted = false;
+        boolean hormoneCompleted = hasHormoneInfo(user);
         String nextStep = nextStep(user, basicInfoCompleted, skinTypeCompleted, hormoneIncluded, hormoneCompleted);
 
         Map<String, StepStatus> steps = new LinkedHashMap<>();
@@ -160,6 +195,12 @@ public class OnboardingService {
                 .isPresent();
     }
 
+    private boolean hasHormoneInfo(User user) {
+        return userProfileRepository.findByUserId(user.getId())
+                .map(UserProfile::getMenstrualStatus)
+                .isPresent();
+    }
+
     private Gender parseGender(String gender) {
         if ("UNSPECIFIED".equals(gender)) {
             return Gender.NOT_SELECTED;
@@ -174,6 +215,21 @@ public class OnboardingService {
         if (skinTypes.contains(SkinTypeCode.UNKNOWN) && skinTypes.size() > 1) {
             throw new BusinessException(ErrorCode.ONBOARD_SKIN_TYPE_CONFLICT);
         }
+    }
+
+    private void validateHormoneDate(LocalDate lastPeriodStartDate) {
+        if (lastPeriodStartDate != null && lastPeriodStartDate.isAfter(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.COMMON_VALIDATION_FAILED);
+        }
+    }
+
+    private HormoneMapping mapHormoneStatus(HormoneStatus hormoneStatus) {
+        return switch (hormoneStatus) {
+            case MENSTRUATING -> new HormoneMapping(MenstrualStatus.MENSTRUATING, false, false);
+            case HORMONE_PILL -> new HormoneMapping(MenstrualStatus.MENSTRUATING, true, false);
+            case HORMONE_INJECTION -> new HormoneMapping(MenstrualStatus.MENSTRUATING, false, true);
+            case MENOPAUSE -> new HormoneMapping(MenstrualStatus.MENOPAUSE, false, false);
+        };
     }
 
     private List<OnboardingCompleteResponse.SummaryItem> buildSummary(User user) {
@@ -218,5 +274,12 @@ public class OnboardingService {
             case SENSITIVE -> "민감성";
             case UNKNOWN -> "모르겠음";
         };
+    }
+
+    private record HormoneMapping(
+            MenstrualStatus menstrualStatus,
+            boolean oralContraceptive,
+            boolean progesteroneInjection
+    ) {
     }
 }

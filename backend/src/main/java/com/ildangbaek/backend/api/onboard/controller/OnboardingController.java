@@ -2,7 +2,9 @@ package com.ildangbaek.backend.api.onboard.controller;
 
 import com.ildangbaek.backend.api.auth.service.CurrentUserResolver;
 import com.ildangbaek.backend.api.onboard.dto.request.BasicInfoRequest;
+import com.ildangbaek.backend.api.onboard.dto.request.HormoneRequest;
 import com.ildangbaek.backend.api.onboard.dto.request.SkinTypesRequest;
+import com.ildangbaek.backend.api.onboard.dto.response.HormoneResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingCompleteResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingStatusResponse;
 import com.ildangbaek.backend.api.onboard.service.OnboardingService;
@@ -50,6 +52,15 @@ public class OnboardingController {
     ) {
         User user = currentUserResolver.resolve(authorization);
         return ApiResponse.success(onboardingService.saveSkinTypes(user, request));
+    }
+
+    @PatchMapping("/hormone")
+    public ApiResponse<HormoneResponse> saveHormone(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody HormoneRequest request
+    ) {
+        User user = currentUserResolver.resolve(authorization);
+        return ApiResponse.success(onboardingService.saveHormone(user, request));
     }
 
     @PostMapping("/complete")
