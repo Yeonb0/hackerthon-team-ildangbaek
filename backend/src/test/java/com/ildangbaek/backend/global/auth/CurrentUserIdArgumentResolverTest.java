@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 임시 인증(X-User-Id)의 주입과 거절을 고정한다. (ADR 0006)
+ * 임시 인증(Authorization: Bearer mock-access-*)의 주입과 거절을 고정한다. (ADR 0006)
  * DB가 필요 없도록 @WebMvcTest 슬라이스로 검증한다.
  */
 @WebMvcTest(controllers = CurrentUserIdArgumentResolverTest.TestController.class)
@@ -36,18 +36,11 @@ class CurrentUserIdArgumentResolverTest {
         }
     }
 
-    @DisplayName("X-User-Id 헤더가 있으면 userId로 주입된다")
+    @DisplayName("Authorization 헤더에 목업 토큰이 있으면 userId로 주입된다")
     @Test
     void resolvesHeader() throws Exception {
-        mockMvc.perform(get("/api/v1/test/current-user").header("X-User-Id", "42"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.result").value(42));
-    }
-
-    @DisplayName("공백은 잘라내고 주입한다")
-    @Test
-    void trimsHeader() throws Exception {
-        mockMvc.perform(get("/api/v1/test/current-user").header("X-User-Id", " 42 "))
+        mockMvc.perform(get("/api/v1/test/current-user")
+                        .header("Authorization", "Bearer mock-access-42-abcd1234"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result").value(42));
     }
@@ -61,18 +54,28 @@ class CurrentUserIdArgumentResolverTest {
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
 
-    @DisplayName("헤더가 비어 있으면 401 COMMON_UNAUTHORIZED")
+    @DisplayName("Bearer 접두어가 없으면 401 COMMON_UNAUTHORIZED")
     @Test
-    void rejectsBlankHeader() throws Exception {
-        mockMvc.perform(get("/api/v1/test/current-user").header("X-User-Id", "   "))
+    void rejectsNonBearerHeader() throws Exception {
+        mockMvc.perform(get("/api/v1/test/current-user").header("Authorization", "42"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
 
-    @DisplayName("헤더가 숫자가 아니면 401 COMMON_UNAUTHORIZED")
+    @DisplayName("목업 토큰 형식이 아니면 401 COMMON_UNAUTHORIZED")
     @Test
-    void rejectsNonNumericHeader() throws Exception {
-        mockMvc.perform(get("/api/v1/test/current-user").header("X-User-Id", "abc"))
+    void rejectsNonMockToken() throws Exception {
+        mockMvc.perform(get("/api/v1/test/current-user")
+                        .header("Authorization", "Bearer eyJhbGciOi..."))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @DisplayName("토큰의 userId 부분이 숫자가 아니면 401 COMMON_UNAUTHORIZED")
+    @Test
+    void rejectsNonNumericUserId() throws Exception {
+        mockMvc.perform(get("/api/v1/test/current-user")
+                        .header("Authorization", "Bearer mock-access-abc-1234"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
