@@ -122,7 +122,8 @@ com.ildangbaek.backend
 - Base URL은 `/api/v1`, 리소스는 복수형 · kebab-case, URI에 동사를 쓰지 않음
 - `PUT`은 사용하지 않고 부분 수정은 모두 `PATCH`
 - 인증은 `Authorization: Bearer {accessToken}` (예외: `POST /auth/login`, `POST /auth/refresh`)
-  — **다만 아직 구현되지 않았다.** 현재는 `X-User-Id` 헤더를 임시로 쓴다 (아래 「임시 인증」 참고)
+  — **다만 실제 인증(JWT 서명 검증)은 아직 없다.** 현재는 로그인 시 발급되는 목업 토큰을 그대로
+  신뢰한다 (아래 「임시 인증」 참고)
 - `onboardingCompleted = false`인 사용자가 온보딩 외 API를 호출하면 `403 ONBOARD_NOT_COMPLETED`
 - 날짜/시간은 ISO-8601, ID는 `Long`, Enum은 문자열, 빈 목록은 `[]` (null 금지)
 - 저장 API(`POST /product-records`, `/routines/{id}/records`, `/skin-records`, `/checks`)는 `Idempotency-Key` 헤더로 중복 저장을 방지 — 처리 완료된 키는 최초 응답을 그대로 반환, 처리 중인 키는 `409 COMMON_DUPLICATE_REQUEST`
@@ -167,22 +168,40 @@ ERD.md와 api_명세서.md/기능명세서.md 사이에 값 체계가 다른 필
 
 ## 임시 인증 ⚠️
 
-인증이 아직 없어 `X-User-Id` 헤더로 사용자를 식별합니다. ([ADR 0006](../docs/decisions/0006-임시-인증-방편.md))
+인증이 아직 없어 목업 Bearer 토큰으로 사용자를 식별합니다
+([ADR 0006](../docs/decisions/0006-임시-인증-방편.md) ·
+[ADR 0017](../docs/decisions/0017-임시-인증-토큰-통합.md)). `POST /api/v1/auth/login`으로 로그인하면
+`mock-access-{userId}-{uuid}` 형식의 토큰이 발급되고, 이후 모든 API는 이 토큰을
+`Authorization: Bearer ...` 헤더로 받습니다. AUTH·ONBOARD를 포함해 전 도메인이 같은 토큰을 씁니다.
 
 ```bash
+# 1) 로그인해서 토큰을 받습니다 (신규 provider_user_id면 사용자도 자동 생성됩니다)
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"EMAIL","oauthAccessToken":"local-dev@example.com"}' \
+  | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+
+# 2) 받은 토큰으로 나머지 API를 호출합니다
 curl -X POST http://localhost:8080/api/v1/skin-records \
-  -H "X-User-Id: 1" -F "image=@face.jpg" -F "timeSlot=MORNING"
+  -H "Authorization: Bearer $TOKEN" -F "image=@face.jpg" -F "timeSlot=MORNING"
 ```
 
-**이것은 인증이 아닙니다.** 헤더를 그대로 신뢰하므로 `X-User-Id: 2`를 보내면 누구나 2번 사용자로
-행세할 수 있습니다. 로컬 개발과 내부 시연에만 쓰고, **AUTH-01 완료 즉시 제거합니다.**
-교체 시 고칠 곳은 `CurrentUserIdArgumentResolver` 한 클래스입니다.
+**이것은 인증이 아닙니다.** 토큰은 서명 검증이 없어 `mock-access-2-x` 형식만 맞추면 누구나 2번
+사용자로 행세할 수 있습니다. 로컬 개발과 내부 시연에만 쓰고, **실제 인증(JWT 등) 도입 즉시
+제거합니다.** 교체 시 고칠 곳은 `MockAccessToken`과 두 리졸버(`CurrentUserIdArgumentResolver`·
+`CurrentUserResolver`)로 한정됩니다.
 
-사용자가 없으면 `USER_NOT_FOUND`가 납니다. 회원가입 경로가 아직 없으므로 직접 넣어야 합니다.
+아래 절들의 curl 예제는 시드 데이터가 지정하는 `userId`(9001 등)에 맞춰 `$TOKEN`을 씁니다.
+특정 `userId`로 시드와 맞추고 싶다면 아래처럼 직접 사용자를 만들고 그 `id`로 토큰 형식을 흉내
+내면 됩니다(UUID 부분은 파싱에 쓰이지 않으므로 아무 값이나 가능):
 
 ```sql
-INSERT INTO users (provider, provider_user_id, onboarding_completed, account_status, created_at, updated_at)
-VALUES ('KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
+INSERT INTO users (id, provider, provider_user_id, onboarding_completed, account_status, created_at, updated_at)
+VALUES (9001, 'KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
+```
+
+```bash
+TOKEN="mock-access-9001-local-dev"
 ```
 
 ## F-ANALYSIS-01 시차 분석 · 목업 시드
@@ -199,11 +218,12 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
   < backend/src/test/resources/seed/f-analysis-01-mockup.sql
 
 # 분석은 피부 기록 저장 시 실행됩니다. 사용자 9001로 기록을 남기면 트리거됩니다.
+TOKEN="mock-access-9001-local-dev"
 curl -X POST http://localhost:8080/api/v1/skin-records \
-  -H "X-User-Id: 9001" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
+  -H "Authorization: Bearer $TOKEN" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
 
 # 결과 확인
-curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-Id: 9001"
+curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "Authorization: Bearer $TOKEN"
 ```
 
 `--default-character-set=utf8mb4`를 빼면 성분 한글명이 깨져 들어갑니다.
@@ -235,7 +255,7 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
 # 분석은 피부 기록 저장 시에만 돌아갑니다. 두 사용자 모두 트리거해야 합니다.
 for u in 9101 9102; do
   curl -s -o /dev/null -w "$u %{http_code}\n" -X POST http://localhost:8080/api/v1/skin-records \
-    -H "X-User-Id: $u" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
+    -H "Authorization: Bearer mock-access-$u-local-dev" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
 done
 
 docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
@@ -265,7 +285,7 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
 ```bash
 # 제품 기록을 HTTP로 생성합니다 (시드로 product_records를 채우지 않습니다)
 curl -s -X POST http://localhost:8080/api/v1/product-records \
-  -H "X-User-Id: 9001" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"timeSlot":"NIGHT","productIds":[9001]}'
 ```
 
@@ -280,10 +300,10 @@ curl -s -X POST http://localhost:8080/api/v1/product-records \
 
 ```bash
 # 1) 위 POST /skin-records를 먼저 실행한 뒤, 인사이트 목록에서 id를 확인합니다
-curl -s "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-Id: 9001"
+curl -s "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "Authorization: Bearer $TOKEN"
 
 # 2) 레티놀 인사이트의 insightId로 상세를 조회합니다
-curl -s "http://localhost:8080/api/v1/reports/insights/{위에서 받은 id}" -H "X-User-Id: 9001"
+curl -s "http://localhost:8080/api/v1/reports/insights/{위에서 받은 id}" -H "Authorization: Bearer $TOKEN"
 ```
 
 기대값 — `title: "레티놀 추이"`, `subtitle: "최근 30일 · 이벤트와 상관관계"`, `graph` 30개(시드가
@@ -361,7 +381,7 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
   < backend/src/test/resources/seed/check-02-risk-levels.sql
 
 curl -s -X POST http://localhost:8080/api/v1/checks \
-  -H "X-User-Id: 9001" -H "Content-Type: application/json" -d '{"productId":9001}'
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"productId":9001}'
 ```
 
 레티놀·히알루론산이 둘 다 `CAUTION`이지만 판정 성분이 2종뿐이라(비중 축 게이트 5종 미달) 개수

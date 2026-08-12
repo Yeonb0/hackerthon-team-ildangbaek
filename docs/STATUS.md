@@ -4,7 +4,7 @@
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
 - 최종 갱신: 2026-08-13
-- 기준 커밋: `58296fb` (PRODUCT-05 버그 수정 · F-ANALYSIS-01 ADR 0014 재검증) + SKIN-02 실서버 검증 · 버그 수정 작업분 + 3장 프론트엔드 화면 현황 실측 정정
+- 기준 커밋: `58296fb` (PRODUCT-05 버그 수정 · F-ANALYSIS-01 ADR 0014 재검증) + SKIN-02 실서버 검증 · 버그 수정 작업분 + 3장 프론트엔드 화면 현황 실측 정정 + **A 담당(AUTH·ONBOARD) 코드 대조 반영**(`bfb075b`·`fd6c336` merge 확인, 인증 이원화 발견)
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 ## 상태 표기
@@ -33,8 +33,16 @@
 `GET /api/v1/reports/insights/{insightId}` · `GET /api/v1/users/me/ingredient-profile` ·
 `POST /api/v1/checks` · `GET /api/v1/checks/{checkId}`.
 
-> ⚠️ 현재 인증은 `X-User-Id` 헤더를 그대로 신뢰하는 임시 방편이다(ADR 0006). **위조 가능하며
-> 배포 전 반드시 교체해야 한다.**
+> ⚠️ **인증 방식 이원화는 해소됐다(2026-08-13, [ADR 0017](decisions/0017-임시-인증-토큰-통합.md)).**
+> skin·report·check·product·user 도메인의 `CurrentUserIdArgumentResolver`가 `X-User-Id` 헤더
+> 대신 A가 발급하는 `Authorization: Bearer mock-access-{userId}-{uuid}` 목업 토큰을 읽도록
+> 바뀌었다(`global/auth/MockAccessToken` 공용 파서로 auth 도메인의 `CurrentUserResolver`와
+> 로직 통합). **AUTH-01 로그인 → ONBOARD → SKIN/REPORT/CHECK/USER가 이제 토큰 하나로 이어진다**
+> — 로컬 MySQL 실서버로 로그인 → 온보딩 → 마이페이지/성분 프로필 조회까지 같은 토큰으로 검증
+> 완료(2026-08-13). 백엔드 테스트 199개 통과.
+>
+> **여전히 인증이 아니다.** 토큰은 서명 검증이 없어 형식만 맞추면 위조할 수 있다. `X-User-Id`
+> 위조 위험과 동일 수준이며 **배포 전 반드시 실제 인증(JWT 서명 검증 등)으로 교체해야 한다.**
 
 ---
 
@@ -75,19 +83,27 @@
 
 ### 2.3 API 구현 현황
 
-**모두 미착수다.** 아래는 착수 대상 목록이며, 담당은 A / B 분담을 따른다.
+담당은 A / B 분담을 따른다. **아래 A 담당 표는 2026-08-13에 코드 대조로 갱신했다** — AUTH·ONBOARD가
+`origin/jiwoo` 브랜치 작업(`bfb075b feat(auth): add mock auth and onboarding flow` ·
+`fd6c336 feat(onboard): add hormone onboarding endpoint`)으로 이미 구현되어 이 브랜치 HEAD에
+병합돼 있었는데, 이전 판이 이를 반영하지 못하고 있었다.
 
 #### A 담당 — 서비스 기본 흐름 
 
-| API | 상태 |
-| --- | --- |
-| AUTH-01~03 로그인 · 재발급 · 로그아웃 | ⬜ |
-| ONBOARD-01~05 온보딩 | ⬜ |
+| API | 상태 | 비고 |
+| --- | --- | --- |
+| AUTH-01~03 로그인 · 재발급 · 로그아웃 | 🟡 | 코드 존재. `POST /login`은 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인. `/refresh`·`/logout`은 미검증. 테스트 파일 0개 |
+| ONBOARD-01~05 온보딩 | 🟡 | 코드 존재. 상태조회 · `basic-info` · `skin-types`는 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인 — `SENSITIVE` 자동 생성 경로 포함. `hormone`·`complete`는 미검증. 테스트 파일 0개 |
 | USER-01 마이페이지 조회 | ✅ | 원래 A 담당이나 F-ANALYSIS-05 BR 4(값 일치) 검증을 위해 B가 구현. `MyPageService` |
-| USER-03~07 프로필 · 위치 · 알림 | ⬜ |
-| HOME-01 홈 조회 | ⬜ |
-| RECORD-01~02 기록 허브 | ⬜ |
-| PRODUCT-01~08 제품 검색 · 상세 · 기록 · 루틴 | ⬜ |
+| USER-03~07 프로필 · 위치 · 알림 | ⬜ | 코드 없음 확인(`UserController`에 `GET /`·`GET /ingredient-profile`뿐) |
+| HOME-01 홈 조회 | ⬜ | 코드 없음 확인(`api/` 아래 `home` 디렉토리 없음) |
+| RECORD-01~02 기록 허브 | ⬜ | 코드 없음 확인(`api/` 아래 `record` 디렉토리 없음. `skin-records`·`product-records`는 개별 도메인으로 존재하나 통합 허브는 없음) |
+| PRODUCT-01~08 제품 검색 · 상세 · 기록 · 루틴 | 🟡 | PRODUCT-05(제품 기록 저장)만 B가 구현·검증 완료(2.13절). 01~04·06~08(검색·상세·루틴)은 코드 없음 확인 |
+
+> ⚠️ **AUTH·ONBOARD는 "코드가 있다"만 확인했다.** `saveSkinTypes`가 `skin_types` 마스터를
+> `orElseGet`으로 자동 생성하도록 짜여 있어 2.8절의 "민감성 완화가 온보딩 부재로 동작 안 함" 경고도
+> 이제 stale할 가능성이 있으나, 실서버로 온보딩 → 민감성 완화 흐름을 재검증하지 않아 아직 확정할 수
+> 없다. B 담당 F-ANALYSIS 항목이 아니라 후속 검증 항목으로 남겨둔다.
 
 #### B 담당 — 분석 흐름
 
