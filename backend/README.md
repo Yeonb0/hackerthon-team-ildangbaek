@@ -281,6 +281,45 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
 민감성 완화 임계값(`IngredientProfileWriter.SENSITIVE_WORSENED_DELTA`)은 `LagCorrelationAnalyzer`의
 변화량 기준과 짝입니다. **한쪽을 바꾸면 다른 쪽도 함께 봐야 합니다.**
 
+## CHECK-02 위험도 분석 · 목업 시드
+
+성분 프로파일(F-ANALYSIS-04)을 실제 구매 판단에 쓰는 첫 API입니다. 등급 산출 기준은
+[ADR 0015](../docs/decisions/0015-위험도-등급-산출-기준.md)에 있습니다.
+
+```bash
+# 1) F-ANALYSIS-01 시드로 사용자 9001의 프로파일을 채운 뒤(위 절 참고), 등급 분기 전체를
+#    보려면 아래 시드를 추가로 적재합니다 — 9001은 판정 성분이 2종뿐이라 비중 축 게이트(5종)를
+#    시험할 수 없습니다.
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek \
+  < backend/src/test/resources/seed/check-02-risk-levels.sql
+
+curl -s -X POST http://localhost:8080/api/v1/checks \
+  -H "X-User-Id: 9001" -H "Content-Type: application/json" -d '{"productId":9001}'
+```
+
+레티놀·히알루론산이 둘 다 `CAUTION`이지만 판정 성분이 2종뿐이라(비중 축 게이트 5종 미달) 개수
+축만 적용돼 `MEDIUM`이 나옵니다. **CAUTION 2종을 최고 등급으로 부르지 않는 것은 게이트의 의도된
+동작입니다** — 표본이 작을 때 비중을 신뢰하지 않기 때문입니다.
+
+**신선한 DB에서는 `CHECK_PROFILE_NOT_READY`(409)가 정상 응답입니다.** 온보딩이 없어 프로파일이
+비어 있는 상태가 현재 실사용 경로의 기본값이기 때문입니다(ADR 0010·0011의 제약을 그대로
+상속합니다). 이 시드를 먼저 적재하고 SKIN-01을 한 번 트리거해야 `CAUTION`/`SUITABLE` 행이 생깁니다.
+
+시드가 만드는 등급 분기(사용자 9002, 5종 게이트 확인용):
+
+| productId | 구성 | 기대 등급 |
+| --- | --- | --- |
+| 9003 | 판테놀(INSUFFICIENT)만 | 409 `CHECK_PROFILE_NOT_READY` |
+| 9004 | 9001과 같은 성분 + INSUFFICIENT 다수 | 9001과 동일 등급(BR 3 회귀) |
+| 9005 | 성분 행 없음 | 409 `CHECK_INGREDIENT_DATA_INSUFFICIENT` |
+| 9006 | SUITABLE 3종만 | `LOW` |
+| 9007 | SUITABLE 3 + CAUTION 1 (judged 4) | `MEDIUM` |
+| 9008 | SUITABLE 3 + CAUTION 2 (judged 5, ratio 0.40) | `HIGH` (비중 축) |
+| 9009 | SUITABLE 17 + CAUTION 3 (judged 20, ratio 0.15) | `HIGH` (개수 축) |
+
+로컬 MySQL로 위 표 전체를 확인했습니다(2026-08-12, `docs/STATUS.md` 2.14절).
+
 ## 구현된 API
 
 | API | 상태 |
@@ -294,7 +333,7 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
 - SKIN-02 · SKIN-03 조회 API — 응답 구조는 SKIN-01과 같아 DTO를 재사용할 수 있습니다.
 - 프로파일 완성도 계산(F-ANALYSIS-05) — 성분 프로파일 갱신(F-ANALYSIS-04)은 구현되어
   `ingredient_profiles`를 채우지만, 완성도 퍼센트를 내는 단계는 별도 기능이라 하지 않았습니다.
-- `ingredient_profiles`를 읽는 API(USER-02 · F-CHECK) — 표는 채워지지만 아직 읽는 쪽이 없습니다.
+- CHECK-01(쇼핑 홈) — 제품 목록(A 담당)이 없어 미착수입니다. USER-02·CHECK-02·03은 구현됐습니다.
   그래서 F-ANALYSIS-04는 DB 행까지만 확인했고 응답 경로로는 검증하지 못했습니다.
 - `skin_types` 마스터 데이터 적재 — 표가 비어 있어 민감성 완화(F-ANALYSIS-04 BR 3)가 실사용
   경로에서 켜지지 않습니다. 온보딩(F-ONBOARD-02) 구현과 함께 운영 시드가 필요합니다.

@@ -3,8 +3,8 @@
 > 이 문서는 **실제 구현·검증·배포 상태**를 기록한다. 계획이나 목표가 아니라 **지금 저장소에 있는 것**을 적는다.
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
-- 최종 갱신: 2026-08-11
-- 기준 커밋: `6e18603` (feat: USER-02) + REPORT-01 그래프 시간대 분리 작업분(ADR 0012)
+- 최종 갱신: 2026-08-12
+- 기준 커밋: `1fc732c` (Merge PR #16) + CHECK-02·03 위험도 분석 작업분(ADR 0015)
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 ## 상태 표기
@@ -28,9 +28,10 @@
 | 프론트엔드 | 🟡 | 기반 레이어 + 공통 컴포넌트 + S-00/S-01. 목업 모드로 동작 |
 | 배포 | ⬜ | 미착수. 로컬 실행만 |
 
-**실서버로 동작이 확인된 백엔드 엔드포인트는 여섯이다** — `GET /api/v1/health` ·
+**실서버로 동작이 확인된 백엔드 엔드포인트는 여덟이다** — `GET /api/v1/health` ·
 `POST /api/v1/skin-records` · `GET /api/v1/reports` · `GET /api/v1/reports/daily` ·
-`GET /api/v1/reports/insights/{insightId}` · `GET /api/v1/users/me/ingredient-profile`.
+`GET /api/v1/reports/insights/{insightId}` · `GET /api/v1/users/me/ingredient-profile` ·
+`POST /api/v1/checks` · `GET /api/v1/checks/{checkId}`.
 
 > ⚠️ 현재 인증은 `X-User-Id` 헤더를 그대로 신뢰하는 임시 방편이다(ADR 0006). **위조 가능하며
 > 배포 전 반드시 교체해야 한다.**
@@ -100,8 +101,8 @@
 | F-ANALYSIS-04 성분 프로파일 갱신 | 🟡 | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11) — 목업 시드가 만든 행이 JSON까지 나온다. PRODUCT-05는 구현됐으나(2.13절) 실입력 경로 재검증은 남았다 |
 | F-ANALYSIS-05 프로파일 완성도 계산 | 🟡 | 산출식 구현 완료(ADR 0011). **호출자 생김** — USER-02가 `completionRate`를 싣는다(실서버 확인). USER-01 · CHECK-01은 여전히 미구현이라 세 곳 값 일치(BR 4)는 아직 검증 못 했다 |
 | CHECK-01 쇼핑 홈 | ⬜ | 프로파일 · `ProductRepository`(A) |
-| CHECK-02 위험도 분석 | ⬜ | 프로파일 |
-| CHECK-03 확인 결과 조회 | ⬜ | CHECK-02 |
+| CHECK-02 위험도 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). ADR 0015 — 등급 산출 기준 신설 |
+| CHECK-03 확인 결과 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). CHECK-02와 같은 DTO·조립 로직 |
 | USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
 | REPORT-01 리포트 조회 | 🟡 | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다(목업 시드로 실서버 확인). PRODUCT-05는 구현됐으나 이 경로로는 아직 재검증 안 함 |
 | PRODUCT-05 제품 기록 저장 | 🟡 | 2.13절. 원래 A 담당이나 B가 대신 구현. 서비스 단위 테스트만 확인, 실서버 HTTP 검증은 아직 없음 |
@@ -553,6 +554,89 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 
 ---
 
+### 2.14 CHECK-02 · CHECK-03 구현 · 검증 내역
+
+`POST /api/v1/checks` · `GET /api/v1/checks/{checkId}` — F-ANALYSIS-04가 만든 개인 성분 프로파일이
+실제 구매 판단에 쓰이는 첫 소비처다. 등급 산출 기준은 [ADR 0015](decisions/0015-위험도-등급-산출-기준.md).
+
+| 클래스 | 역할 |
+| --- | --- |
+| `RiskLevelCalculator`(`domain/check`) | 등급 산식 전부. DB를 모른다 |
+| `CheckService` | 검증 · 성분 분류 · 오케스트레이션. 클래스 레벨 `@Transactional` 없음 |
+| `CheckWriter` | DB 반영 전담(`ProductRiskAssessment`/`ProductRiskIngredient` 저장) — SKIN-01의
+  `SkinRecordWriter`와 같은 이유로 분리했다: 같은 클래스 안에서 부르면 프록시를 안 거쳐 `@Transactional`이 무시된다 |
+| `CheckController` | `POST /api/v1/checks` · `GET /api/v1/checks/{checkId}` |
+
+**분모를 판정된 성분(SUITABLE+CAUTION)만으로 좁힌 것이 이 작업의 핵심이다.** 전체 성분 수를
+분모로 두면 판정되지 않은 성분이 늘수록 비중이 낮아져, "INSUFFICIENT는 위험도를 높이지도 낮추지도
+않는다"(BR 3)를 어긴다. ADR 0015가 이 문제와 임계값(3건·0.40·5종 게이트)을 정한다.
+
+**명세와 달라진 점 두 가지.**
+
+1. **응답 `message`가 다르다.** 명세 예시는 `"분석이 완료되었어요."`지만 공용 `SuccessCode`에
+   엔드포인트별 문구가 없어 `"생성에 성공했습니다."`가 나간다. 문구 하나 때문에 공용 envelope를
+   바꾸지 않고 명세 예시 쪽을 고쳤다.
+2. **`Idempotency-Key`가 미구현이다**(블로커 #8). 재요청은 새 평가를 추가한다(append-only) —
+   `ProductRiskAssessment`에 수정 메서드도 `(user_id, product_id)` 유니크 제약도 없어 애초에
+   append-only로 설계돼 있었다.
+
+**`RiskLevel.INSUFFICIENT`와 `CHECK_CALCULATION_FAILED`(500)는 정의만 되어 있고 실제 경로가 없다.**
+판정 성분이 0건이면 등급을 매기지 않고 `CHECK_PROFILE_NOT_READY`(409)를 던지며 행을 저장하지
+않는다 — 값과 오류가 동시에 답일 수 없어 오류를 택했다. 위험도 계산은 정수 셋의 산술이라 실패할
+수 없어 500을 던지는 코드 경로를 만들지 않았다(CLAUDE.md §2).
+
+**두 409 모두 평가를 저장하지 않는다.** `CHECK_INGREDIENT_DATA_INSUFFICIENT`는 제품 성분 행이
+0건일 때, `CHECK_PROFILE_NOT_READY`는 이 제품 성분 중 판정된 것이 하나도 없을 때다 — "프로파일
+테이블이 비었는가"가 아니라 "이 제품 기준으로 판정된 것이 있는가"로 좁혔다(ADR 0015 근거 7).
+
+자동 테스트 32개 추가 — `RiskLevelCalculatorTest` 12개(등급 경계 9 · 게이트 1 · 예외 1 · BR 3
+설계 근거 1), `CheckServiceTest` 18개(404/409 발동 조건 5 · 근거 비우기 3 · 정렬 1 · summary
+일치 1 · 문구 파생 1 · 쿼리 고정 1 · BR 3 흐름 1 · 소유권 404 2 · POST/GET 일치 1 · 계산 진행 1 ·
+409 시 미저장 1), `CheckWriterTest` 2개. 백엔드 전체 174개 중 173개 통과(`BackendApplicationTests`는
+로컬 MySQL 미기동 시 실패하는 기존 블로커 #9로, 이번 변경과 무관).
+
+**쿼리 수** — CHECK-02는 6개 고정 조회(제품 1 · 제품성분 1 · 프로파일 1 · 사용자 1 · 평가 INSERT
+1 · 성분평가 INSERT는 성분 수만큼) + 성분 수만큼의 자식 INSERT다. `hibernate.jdbc.batch_size`가
+설정돼 있지 않아 자식 INSERT는 배치되지 않는다 — 실측(성분 3종 제품)으로 SELECT 6 + INSERT 4 =
+총 10 statement를 확인했다.
+
+CHECK-03은 **실측 3개**다. 설계상 2개(평가 조회 · 성분평가 조회)를 기대했으나, `where a.user.id =
+:userId` 조건이 있는 JPQL에서 Hibernate가 `User`를 별도 SELECT로 한 번 더 조회하는 것을 SQL 로그로
+확인했다(단일 행 조회라 영향은 작다). 계획 문서의 기대치(2개)와 실측(3개)이 다르다는 것을 여기
+정직하게 남긴다 — 원인 규명과 최적화는 범위 밖으로 남겼다.
+
+**로컬 MySQL 실서버 검증** (2026-08-12). 기존 시드(`f-analysis-01-mockup.sql`, 사용자 9001)로
+SKIN-01을 한 번 더 트리거해 프로파일을 채운 뒤(레티놀·히알루론산 CAUTION, 판테놀 INSUFFICIENT),
+등급 분기 전체를 보려고 신규 시드 `seed/check-02-risk-levels.sql`(제품 9003~9009, 사용자 9002)을
+추가로 적재했다. `backend/README.md`에 재현 절차를 남겼다.
+
+| 시나리오 | 기대 | 결과 |
+| --- | --- | --- |
+| 레티놀 세럼(9001, CAUTION 2종, judged 2 — 게이트 미달) | 개수 축만 적용 → MEDIUM | `MEDIUM` · `보통이에요` |
+| 같은 성분 + INSUFFICIENT 다수(9004) | 9001과 등급·riskScore 동일 (BR 3 회귀) | `MEDIUM` — **완전히 일치** |
+| 판정 성분 0건(9003, 판테놀만) | 409 `CHECK_PROFILE_NOT_READY` | 일치 · 평가 0건 저장 |
+| 성분 행 0건(9005) | 409 `CHECK_INGREDIENT_DATA_INSUFFICIENT` | 일치 · 평가 0건 저장 |
+| 존재하지 않는 제품 | 404 `CHECK_PRODUCT_NOT_FOUND` | 일치 |
+| `productId` 누락 | 422 `COMMON_VALIDATION_FAILED` | 일치 |
+| `X-User-Id` 누락 | 401 `COMMON_UNAUTHORIZED` | 일치 |
+| CAUTION 0종(9006, judged 3) | LOW | `LOW` · `잘 맞아요` |
+| CAUTION 1종(9007, judged 4, ratio 0.20) | 게이트 미달 → 개수 축 MEDIUM | `MEDIUM` |
+| CAUTION 2종(9008, judged 5, ratio 0.40) | 게이트 통과 · 비중 축 HIGH | `HIGH` · `주의가 필요해요` |
+| CAUTION 3종(9009, judged 20, ratio 0.15) | 개수 축이 비중 축보다 심각 → HIGH | `HIGH` |
+| GET `/checks/{checkId}` | POST 응답과 완전 일치 | `checkId` 제외 나머지 필드 **완전 일치** 확인(`jq`형 비교) |
+| GET을 타 사용자로 조회 | 404 `CHECK_NOT_FOUND` (403 아님) | 일치 |
+| GET 존재하지 않는 `checkId` | 404 `CHECK_NOT_FOUND` | 일치 |
+| 같은 (사용자, 제품) 재분석 | 행 추가(append-only) | 3회 POST 후 `COUNT(*) = 3` 확인 |
+
+DB 직접 확인 — `summary` · `contribution_score`가 모든 행에서 `NULL`, `risk_score`가 0.00·15.00·
+25.00·40.00 등 실제 산식값으로 채워진 것을 확인했다.
+
+**아직 하지 않은 것** — 프론트 연동. `EXPO_PUBLIC_USE_MOCK=true`라 S-21·S-22는 아직 목업을 본다.
+CHECK-01(쇼핑 홈)은 제품 목록(A 담당)이 없어 여전히 미착수다. CHECK-03의 쿼리 수 3개 실측 원인은
+규명하지 않았다.
+
+---
+
 ## 3. 프론트엔드
 
 | 항목 | 상태 | 비고 |
@@ -578,7 +662,7 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 | `docs/ERD.md` | ✅ | ADR 0002 반영 완료 (7장 `metric_type` 4종) · AnalysisInsight에 `lag_days`·`average_delta` 추가(ADR 0013) |
 | `docs/공통응답포맷_예외처리코드.md` | ✅ | 8.1 날짜 귀속 규칙 확정됨 |
 | `docs/목업 데이터 구조 정의서.md` | ✅ | |
-| `docs/decisions/` | 🟡 | ADR 0001~0013 작성. **0009~0011은 `제안` 상태** (0012는 프론트 합의로 `수락`, 0013은 `수락`) |
+| `docs/decisions/` | 🟡 | ADR 0001~0015 작성. **0009~0011·0015는 `제안` 상태** (0012·0013·0014는 `수락`) |
 | `docs/STATUS.md` | ✅ | 이 문서 |
 | `README.md` | ✅ | ADR 0002 반영 완료 (지표 소개 문구) |
 | `backend/README.md` | ✅ | 임시 인증 · 스토리지 · 분석 provider 설정 반영 |
@@ -599,7 +683,7 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 | 6 | `MORNING` 슬롯 시각 불일치 요청 처리 | SKIN-01 · PRODUCT-05 | ADR 0005 미해결 항목 · **현재는 수용** |
 | 7 | 제품 직접 등록 (F-PRODUCT-08) | 우선순위 L | 명세 미정 |
 | 7b | ~~REPORT-03에 대응하는 기능 ID가 없다~~ | **F-REPORT-04 신설로 해소.** 다만 이 기능을 쓰는 **화면은 여전히 미정**이라 12장 매핑표에 항목이 없다 | 화면 확정 시 B |
-| 8 | `Idempotency-Key` 미구현 | 저장 API 4개 공통 | A·B 공통 인프라로 분리 |
+| 8 | `Idempotency-Key` 미구현 | 저장 API 5개 공통(SKIN-01·PRODUCT-05 등 + CHECK-02) | A·B 공통 인프라로 분리 |
 | 9 | `BackendApplicationTests`가 MySQL 없이 실패 | 로컬 테스트 | H2 또는 `application-test.yml` 필요 |
 
 ---

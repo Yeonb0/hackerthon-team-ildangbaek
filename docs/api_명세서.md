@@ -2066,7 +2066,7 @@ json
 | 인증 | 필요 |
 | 관련 화면 | S-21 → S-22 |
 | 관련 기능 | F-CHECK-03 |
-| 멱등성 | `Idempotency-Key` 권장 |
+| 멱등성 | **미구현**(블로커 #8). 재요청은 새 평가를 만든다(append-only, ADR 0015 결정 7) — `checkId`가 매번 달라진다 |
 
 **Request Body**
 
@@ -2084,7 +2084,7 @@ json
 {
   "isSuccess": true,
   "code": "COMMON_CREATED",
-  "message": "분석이 완료되었어요.",
+  "message": "생성에 성공했습니다.",
   "result": {
     "checkId": 13,
     "productId": 71,
@@ -2111,6 +2111,18 @@ json
 }
 ```
 
+> **명세와 다른 점**: `message`가 예시("분석이 완료되었어요.")와 다르다. 공용 `SuccessCode`에
+> 엔드포인트별 문구가 없어 `"생성에 성공했습니다."`가 나간다(ADR 0015 결과). `ingredients`는
+> 제품의 성분 표시 순서(`display_order`)를 따른다.
+
+**등급 문구 전체표** (ADR 0015 결정 8)
+
+| riskLevel | riskTitle | riskDescription |
+| --- | --- | --- |
+| `LOW` | 잘 맞아요 | 내 피부 기준으로 주의할 성분이 없어요 |
+| `MEDIUM` | 보통이에요 | 내 피부 기준으로 주의할 성분이 일부 있어요 |
+| `HIGH` | 주의가 필요해요 | 내 피부 기준으로 맞지 않는 성분이 포함되어 있어요 |
+
 **Transaction**
 
 ```
@@ -2122,22 +2134,29 @@ BEGIN → Product 조회 → Ingredient 조회 → IngredientProfile 조회
 
 1. 제품 전체 성분을 개인 프로파일과 대조한다.
 2. `CAUTION` 성분의 수와 비중으로 위험도를 산출한다.
-3. **`INSUFFICIENT` 성분은 위험도를 높이지도 낮추지도 않는다.**
+   **산출 기준(ADR 0015)**: 비중의 분모는 판정된 성분(`goodCount`+`cautionCount`)만이다.
+   `cautionCount ≥ 3`이거나, 판정 성분이 5종 이상이고 비중 `≥ 0.40`이면 `HIGH`.
+   `cautionCount ≥ 1`이면 최소 `MEDIUM`. `cautionCount == 0`이면 `LOW`. 두 축 중 더 심각한
+   등급을 최종 등급으로 한다. 임계값(3건·0.40·5종)에 이론적 근거는 없다 — ADR 0009·0010·0011과
+   같은 성격의 초기값이다.
+3. **`INSUFFICIENT` 성분은 위험도를 높이지도 낮추지도 않는다.** 비중 계산의 분모에서 제외하는
+   것으로 보장한다.
 4. 근거가 있는 성분만 `reason`을 채운다. 데이터가 부족한 성분의 `reason`은 `null`이다.
+   확정 성분(`GOOD`/`CAUTION`)이라도 근거 문구가 없으면 지어내지 않고 `reason`을 `null`로 둔다.
 5. `riskTitle` · `riskDescription`은 서버가 완성해 내려준다. S-22에서 등급이 큰 제목으로 노출되기 때문이다.
 6. **위험도만 반환하지 않고 판단 근거를 반드시 함께 반환한다.**
 
 **Error**
 
-| HTTP | Code | 클라이언트 안내 |
-| --- | --- | --- |
-| 404 | `CHECK_PRODUCT_NOT_FOUND` | 제품 정보를 찾을 수 없어요 |
-| 409 | `CHECK_PROFILE_NOT_READY` | 아직 판단할 데이터가 부족해요 |
-| 409 | `CHECK_INGREDIENT_DATA_INSUFFICIENT` | 확인할 수 없는 성분이 포함되어 있어요 |
-| 500 | `CHECK_CALCULATION_FAILED` | 위험도 계산에 실패했습니다 |
+| HTTP | Code | 클라이언트 안내 | 발동 조건 |
+| --- | --- | --- | --- |
+| 404 | `CHECK_PRODUCT_NOT_FOUND` | 제품 정보를 찾을 수 없어요 | 제품이 없거나 비활성(`active=false`) |
+| 409 | `CHECK_PROFILE_NOT_READY` | 아직 판단할 데이터가 부족해요 | 이 제품의 성분 중 판정된 것이 하나도 없음(`goodCount+cautionCount==0`) |
+| 409 | `CHECK_INGREDIENT_DATA_INSUFFICIENT` | 확인할 수 없는 성분이 포함되어 있어요 | 제품에 등록된 성분(`product_ingredients`)이 0건 |
+| 500 | `CHECK_CALCULATION_FAILED` | 위험도 계산에 실패했습니다 | 정의만 되어 있고 실제로 던지는 경로는 없다(ADR 0015 결과) — 위험도 계산은 세 정수의 산술이라 실패할 수 없다 |
 
 > 두 409 코드 모두 **빈 상태 안내**로 처리한다. 빨간 오류 UI를 쓰지 않는다. 데이터 부족을 안전 또는 위험으로 임의 판단하지 않는다는 원칙이 적용된다.
-> 
+> **두 409 모두 평가를 저장하지 않는다** — 재조회할 `checkId`가 없다.
 
 ---
 
@@ -2150,7 +2169,17 @@ BEGIN → Product 조회 → Ingredient 조회 → IngredientProfile 조회
 | 인증 | 필요 |
 | 관련 화면 | S-22 |
 
-응답 구조는 CHECK-02와 동일하다.
+응답은 CHECK-02와 **같은 DTO·같은 조립 로직**을 통해 만들어진다 — 서버가 저장한 `ProductRiskAssessment`
++ `ProductRiskIngredient`를 다시 읽어 CHECK-02 응답과 동일한 구조로 낸다.
+
+**소유권** — 다른 사용자의 `checkId`를 조회하면 403이 아니라 `404 CHECK_NOT_FOUND`다. 존재 여부를
+알리지 않는다(REPORT-02와 같은 규칙).
+
+**Error**
+
+| HTTP | Code | 클라이언트 안내 |
+| --- | --- | --- |
+| 404 | `CHECK_NOT_FOUND` | 확인 결과를 찾을 수 없어요 |
 
 **Error**
 

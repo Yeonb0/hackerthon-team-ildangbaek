@@ -18,4 +18,13 @@ public interface ProductIngredientRepository extends JpaRepository<ProductIngred
     @Query("select pi from ProductIngredient pi join fetch pi.ingredient "
             + "where pi.product.id in :productIds")
     List<ProductIngredient> findAllWithIngredientByProductIdIn(@Param("productIds") List<Long> productIds);
+
+    /**
+     * CHECK-02는 성분을 제품 표시 순서대로 내려준다. 위 메서드는 fetch join은 있으나 정렬이 없고,
+     * {@code findAllByProductIdOrderByDisplayOrderAsc}는 정렬은 있으나 fetch join이 없어 성분명
+     * 접근마다 추가 쿼리가 나간다.
+     */
+    @Query("select pi from ProductIngredient pi join fetch pi.ingredient "
+            + "where pi.product.id = :productId order by pi.displayOrder asc")
+    List<ProductIngredient> findAllWithIngredientByProductIdOrderByDisplayOrder(@Param("productId") Long productId);
 }
