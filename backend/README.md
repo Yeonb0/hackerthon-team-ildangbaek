@@ -50,7 +50,9 @@ DB 설정은 `application-local.yml`에 있습니다.
 | `DB_PASSWORD` | `ildangbaek1234` | |
 | `STORAGE_LOCAL_DIR` | `./uploads/images` | 이미지 저장 경로 ([ADR 0007](../docs/decisions/0007-이미지-스토리지.md)) |
 | `STORAGE_LOCAL_URL_PREFIX` | `/images/` | 반환 URL 접두사 |
-| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택 ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md)) |
+| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택. `mock` 또는 `openai` ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md)) |
+| `OPENAI_API_KEY` | (없음) | `SKIN_ANALYSIS_PROVIDER=openai`일 때 필수. OpenAI API 키 |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API 베이스 URL |
 
 업로드 상한은 `spring.servlet.multipart.max-file-size=10MB`다. Spring 기본값(파일 1MB)이면
 정상 사진도 튕기므로 올려 두었다.
@@ -66,6 +68,16 @@ DB 설정은 `application-local.yml`에 있습니다.
 
 ```bash
 ./gradlew bootRun --args='--app.skin.analysis.mock.failure-mode=timeout'
+```
+
+**실제 AI 분석(OpenAI) 사용** — `gpt-4o`로 얼굴 이미지를 분석한다. 이미지는
+`LocalImageStorage`가 저장한 디렉터리에서 다시 읽어 base64로 인코딩해 전송한다(저장 URL이
+로컬 상대 경로라 OpenAI가 직접 가져올 수 없기 때문). 응답 JSON 파싱 실패·지표 누락은
+`SKIN_ANALYSIS_FAILED`, 얼굴 미검출 응답은 `SKIN_FACE_NOT_DETECTED`, HTTP 타임아웃은
+`SKIN_ANALYSIS_TIMEOUT`으로 매핑한다.
+
+```bash
+SKIN_ANALYSIS_PROVIDER=openai OPENAI_API_KEY=sk-... ./gradlew bootRun
 ```
 
 기본값은 `docker-compose.yml`의 MySQL 컨테이너와 그대로 맞춰져 있어, 로컬에서는 별도 설정 없이 실행됩니다.

@@ -1,7 +1,9 @@
 package com.ildangbaek.backend.api.check.controller;
 
 import com.ildangbaek.backend.api.check.dto.CheckCreateRequest;
+import com.ildangbaek.backend.api.check.dto.CheckHomeResponse;
 import com.ildangbaek.backend.api.check.dto.CheckResponse;
+import com.ildangbaek.backend.api.check.service.CheckHomeService;
 import com.ildangbaek.backend.api.check.service.CheckService;
 import com.ildangbaek.backend.global.auth.CurrentUserId;
 import com.ildangbaek.backend.global.response.ApiResponse;
@@ -17,14 +19,23 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 구매 전 확인 API. (docs/api_명세서.md CHECK-02 · CHECK-03)
+ * 구매 전 확인 API. (docs/api_명세서.md CHECK-01 · CHECK-02 · CHECK-03)
  */
 @RestController
 @RequestMapping("/api/v1/checks")
 @RequiredArgsConstructor
 public class CheckController {
 
+    private final CheckHomeService checkHomeService;
     private final CheckService checkService;
+
+    /**
+     * CHECK-01 · 쇼핑 홈 조회. (F-CHECK-01)
+     */
+    @GetMapping("/home")
+    public ApiResponse<CheckHomeResponse> getHome(@CurrentUserId Long userId) {
+        return ApiResponse.success(checkHomeService.getHome(userId));
+    }
 
     /**
      * CHECK-02 · 위험도 분석. (F-CHECK-03)

@@ -25,8 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>값을 저장하지 않고 매번 계산한다. 두 입력이 모두 이미 저장돼 있는 파생값이라, 컬럼을 두면
  * 갱신 누락 시 게이지만 낡은 값을 보여주게 된다.
  *
- * <p><strong>소비처(USER-01 · USER-02 · F-CHECK-01)가 아직 없어 현재 호출자가 없다.</strong>
- * 세 API가 같은 값을 써야 하므로(BR 4) 각 구현 시 이 컴포넌트를 호출해야 한다.
+ * <p><strong>소비처 3곳(USER-01 · USER-02 · CHECK-01) 모두 이 컴포넌트를 통해서만 값을 얻는다.</strong>
+ * 세 API가 같은 값을 써야 하므로(BR 4) 어느 서비스도 완성도를 자체 계산하지 않는다.
  */
 @Component
 @RequiredArgsConstructor

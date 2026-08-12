@@ -4,7 +4,7 @@
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
 - 최종 갱신: 2026-08-13
-- 기준 커밋: `58296fb` (PRODUCT-05 버그 수정 · F-ANALYSIS-01 ADR 0014 재검증) + SKIN-02 실서버 검증 · 버그 수정 작업분
+- 기준 커밋: `58296fb` (PRODUCT-05 버그 수정 · F-ANALYSIS-01 ADR 0014 재검증) + SKIN-02 실서버 검증 · 버그 수정 작업분 + 3장 프론트엔드 화면 현황 실측 정정
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 ## 상태 표기
@@ -25,7 +25,7 @@
 | 백엔드 — 공통 인프라 | 🟡 | 응답/예외 envelope 완비. 스토리지·날짜 유틸 추가. **인증은 임시 방편** |
 | 백엔드 — 엔티티 · 리포지토리 | ✅ | 전 도메인 정의 완료 |
 | 백엔드 — service / controller / dto | 🟡 | **skin · report · user · product · check · onboard · auth 7개 도메인.** 제품/루틴 조회(PRODUCT-01~04·06) 등 나머지 미착수 |
-| 프론트엔드 | 🟡 | 기반 레이어 + 공통 컴포넌트 + S-00/S-01. 목업 모드로 동작 |
+| 프론트엔드 | 🟡 | 전 화면(S-00~S-24, S-03 결번) 구현 완료. 백엔드 실연동은 미착수 — `EXPO_PUBLIC_USE_MOCK=true`로 전부 목업 모드 동작 |
 | 배포 | ⬜ | 미착수. 로컬 실행만 |
 
 **실서버로 동작이 확인된 백엔드 엔드포인트는 여덟이다** — `GET /api/v1/health` ·
@@ -54,7 +54,7 @@
 | **인증 (JWT · Security)** | 🟡 | **임시 방편만 있음.** `X-User-Id` 헤더 → `@CurrentUserId` (ADR 0006). 위조 가능 · 배포 전 교체 필수 |
 | 이미지 업로드 · 스토리지 | 🟡 | `ImageStorage` + `LocalImageStorage` (ADR 0007). multipart 10MB. **로컬 저장이라 다중 인스턴스·재배포 시 유실** |
 | 날짜 귀속 유틸 | ✅ | `global/util/RecordDateResolver` · 경계값 테스트 13종 (ADR 0005 — **확정**) |
-| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` + 목업 (ADR 0003). 결정적 · 실패 재현 가능 |
+| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능)에 더해 실제 OpenAI Vision(`gpt-4o`) 연동 구현체(`OpenAiSkinAnalysisClient`) 추가. `app.skin.analysis.provider`(`mock`/`openai`)로 전환. 단위 테스트(`MockRestServiceServer`)만 검증했고 **실제 OpenAI API 키로의 E2E 호출은 아직 안 함** — 실사용 전 필요 |
 
 > ⚠️ **인증은 임시 방편으로 우회한 상태다.** 실제 인증(AUTH-01~03, A 담당)이 들어오기 전까지
 > 프로덕션 배포는 불가능하다.
@@ -83,7 +83,8 @@
 | --- | --- |
 | AUTH-01~03 로그인 · 재발급 · 로그아웃 | ⬜ |
 | ONBOARD-01~05 온보딩 | ⬜ |
-| USER-01 · 03~07 마이페이지 · 프로필 · 위치 · 알림 | ⬜ |
+| USER-01 마이페이지 조회 | ✅ | 원래 A 담당이나 F-ANALYSIS-05 BR 4(값 일치) 검증을 위해 B가 구현. `MyPageService` |
+| USER-03~07 프로필 · 위치 · 알림 | ⬜ |
 | HOME-01 홈 조회 | ⬜ |
 | RECORD-01~02 기록 허브 | ⬜ |
 | PRODUCT-01~08 제품 검색 · 상세 · 기록 · 루틴 | ⬜ |
@@ -99,8 +100,8 @@
 | F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
 | F-ANALYSIS-03 호르몬 요인 반영 | ⬜ | 우선순위 L · **후순위** |
 | F-ANALYSIS-04 성분 프로파일 갱신 | ✅ | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11). PRODUCT-05 실입력 경로 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 제품 기록이 `CAUTION` 행까지 만든다 |
-| F-ANALYSIS-05 프로파일 완성도 계산 | 🟡 | 산출식 구현 완료(ADR 0011). **호출자 생김** — USER-02가 `completionRate`를 싣는다(실서버 확인). USER-01 · CHECK-01은 여전히 미구현이라 세 곳 값 일치(BR 4)는 아직 검증 못 했다 |
-| CHECK-01 쇼핑 홈 | ⬜ | 프로파일 · `ProductRepository`(A) |
+| F-ANALYSIS-05 프로파일 완성도 계산 | ✅ | 산출식 구현 완료(ADR 0011). **소비처 3곳(USER-01 · USER-02 · CHECK-01) 모두 연결 완료.** 단위 테스트로 세 서비스가 `ProfileCompletionCalculator` 값을 그대로 위임하는지 확인(BR 4) — 실서버 3자 대조는 아직 |
+| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천 |
 | CHECK-02 위험도 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). ADR 0015 — 등급 산출 기준 신설 |
 | CHECK-03 확인 결과 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). CHECK-02와 같은 DTO·조립 로직 |
 | USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
@@ -405,9 +406,10 @@ completionRate = round((A * 0.5 + B * 0.5) * 100)
 태워 실행되는 것과 계산기가 스프링 컨텍스트에 정상 주입되는 것까지 확인한 뒤, 임시 의존성과
 테스트는 되돌렸다.
 
-> ⚠️ **소비처 3곳 중 1곳만 붙었다.** USER-02가 `completionRate`를 싣는다(2026-08-11 · 아래 2.10).
-> USER-01 · CHECK-01은 아직 미구현이며, 세 API가 **같은 값을 써야 하므로**(BR 4) 각 구현 시
-> 이 컴포넌트를 호출해야 한다 — 값 일치는 세 곳이 다 붙어야 검증할 수 있다.
+> ✅ **소비처 3곳 모두 붙었다.** USER-02가 `completionRate`를 싣는다(2026-08-11 · 아래 2.10).
+> USER-01(마이페이지)·CHECK-01(쇼핑 홈)도 구현 완료 — 세 서비스 모두 `ProfileCompletionCalculator`를
+> 직접 호출하며 자체 계산은 하지 않는다. 단위 테스트로 값 위임을 확인했다(BR 4) — 동일 사용자로
+> 세 API를 실서버에서 직접 대조하는 검증은 아직이다.
 > 제품 기록 저장 API(PRODUCT-05)는 2.13절에서 구현했고, 실입력 경로 재검증도 마쳤다
 > (2026-08-12 · 2.7절). API로 넣은 제품 기록만으로 USER-02가 `completionRate: 38`을 반환하는
 > 것을 확인했다 — B축이 실입력으로 오르는 것이 실서버에서 확인됐다.
@@ -754,8 +756,53 @@ DB 직접 확인 — `summary` · `contribution_score`가 모든 행에서 `NULL
 25.00·40.00 등 실제 산식값으로 채워진 것을 확인했다.
 
 **아직 하지 않은 것** — 프론트 연동. `EXPO_PUBLIC_USE_MOCK=true`라 S-21·S-22는 아직 목업을 본다.
-CHECK-01(쇼핑 홈)은 제품 목록(A 담당)이 없어 여전히 미착수다. CHECK-03의 쿼리 수 3개 실측 원인은
-규명하지 않았다.
+CHECK-01(쇼핑 홈)은 구현 완료했으나(2.15절) 실서버 검증은 아직이다. CHECK-03의 쿼리 수 3개 실측
+원인은 규명하지 않았다.
+
+---
+
+### 2.15 USER-01 · CHECK-01 구현 내역 — F-ANALYSIS-05 값 일치(BR 4) 검증
+
+`GET /api/v1/users/me`(F-MY-01·F-MY-02) · `GET /api/v1/checks/home`(F-CHECK-01) 구현.
+`ProfileCompletionCalculator`(F-ANALYSIS-05)의 소비처 3곳(USER-01·USER-02·CHECK-01) 중
+USER-02만 붙어 있던 상태(2.9·2.10절)를 마저 채워 BR 4("세 API가 같은 값을 쓴다")를 검증할 수
+있게 했다.
+
+| 클래스 | 역할 |
+| --- | --- |
+| `MyPageService`(`api/user/service`) | USER-01. `topIngredients` 정렬은 USER-02의
+  `UserIngredientProfileService.DISPLAY_ORDER`(GOOD → CAUTION → INSUFFICIENT, 그룹 내 노출 일수
+  내림차순)와 동일 기준을 재사용 — 새 정렬 기준을 만들지 않았다 |
+| `CheckHomeService`(`api/check/service`) | CHECK-01. `CheckService`(CHECK-02·03)와는 응집도가
+  달라 별도 서비스로 분리 |
+
+**세 서비스 모두 `completionRate`/`profileCompletion`을 `ProfileCompletionCalculator.calculate(userId)`
+호출로만 얻는다 — 자체 계산 코드는 어디에도 없다.**
+
+**`totalRecordCount` 산식.** `SkinRecord`는 애초에 "모닝 1건·나이트 1건" 구조로 설계돼
+있어(`@UniqueConstraint(user_id, record_date, time_period)`), 행 하나가 곧 기록 1회다.
+`SkinRecordRepository.countByUserId`(신규)를 단순 카운트로 추가했다 — F-ANALYSIS-05 A축이 쓰는
+`countDistinctRecordDatesByUserId`(날짜 기준 distinct)와는 다른 질문에 답하는 카운트라 헷갈리지
+않게 나눠 두었다.
+
+**CHECK-01 추천 로직.** 명세서엔 "근거 있는 추천만 노출"까지만 정의돼 있고 구체적 매칭 규칙은
+없었다. 사용자 `ingredient_profiles`의 `GOOD`(SUITABLE) 성분을 `key_ingredient=true`로 가진
+제품을 후보로 삼고, **제품 ID로 그룹핑해 제품 단위로 중복을 제거**한다 — 한 제품에 GOOD 성분이
+여러 개 걸려도 추천 목록엔 1건만 나오고 `reason`엔 매칭된 성분명을 모두 담는다
+(`"판테놀·마데카소사이드가 잘 맞는 성분이에요"` 형태). GOOD 성분이 없으면 `recommendations: []`
+(BR 2, 오류 아님). 이 매칭 규칙은 [ADR 0016](decisions/0016-쇼핑-홈-추천-매칭-기준.md)에 근거
+없는 초기값으로 기록했다 — 실사용 데이터가 쌓이면 재검토 대상이다.
+
+**`failedSections`는 항상 빈 배열이다.** 1.8절 정의상 이 필드는 BFF가 **외부 API** 부분 실패를
+알리는 공용 봉투(HOME-01의 날씨 API 사례)인데, CHECK-01의 추천 로직은 전부 내부 DB 조회라 실패할
+섹션이 구조적으로 없다.
+
+자동 테스트 12개 추가 — `MyPageServiceTest` 8개(completionRate 위임 1 · topIngredients 8건
+제한·정렬 2 · 상태별 카운트 1 · totalRecordCount 1 · notificationEnabled 분기 2 · skinTypes 1),
+`CheckHomeServiceTest` 4개(GOOD 없으면 조기 반환 1 · 제품 단위 dedup 1 · completionRate 위임 1 ·
+failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태, 2026-08-13). 로컬 MySQL로
+세 API를 동일 사용자로 직접 호출해 값을 대조하는 실서버 검증은 아직 하지 않았다 — 다음 작업으로
+남긴다.
 
 ---
 
@@ -766,11 +813,9 @@ CHECK-01(쇼핑 홈)은 제품 목록(A 담당)이 없어 여전히 미착수다
 | Expo 프로젝트 부팅 · 폴더 구조 | ✅ | `14915dd` |
 | 기반 레이어 (테마 · 스케일 · API · 네비게이션) | ✅ | `abc043a` |
 | 공통 컴포넌트 9종 + 개발용 카탈로그 | ✅ | `f1d1c6a` |
-| S-00 로그인 (목업 연동 · 자동 로그인 분기) | ✅ | `1258c14` |
-| S-01 기본 정보 입력 | ✅ | `1258c14` |
-| 그 외 화면 (S-02~S-24) | ⬜ | |
+| S-00~S-24 전 화면 (S-03 결번) | ✅ | 화면 파일 존재 · 네비게이션 등록 · UI 로직 구현 완료. **이전 버전은 이 항목을 "S-00/S-01만 완료"로 잘못 표기했었다** — 실제로는 온보딩·홈·기록·피부분석·리포트·쇼핑·마이페이지 전 화면이 이미 만들어져 있었다. 아래 "백엔드 실연동" 항목과 혼동하지 말 것: 화면 존재 여부와 실 API 연동 검증 여부는 별개 축이다 |
 | `GraphPoint` 모닝·나이트 정렬 | ✅ | ADR 0012의 미이행 후속을 REPORT-02 작업에서 처리(2026-08-11). `types/report.ts` · `TrendGraph` · 목업 · 카탈로그. **`TrendGraph`는 당분간 `nightScore ?? morningScore`로 한 계열만 그린다** — 두 계열 동시 렌더는 별도 작업 |
-| 백엔드 실연동 | ⬜ | `EXPO_PUBLIC_USE_MOCK=true` — **현재 전부 목업** |
+| 백엔드 실연동 | ⬜ | `EXPO_PUBLIC_USE_MOCK=true`(기본값) — **화면은 다 있지만 전부 목업 데이터로 렌더링 중.** `frontend/src/api/mock/*.ts`(auth·onboarding·home·product·record·report·skin·check·user) + `mockPersistence.ts`가 실 백엔드 대신 응답. 일부(PRODUCT-01~04 등 제품 검색)는 백엔드 자체가 아직 없어 목업을 꺼도 붙일 데가 없음 |
 
 ---
 

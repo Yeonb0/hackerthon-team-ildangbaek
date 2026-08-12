@@ -2054,6 +2054,14 @@ json
 
 1. 추천은 개인 성분 프로파일을 근거로 하며 **`reason` 없는 추천은 노출하지 않는다.**
 2. 프로파일 데이터가 부족하면 `recommendations: []`를 반환한다. 클라이언트는 추천 대신 기록 유도 안내를 표시한다. **오류가 아니다.**
+3. **매칭 기준(ADR 0016)**: `ingredient_profiles`에서 `GOOD`(SUITABLE) 성분을 `key_ingredient=true`로
+   가진 제품을 추천 후보로 삼는다. `CAUTION`·`INSUFFICIENT` 성분과 `key_ingredient=false` 성분은
+   근거로 쓰지 않는다. 한 제품이 여러 GOOD 성분과 매칭돼도 추천 목록엔 **제품 단위로 1건만** 나오고,
+   `reason`은 매칭된 성분명을 모두 모아 `"{성분명1}·{성분명2}이 잘 맞는 성분이에요"` 형태로 조립한다.
+4. `profileCompletion`은 F-ANALYSIS-05 값을 그대로 쓰며, USER-01·USER-02와 동일한 값이어야 한다
+   (`ProfileCompletionCalculator` 단독 계산, ADR 0011 BR 4).
+5. `failedSections`는 이 응답이 전부 내부 DB 조회이므로 현재는 항상 빈 배열이다. 1.8절의 외부 API
+   부분 실패 알림 용도이며, 이 화면에 외부 API가 붙기 전까지는 값이 채워지지 않는다.
 
 ---
 
