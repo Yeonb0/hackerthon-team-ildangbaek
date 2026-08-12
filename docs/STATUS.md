@@ -3,8 +3,8 @@
 > 이 문서는 **실제 구현·검증·배포 상태**를 기록한다. 계획이나 목표가 아니라 **지금 저장소에 있는 것**을 적는다.
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
-- 최종 갱신: 2026-08-12
-- 기준 커밋: `1fc732c` (Merge PR #16) + CHECK-02·03 위험도 분석 작업분(ADR 0015)
+- 최종 갱신: 2026-08-13
+- 기준 커밋: `58296fb` (PRODUCT-05 버그 수정 · F-ANALYSIS-01 ADR 0014 재검증) + SKIN-02 실서버 검증 · 버그 수정 작업분
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 ## 상태 표기
@@ -24,7 +24,7 @@
 | --- | --- | --- |
 | 백엔드 — 공통 인프라 | 🟡 | 응답/예외 envelope 완비. 스토리지·날짜 유틸 추가. **인증은 임시 방편** |
 | 백엔드 — 엔티티 · 리포지토리 | ✅ | 전 도메인 정의 완료 |
-| 백엔드 — service / controller / dto | 🟡 | **skin · report · user 3개 도메인.** 나머지 미착수 |
+| 백엔드 — service / controller / dto | 🟡 | **skin · report · user · product · check · onboard · auth 7개 도메인.** 제품/루틴 조회(PRODUCT-01~04·06) 등 나머지 미착수 |
 | 프론트엔드 | 🟡 | 기반 레이어 + 공통 컴포넌트 + S-00/S-01. 목업 모드로 동작 |
 | 배포 | ⬜ | 미착수. 로컬 실행만 |
 
@@ -93,8 +93,8 @@
 | API | 상태 | 선행 조건 |
 | --- | --- | --- |
 | SKIN-01 피부 기록 생성 및 분석 | ✅ | 임시 인증(ADR 0006) · 로컬 스토리지(ADR 0007)로 해소 |
-| SKIN-02 오늘 피부 결과 조회 | 🟡 | SKIN-01 DTO 재사용. 서비스 단위 테스트만 확인, 실서버 동작 미확인 |
-| SKIN-03 피부 기록 상세 조회 | 🟡 | SKIN-01 DTO 재사용. 서비스 단위 테스트만 확인, 실서버 동작 미확인 |
+| SKIN-02 오늘 피부 결과 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13) — 실서버에서만 드러난 버그 1건(NIGHT 자정 경계 404) 수정 |
+| SKIN-03 피부 기록 상세 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13). 소유권 격리(404) 확인 |
 | F-ANALYSIS-01 성분-피부 시차 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.7절). ADR 0014 기준 재검증 완료 — 회귀 기준선 · 슬롯 분리 전용 시드 · PRODUCT-05 실입력 경로 3축 |
 | F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
 | F-ANALYSIS-03 호르몬 요인 반영 | ⬜ | 우선순위 L · **후순위** |
@@ -134,13 +134,38 @@
 조회 메서드를 추가하고 SKIN-01의 `SkinRecordResponse`를 그대로 재사용한다.
 
 - SKIN-02: `timeSlot` 미지정 시 `findFirstByUserIdOrderByRecordDateDescCapturedAtDesc`로 최근 기록 조회.
-  지정 시 오늘 날짜 + 해당 슬롯으로 조회.
+  지정 시 `RecordDateResolver`로 계산한 날짜 + 해당 슬롯으로 조회.
 - SKIN-03: `findByIdAndUserId`로 소유자 검증. 다른 사용자의 기록이거나 존재하지 않으면 둘 다
   `404 SKIN_RECORD_NOT_FOUND`로 응답해 존재 여부를 숨긴다(명세에 없는 403 대신 채택한 판단).
 - `comparison`은 SKIN-01과 동일한 규칙(전일 동일 슬롯 비교)을 재사용한다.
 
-서비스 단위 테스트 6개 추가(정상 조회 2 · 최근 기록 자동 선택 1 · 404 2 · 소유자 검증 1).
-**로컬 MySQL로 실제 HTTP 요청까지 검증하지는 않았다** — SKIN-01처럼 서버를 띄운 통합 확인이 아직 없다.
+서비스 단위 테스트 7개(정상 조회 2 · 최근 기록 자동 선택 1 · **NIGHT 자정 경계 1**(아래 버그 회귀) ·
+404 2 · 소유자 검증 1).
+
+**로컬 MySQL 실서버 검증 완료(2026-08-13).** 신규 사용자로 SKIN-01 → SKIN-02 → SKIN-03을 HTTP로
+직접 호출해 확인했다.
+
+| 시나리오 | 기대 | 결과 |
+| --- | --- | --- |
+| SKIN-02 `timeSlot` 미지정 | 200 · 최근 기록 | 일치 |
+| SKIN-02 `timeSlot` 지정 | 200 · 해당 슬롯 기록 | 일치 |
+| SKIN-02 없는 슬롯 조합 | 404 `SKIN_RECORD_NOT_FOUND` | 일치 |
+| SKIN-02 정의되지 않은 `timeSlot` | 400 `RECORD_INVALID_TIME_SLOT` | 일치 |
+| SKIN-03 본인 기록 상세 | 200 | 일치 |
+| SKIN-03 존재하지 않는 ID | 404 | 일치 |
+| SKIN-03 타 사용자 기록 조회 | 404(403 아님) | 일치 · 소유권 격리 확인 |
+| SKIN-02/03 인증 헤더 누락 | 401 | 일치 |
+| SKIN-01→02→03의 `comparison` 일치 | 세 응답이 동일한 구조 | 일치 · 전일 비교 계산이 세 API에서 동일하게 나옴 |
+
+**실서버 검증에서 버그 1건을 찾아 고쳤다.** `SkinRecordService.getToday`가 `timeSlot` 지정 조회에
+`RecordDateResolver.resolve(...)` 대신 `LocalDate.now()`를 그대로 썼다. NIGHT는 자정 직후
+(00:00~05:59)에 전날 날짜로 귀속되는데(ADR 0005), 조회는 오늘 날짜로 찾아 **방금 저장한 기록이
+404로 잡히지 않는** 경로였다. 00:02에 NIGHT 기록을 저장한 뒤 `GET /skin-records/today?timeSlot=NIGHT`로
+직접 재현했고(404), 수정 후 같은 요청이 200으로 그 기록을 정확히 반환하는 것을 확인했다(2026-08-13).
+서비스 단위 테스트는 `LocalDate.now()`를 그대로 검증에 썼던 기존 테스트라 이 경로를 잡지 못했다 —
+`getTodayResolvesNightDateWithRecordDateResolver`를 추가해 리포지토리 호출 인자가
+`RecordDateResolver.resolve(...)` 결과와 같은지 고정했다(시각 무관하게 항상 재현되도록 실시간
+계산값과 비교하는 방식을 썼다).
 
 ### 2.6 REPORT-01 구현 내역
 
@@ -270,7 +295,7 @@ REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로 확인했다(
 슬롯 분리 2 · 정렬 1)와 `IngredientLagAnalysisServiceTest` 7개. 슬롯 분리 2개
 (`keepsSameDayBothSlotsSeparate` · `matchesExposureWithSameTimeSlotObservation`)가 ADR 0014의
 규칙을 코드 레벨에서 고정하고, 위 슬롯 시드가 같은 규칙을 실서버에서 확인한다.
-백엔드 전체 **178개 통과**(로컬 MySQL 기동 상태).
+백엔드 전체 **179개 통과**(로컬 MySQL 기동 상태, 2026-08-13 SKIN-02 회귀 테스트 1개 추가 후 재확인).
 
 **조회 성능** — 노출 로딩은 제품 기록 수와 무관하게 쿼리 3번으로 고정된다(기록 · 항목 · 성분).
 이 분석이 SKIN-01 저장 경로에서 동기로 실행되므로 응답 시간에 그대로 얹히기 때문이다.
@@ -611,6 +636,17 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 | `X-User-Id` 누락 | 401 `COMMON_UNAUTHORIZED` | 일치 |
 | 정의되지 않은 `timeSlot` | 400 `RECORD_INVALID_TIME_SLOT` | 일치 |
 
+위 9건은 **2026-08-12에 신규 사용자로 한 번 더 재현했다**(전 항목 동일). 이때 경계 5건을 추가로
+확인했고, 모두 수정 없이 통과했다.
+
+| 추가 시나리오 | 결과 |
+| --- | --- |
+| 한 요청에 같은 `productId` 2회 | 201 · 항목 1건만 생성(유니크 제약 위반 없음) · `productCount` 1 |
+| `productIds` 필드 자체를 생략 | 422 `PRODUCT_RECORD_EMPTY` (`null`도 빈 목록과 같게 본다) |
+| `productIds`에 `null` 요소 | 404 `PRODUCT_NOT_FOUND` |
+| `timeSlot` 소문자(`"morning"`) | 201 — `toTimeSlot()`이 대문자로 정규화한다 |
+| 존재하지 않는 `X-User-Id` | 404 `USER_NOT_FOUND` · `product_records`·`user_products`에 부작용 행 없음 |
+
 **실서버 검증에서만 드러난 버그 2건을 찾아 고쳤다.** 둘 다 서비스 단위 테스트가 구조적으로 잡을 수
 없는 경로였다 — 단위 테스트는 `create(...)`를 직접 부르므로 Jackson 역직렬화를 건너뛰고,
 리포지토리가 목이라 DB 제약도 없다.
@@ -677,8 +713,9 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 자동 테스트 32개 추가 — `RiskLevelCalculatorTest` 12개(등급 경계 9 · 게이트 1 · 예외 1 · BR 3
 설계 근거 1), `CheckServiceTest` 18개(404/409 발동 조건 5 · 근거 비우기 3 · 정렬 1 · summary
 일치 1 · 문구 파생 1 · 쿼리 고정 1 · BR 3 흐름 1 · 소유권 404 2 · POST/GET 일치 1 · 계산 진행 1 ·
-409 시 미저장 1), `CheckWriterTest` 2개. 백엔드 전체 174개 중 173개 통과(`BackendApplicationTests`는
-로컬 MySQL 미기동 시 실패하는 기존 블로커 #9로, 이번 변경과 무관).
+409 시 미저장 1), `CheckWriterTest` 2개. 이후 PRODUCT-05 회귀 테스트 4개 · SKIN-02 회귀 테스트
+1개가 더해져 백엔드 전체는 **179개**다 — 로컬 MySQL 기동 상태에서 전부 통과한다(2026-08-13 재확인).
+`BackendApplicationTests`는 MySQL 미기동 시에만 실패하는 기존 블로커 #9로, 이번 변경과 무관하다.
 
 **쿼리 수** — CHECK-02는 6개 고정 조회(제품 1 · 제품성분 1 · 프로파일 1 · 사용자 1 · 평가 INSERT
 1 · 성분평가 INSERT는 성분 수만큼) + 성분 수만큼의 자식 INSERT다. `hibernate.jdbc.batch_size`가
