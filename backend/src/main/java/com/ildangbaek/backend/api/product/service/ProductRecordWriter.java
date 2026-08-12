@@ -13,6 +13,8 @@ import com.ildangbaek.backend.domain.user.entity.User;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,13 +47,24 @@ public class ProductRecordWriter {
                         .sourceType(SourceType.INDIVIDUAL)
                         .build()));
 
+        // 이미 있는 항목은 건너뛴다. (product_record_id, product_id)에 유니크 제약이 있어
+        // force 재요청처럼 같은 제품이 다시 들어오면 INSERT가 터진다 — 이어붙이기가 목적이지
+        // 중복 행을 만드는 게 아니다.
+        Set<Long> recordedProductIds = productRecordItemRepository.findAllByProductRecordId(record.getId())
+                .stream()
+                .map(item -> item.getProduct().getId())
+                .collect(Collectors.toSet());
+
         LocalDateTime now = LocalDateTime.now();
         for (Product product : products) {
-            productRecordItemRepository.save(ProductRecordItem.builder()
-                    .productRecord(record)
-                    .product(product)
-                    .usedAt(now)
-                    .build());
+            if (recordedProductIds.add(product.getId())) {
+                productRecordItemRepository.save(ProductRecordItem.builder()
+                        .productRecord(record)
+                        .product(product)
+                        .usedAt(now)
+                        .build());
+            }
+            // 중복 항목이어도 "최근 사용"은 갱신한다 — 사용자가 실제로 다시 썼다고 보고한 요청이다.
             upsertUserProduct(user, product);
         }
 

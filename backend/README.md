@@ -175,9 +175,10 @@ VALUES ('KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
 
 ## F-ANALYSIS-01 시차 분석 · 목업 시드
 
-성분-피부 시차 분석은 **제품 기록**을 입력으로 씁니다. 그런데 제품 기록 저장 API(PRODUCT-05)는
-A 담당이라 아직 없어서, 실사용 경로로는 `product_records`를 채울 방법이 없습니다.
-검증용 시드 스크립트로 그 자리를 대신합니다.
+성분-피부 시차 분석은 **제품 기록**을 입력으로 씁니다. 제품 기록 저장 API(PRODUCT-05)는 구현되어
+있으므로 실사용 경로로도 채울 수 있지만(아래 "실입력 경로로 검증하기"), 이 API는 **오늘 날짜로만**
+기록합니다. 과거 사용일에 걸친 패턴을 한 번에 만들려면 시드 쪽이 훨씬 빠르므로, 회귀 검증에는
+아래 시드를 그대로 씁니다.
 
 ```bash
 # 앱을 한 번 띄워 스키마가 생성된 뒤에 실행합니다 (ddl-auto: update)
@@ -205,6 +206,59 @@ curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-
 
 확정 임계값은 `LagCorrelationAnalyzer`의 상수 3개에 모여 있고, REPORT-01의 `OBSERVED` 임계값
 (`ReportService.OBSERVED_THRESHOLD`)과 같은 값이어야 합니다. **한쪽만 바꾸면 판정이 어긋납니다.**
+
+### 슬롯 분리(ADR 0014) 검증 시드
+
+위 시드는 피부 기록도 제품 기록도 전부 `NIGHT` 단일 슬롯이라, 슬롯을 평균으로 접든 슬롯별로
+나누든 결과가 같습니다. 그래서 그 시드로는
+[ADR 0014](../docs/decisions/0014-시차-분석-모닝나이트-슬롯-분리.md)가 고친 결함을 확인할 수 없습니다.
+전용 시드를 따로 씁니다. **위 시드는 회귀 기준선이라 그대로 두세요** — 기대값이 바뀌면 ADR 0014
+전후를 비교할 근거가 사라집니다.
+
+```bash
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek \
+  < backend/src/test/resources/seed/f-analysis-01-slots.sql
+
+# 분석은 피부 기록 저장 시에만 돌아갑니다. 두 사용자 모두 트리거해야 합니다.
+for u in 9101 9102; do
+  curl -s -o /dev/null -w "$u %{http_code}\n" -X POST http://localhost:8080/api/v1/skin-records \
+    -H "X-User-Id: $u" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
+done
+
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek -e \
+  "SELECT user_id, title, confidence_score, average_delta FROM analysis_insights
+    WHERE user_id IN (9101, 9102) AND metric_type = 'TROUBLE';"
+```
+
+| 사용자 | 심은 것 | 기대 |
+| --- | --- | --- |
+| 9101 | 나이트에만 쓴 나이아신아마이드. 나이트 트러블은 20일 내내 50, **모닝만** 사용일 10 / 2일 뒤 90 | `average_delta` **0.00** · 확정 안 됨(`INSUFFICIENT`) |
+| 9102 | 세라마이드를 같은 날 모닝·나이트 **양쪽**에 사용(15·9·3일 전), 두 슬롯 모두 2일 뒤 +12 | 신뢰도 100 · 근거 "**6회 중 6회**" |
+
+**9101이 핵심 판정입니다.** 여기서 `OBSERVED`가 나오면 슬롯 분리가 깨진 것입니다 — 모닝 점수가
+나이트 기준선에 섞였다는 뜻이고, 구버전(평균 합산) 규칙이면 `+40`으로 확정됩니다.
+9102의 근거 문구가 "3회 중 3회"면 노출이 슬롯별로 분리되지 않은 것입니다.
+
+`ingredient_profiles.observation_count`는 9102에서 **3**입니다(근거 문구의 "6회"와 다릅니다).
+전자는 **사용일 수**, 후자는 **관측 쌍 수**로 서로 다른 것을 셉니다 — 불일치가 아닙니다.
+
+### 실입력 경로로 검증하기 (PRODUCT-05)
+
+시드 없이 제품 기록 저장 API로만 같은 결과를 낼 수 있습니다. 실사용 경로가 살아 있는지 확인할 때
+씁니다. 다만 이 API는 **오늘 날짜로만** 기록하므로(`RecordDateResolver`), 과거 사용일 패턴을
+만들려면 만들어진 행의 `record_date`를 뒤로 옮겨야 합니다.
+
+```bash
+# 제품 기록을 HTTP로 생성합니다 (시드로 product_records를 채우지 않습니다)
+curl -s -X POST http://localhost:8080/api/v1/product-records \
+  -H "X-User-Id: 9001" -H "Content-Type: application/json" \
+  -d '{"timeSlot":"NIGHT","productIds":[9001]}'
+```
+
+`force`는 선택 필드입니다(기본 `false`). 생략해도 201이어야 합니다 — 한때 400이 나던 자리라
+회귀 시 가장 먼저 확인할 지점입니다(`docs/STATUS.md` 2.13절).
 
 ## REPORT-02 요인 상세 검증
 
@@ -322,10 +376,21 @@ curl -s -X POST http://localhost:8080/api/v1/checks \
 
 ## 구현된 API
 
+`docs/STATUS.md` 2.3절이 담당·선행 조건까지 포함한 정본입니다. 아래는 실행 확인용 요약입니다.
+
 | API | 상태 |
 | --- | --- |
 | `GET /api/v1/health` | ✅ |
 | `POST /api/v1/skin-records` (SKIN-01) | ✅ 목업 분석 · 로컬 스토리지 |
+| `GET /api/v1/skin-records/today` (SKIN-02) | 🟡 단위 테스트만 |
+| `GET /api/v1/skin-records/{id}` (SKIN-03) | 🟡 단위 테스트만 |
+| `POST /api/v1/product-records` (PRODUCT-05) | ✅ 실서버 확인(2026-08-12) |
+| `GET /api/v1/reports` (REPORT-01) | ✅ 실서버 확인 |
+| `GET /api/v1/reports/insights/{id}` (REPORT-02) | ✅ 실서버 확인 |
+| `GET /api/v1/reports/daily` (REPORT-03) | ✅ 실서버 확인 |
+| `GET /api/v1/users/me/ingredient-profile` (USER-02) | ✅ 실서버 확인 |
+| `POST /api/v1/checks` (CHECK-02) | ✅ 실서버 확인 |
+| `GET /api/v1/checks/{id}` (CHECK-03) | ✅ 실서버 확인 |
 
 ## 아직 만들지 않은 것
 
@@ -337,8 +402,8 @@ curl -s -X POST http://localhost:8080/api/v1/checks \
   그래서 F-ANALYSIS-04는 DB 행까지만 확인했고 응답 경로로는 검증하지 못했습니다.
 - `skin_types` 마스터 데이터 적재 — 표가 비어 있어 민감성 완화(F-ANALYSIS-04 BR 3)가 실사용
   경로에서 켜지지 않습니다. 온보딩(F-ONBOARD-02) 구현과 함께 운영 시드가 필요합니다.
-- F-ANALYSIS-01의 실입력 — 로직은 완성됐지만 제품 기록 저장 API(A 담당 PRODUCT-05)가 없어
-  실사용 경로에서는 결과가 비어 있습니다. 검증은 위 목업 시드로 했습니다.
+- ~~F-ANALYSIS-01의 실입력~~ → PRODUCT-05가 구현되어 실입력 경로로 검증을 마쳤습니다
+  (2026-08-12 · `docs/STATUS.md` 2.7절). 회귀 검증에는 여전히 목업 시드가 편합니다.
 - 그 외 도메인 컨트롤러/서비스/DTO — `api.skin`을 예시로 추가해나가면 됩니다.
 - `Idempotency-Key` 처리 로직 — 저장 API 4개가 공유할 공통 인프라라 단독 구현을 피했습니다.
   SKIN-01은 슬롯 유니크 제약이 중복 저장을 막고 있습니다.
