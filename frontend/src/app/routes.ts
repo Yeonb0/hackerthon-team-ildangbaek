@@ -4,7 +4,14 @@
 import type { IngredientStatus } from '@/types/user';
 
 export const AuthRoutes = {
-  Login: 'Login', // S-00
+  Login: 'Login', // S-00 (AUTH-01)
+  // Phase 11-A — 이메일 로그인/회원가입/인증 플로우 (백엔드 API 없음, 프론트 목업)
+  EmailLogin: 'EmailLogin', // AUTH-03
+  EmailSignup: 'EmailSignup', // AUTH-04
+  PasswordSetup: 'PasswordSetup', // AUTH-05
+  EmailVerification: 'EmailVerification', // AUTH-06
+  VerificationSuccess: 'VerificationSuccess', // AUTH-06.1
+  VerificationFail: 'VerificationFail', // AUTH-06.2
 } as const;
 
 export const OnboardingRoutes = {
@@ -41,6 +48,12 @@ export type TimeSlot = 'MORNING' | 'NIGHT';
 
 export type AuthStackParamList = {
   [AuthRoutes.Login]: undefined;
+  [AuthRoutes.EmailLogin]: undefined;
+  [AuthRoutes.EmailSignup]: undefined;
+  [AuthRoutes.PasswordSetup]: { email: string };
+  [AuthRoutes.EmailVerification]: { email: string; password: string };
+  [AuthRoutes.VerificationSuccess]: { email: string; password: string };
+  [AuthRoutes.VerificationFail]: { email: string; password: string };
 };
 
 export type OnboardingStackParamList = {
