@@ -13,6 +13,8 @@ import com.ildangbaek.backend.domain.record.entity.SkinMetricType;
  * @param agreementCount   그중 {@code direction}과 같은 방향으로 움직인 횟수
  * @param averageDelta     관측된 지표 변화량의 평균. 부호는 지표값 기준이라 양수면 증상 악화다.
  * @param confirmed        반복성을 확보해 패턴으로 확정된 경우 true. false면 "확인 중"이다. (BR 3, 4)
+ * @param menstrualAffectedCount 관측 쌍 중 기준선·이후 관측일 중 하나라도 생리 기간에 걸친 건수.
+ *                         호르몬 변화가 성분 반응과 섞였을 수 있다는 근거다. (F-ANALYSIS-03 BR 1)
  */
 public record LagPattern(
         Long ingredientId,
@@ -23,11 +25,17 @@ public record LagPattern(
         int observationCount,
         int agreementCount,
         double averageDelta,
-        boolean confirmed
+        boolean confirmed,
+        int menstrualAffectedCount
 ) {
 
     /** 같은 방향으로 움직인 비율. 반복성 판정과 신뢰도 산출의 근거값이다. */
     public double agreementRate() {
         return observationCount == 0 ? 0.0 : (double) agreementCount / observationCount;
+    }
+
+    /** 생리 기간에 걸친 관측 쌍의 비율. 절반 이상이면 확정 판정이 더 엄격해진다. */
+    public double menstrualAffectedRate() {
+        return observationCount == 0 ? 0.0 : (double) menstrualAffectedCount / observationCount;
     }
 }

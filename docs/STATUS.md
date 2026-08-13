@@ -115,7 +115,7 @@
 | SKIN-03 피부 기록 상세 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13). 소유권 격리(404) 확인 |
 | F-ANALYSIS-01 성분-피부 시차 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.7절). ADR 0014 기준 재검증 완료 — 회귀 기준선 · 슬롯 분리 전용 시드 · PRODUCT-05 실입력 경로 3축 |
 | F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
-| F-ANALYSIS-03 호르몬 요인 반영 | ⬜ | 우선순위 L · **후순위** |
+| F-ANALYSIS-03 호르몬 요인 반영 | ✅ | 주기 구간 계산(`MenstrualCycleCalculator`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동(ADR 0019). 로컬 MySQL로 실서버 확인(2026-08-14) — `user_profiles`에 호르몬 정보를 직접 넣고 SKIN-01 재분석 시 신뢰도 100→80(20% 감쇄) 및 확정→확인중 전환을 API 응답(`GET /reports`)에서 재현. **단, 호르몬 정보를 입력하는 API(F-ONBOARD-03 `hormone` 단계)가 아직 없어 DB 직접 수정으로 우회 검증함 — A 담당 온보딩 API 미구현이 후속 이슈** |
 | F-ANALYSIS-04 성분 프로파일 갱신 | ✅ | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11). PRODUCT-05 실입력 경로 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 제품 기록이 `CAUTION` 행까지 만든다 |
 | F-ANALYSIS-05 프로파일 완성도 계산 | ✅ | 산출식 구현 완료(ADR 0011). **소비처 3곳(USER-01 · USER-02 · CHECK-01) 모두 연결 완료.** 단위 테스트로 세 서비스가 `ProfileCompletionCalculator` 값을 그대로 위임하는지 확인(BR 4) — 실서버 3자 대조는 아직 |
 | CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천. **2026-08-14: `category`·`todayContext` 추가(ADR 0018)** — 프론트 SHOP-01 3분류 요청 대응, 백엔드 API만 준비(프론트 화면은 미구현, `boyeon` 브랜치 `ShoppingScreen.tsx`는 아직 단일 섹션). 단위 테스트로 확인, 실서버 미검증 |
@@ -870,6 +870,7 @@ failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태
 | 7b | ~~REPORT-03에 대응하는 기능 ID가 없다~~ | **F-REPORT-04 신설로 해소.** 다만 이 기능을 쓰는 **화면은 여전히 미정**이라 12장 매핑표에 항목이 없다 | 화면 확정 시 B |
 | 8 | `Idempotency-Key` 미구현 | 저장 API 5개 공통(SKIN-01·PRODUCT-05 등 + CHECK-02) | A·B 공통 인프라로 분리 |
 | 9 | `BackendApplicationTests`가 MySQL 없이 실패 | 로컬 테스트 | H2 또는 `application-test.yml` 필요 |
+| 10 | F-ONBOARD-03(생리·호르몬 정보 입력) 저장 API 없음 | F-ANALYSIS-03(B-17)이 참조하는 `user_profiles` 호르몬 필드를 채울 API 경로가 없다. 온보딩 상태 조회는 `hormone` 단계를 인지하지만(`OnboardingController`) 저장 엔드포인트가 없어 현재는 DB 직접 수정으로만 값을 넣을 수 있다 | A |
 
 ---
 

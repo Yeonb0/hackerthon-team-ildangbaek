@@ -28,6 +28,9 @@ public class LagInsightWriter {
     /** 한 번에 남기는 인사이트 수. 리포트 화면이 카드 몇 장만 보여주므로 상위만 남긴다. */
     private static final int MAX_INSIGHTS = 5;
 
+    /** 위 기준을 넘겼을 때 신뢰도 점수를 낮추는 비율. 근거 없는 초기값이며 재검토 대상이다. */
+    private static final double MENSTRUAL_CONFIDENCE_PENALTY_RATIO = 0.2;
+
     private final AnalysisInsightRepository analysisInsightRepository;
 
     @Transactional
@@ -102,11 +105,18 @@ public class LagInsightWriter {
     /**
      * 방향 일치 비율을 그대로 0~100 점수로 쓴다. 확정되지 않은 패턴은 리포트에서 "확인 중"으로
      * 표시되어야 하므로 확정 임계선 아래로 눌러 둔다.
+     *
+     * <p>관측 쌍의 절반 이상이 생리 기간에 걸치면 호르몬 변화와 성분 반응을 구분할 수 없으므로
+     * 신뢰도를 {@value #MENSTRUAL_CONFIDENCE_PENALTY_RATIO}만큼 낮춘다. 생리 정보가 없는 사용자는
+     * {@code menstrualAffectedCount}가 항상 0이라 이 보정이 적용되지 않는다. (F-ANALYSIS-03 BR 1, 3)
      */
     private BigDecimal confidenceScore(LagPattern pattern) {
         double rate = pattern.confirmed()
                 ? pattern.agreementRate()
                 : Math.min(pattern.agreementRate(), LagCorrelationAnalyzer.MIN_AGREEMENT_RATE - 0.01);
+        if (pattern.menstrualAffectedRate() >= LagCorrelationAnalyzer.MENSTRUAL_AFFECTED_THRESHOLD) {
+            rate *= (1 - MENSTRUAL_CONFIDENCE_PENALTY_RATIO);
+        }
         return BigDecimal.valueOf(rate * 100).setScale(2, RoundingMode.HALF_UP);
     }
 
