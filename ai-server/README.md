@@ -18,11 +18,26 @@ Spring Boot의 `LocalVisionSkinAnalysisClient`가 이 서버를 호출한다.
 cd ai-server
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+./scripts/download_model.sh          # 얼굴 랜드마크 모델(3.7MB) 내려받기
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x 계열이 3.14용 휠을 내지 않아
-1.0.0을 쓴다.
+1.0.0을 쓴다. 1.0.0에는 예전 `mp.solutions` API가 없어 Tasks API(`FaceLandmarker`)를 쓴다.
+
+모델 파일은 저장소에 넣지 않는다(`models/`는 gitignore). 경로를 바꾸려면
+`LANDMARKER_MODEL_PATH` 환경변수를 쓴다.
+
+## 테스트
+
+```bash
+.venv/bin/pip install pytest httpx
+.venv/bin/python -m pytest
+```
+
+실제 얼굴 사진은 개인정보라 저장소에 두지 않는다. 테스트는 MediaPipe가 얼굴로 인식하는
+합성 이미지(`tests/conftest.py`의 `draw_face`)를 그려서 쓴다. 점수의 절대값을 검증하는 데는
+쓸 수 없지만, 파이프라인이 끝까지 도는지와 마스크가 올바른 부위를 잡는지는 확인할 수 있다.
 
 ## 엔드포인트
 
@@ -58,7 +73,7 @@ export LOCAL_VISION_BASE_URL=http://localhost:8000   # 기본값
 ## 구현 단계
 
 - [x] Phase 1 — FastAPI 골격 + Spring 연동 (고정 점수)
-- [ ] Phase 2 — MediaPipe 얼굴 검출 · 피부 영역 마스킹 · ROI 분할
+- [x] Phase 2 — MediaPipe 얼굴 검출 · 피부 영역 마스킹 · ROI 분할
 - [ ] Phase 3 — 조명 · 화질 정규화
 - [ ] Phase 4 — 지표별 점수 산출
 - [ ] Phase 5 — 일관성 검증
