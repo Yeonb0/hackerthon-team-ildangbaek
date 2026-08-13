@@ -62,33 +62,40 @@ def check_quality(image_bgr: np.ndarray, skin_mask: np.ndarray) -> None:
     )
 
 
-def white_balance(image_bgr: np.ndarray, skin_mask: np.ndarray) -> np.ndarray:
-    """Gray World 가정으로 색온도를 보정한다.
+# Shades of Gray의 Minkowski 차수. 6은 이 방식의 통상적인 기본값이다.
+_MINKOWSKI_ORDER = 6
 
-    피부 평균이 무채색이 되도록 채널별 이득을 건다. 홍조 지표가 a* 채널을 쓰기 때문에
-    색온도가 틀어진 채로 두면 형광등/백열등 차이가 곧바로 홍조 점수 차이로 둔갑한다.
 
-    이득은 0.5~2.0으로 제한한다. 붉은 조명이 극단적일 때 과보정으로 오히려 색이 뒤집히는 것을 막는다.
+def white_balance(image_bgr: np.ndarray) -> np.ndarray:
+    """Shades of Gray로 조명의 색온도만 걷어낸다.
+
+    <strong>피부가 아니라 장면 전체</strong>에서 조명을 추정한다. 피부 평균을 무채색으로
+    맞추는 Gray World를 피부에만 적용하면, 보정이 홍조 자체를 지워버린다 — 실측에서 붉은 피부와
+    창백한 피부의 a*가 모두 0으로 붙어 홍조 지표가 아무것도 구분하지 못했다.
+
+    조명은 얼굴 밖까지 함께 비추므로 장면 전체로 추정하면 피부색 차이는 남기면서 색온도만
+    보정된다. 실측상 같은 얼굴은 조명이 바뀌어도 a*가 5.0~6.0으로 안정적이고, 붉은 피부(12.0)와
+    창백한 피부(3.0)는 그대로 갈렸다.
+
+    이득은 0.6~1.6으로 제한해 극단적인 색조명에서 색이 뒤집히는 것을 막는다.
     """
-    skin = _skin_values(image_bgr, skin_mask).astype(np.float32)
-    if skin.size == 0:
+    values = image_bgr.astype(np.float32)
+    norms = np.power(np.power(values, _MINKOWSKI_ORDER).mean(axis=(0, 1)), 1.0 / _MINKOWSKI_ORDER)
+    if np.any(norms < 1e-3):
         return image_bgr
 
-    means = skin.mean(axis=0)
-    if np.any(means < 1e-3):
-        return image_bgr
-
-    gains = np.clip(means.mean() / means, 0.5, 2.0)
-    corrected = image_bgr.astype(np.float32) * gains
-    return np.clip(corrected, 0, 255).astype(np.uint8)
+    gains = np.clip(norms.mean() / norms, 0.6, 1.6)
+    return np.clip(values * gains, 0, 255).astype(np.uint8)
 
 
 def normalize_luminance(image_bgr: np.ndarray) -> np.ndarray:
     """CLAHE로 명암을 고르게 편다.
 
+    <strong>{@link prepare}는 이 함수를 쓰지 않는다.</strong> 국소 대비를 평탄화하는 연산이라
+    색소·모공 지표가 읽어야 할 신호까지 같이 지운다. 밝기가 심하게 치우친 사진을 눈으로 확인할 때
+    쓰려고 남겨 둔다.
+
     L 채널에만 건다. a*·b* 채널까지 건드리면 색이 바뀌어 홍조·색소 지표가 오염된다.
-    전역 히스토그램 평활화 대신 CLAHE를 쓰는 이유는, 얼굴 한쪽에만 빛이 드는 경우
-    전역 보정으로는 그늘진 쪽이 그대로 남기 때문이다.
     """
     lab = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB)
     lightness, a_channel, b_channel = cv2.split(lab)
@@ -99,7 +106,11 @@ def normalize_luminance(image_bgr: np.ndarray) -> np.ndarray:
 
 
 def prepare(image_bgr: np.ndarray, skin_mask: np.ndarray) -> np.ndarray:
-    """품질 검사를 통과한 이미지에 색·명암 보정을 적용해 돌려준다."""
+    """품질 검사를 통과한 이미지에 색온도 보정을 적용해 돌려준다.
+
+    CLAHE(`normalize_luminance`)는 여기서 적용하지 않는다. 국소 대비를 평탄화하는 연산이라
+    색소침착(주변보다 어두운 반점)과 모공(고주파 텍스처)을 함께 지워버린다. 밝기 차이는
+    지표 산출 쪽에서 상대값을 써서 흡수한다.
+    """
     check_quality(image_bgr, skin_mask)
-    balanced = white_balance(image_bgr, skin_mask)
-    return normalize_luminance(balanced)
+    return white_balance(image_bgr)

@@ -75,5 +75,5 @@ export LOCAL_VISION_BASE_URL=http://localhost:8000   # 기본값
 - [x] Phase 1 — FastAPI 골격 + Spring 연동 (고정 점수)
 - [x] Phase 2 — MediaPipe 얼굴 검출 · 피부 영역 마스킹 · ROI 분할
 - [x] Phase 3 — 조명 · 화질 정규화
-- [ ] Phase 4 — 지표별 점수 산출
+- [x] Phase 4 — 지표별 점수 산출
 - [ ] Phase 5 — 일관성 검증

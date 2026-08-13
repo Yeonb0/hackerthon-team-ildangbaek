@@ -12,7 +12,7 @@ import logging
 import cv2
 import numpy as np
 
-from app import face_regions, landmarks, preprocess
+from app import face_regions, landmarks, metrics, preprocess
 from app.errors import AnalysisFailedError
 from app.schema import SkinScores
 
@@ -21,9 +21,6 @@ log = logging.getLogger(__name__)
 # 분석 해상도. 모공·트러블 검출은 픽셀 스케일에 민감해서 얼굴 크기를 항상 같게 맞춘다.
 # 원본 해상도를 그대로 쓰면 같은 피부라도 촬영 거리에 따라 점수가 달라진다.
 TARGET_FACE_SCALE = 320.0
-
-# Phase 4에서 실제 산출값으로 대체한다.
-_PLACEHOLDER_SCORES = SkinScores(TROUBLE=70, REDNESS=70, PORES=70, PIGMENTATION=70)
 
 
 def _decode(image_bytes: bytes) -> np.ndarray:
@@ -66,6 +63,4 @@ def analyze(image_bytes: bytes) -> SkinScores:
         raise AnalysisFailedError("피부 영역을 찾지 못했습니다.")
 
     prepared = preprocess.prepare(image_bgr, masks["skin"])
-
-    log.info("전처리 완료 (Phase 4에서 지표 산출 예정)")
-    return _PLACEHOLDER_SCORES
+    return metrics.compute(prepared, masks)

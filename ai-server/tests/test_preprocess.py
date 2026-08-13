@@ -52,26 +52,40 @@ def test_rejects_too_small_face(face) -> None:
         preprocess.check_quality(face, tiny_mask)
 
 
-def test_white_balance_neutralizes_color_cast(face_mask) -> None:
-    """붉은 조명이 섞인 사진의 피부 평균이 중립에 가까워져야 한다."""
-    warm = draw_face(skin_bgr=(150, 190, 250))
-    mask = skin_of(warm)
-
-    before = warm[mask > 0].astype(np.float32).mean(axis=0)
-    corrected = preprocess.white_balance(warm, mask)
-    after = corrected[mask > 0].astype(np.float32).mean(axis=0)
-
-    assert after.std() < before.std()
+def cheek_redness(image: np.ndarray) -> float:
+    """볼의 a*(붉은기) 평균. 홍조 지표가 실제로 읽는 값이다."""
+    points = landmarks.detect(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    masks = face_regions.region_masks(points, image.shape[:2])
+    a_channel = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)[:, :, 1] - 128.0
+    return float(a_channel[masks["cheeks"] > 0].mean())
 
 
-def test_white_balance_is_stable_on_neutral_image(face, face_mask) -> None:
-    """이미 중립인 사진은 크게 바꾸지 않아야 한다."""
-    corrected = preprocess.white_balance(face, face_mask)
+def with_warm_light(image: np.ndarray) -> np.ndarray:
+    """백열등처럼 붉은 조명이 장면 전체를 비추는 상황을 흉내낸다."""
+    return np.clip(
+        image.astype(np.float32) * np.array([0.80, 0.95, 1.20]), 0, 255
+    ).astype(np.uint8)
 
-    before = face[face_mask > 0].astype(np.float32).mean(axis=0)
-    after = corrected[face_mask > 0].astype(np.float32).mean(axis=0)
 
-    assert np.abs(after - before).max() < 40
+def test_white_balance_removes_illuminant_cast(face) -> None:
+    """조명 색온도가 바뀌어도 같은 얼굴의 붉은기는 비슷하게 남아야 한다."""
+    neutral = cheek_redness(preprocess.white_balance(face))
+    warm = cheek_redness(preprocess.white_balance(with_warm_light(face)))
+
+    assert abs(neutral - warm) <= 2.0
+
+
+def test_white_balance_preserves_skin_tone_difference() -> None:
+    """보정이 피부색 차이까지 지우면 홍조 지표가 아무것도 구분하지 못한다.
+
+    피부 픽셀 기준 Gray World를 쓰던 초기 구현이 정확히 이 문제를 일으켰다 — 붉은 피부와
+    창백한 피부의 a*가 둘 다 0으로 붙었다. 조명을 장면 전체에서 추정하도록 바꿔 해결했다.
+    """
+    red = cheek_redness(preprocess.white_balance(draw_face(skin_bgr=(150, 190, 250))))
+    normal = cheek_redness(preprocess.white_balance(draw_face()))
+    pale = cheek_redness(preprocess.white_balance(draw_face(skin_bgr=(200, 210, 225))))
+
+    assert red > normal > pale
 
 
 def test_luminance_normalization_preserves_shape(face) -> None:
