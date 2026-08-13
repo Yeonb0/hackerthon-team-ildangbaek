@@ -1,6 +1,8 @@
 package com.ildangbaek.backend.api.check.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -10,16 +12,20 @@ import com.ildangbaek.backend.domain.analysis.entity.IngredientProfile;
 import com.ildangbaek.backend.domain.analysis.entity.ReactionType;
 import com.ildangbaek.backend.domain.analysis.profile.ProfileCompletionCalculator;
 import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileRepository;
+import com.ildangbaek.backend.domain.environment.repository.DailyEnvironmentRepository;
 import com.ildangbaek.backend.domain.product.entity.Ingredient;
 import com.ildangbaek.backend.domain.product.entity.Product;
 import com.ildangbaek.backend.domain.product.entity.ProductCategory;
 import com.ildangbaek.backend.domain.product.entity.ProductDataSource;
 import com.ildangbaek.backend.domain.product.entity.ProductIngredient;
 import com.ildangbaek.backend.domain.product.repository.ProductIngredientRepository;
+import com.ildangbaek.backend.domain.record.repository.SkinMetricRepository;
+import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import com.ildangbaek.backend.domain.user.entity.AuthProvider;
 import com.ildangbaek.backend.domain.user.entity.User;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +49,12 @@ class CheckHomeServiceTest {
     private ProductIngredientRepository productIngredientRepository;
     @Mock
     private ProfileCompletionCalculator profileCompletionCalculator;
+    @Mock
+    private SkinRecordRepository skinRecordRepository;
+    @Mock
+    private SkinMetricRepository skinMetricRepository;
+    @Mock
+    private DailyEnvironmentRepository dailyEnvironmentRepository;
 
     private CheckHomeService service;
     private User user;
@@ -50,10 +62,14 @@ class CheckHomeServiceTest {
     @BeforeEach
     void setUp() {
         service = new CheckHomeService(ingredientProfileRepository, productIngredientRepository,
-                profileCompletionCalculator);
+                profileCompletionCalculator, skinRecordRepository, skinMetricRepository, dailyEnvironmentRepository);
         user = User.builder().provider(AuthProvider.KAKAO).providerUserId("u1").build();
         ReflectionTestUtils.setField(user, "id", USER_ID);
         when(profileCompletionCalculator.calculate(USER_ID)).thenReturn(65);
+        when(skinRecordRepository.findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(USER_ID))
+                .thenReturn(Optional.empty());
+        when(dailyEnvironmentRepository.findByUserIdAndRecordDate(eq(USER_ID), any()))
+                .thenReturn(Optional.empty());
     }
 
     @Test

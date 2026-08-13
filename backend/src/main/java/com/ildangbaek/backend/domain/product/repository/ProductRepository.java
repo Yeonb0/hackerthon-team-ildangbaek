@@ -10,4 +10,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByBarcode(String barcode);
 
     List<Product> findTop20ByProductNameContainingIgnoreCaseAndActiveTrue(String keyword);
+
+    Optional<Product> findByProductNameAndBrandNameAndActiveTrue(String productName, String brandName);
 }

@@ -98,7 +98,7 @@
 | USER-03~07 프로필 · 위치 · 알림 | ⬜ | 코드 없음 확인(`UserController`에 `GET /`·`GET /ingredient-profile`뿐) |
 | HOME-01 홈 조회 | ⬜ | 코드 없음 확인(`api/` 아래 `home` 디렉토리 없음) |
 | RECORD-01~02 기록 허브 | ⬜ | 코드 없음 확인(`api/` 아래 `record` 디렉토리 없음. `skin-records`·`product-records`는 개별 도메인으로 존재하나 통합 허브는 없음) |
-| PRODUCT-01~08 제품 검색 · 상세 · 기록 · 루틴 | 🟡 | PRODUCT-05(제품 기록 저장)만 B가 구현·검증 완료(2.13절). 01~04·06~08(검색·상세·루틴)은 코드 없음 확인 |
+| PRODUCT-01~08 제품 검색 · 상세 · 기록 · 루틴 | 🟡 | PRODUCT-05(제품 기록 저장)만 B가 구현·검증 완료(2.13절). 01~04·06~08(검색·상세·루틴)은 코드 없음 확인. F-PRODUCT-08(직접 등록 저장)은 여전히 TBD-07 미정 — 다만 그 화면이 쓰는 매칭 조회(PRODUCT-09, 신규)만 2026-08-14에 B가 별도로 구현 |
 
 > ⚠️ **AUTH·ONBOARD는 "코드가 있다"만 확인했다.** `saveSkinTypes`가 `skin_types` 마스터를
 > `orElseGet`으로 자동 생성하도록 짜여 있어 2.8절의 "민감성 완화가 온보딩 부재로 동작 안 함" 경고도
@@ -117,7 +117,7 @@
 | F-ANALYSIS-03 호르몬 요인 반영 | ⬜ | 우선순위 L · **후순위** |
 | F-ANALYSIS-04 성분 프로파일 갱신 | ✅ | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11). PRODUCT-05 실입력 경로 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 제품 기록이 `CAUTION` 행까지 만든다 |
 | F-ANALYSIS-05 프로파일 완성도 계산 | ✅ | 산출식 구현 완료(ADR 0011). **소비처 3곳(USER-01 · USER-02 · CHECK-01) 모두 연결 완료.** 단위 테스트로 세 서비스가 `ProfileCompletionCalculator` 값을 그대로 위임하는지 확인(BR 4) — 실서버 3자 대조는 아직 |
-| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천 |
+| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천. **2026-08-14: `category`·`todayContext` 추가(ADR 0018)** — 프론트 SHOP-01 3분류 요청 대응, 백엔드 API만 준비(프론트 화면은 미구현, `boyeon` 브랜치 `ShoppingScreen.tsx`는 아직 단일 섹션). 단위 테스트로 확인, 실서버 미검증 |
 | CHECK-02 위험도 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). ADR 0015 — 등급 산출 기준 신설 |
 | CHECK-03 확인 결과 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). CHECK-02와 같은 DTO·조립 로직 |
 | USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
@@ -125,6 +125,7 @@
 | PRODUCT-05 제품 기록 저장 | ✅ | 2.13절. 원래 A 담당이나 B가 대신 구현. 로컬 MySQL로 실서버 확인(2026-08-12) — 실서버에서만 드러난 버그 2건(`force` 생략 400 · `force: true` 500) 수정 |
 | REPORT-02 요인 상세 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.12절). ADR 0013 — 이벤트 조회 시점 도출 · 그래프 ADR 0012 적용 |
 | REPORT-03 일자별 리포트 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.11절). SKIN-01 응답 구조 재사용 · ADR 0012 원칙 유지 |
+| PRODUCT-09 제품 매칭 조회(신규) | ✅ | 2026-08-14 신규. `GET /products/match?name=&brand=` — 프론트 `ProductManualRegisterScreen`(boyeon, 완전 목업 상태) 지원용. `ProductMatchService`/`ProductMatchController`. F-PRODUCT-08(제품 직접 등록 저장) 자체는 여전히 TBD-07 미정, 이 API는 조회만 해소. 단위 테스트 없음(단순 위임 로직), 실서버 미검증 |
 
 ### 2.4 SKIN-01 검증 내역
 

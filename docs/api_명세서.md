@@ -1536,6 +1536,66 @@ json
 
 ---
 
+## PRODUCT-09 · 제품 직접 등록 전 카탈로그 매칭 조회
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `GET` |
+| URI | `/api/v1/products/match` |
+| 인증 | 필요 |
+| 관련 화면 | 없음(F-PRODUCT-08 TBD-07과 연결 예정) |
+| 관련 기능 | F-PRODUCT-08(TBD) |
+
+> **F-PRODUCT-08(제품 직접 등록) 자체는 여전히 미정 · TBD-07 상태입니다.** 이 API는 그 결정과
+> 무관하게, "제품명+브랜드명이 이미 카탈로그에 있으면 성분·카테고리를 자동으로 채워준다"는
+> 조회 기능만 먼저 제공합니다(관리자 결정, 2026-08-14). F-PRODUCT-08의 화면·저장 흐름이
+> 확정되면 이 API를 그 흐름에 연결합니다.
+
+**Query Parameter**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | String | O | 제품명(정확 일치) |
+| `brand` | String | O | 브랜드명(정확 일치) |
+
+**Success Response — 200 (매칭됨)**
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": {
+    "matched": true,
+    "productId": 71,
+    "category": "SERUM",
+    "ingredients": ["정제수", "글리세린", "히알루론산", "판테놀"]
+  }
+}
+```
+
+**Success Response — 200 (매칭 안 됨)**
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": { "matched": false, "productId": null, "category": null, "ingredients": [] }
+}
+```
+
+**Business Rule**
+
+1. `name`+`brand`가 활성(`active=true`) 제품과 정확히 일치하면 `matched: true`와 함께
+   `productId`·`category`·`ingredients`(표시 순서)를 반환한다.
+2. 매칭되지 않으면 오류가 아니라 `matched: false`를 반환한다. 클라이언트는 기존 직접 입력 흐름을
+   그대로 진행한다.
+3. 바코드/이미지 스캔(PRODUCT-04)과는 별개 경로다 — 이 API는 텍스트 매칭 전용이며 이미지 인식을
+   하지 않는다.
+
+---
+
 ## PRODUCT-05 · 제품 기록 저장 ⭐
 
 | 항목 | 내용 |
@@ -2036,15 +2096,23 @@ json
         "productId": 71,
         "name": "라로슈포제 시카플라스트",
         "brand": "라로슈포제",
-        "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요"
+        "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요",
+        "category": "MATCHED_INGREDIENT"
       },
       {
         "productId": 82,
         "name": "마누카 히알루론산 토너",
         "brand": "마누카",
-        "reason": "히알루론산 반응이 좋았어요"
+        "reason": "히알루론산 반응이 좋았어요",
+        "category": "TODAY_NEEDED"
       }
     ],
+    "todayContext": {
+      "troubleScore": 38,
+      "rednessScore": 62,
+      "humidity": 55,
+      "humidityGrade": "NORMAL"
+    },
     "failedSections": []
   }
 }
@@ -2062,6 +2130,11 @@ json
    (`ProfileCompletionCalculator` 단독 계산, ADR 0011 BR 4).
 5. `failedSections`는 이 응답이 전부 내부 DB 조회이므로 현재는 항상 빈 배열이다. 1.8절의 외부 API
    부분 실패 알림 용도이며, 이 화면에 외부 API가 붙기 전까지는 값이 채워지지 않는다.
+6. **3분류 · 오늘 컨텍스트(ADR 0018)**: `recommendations[].category`는
+   `TODAY_NEEDED`/`HUMIDITY_CARE`/`MATCHED_INGREDIENT` 중 하나이며, 제품 카테고리 기준 추정
+   매칭이다(임계값·매핑은 잠정치, 재검토 대상). `todayContext`는 오늘(가장 최근) 피부 기록의
+   트러블·홍조 점수와 오늘 환경 데이터의 습도·습도 등급을 담으며, 해당 데이터가 없으면 각 필드가
+   개별적으로 `null`이다.
 
 ---
 
