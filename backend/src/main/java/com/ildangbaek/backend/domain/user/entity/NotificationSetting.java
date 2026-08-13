@@ -60,4 +60,9 @@ public class NotificationSetting {
     public void updatePushToken(String pushToken) {
         this.pushToken = pushToken;
     }
+
+    public void updateEnabled(boolean enabled) {
+        this.morningEnabled = enabled;
+        this.nightEnabled = enabled;
+    }
 }
