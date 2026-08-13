@@ -7,22 +7,26 @@ import { apiClient } from '@/api/client';
 import { unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
 import {
+  addProductToRoutine,
   buildMockProductRecordHome,
   buildProductRecordSummary,
   buildRoutineRecordSummary,
   getMockProductDetail,
   listMockRoutines,
   recordMockRoutineQuickRecord,
+  registerMockProduct,
   saveMockProductRecord,
   scanMockProduct,
   searchMockProducts,
 } from '@/api/mock/product';
+import type { CatalogProduct } from '@/api/mock/product';
 import { recordMockProductCompletion } from '@/api/mock/record';
 import type { TimeSlot } from '@/app/routes';
 import type {
   ProductDetailResult,
   ProductRecordHomeResult,
   ProductSearchResult,
+  RegisterProductInput,
   RoutineListItem,
   RoutineQuickRecordResult,
   SaveProductRecordResult,
@@ -117,6 +121,45 @@ export function useProductDetail(productId: number) {
   return useQuery({
     queryKey: ['productDetail', productId],
     queryFn: () => getProductDetail(productId),
+  });
+}
+
+/**
+ * PRODUCT-08 · 제품 직접 등록 (F-PRODUCT-08, TBD-07). 백엔드에 대응 엔드포인트가 없어서
+ * (api_명세서.md 전수 확인, 2026-08-13) 다른 함수들과 달리 USE_MOCK 분기가 없습니다 — 항상
+ * 목업입니다. 실제 API가 생기면 그때 분기를 추가하면 됩니다.
+ */
+export async function registerProduct(input: RegisterProductInput): Promise<CatalogProduct> {
+  return registerMockProduct(input);
+}
+
+export function useRegisterProduct() {
+  return useMutation({ mutationFn: registerProduct });
+}
+
+/**
+ * Phase 11-C 추가(관리자님 요청, 2026-08-13) — 등록한 제품을 특정 루틴에 바로 추가.
+ * 루틴 수정 API가 없어서 registerProduct와 마찬가지로 항상 목업입니다.
+ */
+export async function addProductToRoutineRequest(input: {
+  routineId: number;
+  productId: number;
+}): Promise<void> {
+  addProductToRoutine(input.routineId, input.productId);
+}
+
+export function useAddProductToRoutine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: addProductToRoutineRequest,
+    // Phase 11-C 버그 수정(관리자님 실기기 확인, 2026-08-14) — 이 무효화가 빠져 있어서,
+    // 루틴에 제품을 추가해도 이미 화면에 떠 있던 "자주 쓰는 루틴" 카드·기록 허브가
+    // 갱신 전 캐시를 계속 보여줬습니다(quickRecordRoutine·saveProductRecord와 같은 패턴).
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+      queryClient.invalidateQueries({ queryKey: ['productRecordHome'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+    },
   });
 }
 

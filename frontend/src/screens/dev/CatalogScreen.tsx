@@ -301,6 +301,7 @@ export default function CatalogScreen() {
 
       <Section title="RoutineQuickRecordCard (Phase 7 — 탭하면 펼쳐짐)">
         <RoutineQuickRecordCard
+          routineId={1}
           name="모닝루틴"
           timeSlot="MORNING"
           productCount={3}

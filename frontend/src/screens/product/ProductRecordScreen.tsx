@@ -227,6 +227,13 @@ export function ProductRecordScreen() {
     setSuccessInfo(null);
     navigation.navigate(DetailRoutes.PhotoGuide, { timeSlot });
   };
+  // Phase 11-C(관리자 결정, 2026-08-13) — TBD-07 해소. 검색 결과 없음(빈 상태)에서 오면
+  // 검색어를 제품명에 prefill해줍니다.
+  const handleGoToManualRegister = (prefillKeyword?: string) =>
+    navigation.navigate(DetailRoutes.ProductManualRegister, {
+      timeSlot,
+      initialKeyword: prefillKeyword,
+    });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
@@ -239,9 +246,12 @@ export function ProductRecordScreen() {
         {isSearchMode ? (
           <SearchResultsSection
             query={searchQuery}
+            keyword={debouncedKeyword}
             onSelectNew={handleGoToIngredientCheck}
             onQuickSave={(productId, name) => handleQuickSaveSingle(productId, name)}
             onRetry={() => searchQuery.refetch()}
+            onScan={handleScanPress}
+            onDirectRegister={() => handleGoToManualRegister(keyword)}
           />
         ) : (
           <HomeSection
@@ -256,6 +266,7 @@ export function ProductRecordScreen() {
             selectedProductIds={selectedProductIds}
             onToggleProduct={handleToggleProduct}
             onViewIngredients={handleGoToIngredientCheck}
+            onDirectRegister={() => handleGoToManualRegister()}
           />
         )}
       </ScrollView>
@@ -317,6 +328,7 @@ function HomeSection({
   selectedProductIds,
   onToggleProduct,
   onViewIngredients,
+  onDirectRegister,
 }: {
   homeQuery: ReturnType<typeof useProductRecordHome>;
   routinesQuery: ReturnType<typeof useRoutines>;
@@ -327,6 +339,7 @@ function HomeSection({
   selectedProductIds: Set<number>;
   onToggleProduct: (productId: number) => void;
   onViewIngredients: (productId: number) => void;
+  onDirectRegister: () => void;
 }) {
   // "저장된 제품" 전용 카테고리 필터(관리자님 요청, 2026-08-10) — 검색 결과나 루틴에는
   // 적용하지 않습니다. 검색 모드로 전환하면(HomeSection이 통째로 언마운트) 자연히
@@ -364,6 +377,7 @@ function HomeSection({
             {routines.map((routine) => (
               <RoutineQuickRecordCard
                 key={routine.routineId}
+                routineId={routine.routineId}
                 name={routine.name}
                 timeSlot={routine.timeSlot}
                 productCount={routine.productCount}
@@ -427,7 +441,7 @@ function HomeSection({
         )}
       </View>
 
-      <DirectRegisterButton />
+      <DirectRegisterButton onPress={onDirectRegister} />
     </View>
   );
 }
@@ -437,14 +451,20 @@ function HomeSection({
 // ---------------------------------------------------------------------------
 function SearchResultsSection({
   query,
+  keyword,
   onSelectNew,
   onQuickSave,
   onRetry,
+  onScan,
+  onDirectRegister,
 }: {
   query: ReturnType<typeof useProductSearch>;
+  keyword: string;
   onSelectNew: (productId: number) => void;
   onQuickSave: (productId: number, name: string) => void;
   onRetry: () => void;
+  onScan: () => void;
+  onDirectRegister: () => void;
 }) {
   if (query.isLoading) {
     return <LoadingState variant="skeleton" skeletonLines={4} />;
@@ -456,10 +476,23 @@ function SearchResultsSection({
   const { totalCount, products } = query.data;
 
   if (totalCount === 0) {
+    // Figma PROD-03(node 193:5190) 배치 그대로 — 검색어를 못 찾았을 때 "스캔으로 찾기"/
+    // "직접 등록하기" 2버튼을 나란히 보여줍니다(관리자 결정, 2026-08-13).
     return (
       <View style={styles.sections}>
-        <EmptyState icon="search" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
-        <DirectRegisterButton />
+        <View style={styles.notFoundArea}>
+          <Text style={styles.notFoundTitle}>&apos;{keyword}&apos;을 찾지 못했어요</Text>
+          <Text style={styles.notFoundDescription}>아직 등록된 제품이 없어요</Text>
+          <View style={styles.notFoundActions}>
+            <Button label="스캔으로 찾기" variant="secondary" onPress={onScan} style={styles.notFoundButton} />
+            <Button
+              label="직접 등록하기"
+              variant="primary"
+              onPress={onDirectRegister}
+              style={styles.notFoundButton}
+            />
+          </View>
+        </View>
       </View>
     );
   }
@@ -488,12 +521,11 @@ function SearchResultsSection({
   );
 }
 
-/** TBD-07 — 목적지 화면·API 미정. 관리자님 확인(2026-08-10): 버튼은 두되 비활성화. */
-function DirectRegisterButton() {
+/** Phase 11-C(관리자 결정, 2026-08-13) — TBD-07 해소. 이전엔 목적지가 없어 disabled였음. */
+function DirectRegisterButton({ onPress }: { onPress: () => void }) {
   return (
     <View style={styles.directRegister}>
-      <Button label="제품 직접 등록" variant="ghost" disabled onPress={() => {}} />
-      <Text style={styles.directRegisterHint}>이 기능은 준비 중이에요.</Text>
+      <Button label="제품 직접 등록" variant="secondary" onPress={onPress} />
     </View>
   );
 }
@@ -549,9 +581,27 @@ const styles = StyleSheet.create({
     gap: space[1],
     paddingTop: space[2],
   },
-  directRegisterHint: {
-    ...typography.micro,
-    color: color.ink300,
+  notFoundArea: {
+    alignItems: 'center',
+    gap: space[2],
+    paddingVertical: space[8],
+  },
+  notFoundTitle: {
+    ...typography.bodyStrong,
+    color: color.ink900,
+  },
+  notFoundDescription: {
+    ...typography.caption,
+    color: color.ink600,
+    marginBottom: space[2],
+  },
+  notFoundActions: {
+    flexDirection: 'row',
+    gap: space[2],
+    alignSelf: 'stretch',
+  },
+  notFoundButton: {
+    flex: 1,
   },
   bulkBar: {
     paddingHorizontal: space[5],

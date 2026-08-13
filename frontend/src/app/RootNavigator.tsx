@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { RootStackParamList, OnboardingRoutes, OnboardingStackParamList } from './routes';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
-import { LoginScreen } from '@/screens/auth/LoginScreen';
+import { AuthNavigator } from './AuthNavigator';
 import { useAuthBootstrap } from './useAuthBootstrap';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
@@ -52,7 +52,7 @@ export function RootNavigator() {
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           {!accessToken ? (
-            <Stack.Screen name="Auth" component={LoginScreen} />
+            <Stack.Screen name="Auth" component={AuthNavigator} />
           ) : !onboardingCompleted ? (
             <Stack.Screen name="Onboarding">
               {() => <OnboardingNavigator initialRouteName={initialOnboardingRoute} />}
