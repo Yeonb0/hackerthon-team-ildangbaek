@@ -47,21 +47,13 @@ export function NotificationPermissionScreen() {
       // 실제 OS 알림 권한 팝업 — 사용자가 이미 한 번 결정했으면(허용/거부) OS가 팝업 없이
       // 기존 상태를 즉시 돌려줍니다.
       //
-      // ⚠️ 타입 캐스팅 주의: `NotificationPermissionsStatus`는 `expo-modules-core`의
-      // `PermissionResponse`(status/granted 필드)를 extends 하는데, expo-modules-core가
-      // 이 프로젝트 node_modules에 최상위로 호이스팅되지 않고 expo 패키지 내부에만 중첩돼
-      // 있어서(expo-notifications가 이걸 명시적 dependency로 선언하지 않음) tsc가 상속
-      // 필드를 못 찾습니다. expo-modules-core를 루트 의존성으로 직접 추가해서 고치려 했더니
-      // 이번엔 그게 react-native-worklets 0.11.4(Phase 11-B, reanimated 4.5.3용)와 peer
-      // 충돌을 일으켜서(expo-modules-core 57.0.10이 아직 worklets 0.10.x까지만 지원 명시)
-      // 되돌렸습니다. 런타임 동작에는 문제없는 순수 타입 해석 이슈라 캐스팅으로 우회합니다.
-      const permissionResult = (await Notifications.requestPermissionsAsync()) as unknown as {
-        status: string;
-        granted: boolean;
-      };
+      // 2026-08-13: package.json의 expo-notifications 버전이 잘못 박혀 있었던 문제
+      // (~0.32.13, Expo SDK 57과 안 맞는 구버전 넘버링 — 올바른 값은 ~57.0.10)를 바로잡은
+      // 뒤로는 타입이 정상 인식돼서 캐스팅 없이 바로 씁니다.
+      const { status, granted } = await Notifications.requestPermissionsAsync();
       // 저장 실패해도 온보딩 진행은 막지 않습니다 — 알림 설정은 나중에 마이페이지(S-23)에서도 바꿀 수 있어서
       // 여기서 막을 만큼 치명적이지 않습니다.
-      await saveNotificationSetting({ enabled: permissionResult.granted });
+      await saveNotificationSetting({ enabled: granted || status === 'granted' });
     } catch {
       // 조용히 무시 — 권한 요청 실패도 온보딩을 막지 않습니다 (BR4)
     } finally {
