@@ -4,6 +4,8 @@ import com.ildangbaek.backend.api.auth.service.CurrentUserResolver;
 import com.ildangbaek.backend.api.product.dto.request.ProductScanRequest;
 import com.ildangbaek.backend.api.product.dto.request.ScanMode;
 import com.ildangbaek.backend.api.product.dto.response.ProductDetailResponse;
+import com.ildangbaek.backend.api.product.dto.response.ProductMatchResponse;
+import com.ildangbaek.backend.api.product.dto.response.ProductSaveResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductScanResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSearchResponse;
 import com.ildangbaek.backend.api.product.service.ProductService;
@@ -13,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,6 +40,16 @@ public class ProductController {
     ) {
         User user = currentUserResolver.resolve(authorization);
         return ApiResponse.success(productService.search(user, keyword));
+    }
+
+    @GetMapping("/match")
+    public ApiResponse<ProductMatchResponse> match(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam String name,
+            @RequestParam String brand
+    ) {
+        currentUserResolver.resolve(authorization);
+        return ApiResponse.success(productService.match(name, brand));
     }
 
     @GetMapping("/{productId}")
@@ -65,5 +78,23 @@ public class ProductController {
     ) {
         currentUserResolver.resolve(authorization);
         return ApiResponse.success(productService.scan(scanMode, image));
+    }
+
+    @PostMapping("/{productId}/save")
+    public ApiResponse<ProductSaveResponse> saveProduct(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long productId
+    ) {
+        User user = currentUserResolver.resolve(authorization);
+        return ApiResponse.success(productService.saveProduct(user, productId));
+    }
+
+    @DeleteMapping("/{productId}/save")
+    public ApiResponse<ProductSaveResponse> unsaveProduct(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long productId
+    ) {
+        User user = currentUserResolver.resolve(authorization);
+        return ApiResponse.success(productService.unsaveProduct(user, productId));
     }
 }

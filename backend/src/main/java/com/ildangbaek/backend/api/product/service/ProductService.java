@@ -4,11 +4,15 @@ import com.ildangbaek.backend.api.product.dto.request.ProductScanRequest;
 import com.ildangbaek.backend.api.product.dto.request.ScanMode;
 import com.ildangbaek.backend.api.product.dto.response.IngredientResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductDetailResponse;
+import com.ildangbaek.backend.api.product.dto.response.ProductMatchResponse;
+import com.ildangbaek.backend.api.product.dto.response.ProductSaveResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductScanResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSearchResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSummaryResponse;
 import com.ildangbaek.backend.domain.product.entity.Product;
 import com.ildangbaek.backend.domain.product.entity.ProductIngredient;
+import com.ildangbaek.backend.domain.product.entity.UsageStatus;
+import com.ildangbaek.backend.domain.product.entity.UserProduct;
 import com.ildangbaek.backend.domain.product.repository.ProductIngredientRepository;
 import com.ildangbaek.backend.domain.product.repository.ProductRepository;
 import com.ildangbaek.backend.domain.product.repository.UserProductRepository;
@@ -72,6 +76,20 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    public ProductMatchResponse match(String name, String brand) {
+        if (name == null || name.isBlank() || brand == null || brand.isBlank()) {
+            return ProductMatchResponse.notMatched();
+        }
+        return productRepository
+                .findFirstByProductNameContainingIgnoreCaseAndBrandNameContainingIgnoreCaseAndActiveTrue(
+                        name.trim(),
+                        brand.trim()
+                )
+                .map(this::toMatchResponse)
+                .orElseGet(ProductMatchResponse::notMatched);
+    }
+
+    @Transactional(readOnly = true)
     public ProductScanResponse scan(ProductScanRequest request) {
         if (request.scanMode() != ScanMode.BARCODE) {
             throw new BusinessException(ErrorCode.SCAN_SERVICE_UNAVAILABLE);
@@ -107,6 +125,30 @@ public class ProductService {
         );
     }
 
+    @Transactional
+    public ProductSaveResponse saveProduct(User user, Long productId) {
+        Product product = productRepository.findById(productId)
+                .filter(Product::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+        UserProduct userProduct = userProductRepository.findByUserIdAndProductId(user.getId(), productId)
+                .orElseGet(() -> UserProduct.builder()
+                        .user(user)
+                        .product(product)
+                        .build());
+        userProduct.resumeUsing();
+        userProductRepository.save(userProduct);
+        return new ProductSaveResponse(productId, true);
+    }
+
+    @Transactional
+    public ProductSaveResponse unsaveProduct(User user, Long productId) {
+        UserProduct userProduct = userProductRepository.findByUserIdAndProductId(user.getId(), productId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+        userProduct.stopUsing();
+        userProductRepository.save(userProduct);
+        return new ProductSaveResponse(productId, false);
+    }
+
     private ProductSummaryResponse toSummary(User user, Product product) {
         return new ProductSummaryResponse(
                 product.getId(),
@@ -127,7 +169,24 @@ public class ProductService {
         );
     }
 
+    private ProductMatchResponse toMatchResponse(Product product) {
+        List<String> ingredients = productIngredientRepository.findAllByProductIdOrderByDisplayOrderAsc(product.getId())
+                .stream()
+                .map(productIngredient -> productIngredient.getIngredient().getKoreanName())
+                .toList();
+        return new ProductMatchResponse(
+                true,
+                product.getId(),
+                product.getCategory().name(),
+                ingredients
+        );
+    }
+
     private boolean isSaved(User user, Product product) {
-        return userProductRepository.findByUserIdAndProductId(user.getId(), product.getId()).isPresent();
+        return userProductRepository.existsByUserIdAndProductIdAndUsageStatus(
+                user.getId(),
+                product.getId(),
+                UsageStatus.USING
+        );
     }
 }
