@@ -22,9 +22,11 @@ def test_analyze_returns_four_metrics(face_jpeg: bytes) -> None:
     response = client.post("/analyze", files={"image": ("face.jpg", face_jpeg, "image/jpeg")})
 
     assert response.status_code == 200
-    scores = response.json()["scores"]
+    body = response.json()
+    scores = body["scores"]
     assert set(scores) == {"TROUBLE", "REDNESS", "PORES", "PIGMENTATION"}
     assert all(0 <= value <= 100 for value in scores.values())
+    assert body["pores_reliability"] in ("LOW", "NORMAL")
 
 
 def test_no_face_returns_face_not_detected() -> None:

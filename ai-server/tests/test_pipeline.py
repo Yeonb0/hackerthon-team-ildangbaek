@@ -11,10 +11,11 @@ from tests.conftest import draw_face, encode_jpeg
 
 
 def test_analyze_returns_all_four_metrics(face_jpeg: bytes) -> None:
-    scores = pipeline.analyze(face_jpeg)
+    result = pipeline.analyze(face_jpeg)
 
-    for value in scores.model_dump().values():
+    for value in result.scores.model_dump().values():
         assert 0 <= value <= 100
+    assert result.pores_reliability in ("LOW", "NORMAL")
 
 
 def test_rejects_empty_image() -> None:
@@ -47,8 +48,8 @@ def test_scale_normalization_makes_sizes_comparable() -> None:
     small = encode_jpeg(draw_face(size=384))
     large = encode_jpeg(draw_face(size=768))
 
-    small_scores = pipeline.analyze(small).model_dump()
-    large_scores = pipeline.analyze(large).model_dump()
+    small_scores = pipeline.analyze(small).scores.model_dump()
+    large_scores = pipeline.analyze(large).scores.model_dump()
 
     for metric, value in small_scores.items():
         assert abs(value - large_scores[metric]) <= 12, f"{metric}이 촬영 거리에 크게 흔들린다"

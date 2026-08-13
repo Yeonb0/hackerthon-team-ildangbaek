@@ -18,7 +18,7 @@ import logging
 import cv2
 import numpy as np
 
-from app.schema import SkinScores
+from app.schema import AnalysisResult, SkinScores
 
 log = logging.getLogger(__name__)
 
@@ -28,8 +28,13 @@ log = logging.getLogger(__name__)
 #   a*_cheek 5.0 / 8.1,  dark_p98 9.2 / 64.8,  hf_std 4.3 / 10.9,  trouble_p99 0 / 1700+
 REDNESS_RANGE = (4.0, 16.0)
 PIGMENTATION_RANGE = (8.0, 45.0)
-PORES_RANGE = (4.0, 14.0)
 TROUBLE_RANGE = (20.0, 1500.0)
+
+# PORES는 파이프라인 전체(JPEG 압축 + 리사이즈)를 거친 clean 사진 20장의 hf_std가
+# 4.92~6.19로 자연 변동한다(실측). 구간 하한을 이 변동 상한보다 낮게 두면 촬영마다 점수가
+# 튄다 — 실제로 (4.0, 14.0)이었을 때 연속 촬영 5장만으로 spread 8점이 났다. 하한을 6.5로
+# 올리고 폭을 넓혀 자연 변동을 흡수하면서도 트러블 방향성(x2부터 91→72로 하락)은 유지된다.
+PORES_RANGE = (6.5, 16.0)
 
 
 def _to_score(value: float, good: float, bad: float) -> int:
@@ -73,15 +78,27 @@ def _pigmentation(lightness: np.ndarray, skin: np.ndarray) -> int:
     return _to_score(float(np.percentile(darker_than_surroundings[skin > 0], 98)), *PIGMENTATION_RANGE)
 
 
-def _pores(lightness: np.ndarray, skin: np.ndarray) -> int:
+# clean 사진 20장(노이즈만 다름, JPEG+리사이즈 포함)의 hf_std 실측 범위. 측정값이 이 안에 있으면
+# "트러블 때문"인지 "그냥 그날의 촬영 잡음"인지 원리적으로 구분할 수 없다 — 신뢰도를 LOW로 내린다.
+_PORES_NOISE_FLOOR = 6.2
+
+
+def _pores(lightness: np.ndarray, skin: np.ndarray) -> tuple[int, str]:
     """모공 — 피부 표면의 고주파 텍스처 세기.
 
     <strong>네 지표 중 신뢰도가 가장 낮다.</strong> 모공과 카메라 노이즈·압축 아티팩트가 같은
     주파수 대역에 있어 원리적으로 완전히 분리되지 않는다. Phase 3의 품질 게이트로 흐린 사진을
     걷어내 최소한의 조건은 맞추지만, 기기가 바뀌면 값이 흔들릴 수 있다.
+
+    점수 자체를 숨기지 않고 신뢰도를 함께 반환한다. 측정값을 지어내지 않는다는 원칙(다른 지표의
+    구간값 결정과 같은 철학)을 신뢰도에도 적용한 것 — "낮은 신뢰도의 점수"와 "점수 없음"은 다른
+    정보라 후자로 뭉개면 오히려 정보 손실이다.
+
+    :return: (점수, "LOW" 또는 "NORMAL")
     """
-    high_frequency = lightness - cv2.GaussianBlur(lightness, (0, 0), 3)
-    return _to_score(float(high_frequency[skin > 0].std()), *PORES_RANGE)
+    raw = float((lightness - cv2.GaussianBlur(lightness, (0, 0), 3))[skin > 0].std())
+    reliability = "LOW" if raw <= _PORES_NOISE_FLOOR else "NORMAL"
+    return _to_score(raw, *PORES_RANGE), reliability
 
 
 def _trouble(lightness: np.ndarray, a_channel: np.ndarray, skin: np.ndarray) -> int:
@@ -101,16 +118,18 @@ def _trouble(lightness: np.ndarray, a_channel: np.ndarray, skin: np.ndarray) -> 
     return _to_score(float(np.percentile(combined, 99)), *TROUBLE_RANGE)
 
 
-def compute(image_bgr: np.ndarray, masks: dict[str, np.ndarray]) -> SkinScores:
-    """전처리를 마친 이미지에서 지표 4종을 산출한다."""
+def compute(image_bgr: np.ndarray, masks: dict[str, np.ndarray]) -> AnalysisResult:
+    """전처리를 마친 이미지에서 지표 4종과 모공 지표의 신뢰도를 산출한다."""
     lightness, a_channel = _channels(image_bgr)
     skin = masks["skin"]
 
+    pores_score, pores_reliability = _pores(lightness, skin)
     scores = SkinScores(
         TROUBLE=_trouble(lightness, a_channel, skin),
         REDNESS=_redness(a_channel, masks["cheeks"]),
-        PORES=_pores(lightness, skin),
+        PORES=pores_score,
         PIGMENTATION=_pigmentation(lightness, skin),
     )
-    log.info("지표 산출: %s", scores.model_dump())
-    return scores
+    result = AnalysisResult(scores=scores, pores_reliability=pores_reliability)
+    log.info("지표 산출: %s", result.model_dump())
+    return result

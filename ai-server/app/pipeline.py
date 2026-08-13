@@ -1,8 +1,6 @@
 """피부 분석 파이프라인.
 
-    이미지 디코딩 → 얼굴 검출 → 피부 영역 분리 → (Phase 3) 정규화 → (Phase 4) 지표 산출
-
-Phase 2까지 구현됐다. 지표 산출은 아직 자리표시자이며 Phase 4에서 채운다.
+    이미지 디코딩 → 얼굴 검출 → 피부 영역 분리 → 정규화 → 지표 산출
 """
 
 from __future__ import annotations
@@ -14,7 +12,7 @@ import numpy as np
 
 from app import face_regions, landmarks, metrics, preprocess
 from app.errors import AnalysisFailedError
-from app.schema import SkinScores
+from app.schema import AnalysisResult
 
 log = logging.getLogger(__name__)
 
@@ -49,8 +47,8 @@ def _normalize_scale(image_bgr: np.ndarray, points: np.ndarray) -> tuple[np.ndar
     return cv2.resize(image_bgr, size, interpolation=interpolation), points * ratio
 
 
-def analyze(image_bytes: bytes) -> SkinScores:
-    """이미지 바이트를 받아 지표 4종 점수를 산출한다.
+def analyze(image_bytes: bytes) -> AnalysisResult:
+    """이미지 바이트를 받아 지표 4종 점수와 모공 지표 신뢰도를 산출한다.
 
     :raises AnalysisError: 얼굴 미검출 · 품질 미달 · 분석 실패
     """

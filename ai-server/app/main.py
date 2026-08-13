@@ -38,7 +38,8 @@ async def health() -> dict[str, str]:
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(image: UploadFile = File(...)) -> AnalyzeResponse:
-    """얼굴 사진 한 장을 분석해 지표 4종 점수를 반환한다."""
+    """얼굴 사진 한 장을 분석해 지표 4종 점수와 모공 지표 신뢰도를 반환한다."""
     image_bytes = await image.read()
     log.info("분석 요청: filename=%s bytes=%d", image.filename, len(image_bytes))
-    return AnalyzeResponse(scores=pipeline.analyze(image_bytes))
+    result = pipeline.analyze(image_bytes)
+    return AnalyzeResponse(scores=result.scores, pores_reliability=result.pores_reliability)

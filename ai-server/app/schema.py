@@ -5,6 +5,7 @@ Spring의 `SkinAnalysisResult`(지표 4종 0~100 점수)와 1:1로 맞춘다. �
 """
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -30,8 +31,21 @@ class SkinScores(BaseModel):
     PIGMENTATION: int = Field(ge=0, le=100)
 
 
-class AnalyzeResponse(BaseModel):
+class AnalysisResult(BaseModel):
+    """지표 산출 결과. `pores_reliability`는 모공 지표에만 있다.
+
+    모공은 카메라 노이즈·JPEG 압축 아티팩트와 신호 대역이 겹쳐 원리적으로 신뢰도가 낮다(실측:
+    깨끗한 얼굴 20장의 측정값이 촬영마다 흔들리는 폭이 다른 세 지표보다 훨씬 크다). 점수를
+    숨기지 않고 신뢰도를 함께 내려보낸다 — "낮은 신뢰도의 점수"와 "점수 없음"은 다른 정보라
+    후자로 뭉개면 정보 손실이다. 나머지 세 지표는 이 문제가 없어 신뢰도 필드를 따로 두지 않는다.
+    """
+
     scores: SkinScores
+    pores_reliability: Literal["LOW", "NORMAL"]
+
+
+class AnalyzeResponse(AnalysisResult):
+    pass
 
 
 class AnalyzeErrorResponse(BaseModel):

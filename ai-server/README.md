@@ -13,7 +13,14 @@ Spring Boot의 `LocalVisionSkinAnalysisClient`가 이 서버를 호출한다.
 | REDNESS | spread 0 | diff 8 | 높음 |
 | TROUBLE | spread 0 | diff 0 | 높음 |
 | PIGMENTATION | spread 1 | diff 0 | 높음 |
-| PORES | spread 8 | - | **낮음** — 카메라 노이즈와 주파수 대역이 겹쳐 원리적으로 완전히 분리되지 않는다 |
+| PORES | spread 0 (구간 재조정 후) | - | **원리적으로 낮음** — 응답에 `pores_reliability` 필드로 별도 표시 |
+
+**PORES는 점수만으로 신뢰도를 판단하면 안 된다.** 카메라 노이즈·JPEG 압축 아티팩트가 모공
+텍스처와 같은 주파수 대역에 있어 원리적으로 완전히 분리되지 않는다. `PORES_RANGE`를 넓혀
+(`app/metrics.py`) 정상 촬영 잡음으로 인한 흔들림(spread 8 → 0)은 줄였지만, 측정값이 여전히
+"노이즈인지 실제 모공 상태인지 구분 안 되는 구간"에 있을 때는 응답의 `pores_reliability`가
+`LOW`로 내려간다. 점수를 지어내는 대신 신뢰도를 함께 알려주는 방식을 택했다 — "낮은 신뢰도의
+점수"와 "점수 없음"은 다른 정보라 후자로 뭉개면 정보 손실이다.
 
 ## 무엇이 아닌가
 
@@ -60,7 +67,7 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 
 ```bash
 curl -X POST http://127.0.0.1:8000/analyze -F "image=@face.jpg"
-# {"scores":{"TROUBLE":81,"REDNESS":62,"PORES":47,"PIGMENTATION":90}}
+# {"scores":{"TROUBLE":81,"REDNESS":62,"PORES":47,"PIGMENTATION":90},"pores_reliability":"NORMAL"}
 ```
 
 실패는 422와 본문 `code`로 알린다. HTTP 상태만으로는 사유를 구분할 수 없어 코드로 분기한다.

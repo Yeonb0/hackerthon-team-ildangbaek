@@ -22,8 +22,12 @@ from tests.conftest import draw_face, encode_jpeg
 
 METRICS = ("TROUBLE", "REDNESS", "PORES", "PIGMENTATION")
 
-# 실측 spread(연속 촬영 5장, 센서 노이즈 sigma=3): TROUBLE 0, REDNESS 0, PIGMENTATION 1, PORES 8.
-# PORES만 별도로 넉넉한 허용치를 둔다 — 화질 의존성이 크다는 계획 단계의 예상과 일치한다.
+# 실측 spread(연속 촬영 5장, 센서 노이즈 sigma=3): TROUBLE 0, REDNESS 0, PIGMENTATION 1, PORES 0.
+# PORES_RANGE를 (4.0, 14.0)에서 (6.5, 16.0)으로 넓힌 뒤(clean 20장의 hf_std 자연 변동
+# 4.92~6.19를 구간 하한 아래로 깔아 흡수) spread가 8에서 0으로 줄었다. 그래도 신뢰도가
+# 다른 세 지표와 원리적으로 같은 수준이 된 것은 아니라 허용치는 여전히 넉넉하게 둔다 —
+# 노이즈가 더 크면(예: 실제 저조도 사진) 다시 벌어질 수 있고, pores_reliability=LOW로
+# 그 경우를 API 응답에서 구분한다(app/metrics.py 참고).
 STABLE_METRICS = ("TROUBLE", "REDNESS", "PIGMENTATION")
 STABLE_TOLERANCE = 5
 PORES_TOLERANCE = 15
@@ -35,15 +39,15 @@ LIGHTING_TOLERANCE = 10
 
 
 def scores_of(image: np.ndarray, quality: int = 95) -> dict[str, int]:
-    return pipeline.analyze(encode_jpeg(image, quality)).model_dump()
+    return pipeline.analyze(encode_jpeg(image, quality)).scores.model_dump()
 
 
 def test_reproducibility() -> None:
     """같은 바이트 입력은 항상 같은 점수를 내야 한다."""
     image = encode_jpeg(draw_face())
 
-    first = pipeline.analyze(image).model_dump()
-    second = pipeline.analyze(image).model_dump()
+    first = pipeline.analyze(image).scores.model_dump()
+    second = pipeline.analyze(image).scores.model_dump()
 
     assert first == second
 

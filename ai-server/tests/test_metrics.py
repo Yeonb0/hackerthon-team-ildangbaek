@@ -14,7 +14,7 @@ from tests.conftest import draw_face, encode_jpeg
 
 
 def scores_of(image: np.ndarray) -> dict[str, int]:
-    return pipeline.analyze(encode_jpeg(image)).model_dump()
+    return pipeline.analyze(encode_jpeg(image)).scores.model_dump()
 
 
 @pytest.fixture(scope="module")
@@ -98,3 +98,21 @@ def test_to_score_clamps_beyond_range() -> None:
 def test_to_score_rejects_inverted_range() -> None:
     with pytest.raises(ValueError):
         metrics._to_score(5.0, 16.0, 4.0)
+
+
+def test_pores_reliability_is_low_within_noise_floor(clean: dict[str, int]) -> None:
+    """정상 촬영 잡음만으로도 나올 수 있는 측정값 구간에서는 LOW를 반환해야 한다.
+
+    실측(clean 20장, 센서 노이즈만 다름)에서 hf_std가 4.92~6.19로 자연 변동했다 — 이 구간의
+    점수는 "모공이 실제로 좋다"가 아니라 "노이즈와 구분이 안 된다"는 뜻이다.
+    """
+    result = pipeline.analyze(encode_jpeg(draw_face()))
+
+    assert result.pores_reliability == "LOW"
+
+
+def test_pores_reliability_is_normal_for_clear_texture_signal() -> None:
+    """트러블처럼 뚜렷한 텍스처 신호가 있으면 NORMAL로 올라가야 한다."""
+    result = pipeline.analyze(encode_jpeg(draw_face(blemishes=14)))
+
+    assert result.pores_reliability == "NORMAL"
