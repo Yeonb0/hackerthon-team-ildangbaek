@@ -17,10 +17,10 @@ import { s } from '@/lib/scale';
 import type { SkinTypeCode } from '@/types/onboarding';
 
 const SKIN_TYPE_OPTIONS: { value: SkinTypeCode; title: string; description: string }[] = [
-  { value: 'OILY', title: '지성', description: '유분이 많고 쉽게 번들거려요' },
-  { value: 'DRY', title: '건성', description: '당기고 각질이 잘 생겨요' },
-  { value: 'SENSITIVE', title: '민감성', description: '쉽게 붉어지거나 따가워요' },
-  { value: 'UNKNOWN', title: '모르겠음', description: '다른 항목과 함께 선택할 수 없어요' },
+  { value: 'OILY', title: '지성', description: 'T존이 번들거리거나 메이크업이 잘 들뜨는 편이에요' },
+  { value: 'DRY', title: '건성', description: '당김·각질이 자주 생기고 보습이 부족하게 느껴져요' },
+  { value: 'SENSITIVE', title: '민감성', description: '새 제품에 쉽게 반응하거나 홍조·따가움이 생겨요' },
+  { value: 'UNKNOWN', title: '모르겠음', description: '선택하면 위 항목이 모두 해제돼요' },
 ];
 
 // S-02는 온보딩 플로우의 두 번째 화면 (currentStepIndex 고정)
@@ -97,7 +97,7 @@ export function SkinTypeScreen() {
       />
 
       <Text style={styles.title}>피부 타입을 알려주세요</Text>
-      <Text style={styles.subtitle}>중복 선택할 수 있어요</Text>
+      <Text style={styles.subtitle}>복합성이라면 여러 개 선택하세요</Text>
 
       <View style={styles.optionList}>
         {SKIN_TYPE_OPTIONS.map((option) => {

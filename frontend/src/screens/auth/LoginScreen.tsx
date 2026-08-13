@@ -72,7 +72,7 @@ export function LoginScreen() {
           으로 통일했습니다 (2026-08-13).
         */}
         <Button
-          label="이메일로 계속하기"
+          label="이메일로 로그인하기"
           variant="secondary"
           onPress={() => navigation.navigate(AuthRoutes.EmailLogin)}
         />
