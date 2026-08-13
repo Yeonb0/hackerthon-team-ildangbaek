@@ -18,7 +18,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * docs/ERD.md 7장 SkinMetric. 피부 기록 1건에 대한 지표별(TROUBLE/REDNESS/MOISTURE_OIL) 분석값.
+ * docs/ERD.md 7장 SkinMetric. 피부 기록 1건에 대한 지표별(TROUBLE/REDNESS/PORES/PIGMENTATION) 분석값.
  */
 @Entity
 @Getter

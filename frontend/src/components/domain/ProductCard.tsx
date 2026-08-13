@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconImagePlaceholder, IconList } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 
 type ProductCardProps = {
@@ -57,7 +57,7 @@ export function ProductCard({
     >
       <View style={styles.thumbnail}>
         {/* TODO: 이미지 파이프라인 붙이면 imageUrl로 <Image> 교체. 지금은 항상 placeholder 아이콘 */}
-        <Ionicons name="image-outline" size={22} color={color.ink300} />
+        <IconImagePlaceholder size={22} color={color.ink300} />
       </View>
       <View style={styles.info}>
         <Text style={styles.brand} numberOfLines={1}>
@@ -85,7 +85,7 @@ export function ProductCard({
               hitSlop={8}
               style={styles.ingredientButton}
             >
-              <Ionicons name="list-outline" size={13} color={color.brand700} />
+              <IconList size={13} color={color.brand700} />
               <Text style={styles.ingredientButtonText}>성분 보기</Text>
             </Pressable>
           ) : null}

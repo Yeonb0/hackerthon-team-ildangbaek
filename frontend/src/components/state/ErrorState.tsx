@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon, AppIconName } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { color, space } from '@/theme/tokens';
 
@@ -13,22 +13,25 @@ type ErrorStateProps = {
 };
 
 // ⚠️ 임시 카피 — 기획 문구 확정 전까지 사용하는 placeholder입니다. 확정되면 이 표만 교체하면 됩니다.
+// 아이콘: Checkpoint 9-B에서 network/server는 신규 세트(cloudError/warning)로 교체.
+// notFound(search-outline)는 'search'로 교체 — AppIcon이 신규 세트를 우선 사용합니다.
 const VARIANT_COPY: Record<
   ErrorVariant,
-  { icon: keyof typeof Ionicons.glyphMap; title: string; description: string }
+  { icon: AppIconName; title: string; description: string }
 > = {
   network: {
-    icon: 'cloud-offline-outline',
+    icon: 'cloudError',
     title: '연결이 원활하지 않아요',
     description: '네트워크 상태를 확인하고 다시 시도해 주세요.',
   },
   server: {
-    icon: 'alert-circle-outline',
+    // Ionicons alert-circle-outline(원+느낌표)과 형태가 가장 비슷한 게 신규 세트의 warning입니다.
+    icon: 'warning',
     title: '잠시 문제가 생겼어요',
     description: '잠시 후 다시 시도해 주세요.',
   },
   notFound: {
-    icon: 'search-outline',
+    icon: 'search',
     title: '찾을 수 없어요',
     description: '요청하신 내용을 찾지 못했어요.',
   },
@@ -43,7 +46,7 @@ export function ErrorState({ variant, onRetry, style }: ErrorStateProps) {
   const copy = VARIANT_COPY[variant];
   return (
     <View style={[styles.container, style]}>
-      <Ionicons name={copy.icon} size={40} color={color.statusCaution} />
+      <AppIcon name={copy.icon} size={40} color={color.statusCaution} />
       <Text style={styles.title}>{copy.title}</Text>
       <Text style={styles.description}>{copy.description}</Text>
       {onRetry ? (

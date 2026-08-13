@@ -1,7 +1,7 @@
 // src/components/domain/InsightCard.tsx
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon, AppIconName } from '@/components/icons';
 import { Card } from '@/components/base/Card';
 import { color, space, typography } from '@/theme';
 import type { InsightSummary } from '@/types/report';
@@ -12,11 +12,10 @@ type InsightCardProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const TYPE_CONFIG: Record<
-  InsightSummary['type'],
-  { label: string; icon: keyof typeof Ionicons.glyphMap }
-> = {
-  INGREDIENT: { label: '성분 요인', icon: 'flask-outline' },
+// INGREDIENT(flask)는 2026-08-12 추가분으로 교체 완료. ENVIRONMENT(partly-sunny-outline)는
+// 날씨 아이콘 7종이 아직 안 와서 계속 Ionicons 유지 — AppIcon이 자동 폴백합니다.
+const TYPE_CONFIG: Record<InsightSummary['type'], { label: string; icon: AppIconName }> = {
+  INGREDIENT: { label: '성분 요인', icon: 'flask' },
   ENVIRONMENT: { label: '환경 요인', icon: 'partly-sunny-outline' },
 };
 
@@ -32,7 +31,7 @@ export function InsightCard({ insight, onPress, style }: InsightCardProps) {
       <Card padding={4} style={style}>
         <View style={styles.header}>
           <View style={styles.typeRow}>
-            <Ionicons name={config.icon} size={14} color={color.brand700} />
+            <AppIcon name={config.icon} size={14} color={color.brand700} />
             <Text style={styles.typeLabel}>{config.label}</Text>
           </View>
           {insight.confidence === 'OBSERVING' && (

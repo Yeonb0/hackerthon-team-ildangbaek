@@ -65,13 +65,24 @@ public class AnalysisInsight {
     @Column(name = "confidence_score", precision = 5, scale = 2)
     private BigDecimal confidenceScore;
 
+    /**
+     * 사용 후 며칠 뒤의 변화인지 (1~7). REPORT-02가 이벤트 문구에 싣는다.
+     * 시차 개념이 없는 ENVIRONMENT 인사이트에는 값이 없다.
+     */
+    @Column(name = "lag_days")
+    private Integer lagDays;
+
+    /** 관측된 지표 변화량의 평균. 부호는 지표값 기준이라 양수면 증상 악화다. */
+    @Column(name = "average_delta", precision = 6, scale = 2)
+    private BigDecimal averageDelta;
+
     @Column(name = "generated_at", nullable = false)
     private LocalDateTime generatedAt;
 
     @Builder
     private AnalysisInsight(User user, InsightType insightType, SkinMetricType metricType, String title,
                              String description, String recommendation, LocalDate startDate, LocalDate endDate,
-                             BigDecimal confidenceScore) {
+                             BigDecimal confidenceScore, Integer lagDays, BigDecimal averageDelta) {
         this.user = user;
         this.insightType = insightType;
         this.metricType = metricType;
@@ -81,6 +92,8 @@ public class AnalysisInsight {
         this.startDate = startDate;
         this.endDate = endDate;
         this.confidenceScore = confidenceScore;
+        this.lagDays = lagDays;
+        this.averageDelta = averageDelta;
         this.generatedAt = LocalDateTime.now();
     }
 }

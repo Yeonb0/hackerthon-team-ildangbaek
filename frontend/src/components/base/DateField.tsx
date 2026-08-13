@@ -1,7 +1,7 @@
 // src/components/base/DateField.tsx
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconCalendar } from '@/components/icons';
 import { Calendar } from '@/components/base/Calendar';
 import { Button } from '@/components/base/Button';
 import { color, radius, space } from '@/theme/tokens';
@@ -46,7 +46,7 @@ export function DateField({
         <Text style={value ? styles.valueText : styles.placeholderText}>
           {value ?? placeholder}
         </Text>
-        <Ionicons name="calendar-outline" size={18} color={color.ink600} />
+        <IconCalendar size={18} color={color.ink600} />
       </Pressable>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}

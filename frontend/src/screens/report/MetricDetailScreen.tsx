@@ -108,7 +108,7 @@ export function MetricDetailScreen() {
         </View>
       ) : (
         <EmptyState
-          icon="calendar-outline"
+          icon="calendar"
           title="아직 눈에 띄는 이벤트가 없어요"
           description="기록이 더 쌓이면 관련 이벤트를 찾아드려요."
         />

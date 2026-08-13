@@ -1,11 +1,12 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon, AppIconName } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { color, space } from '@/theme/tokens';
 
 type EmptyStateProps = {
-  icon?: keyof typeof Ionicons.glyphMap;
+  /** 신규 세트에 대응 아이콘이 있으면 그 이름, 없으면 계속 Ionicons 이름을 씁니다. */
+  icon?: AppIconName;
   title: string;
   description?: string;
   actionLabel?: string;
@@ -18,7 +19,7 @@ type EmptyStateProps = {
  * 예: 기록이 없는 캘린더 날짜, 검색 결과 없음 등.
  */
 export function EmptyState({
-  icon = 'file-tray-outline',
+  icon = 'trayEmpty',
   title,
   description,
   actionLabel,
@@ -27,7 +28,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <View style={[styles.container, style]}>
-      <Ionicons name={icon} size={40} color={color.ink300} />
+      <AppIcon name={icon} size={40} color={color.ink300} />
       <Text style={styles.title}>{title}</Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
       {actionLabel && onAction ? (

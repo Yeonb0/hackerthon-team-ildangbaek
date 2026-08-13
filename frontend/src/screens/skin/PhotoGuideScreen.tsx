@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { IconPersonCircle } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Card } from '@/components/base/Card';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
@@ -40,7 +40,7 @@ export function PhotoGuideScreen() {
 
       {/* 예시 이미지 — 실제 이미지 에셋은 디자인 확정 후 교체 (BR1) */}
       <View style={styles.exampleBox}>
-        <Ionicons name="person-circle-outline" size={72} color={color.ink300} />
+        <IconPersonCircle size={72} color={color.ink300} />
         <Text style={styles.exampleLabel}>예시 이미지 (디자인 확정 전)</Text>
       </View>
 

@@ -3,6 +3,11 @@ spring:
     name: backend
   profiles:
     active: local
+  servlet:
+    multipart:
+      # SKIN-01 이미지 상한(10MB)에 맞춘다. 기본값(파일 1MB)이면 정상 사진도 튕긴다.
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 server:
   port: 8080
@@ -12,3 +17,12 @@ management:
     web:
       exposure:
         include: health
+
+app:
+  storage:
+    local:
+      directory: ${STORAGE_LOCAL_DIR:./uploads/images}
+      url-prefix: ${STORAGE_LOCAL_URL_PREFIX:/images/}
+  skin:
+    analysis:
+      provider: ${SKIN_ANALYSIS_PROVIDER:mock}

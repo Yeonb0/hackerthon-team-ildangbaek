@@ -45,8 +45,13 @@ apiClient.interceptors.response.use(
       if (!isRefreshing) {
         isRefreshing = true;
         try {
+          // ⚠️ 버그 수정 (2026-08-11): 다른 모든 apiClient.* 호출은 '/api/v1' 없이 상대경로만
+          // 쓴다 — 즉 baseURL(EXPO_PUBLIC_API_BASE_URL)에 이미 '/api/v1'이 포함되어 있다는
+          // 전제다. 여기만 apiClient가 아닌 raw axios를 써서 '/api/v1'을 직접 붙이고 있었고,
+          // 그 결과 실서버 연결 시 refresh만 '.../api/v1/api/v1/auth/refresh'로 이중 접두사가
+          // 붙어 항상 실패하는 버그였다. 나머지 호출과 동일한 규칙으로 통일한다.
           const { data } = await axios.post(
-            `${API_BASE_URL}/api/v1/auth/refresh`,
+            `${API_BASE_URL}/auth/refresh`,
             null,
             { headers: { 'Refresh-Token': refreshToken } }
           );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconArrowDown, IconArrowUp, IconMinus } from '@/components/icons';
 import { MetricListItem } from '@/api/adapters';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { color, space } from '@/theme/tokens';
@@ -43,19 +43,16 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   if (delta === 0) {
     return (
       <View style={styles.deltaRow}>
-        <Ionicons name="remove" size={12} color={color.ink600} />
+        <IconMinus size={12} color={color.ink600} />
         <Text style={styles.deltaNeutral}>변화 없음</Text>
       </View>
     );
   }
   const isUp = delta > 0;
+  const ArrowIcon = isUp ? IconArrowUp : IconArrowDown;
   return (
     <View style={styles.deltaRow}>
-      <Ionicons
-        name={isUp ? 'arrow-up' : 'arrow-down'}
-        size={12}
-        color={isUp ? color.statusGood : color.statusCaution}
-      />
+      <ArrowIcon size={12} color={isUp ? color.statusGood : color.statusCaution} />
       <Text style={[styles.deltaText, { color: isUp ? color.statusGood : color.statusCaution }]}>
         {Math.abs(delta)}
       </Text>

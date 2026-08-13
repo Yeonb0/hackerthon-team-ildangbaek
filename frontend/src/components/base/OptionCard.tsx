@@ -1,7 +1,7 @@
 // src/components/base/OptionCard.tsx
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconCheck, IconCircleEmpty } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 
 type OptionCardProps = {
@@ -43,11 +43,11 @@ export function OptionCard({
         <Text style={[styles.title, selected && styles.titleSelected]}>{title}</Text>
         {description ? <Text style={styles.description}>{description}</Text> : null}
       </View>
-      <Ionicons
-        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-        size={22}
-        color={selected ? color.brand500 : color.ink300}
-      />
+      {selected ? (
+        <IconCheck size={22} color={color.brand500} />
+      ) : (
+        <IconCircleEmpty size={22} color={color.ink300} />
+      )}
     </Pressable>
   );
 }

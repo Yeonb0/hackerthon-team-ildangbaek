@@ -4,7 +4,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
+import { IconCheck, IconCircleEmpty, IconFaceScan } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { ErrorState, type ErrorVariant } from '@/components/state/ErrorState';
 import { createSkinRecord } from '@/api/skin';
@@ -121,7 +121,7 @@ export function AnalyzingSkinScreen() {
   if (phase === 'faceNotDetected') {
     return (
       <View style={styles.centerFill}>
-        <Ionicons name="scan-outline" size={s(48)} color={color.ink300} />
+        <IconFaceScan size={s(48)} color={color.ink300} />
         <Text style={styles.messageTitle}>얼굴이 잘 안 보여요</Text>
         <Text style={styles.messageDescription}>
           가이드 안에 얼굴 전체가 들어오게 다시 촬영해 주세요.
@@ -147,11 +147,14 @@ export function AnalyzingSkinScreen() {
       <View style={styles.stageList}>
         {STAGES.map((stage, index) => (
           <View key={stage} style={styles.stageRow}>
-            <Ionicons
-              name={index < stageIndex ? 'checkmark-circle' : 'ellipse-outline'}
-              size={18}
-              color={index <= stageIndex ? color.brand500 : color.ink300}
-            />
+            {index < stageIndex ? (
+              <IconCheck size={18} color={color.brand500} />
+            ) : (
+              <IconCircleEmpty
+                size={18}
+                color={index <= stageIndex ? color.brand500 : color.ink300}
+              />
+            )}
             <Text style={[styles.stageText, index <= stageIndex && styles.stageTextActive]}>
               {stage}
             </Text>

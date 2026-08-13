@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconBarcode, IconClose, IconSearch } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 
 type ProductSearchBarProps = {
@@ -27,7 +27,7 @@ export function ProductSearchBar({
   const hasText = value.length > 0;
   return (
     <View style={[styles.container, style]}>
-      <Ionicons name="search-outline" size={18} color={color.ink300} style={styles.leadingIcon} />
+      <IconSearch size={18} color={color.ink300} style={styles.leadingIcon} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -45,11 +45,13 @@ export function ProductSearchBar({
         hitSlop={8}
         style={styles.trailingButton}
       >
-        <Ionicons
-          name={hasText ? 'close-circle' : 'barcode-outline'}
-          size={20}
-          color={hasText ? color.ink600 : color.brand700}
-        />
+        {hasText ? (
+          // Ionicons close-circle(원+X)에 대응하는 원형 버전이 없어 icon-close(원 없는 X)로 교체
+          // (checkmark-circle→check와 같은 원칙, Checkpoint 9-B)
+          <IconClose size={20} color={color.ink600} />
+        ) : (
+          <IconBarcode size={20} color={color.brand700} />
+        )}
       </Pressable>
     </View>
   );

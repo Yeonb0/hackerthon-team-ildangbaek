@@ -32,7 +32,10 @@ const PADDING_Y = 12;
 /**
  * 기간별 추이 그래프. REPORT-01/02 공용입니다.
  *
- * - 결측(score: null)은 막대·선 어느 쪽에서도 그리지 않고 빈 자리로만 남깁니다.
+ * - 서버는 모닝·나이트를 각각 내려줍니다 (ADR 0012·0013). 이 그래프는 선 하나만
+ *   그리므로 나이트를 우선 쓰고 없으면 모닝으로 폴백합니다 — 두 계열을 동시에
+ *   그리는 건 별도 작업입니다.
+ * - 두 슬롯이 모두 결측인 날은 막대·선 어느 쪽에서도 그리지 않고 빈 자리로만 남깁니다.
  *   0점으로 계산하지 않습니다 (REPORT-01 BR1).
  * - variant="line"에서 유효한 점이 1개뿐이면 선을 그릴 수 없으므로 Circle 하나로
  *   폴백합니다(로드맵 Phase 6 6-2 명시 요구사항).
@@ -57,8 +60,8 @@ export function TrendGraph({
     PADDING_Y + chartH - ((score - SCORE_MIN) / (SCORE_MAX - SCORE_MIN)) * chartH;
 
   const validPoints = points
-    .map((point, i) => ({ ...point, i }))
-    .filter((point): point is GraphPoint & { i: number; score: number } => point.score !== null);
+    .map((point, i) => ({ date: point.date, i, score: point.nightScore ?? point.morningScore }))
+    .filter((point): point is { date: string; i: number; score: number } => point.score !== null);
 
   const barWidth = n > 0 ? Math.max(6, chartW / n - 6) : 0;
 

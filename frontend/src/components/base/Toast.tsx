@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon, AppIconName } from '@/components/icons';
 import { color, radius, space, typography } from '@/theme';
 
 type ToastProps = {
   visible: boolean;
   message: string;
-  /** 메시지 앞에 붙일 아이콘. 미지정 시 아이콘 없음 — 성공 안내에는 'checkmark-circle'을 씁니다. */
-  icon?: keyof typeof Ionicons.glyphMap;
+  /**
+   * 메시지 앞에 붙일 아이콘. 미지정 시 아이콘 없음 — 성공 안내에는 'check'를 씁니다
+   * (Checkpoint 9-B 이전엔 Ionicons 'checkmark-circle'이었는데, 신규 세트엔 원형 배경이 없는
+   * 체크 표시만 있어서 그걸로 교체했습니다 — 관리자님 확인 2026-08-11).
+   */
+  icon?: AppIconName;
   iconColor?: string;
   /** 있으면 자동으로 닫히기 전까지 탭할 수 있는 보조 액션을 함께 보여줍니다 (예: "피부도 기록하기"). */
   actionLabel?: string;
@@ -73,7 +77,7 @@ export function Toast({
     >
       <View style={styles.toast}>
         <View style={styles.messageRow}>
-          {icon ? <Ionicons name={icon} size={18} color={iconColor} style={styles.icon} /> : null}
+          {icon ? <AppIcon name={icon} size={18} color={iconColor} style={styles.icon} /> : null}
           <Text style={styles.message}>{message}</Text>
         </View>
         {actionLabel && onActionPress ? (

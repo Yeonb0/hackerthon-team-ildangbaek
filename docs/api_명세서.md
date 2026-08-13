@@ -666,6 +666,8 @@ json
 3. `totalRecordCount`는 실제 저장된 기록 수다. 하루 2회 구조이므로 모닝·나이트를 각각 1회로 센다.
 4. `topIngredients`는 마이페이지 요약 노출용으로 최대 8건을 반환한다. 전체 목록은 USER-02를 사용한다.
 5. `completionRate`는 F-ANALYSIS-05 값을 그대로 사용하며, 구매 전 확인 화면과 동일한 값이어야 한다.
+   산출식은 ADR 0011에 있고 `ProfileCompletionCalculator`가 단독으로 계산한다 — 이 API가 자체
+   계산하면 안 된다. 위 예시의 `65`는 산출식과 무관한 임의값이다.
 
 ---
 
@@ -728,6 +730,20 @@ json
 1. `status`가 `INSUFFICIENT`인 성분의 `reason`은 `null`이다. **데이터가 부족한 성분에 판단 근거를 지어내지 않는다.**
 2. `recordCount`는 해당 성분이 포함된 제품의 기록 횟수다. 사용자가 왜 아직 데이터 부족인지 이해할 수 있게 한다.
 3. 정렬은 `GOOD` → `CAUTION` → `INSUFFICIENT` 순, 그룹 내에서는 `recordCount` 내림차순이다.
+4. 응답은 `ingredient_profiles`를 읽는다. F-ANALYSIS-04가 새 피부 기록마다 이 표를 갱신한다.
+   `status`는 `reaction_type`이며 `SUITABLE`은 `GOOD`으로 변환한다(ADR 0004). `reason`은 `reason_summary`,
+   `recordCount`는 `observation_count`(성분 노출 일수)다. 판정 기준은 ADR 0010에 있다.
+5. **프로파일이 비어 있어도 오류가 아니다.** `ingredients`를 빈 배열로 반환한다. 아직 기록이 없는
+   사용자에게 정상적으로 나타나는 상태이며, 이 API는 분석을 실행하지 않고 읽기만 한다.
+6. `completionRate`는 `status` 필터와 무관하게 항상 전체 기준이다. 필터는 목록에만 적용된다.
+7. `status`에 `GOOD` · `CAUTION` · `INSUFFICIENT` 외의 값이 오면 422다. **DB 표기인 `SUITABLE`도
+   거부한다** — API 경계는 `GOOD` 표기만 받는다(ADR 0004).
+
+**Error**
+
+| HTTP | Code | 조건 |
+| --- | --- | --- |
+| 422 | `COMMON_VALIDATION_FAILED` | `status`가 허용 값이 아님 |
 
 > 대상 화면이 디자인 담당에게 제작 요청된 상태입니다. 화면 확정 후 필드가 추가될 수 있습니다.
 > 
@@ -1886,23 +1902,34 @@ json
 
 **Transaction**
 
+**외부 호출은 트랜잭션 밖에서 한다.** 업로드와 AI 분석은 수 초가 걸리며, 이를 트랜잭션 안에 두면
+커넥션을 붙든 채 외부 응답을 기다리게 되어 동시 요청 시 커넥션 풀이 마른다. ([ADR 0001](decisions/0001-피부-기록-저장-시점.md))
+
 ```
-BEGIN
+[TX 밖]
+이미지 검증 (형식 · 크기)
+  ↓
+슬롯 중복 확인 ← 업로드·분석 전에 막는다. 뒤에 두면 실패할 요청에 분석 비용을 먼저 치른다
   ↓
 이미지 업로드 (Storage)
   ↓
-얼굴 검출
+얼굴 검출 → AI 서버 분석 요청
   ↓
-AI 서버 분석 요청
+종합 점수 계산 · 전일 동일 슬롯 비교 조회
   ↓
+[BEGIN]
 SkinRecord INSERT (date + timeSlot)
   ↓
-환경 데이터 연결
+SkinMetric INSERT × 4
   ↓
-AnalysisService 실행 → IngredientProfile UPDATE
+[COMMIT]
   ↓
-COMMIT
+IngredientProfile 갱신 훅
 ```
+
+> **환경 데이터 연결에는 별도 쓰기가 없다.** `daily_environments`는 `(user_id, record_date)`,
+> `skin_records`도 같은 조합을 가지므로 두 테이블은 이미 조인 가능하다. F-ANALYSIS-02가 필요할 때
+> 조회하면 되고, 환경 데이터가 없다고 해서 기록 저장이 실패해서는 안 된다.
 
 **Error**
 
@@ -1922,18 +1949,21 @@ COMMIT
 
 ---
 
-### ⚠ 저장 시점 · TBD-10b
+### 저장 시점 — 확정 (TBD-10b 해소)
 
-현재 화면 구조상 **피부 기록의 저장 지점은 S-18의 `확인` 버튼**입니다. 이대로면 사용자가 확인을 누르지 않고 이탈할 때 분석 결과가 유실됩니다.
+**분석 완료 시점에 저장한다 (A안).** `POST /skin-records` 한 번으로 업로드 · 분석 · 저장이 모두 끝나고,
+S-18의 `확인` 버튼은 **화면을 닫는 역할만** 하며 서버 호출을 발생시키지 않는다.
+([ADR 0001](decisions/0001-피부-기록-저장-시점.md))
 
-이 명세는 **분석 완료 시점에 저장하는 안(A안)** 을 전제로 작성했습니다. 즉 `POST /skin-records` 한 번으로 분석과 저장이 모두 끝나고, S-18의 `확인` 버튼은 화면을 닫는 역할만 합니다.
+`POST /skin-records/analyze`는 **만들지 않는다.**
 
-| 안 | API 구조 | 장단점 |
-| --- | --- | --- |
-| **A. 분석 완료 시 저장** (본 명세) | `POST /skin-records` 1회 | 유실 없음 · 사용자가 취소해도 기록이 남음 |
-| B. 확인 시 저장 | `POST /skin-records/analyze` → `POST /skin-records` | 사용자 의도 존중 · 유실 위험 · 이미지 임시 보관 필요 |
+사용자가 결과를 보지 않고 이탈해도 기록은 남는다. **이는 의도된 동작이다.** 이미 AI 분석 비용을 치른
+뒤이므로 유실이 사용자와 서버 양쪽에 손해이며, 피부 기록은 개인 성분 프로파일(F-ANALYSIS-04)과
+리포트(F-REPORT-01)의 유일한 입력이라 한 건의 유실이 분석 품질에 직접 영향을 준다.
+기록 취소·삭제는 MVP 범위 밖이며 필요해지면 별도 ADR로 다룬다.
 
-**B안으로 결정되면 API가 2개로 분리되어야 하므로, 구현 착수 전 확정이 필요합니다.**
+**`totalScore` 산출** — 지표 4종의 단순 평균을 반올림한 0~100 정수다.
+가중치를 둘 근거 데이터가 없어 임의 가중을 피한다. ([ADR 0008](decisions/0008-종합-점수-산출식.md))
 
 ---
 
@@ -2166,10 +2196,10 @@ json
     "metric": "TROUBLE",
 
     "graph": [
-      { "date": "2026-08-01", "score": 73 },
-      { "date": "2026-08-02", "score": 76 },
-      { "date": "2026-08-03", "score": null },
-      { "date": "2026-08-04", "score": 71 }
+      { "date": "2026-08-01", "morningScore": 70, "nightScore": 73 },
+      { "date": "2026-08-02", "morningScore": 76, "nightScore": null },
+      { "date": "2026-08-03", "morningScore": null, "nightScore": null },
+      { "date": "2026-08-04", "morningScore": 68, "nightScore": 71 }
     ],
 
     "insights": [
@@ -2196,18 +2226,26 @@ json
 
 **Business Rule**
 
-1. **기록이 없는 날짜는 `score: null`이다. 0으로 계산하지 않는다.** 클라이언트는 해당 지점을 결측으로 렌더링한다.
-2. 하루 2건이 존재할 수 있으므로 일자별 대표값을 산출한다. **기본 규칙: 나이트 우선, 없으면 모닝.**
+1. **기록이 없는 슬롯은 `null`이다. 0으로 계산하지 않는다.** 클라이언트는 해당 지점을 결측으로 렌더링한다.
+   하루에 한쪽만 기록한 날은 그 슬롯만 값이 있고, 아예 기록이 없는 날은 `morningScore` · `nightScore`가 둘 다 `null`이다.
+2. **하루 2건(모닝·나이트)을 대표값으로 접지 않고 각각 반환한다.** 사용자가 "낮에 바른 제품 vs 밤에 바른 제품"의
+   영향을 구분해서 볼 수 있어야 하기 때문이다. (ADR 0012)
 3. 리포트 최소 요건은 **피부 사진 필수 · 제품 기록 선택**이다. 제품 기록이 없다는 이유로 `REPORT_DATA_INSUFFICIENT`를 반환하지 않는다.
 4. 실제 분석 데이터가 있는 인사이트만 반환한다. 데이터가 부족하면 빈 배열이다.
 5. `confidence`가 `OBSERVING`인 인사이트는 단정적 문구를 쓰지 않는다.
 
 **`confidence` 값**
 
-| 값 | 의미 |
-| --- | --- |
-| `OBSERVED` | 반복 관찰된 패턴 |
-| `OBSERVING` | 확인 중 · 반복성 미확보 |
+| 값 | 의미 | 판정 기준 |
+| --- | --- | --- |
+| `OBSERVED` | 반복 관찰된 패턴 | `confidence_score` 67 이상 |
+| `OBSERVING` | 확인 중 · 반복성 미확보 | `confidence_score` 67 미만 또는 `null` |
+
+`confidence_score`는 F-ANALYSIS-01이 산출한 **동일 방향 변화 비율(0~100)**이며, 임계값 67은
+패턴 확정 기준과 같은 값이다. 한쪽만 바꾸면 두 판정이 어긋난다. (ADR 0009)
+
+`insights`는 F-ANALYSIS-01이 `analysis_insights`에 남긴 행을 신뢰도 내림차순으로 반환한다.
+성분 인사이트는 새 피부 기록마다 재계산되어 이전 회차를 대체하므로 누적되지 않는다.
 
 **Error**
 
@@ -2216,7 +2254,8 @@ json
 | 422 | `REPORT_INVALID_PERIOD` |
 | 409 | `REPORT_DATA_INSUFFICIENT` |
 
-> **TBD-12** — 일자별 대표값 산출 규칙(나이트 우선)은 제안입니다. 백엔드 확인이 필요합니다.
+> **TBD-12 해소** — 일자별 대표값 산출 규칙은 **대표값을 쓰지 않는 것**으로 확정했습니다.
+> 모닝·나이트를 각각 내려주므로 접는 규칙 자체가 필요 없습니다. (ADR 0012)
 > 
 > 
 > **개발 판단** — 현재 그래프는 단순 막대입니다. 선 그래프가 필요하면 차트 라이브러리 도입을 검토해야 합니다.
@@ -2251,27 +2290,21 @@ json
     "subtitle": "최근 30일 · 이벤트와 상관관계",
 
     "graph": [
-      { "date": "2026-07-08", "score": 68 },
-      { "date": "2026-07-15", "score": 74 }
+      { "date": "2026-07-08", "morningScore": 64, "nightScore": 68 },
+      { "date": "2026-07-15", "morningScore": null, "nightScore": 74 }
     ],
 
     "events": [
       {
         "date": "2026-07-10",
-        "label": "독도어성초크림 첫 사용",
+        "label": "레티놀 이 기간 첫 사용",
         "impact": "이후 2일 뒤 트러블 수치 +18",
         "confidence": "OBSERVED"
       },
       {
         "date": "2026-07-22",
-        "label": "자외선 지수 9 이상 3일 연속",
-        "impact": "이후 홍조 수치 +12",
-        "confidence": "OBSERVED"
-      },
-      {
-        "date": "2026-08-01",
-        "label": "나이아신아마이드 세럼 재시작",
-        "impact": "트러블 개선 추세 확인 중",
+        "label": "자외선 지수 8 이상 3일 연속",
+        "impact": "이 기간 트러블 변화를 확인 중이에요",
         "confidence": "OBSERVING"
       }
     ]
@@ -2283,6 +2316,23 @@ json
 
 1. `events`는 날짜 오름차순이다.
 2. 확정되지 않은 패턴은 `confidence: "OBSERVING"`으로 반환하고 `impact` 문구도 단정하지 않는다.
+   확정된 패턴만 시차 일수와 변화량을 문구에 싣는다.
+3. `graph`는 REPORT-01과 같이 모닝·나이트를 각각 싣는다. 기록이 없는 슬롯은 `null`이다 (ADR 0012·0013).
+   기간은 인사이트가 만들어진 `[start_date, end_date]`이며, 이벤트도 같은 창에서 도출된다.
+4. `events`는 저장하지 않고 조회 시점에 기록에서 도출한다 (ADR 0013). 도출 유형은 **성분 첫 사용**과
+   **자외선 급증** 둘이다. "성분 재시작"은 기록 부재를 사용 중단으로 판정할 수 없어 제외한다.
+5. `insightId`는 영속 식별자가 아니다. F-ANALYSIS-01이 피부 기록 저장마다 성분 인사이트를 지우고
+   다시 넣으므로, 이전에 받은 id로 조회하면 404가 나는 것이 정상이다.
+6. 도출할 이벤트가 없으면 빈 배열이며 오류가 아니다.
+
+**이벤트 도출 기준**
+
+| 유형 | 조건 | `label` | `confidence` |
+| --- | --- | --- | --- |
+| 성분 첫 사용 | 인사이트 제목과 이름이 같은 성분의 기간 내 최초 사용일 | `{성분명} 이 기간 첫 사용` | 인사이트의 값 |
+| 자외선 급증 | `uv_index_max` 8 이상이 2일 이상 연속 | `자외선 지수 8 이상 {n}일 연속` | 성분 인사이트에서는 항상 `OBSERVING` |
+
+환경 데이터가 없는 날은 연속을 끊는다 — 결측을 0으로도 이어짐으로도 취급하지 않는다.
 
 **Error**
 
@@ -2290,7 +2340,12 @@ json
 | --- | --- |
 | 404 | `REPORT_INSIGHT_NOT_FOUND` |
 
-> **TBD-11** — S-20의 지표가 현재 트러블로 고정입니다. `metric` 파라미터로 전환을 지원할지 결정이 필요합니다. 응답에는 `metric` 필드를 미리 포함했습니다.
+다른 사용자의 인사이트도 403이 아니라 404다 — 존재 여부를 알리지 않는다.
+
+> **TBD-11 해소 (2026-08-11, ADR 0013)** — `metric` 파라미터로의 지표 전환을 **지원하지 않는다.**
+> 인사이트가 다루는 지표(`metric_type`)를 응답 필드로 그대로 반환하고, 지표가 없으면 `TROUBLE`로
+> 대체한다. S-20은 특정 인사이트의 근거를 보는 화면이라 그 인사이트와 무관한 지표로 갈아끼우는
+> 동작에 의미가 없다.
 > 
 
 ---
@@ -2302,18 +2357,77 @@ json
 | Method | `GET` |
 | URI | `/api/v1/reports/daily` |
 | 인증 | 필요 |
+| 관련 기능 | F-REPORT-04 |
+
+> ⚠️ **엔드포인트 코드 REPORT-03 ≠ 기능 ID F-REPORT-03이다.** F-REPORT-03은 요인 상세 조회
+> (엔드포인트 REPORT-02)를 가리킨다. 일자별 조회의 기능 ID는 **F-REPORT-04**다.
+> 
 
 **Query Parameter**
 
-| Field | Type | Required |
-| --- | --- | --- |
-| `date` | Date | O |
-| `timeSlot` | Enum | X |
+| Field | Type | Required | 설명 |
+| --- | --- | --- | --- |
+| `date` | Date | O | `yyyy-MM-dd`. 형식이 어긋나거나 누락되면 `400 COMMON_BAD_REQUEST` |
+| `timeSlot` | Enum | X | `MORNING` · `NIGHT`. 미지정 시 그 날짜의 모든 기록 |
+
+**Success Response — 200**
+
+`records`의 각 원소는 SKIN-01 · SKIN-02 · SKIN-03과 **같은 구조**다(`SkinRecordResponse`).
+비교 계산을 두 벌로 두면 같은 기록이 화면마다 다른 증감을 보이므로 조회 로직을 공유한다.
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "요청에 성공했습니다.",
+  "result": {
+    "date": "2026-08-11",
+    "records": [
+      {
+        "skinRecordId": 262,
+        "timeSlot": "MORNING",
+        "capturedAt": "2026-08-11T08:00:00+09:00",
+        "totalScore": 70,
+        "scores": { "trouble": 40, "redness": 42, "pores": 42, "pigmentation": 42 },
+        "comparison": {
+          "comparedTo": "2026-08-10 MORNING",
+          "previousTotalScore": 70,
+          "changes": { "trouble": 0, "redness": 0, "pores": 0, "pigmentation": 0 }
+        }
+      },
+      {
+        "skinRecordId": 231,
+        "timeSlot": "NIGHT",
+        "capturedAt": "2026-08-11T22:00:00+09:00",
+        "totalScore": 60,
+        "scores": { "trouble": 50, "redness": 45, "pores": 45, "pigmentation": 45 },
+        "comparison": null
+      }
+    ]
+  }
+}
+```
 
 **Business Rule**
 
-1. `timeSlot` 미지정 시 해당 날짜의 모든 기록을 배열로 반환한다.
-2. 미래 날짜는 `422 RECORD_FUTURE_DATE_NOT_ALLOWED`다.
+1. `timeSlot` 미지정 시 해당 날짜의 모든 기록을 배열로 반환한다. 순서는 모닝 → 나이트다.
+2. 미래 날짜는 `422 RECORD_FUTURE_DATE_NOT_ALLOWED`다. **오늘은 미래가 아니다.**
+3. **하루 2건을 대표값으로 접지 않고 각각 배열 원소로 싣는다.** REPORT-01 그래프와 같은 원칙이다. (ADR 0012)
+4. **기록이 없으면 빈 배열이며 오류가 아니다.** 지정한 `timeSlot`에 기록이 없을 때도 마찬가지다.
+   캘린더에서 임의 날짜를 여는 화면이라 "그날은 기록이 없다"가 정상 상태다.
+5. 다른 사용자의 기록은 조회되지 않는다. 소유자 필터가 걸려 있어 빈 배열이 된다.
+6. `comparison`은 SKIN-01과 같은 규칙(전일 동일 슬롯 비교)이며, 비교 대상이 없으면 `null`이다.
+
+**Error**
+
+| HTTP | Code |
+| --- | --- |
+| 422 | `RECORD_FUTURE_DATE_NOT_ALLOWED` |
+| 400 | `RECORD_INVALID_TIME_SLOT` |
+| 400 | `COMMON_BAD_REQUEST` (`date` 누락 · 형식 오류) |
+| 401 | `COMMON_UNAUTHORIZED` |
 
 ---
 
@@ -2383,6 +2497,7 @@ json
 | F-REPORT-01 | `GET /reports` |
 | F-REPORT-02 | `GET /reports` (`insights`) |
 | F-REPORT-03 | `GET /reports/insights/{insightId}` |
+| F-REPORT-04 | `GET /reports/daily` |
 | F-MY-01 | `GET /users/me` |
 | F-MY-02 | `GET /users/me` (`ingredientProfile`) |
 | F-MY-03 | `GET /users/me/ingredient-profile` |
@@ -2468,6 +2583,14 @@ json
 | AI 분석 서버 | 피부 분석 | `SKIN_ANALYSIS_FAILED` / `SKIN_ANALYSIS_TIMEOUT` |
 | 제품 DB | 제품 · 성분 조회 | `PRODUCT_NOT_FOUND` |
 | 스캔 서비스 | 바코드 · 이미지 인식 | `SCAN_SERVICE_UNAVAILABLE` |
+
+> **AI 분석 서버는 현재 목업 단계다.** 실제 서버가 확정되지 않아 `SkinAnalysisClient` 인터페이스로
+> 추상화하고 목업 구현으로 동작한다. 목업은 `userId + recordDate + timeSlot`에서 유도한 시드로
+> **결정적인** 점수를 만들며, 목업으로 생성된 기록은 `analysis_method = MOCK`으로 식별된다.
+> 실연동 시 변경 범위는 구현체 1개와 설정값이다. ([ADR 0003](decisions/0003-AI-분석-목업-우선.md))
+>
+> **이미지 스토리지도 같은 방식이다.** `ImageStorage` 인터페이스 뒤에 로컬 디렉터리 구현이 있고,
+> 배포 시 외부 스토리지로 교체한다. ([ADR 0007](decisions/0007-이미지-스토리지.md))
 
 **캐시 정책**
 
@@ -2631,15 +2754,15 @@ service/external/
 
 | TBD | 항목 | API 영향 | 영향도 |
 | --- | --- | --- | --- |
-| TBD-10b | 피부 기록 저장 시점 | **API 1개 → 2개로 분리될 수 있음** | 높음 |
+| ~~TBD-10b~~ | ~~피부 기록 저장 시점~~ | **해소** — 분석 완료 시 저장 · API 1개 유지 ([ADR 0001](decisions/0001-피부-기록-저장-시점.md)) | — |
 | TBD-07 | 제품 직접 등록 | `POST /products` 신설 필요 | 높음 |
 | TBD-05 | 스캔 인식 대상 | 성분표 OCR 추가 시 `POST /products/scan` **응답 구조 변경** | 높음 |
 | TBD-09 | 분석 지연 처리 | 백그라운드 방식 결정 시 `202 Accepted` + 폴링 API 추가 | 중간 |
 | TBD-03 | 낮/밤 토글 유지 범위 | 서버 저장 결정 시 `PATCH /users/me/home-preference` 추가 | 낮음 |
 | TBD-02 | 온보딩 진행률 | 필드 구조는 두 안 모두 수용 가능 | 낮음 |
 | TBD-04 | 리포트 부족 시 안내 | `todayReport` 필드 확장 | 낮음 |
-| TBD-11 | S-20 지표 전환 | `metric` 파라미터 이미 반영 | 낮음 |
-| TBD-12 | 일자 대표값 | 서버 내부 로직 · 응답 구조 영향 없음 | 낮음 |
+| TBD-11 | S-20 지표 전환 | **해소** — 지원하지 않고 인사이트의 지표를 그대로 반환 (ADR 0013) | — |
+| TBD-12 | 일자 대표값 | **해소** — 대표값을 쓰지 않고 모닝·나이트를 각각 반환 (ADR 0012) | — |
 | TBD-01 | 이메일 로그인 | `provider` Enum 확장 | 낮음 |
 
 > **영향도 높음 3건은 구현 착수 전 확정을 권합니다.** 나머지는 응답 필드 추가로 흡수 가능하도록 설계했습니다.

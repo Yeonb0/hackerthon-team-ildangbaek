@@ -18,8 +18,13 @@ export type MetricKey = 'trouble' | 'redness' | 'pores' | 'pigmentation';
 
 export interface GraphPoint {
   date: string; // 'YYYY-MM-DD'
-  /** 그 날짜에 기록이 없으면 null입니다 — 0점으로 계산하지 않습니다 (REPORT-01 BR1). */
-  score: number | null;
+  /**
+   * 하루 2건(모닝·나이트)을 대표값으로 접지 않고 각각 받습니다 (ADR 0012·0013).
+   * 해당 슬롯에 기록이 없으면 null입니다 — 0점으로 계산하지 않습니다 (REPORT-01 BR1).
+   * 단일 선이 필요한 화면은 클라이언트가 둘 중 하나를 고릅니다.
+   */
+  morningScore: number | null;
+  nightScore: number | null;
 }
 
 export type InsightType = 'INGREDIENT' | 'ENVIRONMENT';

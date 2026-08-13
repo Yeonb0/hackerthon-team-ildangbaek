@@ -115,7 +115,7 @@ export function CheckResultScreen() {
     return (
       <View style={[styles.centerFill, { paddingTop: insets.top }]}>
         <EmptyState
-          icon="information-circle-outline"
+          icon="info"
           title={emptyMessage}
           description="데이터가 더 쌓이면 정확하게 확인할 수 있어요."
           actionLabel="기록하러 가기"

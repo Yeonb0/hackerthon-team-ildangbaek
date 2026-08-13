@@ -7,7 +7,7 @@ import { Card } from '@/components/base/Card';
 import { RoutineRecommendationList } from '@/components/domain/RoutineRecommendationList';
 import { WeeklyRecordStrip } from '@/components/domain/WeeklyRecordStrip';
 import { TodayReportCard } from '@/components/domain/TodayReportCard';
-import { color, space, typography } from '@/theme';
+import { color, gradient, space, typography } from '@/theme';
 import type { HomeResponse } from '@/types/home';
 
 type NightHomeScreenProps = {
@@ -24,6 +24,12 @@ const TOGGLE_CLEARANCE = 72;
  * S-08 밤 홈. 배경 그라데이션만 낮과 다르게 하고 나머지는 그대로 둡니다.
  * 로드맵 4-4 확정: "낮/밤은 홈 배경에만 적용되고 다른 화면은 영향받지 않는다" —
  * 그래서 ThemeProvider 없이 이 화면 안에서만 어두운 배경/밝은 텍스트를 씁니다.
+ *
+ * Checkpoint 9-D: 원래 목업(HOME02)은 밝은 라벤더→흰색 배경 + 어두운 글자였지만,
+ * 그렇게 가려면 이 화면의 글자색을 전부 다시 손봐야 해서 지금은 작은 변경만
+ * 적용했습니다 — 배경만 무채색(ink900→ink600)에서 진한 보라(gradient.night)로 교체,
+ * 다크모드 구조(흰 글자)는 그대로 유지. 라이트 배경으로 완전히 바꾸는 건 디자인
+ * 최종 확정 때 다시 진행하기로 함 (관리자 결정, 2026-08-11).
  */
 export function NightHomeScreen({
   data,
@@ -35,7 +41,7 @@ export function NightHomeScreen({
   const nightCompleted = nightSlot.productCompleted && nightSlot.skinCompleted;
 
   return (
-    <LinearGradient colors={[color.ink900, color.ink600]} style={styles.gradient}>
+    <LinearGradient colors={gradient.night} style={styles.gradient}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + TOGGLE_CLEARANCE }]}
       >
@@ -61,13 +67,14 @@ export function NightHomeScreen({
         <RoutineRecommendationList
           timeSlot={data.routineRecommendation.timeSlot}
           items={data.routineRecommendation.items}
+          darkBackground
           style={styles.section}
         />
 
         <Button
           label={nightCompleted ? '오늘 나이트루틴 완료!' : '나이트루틴 기록하러 가기'}
           onPress={onPressRecordCta}
-          variant="secondary"
+          variant="gradient"
           style={styles.cta}
         />
       </ScrollView>
