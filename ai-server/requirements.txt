@@ -1,0 +1,9 @@
+# Python 3.14 기준으로 실제 설치가 확인된 조합이다.
+# mediapipe는 0.10.x 계열이 3.14용 휠을 내지 않아 1.0.0을 쓴다.
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+python-multipart==0.0.32
+pydantic==2.13.4
+numpy==2.5.2
+opencv-python-headless==5.0.0.93
+mediapipe==1.0.0
