@@ -19,6 +19,9 @@ def draw_face(
     blemishes: int = 0,
     blur: int = 0,
     brightness: int = 0,
+    noise: float = 0.0,
+    rotate: float = 0.0,
+    noise_seed: int = 0,
 ) -> np.ndarray:
     """합성 얼굴을 그린다.
 
@@ -26,6 +29,9 @@ def draw_face(
     :param blemishes: 볼에 찍을 트러블 반점 개수
     :param blur: 0보다 크면 가우시안 블러 커널 크기(홀수). 흐린 사진 재현용
     :param brightness: 전체 밝기 가감. 조명 강건성 테스트용
+    :param noise: 가우시안 노이즈 표준편차. 같은 장면을 연속 촬영했을 때의 센서 노이즈 재현
+    :param rotate: 이미지 회전 각도(도). 얼굴 각도가 조금씩 달라지는 상황 재현
+    :param noise_seed: 노이즈 난수 시드. 연속 촬영 각 장을 다르게 만들 때 쓴다
     """
     scale = size / 512
     img = np.full((size, size, 3), 235, np.uint8)
@@ -62,11 +68,23 @@ def draw_face(
             oy = int(rng.integers(-20, 24))
             cv2.circle(img, pt(cx + ox, 300 + oy), rad(5), (95, 105, 190), -1)
 
+    if rotate:
+        center = (size / 2, size / 2)
+        matrix = cv2.getRotationMatrix2D(center, rotate, 1.0)
+        img = cv2.warpAffine(
+            img, matrix, (size, size), flags=cv2.INTER_CUBIC, borderValue=(235, 235, 235)
+        )
+
     if brightness:
         img = np.clip(img.astype(np.int16) + brightness, 0, 255).astype(np.uint8)
 
     if blur:
         img = cv2.GaussianBlur(img, (blur, blur), 0)
+
+    if noise:
+        rng = np.random.default_rng(noise_seed)
+        noisy = img.astype(np.float32) + rng.normal(0, noise, img.shape)
+        img = np.clip(noisy, 0, 255).astype(np.uint8)
 
     return img
 

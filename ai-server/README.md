@@ -3,6 +3,18 @@
 얼굴 사진에서 피부 지표 4종(트러블 · 홍조 · 모공 · 색소잡티)을 산출하는 FastAPI 서버다.
 Spring Boot의 `LocalVisionSkinAnalysisClient`가 이 서버를 호출한다.
 
+## 신뢰도 (실측)
+
+`tests/test_consistency.py` 실측 기준. 정답 데이터가 없어 정확도는 검증할 수 없지만, 아래는
+"같은 얼굴이 조건만 바뀌었을 때 점수가 얼마나 흔들리는가"를 잰 값이다.
+
+| 지표 | 연속 촬영(센서 노이즈) | 조명 색온도 | 신뢰도 |
+| --- | --- | --- | --- |
+| REDNESS | spread 0 | diff 8 | 높음 |
+| TROUBLE | spread 0 | diff 0 | 높음 |
+| PIGMENTATION | spread 1 | diff 0 | 높음 |
+| PORES | spread 8 | - | **낮음** — 카메라 노이즈와 주파수 대역이 겹쳐 원리적으로 완전히 분리되지 않는다 |
+
 ## 무엇이 아닌가
 
 **딥러닝 모델이 아니다.** MediaPipe(얼굴 검출)와 OpenCV(영상처리)를 쓴 **규칙 기반 근사치**다.
@@ -76,4 +88,4 @@ export LOCAL_VISION_BASE_URL=http://localhost:8000   # 기본값
 - [x] Phase 2 — MediaPipe 얼굴 검출 · 피부 영역 마스킹 · ROI 분할
 - [x] Phase 3 — 조명 · 화질 정규화
 - [x] Phase 4 — 지표별 점수 산출
-- [ ] Phase 5 — 일관성 검증
+- [x] Phase 5 — 일관성 검증
