@@ -27,6 +27,7 @@ import { MetricDetailScreen } from '@/screens/report/MetricDetailScreen';
 import { CheckResultScreen } from '@/screens/product/CheckResultScreen';
 import { LocationSettingsScreen } from '@/screens/my/LocationSettingsScreen';
 import { IngredientListScreen } from '@/screens/my/IngredientListScreen';
+import { RoutineEditScreen } from '@/screens/product/RoutineEditScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<DetailStackParamList>();
@@ -97,6 +98,7 @@ export function MainTabNavigator() {
       <Stack.Screen name={DetailRoutes.CheckResult} component={CheckResultScreen} />
       <Stack.Screen name={DetailRoutes.LocationSettings} component={LocationSettingsScreen} />
       <Stack.Screen name={DetailRoutes.IngredientList} component={IngredientListScreen} />
+      <Stack.Screen name={DetailRoutes.RoutineEdit} component={RoutineEditScreen} />
     </Stack.Navigator>
   );
 }

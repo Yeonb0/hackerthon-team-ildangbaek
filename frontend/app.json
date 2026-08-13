@@ -7,9 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ildangbaek.skinteller"
     },
     "android": {
+      "package": "com.ildangbaek.skinteller",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -24,6 +26,7 @@
     "plugins": [
       "expo-secure-store",
       "expo-status-bar",
+      "expo-dev-client",
       [
         "expo-splash-screen",
         {
@@ -33,6 +36,12 @@
           "backgroundColor": "#FFFFFF"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1ee5e750-ee39-4390-94cd-7f522b69e989"
+      }
+    },
+    "owner": "yeonboras-team"
   }
 }

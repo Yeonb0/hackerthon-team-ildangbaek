@@ -364,6 +364,7 @@ function HomeSection({
             {routines.map((routine) => (
               <RoutineQuickRecordCard
                 key={routine.routineId}
+                routineId={routine.routineId}
                 name={routine.name}
                 timeSlot={routine.timeSlot}
                 productCount={routine.productCount}
