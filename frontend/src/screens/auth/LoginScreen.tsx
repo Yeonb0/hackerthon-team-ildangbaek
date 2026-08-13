@@ -61,17 +61,19 @@ export function LoginScreen() {
         />
         <Button
           label="구글로 시작하기"
-          variant="secondary"
+          variant="primary"
           loading={loadingProvider === 'GOOGLE'}
           onPress={() => handleLogin('GOOGLE')}
         />
         {/*
           이메일 버튼은 카카오/구글과 달리 즉시 로그인하지 않고 AUTH-03(이메일 로그인)
           화면으로 이동합니다 — Figma AUTH-01 구조 기준 (Phase 11-A).
+          디자인은 관리자님 요청으로 카카오/구글=필드형(primary), 이메일=아웃라인형(secondary)
+          으로 통일했습니다 (2026-08-13).
         */}
         <Button
           label="이메일로 계속하기"
-          variant="ghost"
+          variant="secondary"
           onPress={() => navigation.navigate(AuthRoutes.EmailLogin)}
         />
       </View>
