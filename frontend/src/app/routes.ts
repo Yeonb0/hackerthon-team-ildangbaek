@@ -42,6 +42,9 @@ export const DetailRoutes = {
   CheckResult: 'CheckResult', // S-22
   LocationSettings: 'LocationSettings', // S-24
   IngredientList: 'IngredientList', // 성분 전체 보기 (F-MY-03 신규 화면, S-23에서 진입)
+  // Phase 11-B — PROD-07 루틴 수정(드래그 순서 변경). Figma 구조 기준 별도 화면으로 분리
+  // (관리자 결정, 2026-08-13). S-11의 RoutineQuickRecordCard에서 "수정" 진입점으로 연결됩니다.
+  RoutineEdit: 'RoutineEdit',
 } as const;
 
 export type TimeSlot = 'MORNING' | 'NIGHT';
@@ -93,6 +96,7 @@ export type DetailStackParamList = {
   // initialStatus: 마이페이지 요약 카드에서 특정 배지(맞음/주의/데이터부족)를 탭해 들어온
   // 경우 그 상태로 필터를 미리 켜둡니다. 없으면 전체 목록.
   [DetailRoutes.IngredientList]: { initialStatus?: IngredientStatus } | undefined;
+  [DetailRoutes.RoutineEdit]: { routineId: number };
 };
 
 // Root: Auth ↔ Onboarding ↔ Main 전체 교체 (뒤로가기로 못 돌아감)

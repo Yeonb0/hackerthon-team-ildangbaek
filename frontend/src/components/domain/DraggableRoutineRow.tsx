@@ -9,26 +9,39 @@
 // 상단 주석 참고. 이번엔 그 반성으로 reanimated UI스레드 애니메이션을 씁니다).
 //
 // 동작 원리(각 행마다 이 컴포넌트가 하나씩 렌더링됨):
-// - 평상시엔 `top = withSpring(index * ROW_HEIGHT)`로 자기 순번 자리에 스프링 애니메이션으로 안착.
-// - 드래그 중인 행만 `top`이 손가락 위치를 그대로 따라갑니다(스프링 없이 raw 추적).
+// - 평상시엔 `top = withTiming(index * ROW_HEIGHT)`로 자기 순번 자리에 부드럽게 이동.
+// - 드래그 중인 행만 `top`이 손가락 위치를 그대로 따라갑니다(애니메이션 없이 raw 추적).
 // - 손가락이 다른 행의 절반을 넘어가면(= index 계산이 바뀌면) 부모의 onReorder를 불러
-//   순서 배열(React state)을 그 자리에서 즉시 바꿉니다 → 다른 행들이 새 자리로 스프링 이동.
-// - 손가락을 떼면(onEnd) raw 추적을 멈추고 다시 withSpring(index * ROW_HEIGHT)로 전환 —
+//   순서 배열(React state)을 그 자리에서 즉시 바꿉니다 → 다른 행들이 새 자리로 이동.
+// - 손가락을 떼면(onEnd) raw 추적을 멈추고 다시 withTiming(index * ROW_HEIGHT)로 전환 —
 //   이미 index가 최종값이라 자연스럽게 그 자리에 "착 붙는" 스냅 애니메이션이 됩니다.
+//
+// ⚠️ 수정 이력(2026-08-13, 관리자님 실기기 피드백 — "순서 바뀔 때 출렁거림, 안 부드러움"):
+// 원인은 onUpdate에서 dragTop 계산식이 `latestIndex.value`(드래그 도중 재정렬로 계속 바뀌는
+// 값)를 기준점으로 다시 잡고 있었던 것 — 재정렬이 일어날 때마다 기준점이 ROW_HEIGHT만큼
+// 점프하면서 손가락 위치와 어긋나 버벅였습니다. dragStartIndex(제스처 시작 시점에 한 번만
+// 고정)로 기준점을 분리해서 손가락을 항상 매끄럽게 따라가도록 고쳤습니다. 또한 정착
+// 애니메이션도 스프링(통통 튐) 대신 withTiming+easing으로 바꿔 더 단단한 느낌을 냈습니다.
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { IconDragHandle, IconTrash } from '@/components/icons';
 import { color, radius, space, typography } from '@/theme';
 import type { RoutineProductItem } from '@/types/product';
 
 export const ROW_HEIGHT = 56;
+
+const SETTLE_ANIMATION = {
+  duration: 220,
+  easing: Easing.out(Easing.cubic),
+};
 
 type DraggableRoutineRowProps = {
   product: RoutineProductItem;
@@ -55,21 +68,26 @@ export function DraggableRoutineRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
+  // 제스처 시작 시점의 index를 "고정"해두는 기준점입니다. dragTop은 항상
+  // dragStartIndex를 기준으로만 계산해서, 드래그 도중 재정렬로 latestIndex가 바뀌어도
+  // 손가락 위치와의 대응 관계가 절대 끊기지 않습니다(위 수정 이력 참고).
+  const dragStartIndex = useSharedValue(index);
+  const lastReportedIndex = useSharedValue(index);
+
   const panGesture = Gesture.Pan()
     .onStart(() => {
       isDragging.value = true;
+      dragStartIndex.value = latestIndex.value;
+      lastReportedIndex.value = latestIndex.value;
       dragTop.value = latestIndex.value * ROW_HEIGHT;
     })
     .onUpdate((event) => {
-      dragTop.value = latestIndex.value * ROW_HEIGHT + event.translationY;
+      // 기준점이 dragStartIndex로 고정되어 있어 translationY만으로 매끄럽게 따라갑니다.
+      dragTop.value = dragStartIndex.value * ROW_HEIGHT + event.translationY;
       const rawIndex = Math.round(dragTop.value / ROW_HEIGHT);
       const clamped = Math.min(Math.max(rawIndex, 0), itemCount - 1);
-      if (clamped !== latestIndex.value) {
-        // reanimated shared value입니다. UI 스레드 제스처 워클릿에서 .value를 직접 갱신하는 건
-        // reanimated의 표준 패턴이고, 아래 useEffect의 동기화(리렌더로 index prop이 바뀔 때만
-        // 실행)와는 다른 시점이라 실제로는 충돌하지 않습니다.
-        // eslint-disable-next-line react-hooks/immutability
-        latestIndex.value = clamped;
+      if (clamped !== lastReportedIndex.value) {
+        lastReportedIndex.value = clamped;
         runOnJS(onReorder)(product.productId, clamped);
       }
     })
@@ -78,10 +96,9 @@ export function DraggableRoutineRow({
     });
 
   const animatedStyle = useAnimatedStyle(() => ({
-    top: isDragging.value ? dragTop.value : withSpring(latestIndex.value * ROW_HEIGHT, {
-      damping: 18,
-      stiffness: 200,
-    }),
+    top: isDragging.value
+      ? dragTop.value
+      : withTiming(latestIndex.value * ROW_HEIGHT, SETTLE_ANIMATION),
     zIndex: isDragging.value ? 1 : 0,
     shadowOpacity: isDragging.value ? 0.15 : 0,
     elevation: isDragging.value ? 4 : 0,
