@@ -34,6 +34,12 @@ INSERT INTO users (id, created_at, updated_at, account_status, email, onboarding
 VALUES (@u2, NOW(6), NOW(6), 'ACTIVE', 'check-02-mockup@example.com', b'1', 'EMAIL', 'check-02-mockup')
 ON DUPLICATE KEY UPDATE updated_at = NOW(6);
 
+-- USER-01(마이페이지)이 user_profiles 부재로 404가 나지 않도록 온보딩 결과를 함께 심는다.
+INSERT INTO user_profiles (user_id, created_at, updated_at, nickname, birth_year, gender,
+                           oral_contraceptive, progesterone_injection, hormone_replacement_therapy)
+VALUES (@u2, NOW(6), NOW(6), 'check-02-mockup', 1998, 'FEMALE', b'0', b'0', b'0')
+ON DUPLICATE KEY UPDATE updated_at = NOW(6);
+
 -- 성분 5종 추가 (사용자 9002의 등급 분기 시험용)
 INSERT INTO ingredients (id, korean_name, english_name, function_category)
 VALUES (9010, '나이아신아마이드', 'Niacinamide', '미백'),

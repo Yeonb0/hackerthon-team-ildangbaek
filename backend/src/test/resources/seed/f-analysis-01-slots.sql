@@ -55,6 +55,13 @@ VALUES (@a, NOW(6), NOW(6), 'ACTIVE', 'slot-case-a@example.com', b'1', 'EMAIL', 
        (@b, NOW(6), NOW(6), 'ACTIVE', 'slot-case-b@example.com', b'1', 'EMAIL', 'slot-case-b')
 ON DUPLICATE KEY UPDATE updated_at = NOW(6);
 
+-- USER-01(마이페이지)이 user_profiles 부재로 404가 나지 않도록 온보딩 결과를 함께 심는다.
+INSERT INTO user_profiles (user_id, created_at, updated_at, nickname, birth_year, gender,
+                           oral_contraceptive, progesterone_injection, hormone_replacement_therapy)
+VALUES (@a, NOW(6), NOW(6), 'slot-case-a', 1998, 'FEMALE', b'0', b'0', b'0'),
+       (@b, NOW(6), NOW(6), 'slot-case-b', 1998, 'FEMALE', b'0', b'0', b'0')
+ON DUPLICATE KEY UPDATE updated_at = NOW(6);
+
 -- 기존 시드의 성분(9001~9003)과 겹치지 않게 새 id를 쓴다.
 INSERT INTO ingredients (id, korean_name, english_name, function_category)
 VALUES (9011, '나이아신아마이드', 'Niacinamide', '미백'),
