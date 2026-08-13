@@ -50,9 +50,10 @@ DB 설정은 `application-local.yml`에 있습니다.
 | `DB_PASSWORD` | `ildangbaek1234` | |
 | `STORAGE_LOCAL_DIR` | `./uploads/images` | 이미지 저장 경로 ([ADR 0007](../docs/decisions/0007-이미지-스토리지.md)) |
 | `STORAGE_LOCAL_URL_PREFIX` | `/images/` | 반환 URL 접두사 |
-| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택. `mock` 또는 `openai` ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md)) |
+| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택. `mock` · `openai` · `local-vision` ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md) · [ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md)) |
 | `OPENAI_API_KEY` | (없음) | `SKIN_ANALYSIS_PROVIDER=openai`일 때 필수. OpenAI API 키 |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API 베이스 URL |
+| `LOCAL_VISION_BASE_URL` | `http://localhost:8000` | `SKIN_ANALYSIS_PROVIDER=local-vision`일 때 사용할 `ai-server/` 주소 |
 
 업로드 상한은 `spring.servlet.multipart.max-file-size=10MB`다. Spring 기본값(파일 1MB)이면
 정상 사진도 튕기므로 올려 두었다.
@@ -78,6 +79,22 @@ DB 설정은 `application-local.yml`에 있습니다.
 
 ```bash
 SKIN_ANALYSIS_PROVIDER=openai OPENAI_API_KEY=sk-... ./gradlew bootRun
+```
+
+**규칙 기반 자체 분석 서버(local-vision) 사용** — 딥러닝 모델이 아니라 MediaPipe·OpenCV로 얼굴을
+검출하고 영상처리 규칙으로 지표를 산출한다. 라벨링된 학습 데이터가 없어 채택한 방식이며, 절대
+정확도가 아니라 개인의 상대적 변화 추적용이다. 한계와 신뢰도는 `ai-server/README.md`,
+[ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md) 참고.
+
+```bash
+# 1) 별도 터미널에서 분석 서버를 먼저 띄운다
+cd ../ai-server
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+./scripts/download_model.sh
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# 2) backend에서 provider를 지정해 기동한다
+SKIN_ANALYSIS_PROVIDER=local-vision ./gradlew bootRun
 ```
 
 기본값은 `docker-compose.yml`의 MySQL 컨테이너와 그대로 맞춰져 있어, 로컬에서는 별도 설정 없이 실행됩니다.

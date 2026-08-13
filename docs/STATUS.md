@@ -62,7 +62,8 @@
 | **인증 (JWT · Security)** | 🟡 | **임시 방편만 있음.** `X-User-Id` 헤더 → `@CurrentUserId` (ADR 0006). 위조 가능 · 배포 전 교체 필수 |
 | 이미지 업로드 · 스토리지 | 🟡 | `ImageStorage` + `LocalImageStorage` (ADR 0007). multipart 10MB. **로컬 저장이라 다중 인스턴스·재배포 시 유실** |
 | 날짜 귀속 유틸 | ✅ | `global/util/RecordDateResolver` · 경계값 테스트 13종 (ADR 0005 — **확정**) |
-| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능)에 더해 실제 OpenAI Vision(`gpt-4o`) 연동 구현체(`OpenAiSkinAnalysisClient`) 추가. `app.skin.analysis.provider`(`mock`/`openai`)로 전환. 단위 테스트(`MockRestServiceServer`)만 검증했고 **실제 OpenAI API 키로의 E2E 호출은 아직 안 함** — 실사용 전 필요 |
+| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능), 실제 OpenAI Vision(`gpt-4o`) 연동(`OpenAiSkinAnalysisClient`), 규칙 기반 자체 서버 연동(`LocalVisionSkinAnalysisClient`, ADR 0020) 3종. `app.skin.analysis.provider`(`mock`/`openai`/`local-vision`)로 전환. 단위 테스트만 검증했고 **OpenAI 실 API 키·자체 서버 모두 실제 얼굴 사진으로의 E2E 호출은 아직 안 함** — 실사용 전 필요 |
+| 규칙 기반 분석 서버 (`ai-server/`) | 🟡 | FastAPI. MediaPipe 얼굴 검출·피부 영역 분리 → Shades of Gray 화이트밸런스·품질 게이트 → CIELAB 기반 지표 4종 산출(딥러닝 모델 아님, ADR 0020). 파이썬 테스트 44개, 합성 이미지로만 검증 — **실제 얼굴 사진 검증 안 함**. 모공 지표는 실측상 신뢰도 낮음(`ai-server/README.md` 신뢰도 표) |
 
 > ⚠️ **인증은 임시 방편으로 우회한 상태다.** 실제 인증(AUTH-01~03, A 담당)이 들어오기 전까지
 > 프로덕션 배포는 불가능하다.
