@@ -119,6 +119,19 @@ export interface IngredientItem {
   name: string;
 }
 
+/**
+ * PRODUCT-08 · 제품 직접 등록 (F-PRODUCT-08, TBD-07). 백엔드에 이 기능 자체가 없어서
+ * (api_명세서.md 전수 확인, 로그인 방식 3종에도 등록 엔드포인트 없음) 완전히 프론트 목업
+ * 전용 타입입니다 — 실제 API가 생기면 그때 필드를 맞추면 됩니다.
+ */
+export interface RegisterProductInput {
+  name: string;
+  brand: string;
+  category: ProductCategory;
+  /** 쉼표로 구분한 자유 텍스트 입력을 화면단에서 파싱한 배열. 비어 있어도 됨(BR 안내 문구 참고) */
+  ingredientNames: string[];
+}
+
 /** PRODUCT-03 · GET /products/{productId} (S-14) — 7-B에서 연결 */
 export interface ProductDetailResult {
   productId: number;
