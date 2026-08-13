@@ -12,7 +12,7 @@ import logging
 import cv2
 import numpy as np
 
-from app import face_regions, landmarks
+from app import face_regions, landmarks, preprocess
 from app.errors import AnalysisFailedError
 from app.schema import SkinScores
 
@@ -62,9 +62,10 @@ def analyze(image_bytes: bytes) -> SkinScores:
     image_bgr, points = _normalize_scale(image_bgr, points)
 
     masks = face_regions.region_masks(points, image_bgr.shape[:2])
-    skin_pixels = int((masks["skin"] > 0).sum())
-    if skin_pixels == 0:
+    if int((masks["skin"] > 0).sum()) == 0:
         raise AnalysisFailedError("피부 영역을 찾지 못했습니다.")
 
-    log.info("피부 영역 %d px 확보 (Phase 4에서 지표 산출 예정)", skin_pixels)
+    prepared = preprocess.prepare(image_bgr, masks["skin"])
+
+    log.info("전처리 완료 (Phase 4에서 지표 산출 예정)")
     return _PLACEHOLDER_SCORES

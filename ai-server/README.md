@@ -31,7 +31,7 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 ## 테스트
 
 ```bash
-.venv/bin/pip install pytest httpx
+.venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m pytest
 ```
 
@@ -74,6 +74,6 @@ export LOCAL_VISION_BASE_URL=http://localhost:8000   # 기본값
 
 - [x] Phase 1 — FastAPI 골격 + Spring 연동 (고정 점수)
 - [x] Phase 2 — MediaPipe 얼굴 검출 · 피부 영역 마스킹 · ROI 분할
-- [ ] Phase 3 — 조명 · 화질 정규화
+- [x] Phase 3 — 조명 · 화질 정규화
 - [ ] Phase 4 — 지표별 점수 산출
 - [ ] Phase 5 — 일관성 검증
