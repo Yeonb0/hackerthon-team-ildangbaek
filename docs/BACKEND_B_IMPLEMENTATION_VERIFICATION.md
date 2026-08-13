@@ -4,9 +4,13 @@
 > "코드가 있다"와 "동작을 확인했다"를 구분해서 표기한다. STATUS.md(2.1~2.15절)에 이미 상세한 검증
 > 기록이 있으나, 이 문서는 그 기록을 그대로 베끼지 않고 **이번 세션에서 재실행해 재현된 것만** ✅로
 > 표기했다. STATUS.md에만 있고 이번에 재현하지 않은 항목은 "STATUS.md 근거"로 별도 표시했다.
+>
+> **2026-08-14 추가 세션**: 이 문서가 "이번 세션 미실행"으로 남겨둔 항목(B-01 SKIN-01 이미지
+> 업로드, B-09 PRODUCT-05, B-14/15 REPORT-02/03)을 실제로 재현했고, P1(시드 `user_profiles`
+> 부재)·P2(CHECK-03 쿼리 수 불일치)를 코드로 확인·수정했다. 아래 각 절과 §13에 갱신 표시로 반영했다.
 
-- 검증 일시: 2026-08-13
-- 검증 브랜치/커밋: `yunjin` @ `d0f5429`
+- 검증 일시: 2026-08-13, 2026-08-14(P1·P2 해소 및 잔여 항목 재현)
+- 검증 브랜치/커밋: `yunjin` @ `d0f5429` → `7b2c730`(2026-08-14)
 - 검증 환경: macOS(Darwin 25.2.0), Java 21 (Corretto 21.0.11), Gradle(Wrapper), MySQL 8.0(Docker)
 - 검증자: 윤진(Backend B) + Claude Code(보조)
 
@@ -94,10 +98,10 @@ B-16·B-17은 미착수가 코드로 확인되므로 이번 문서의 검증 대
 (`docs/api_명세서.md` SKIN-01, `docs/기능명세서.md` F-SKIN-01)
 
 #### 구현 상태
-**상태: ✅ 완료 — 이번 세션 실측은 아님(MySQL 재기동 후 신규 이미지 업로드 흐름은 재현하지 않음),
-STATUS.md 2.4절 근거로 완료 판단.** SKIN-02/03을 이번 세션에서 실제 호출해 200을 받았고 그 응답이
-SKIN-01이 만든 기존 데이터(`skinRecordId: 676`)를 반환했으므로, 최소한 "SKIN-01로 생성된 데이터가
-DB에 정상 존재한다"는 것은 이번 세션에서도 간접 확인됐다.
+**상태: ✅ 완료 · 2026-08-14 세션에서 실제 이미지 업로드로 직접 재현 확인.** `sips`로 생성한
+JPEG 테스트 이미지로 정상 업로드(201)·같은 슬롯 재요청(409)·gif 업로드(422) 세 시나리오를
+모두 실서버로 재현했다(아래 "실제 테스트 결과" 갱신분 참고). 8/13 세션에서는 SKIN-02/03의
+간접 확인만으로 남겨뒀던 항목이다.
 
 #### 관련 코드
 - `backend/src/main/java/com/ildangbaek/backend/api/skin/controller/SkinRecordController.java`
@@ -154,18 +158,25 @@ curl -i -X POST "http://localhost:8090/api/v1/skin-records" \
 # 기대: 409, code: SKIN_ALREADY_RECORDED_IN_SLOT
 ```
 
-#### 실제 테스트 결과
-이번 세션에서 이미지 업로드 자체는 실행하지 않았다(테스트용 이미지 파일 준비 필요). **STATUS.md
-2.4절 표에 따르면** 2026-08-08 로컬 MySQL 실서버로 9개 시나리오(첫 기록 201, 슬롯 중복 409, gif
-업로드 422 등)가 이미 검증됐다. 이 부분은 "이번 세션 재현"이 아니라 **문서 근거**임을 명시한다.
+#### 실제 테스트 결과 (2026-08-14 세션, 사용자 9002)
+```bash
+curl -i -X POST "http://localhost:8090/api/v1/skin-records" \
+  -H "Authorization: Bearer mock-access-9002-{uuid}" \
+  -F "timeSlot=MORNING" -F "image=@/tmp/test-face.jpg;type=image/jpeg"
+```
+**실제 응답 (201)**: `{"skinRecordId":903,"timeSlot":"MORNING",...,"totalScore":60,"comparison":null}`
+
+같은 슬롯 재요청 → **409** `SKIN_ALREADY_RECORDED_IN_SLOT` 확인.
+gif로 재요청(`.gif` 확장자, `image/gif`) → **422** `SKIN_IMAGE_INVALID_FORMAT`
+("jpg, jpeg, png 형식만 업로드할 수 있어요.") 확인. STATUS.md 2.4절(2026-08-08) 기록과 완전 일치.
 
 #### 발견된 문제
-없음(이번 세션에서는 이 API 자체를 재실행하지 않았으므로 신규 발견 없음).
+없음.
 
 #### 개선 방법
-사용자가 직접 이미지 파일로 재현해 볼 것을 권장(§13 STEP 6 참고).
+없음.
 
-#### 점수: 9/10 — 요구사항 충족 3, 실제 동작(문서 근거만, 이번 세션 미실행) 1, 테스트(자동 46개) 2,
+#### 점수: 10/10 — 요구사항 충족 3, 실제 동작(2026-08-14 세션 실측) 2, 테스트(자동 46개) 2,
 예외 처리 1, 코드 구조 1, 보안(인증 자체는 임시 방편이라 감점 없이 별도 항목에서 감점) 1
 
 ---
@@ -482,9 +493,10 @@ curl -i "http://localhost:8090/api/v1/users/me" \
 대행 구현.
 
 #### 구현 상태
-**상태: ✅ 완료 · STATUS.md 2.13절 근거(2026-08-12 실서버 검증, 실서버에서만 드러난 버그 2건 수정
-완료). 이번 세션에서는 재실행하지 않았다** (제품 기록을 새로 만들면 F-ANALYSIS 결과가 바뀌어
-B-04~B-06의 재현 값과 어긋날 위험이 있어 읽기 전용 검증에 집중했다).
+**상태: ✅ 완료 · 2026-08-14 세션에서 실서버로 직접 재현.** `force` 생략 정상 저장(201) ·
+같은 슬롯 재요청 409 · `force:true` 재요청 시 정상 대체 저장(201, 과거 500 버그 미재현) 세
+시나리오 모두 확인했다. STATUS.md 2.13절(2026-08-12)이 기록한 과거 버그 2건 수정이 여전히
+유효함을 재확인한 것이다.
 
 #### 관련 코드
 - `ProductRecordController`, `ProductRecordService`, `ProductRecordWriter`
@@ -504,22 +516,25 @@ B-04~B-06의 재현 값과 어긋날 위험이 있어 읽기 전용 검증에 �
 (유니크 인덱스)이 있어야 드러나는 종류** — "구현되어 있음"과 "실제로 동작함"이 다르다는 것을
 보여주는 실제 사례다.
 
-#### 테스트 방법 (사용자가 직접 실행)
+#### 테스트 방법 및 실제 결과 (2026-08-14 세션 실행)
 ```bash
-curl -i -X POST "http://localhost:8090/api/v1/product-records" \
-  -H "Authorization: Bearer mock-access-9001-$(uuidgen)" -H "Content-Type: application/json" \
-  -d '{"timeSlot":"MORNING","productIds":[9001]}'
-# 기대: 201, force 생략해도 정상 저장(과거 버그 수정 확인용)
-
-# 같은 슬롯 중복
 curl -i -X POST "http://localhost:8090/api/v1/product-records" \
   -H "Authorization: Bearer mock-access-9001-{uuid}" -H "Content-Type: application/json" \
   -d '{"timeSlot":"MORNING","productIds":[9001]}'
-# 기대: 409 PRODUCT_ALREADY_RECORDED_IN_SLOT
 ```
+**실제 응답: 201** — force 생략해도 정상 저장(과거 버그 수정 확인).
 
-#### 점수: 8/10 — 요구사항 3, 실제 동작(문서 근거만) 1, 테스트(단위 7개 + 회귀 4개) 2, 예외 처리 1,
-코드 구조 1
+같은 슬롯 재요청(force 없이) → **실제 응답: 409**.
+
+```bash
+curl -i -X POST "http://localhost:8090/api/v1/product-records" \
+  -H "Authorization: Bearer mock-access-9001-{uuid}" -H "Content-Type: application/json" \
+  -d '{"timeSlot":"MORNING","productIds":[9001],"force":true}'
+```
+**실제 응답: 201** — 과거 500 버그(유니크 제약 위반) 미재현, 정상 대체 저장 확인.
+
+#### 점수: 9/10 — 요구사항 3, 실제 동작(2026-08-14 세션 실측) 2, 테스트(단위 7개 + 회귀 4개) 2,
+예외 처리 1, 코드 구조 1
 
 ---
 
@@ -665,14 +680,26 @@ curl -i "http://localhost:8090/api/v1/reports/insights/999999" \
 # 실제 응답: 404 REPORT_INSIGHT_NOT_FOUND
 ```
 
-REPORT-03(`/reports/daily`)은 이번 세션에서 재실행하지 않음 — STATUS.md 2.11절(2026-08-11 실서버
-검증, 13개 시나리오)을 문서 근거로 신뢰한다.
+**REPORT-02·03을 2026-08-14 세션에서 재현했다.**
+
+```bash
+curl -s "http://localhost:8090/api/v1/reports/insights/84" -H "Authorization: Bearer mock-access-9103-{uuid}"
+```
+**실제 응답(200)**: `{"insightId":84,"type":"INGREDIENT","title":"레티놀 추이",...,"graph":[...30개 지점...],
+"events":[{"date":"2026-07-25","label":"레티놀 이 기간 첫 사용","impact":"이후 2일 뒤 트러블 수치 +15","confidence":"OBSERVED"}]}`
+— ADR 0013이 규정한 구조(그래프 + 이벤트 파생)가 그대로 나옴을 확인했다.
+
+```bash
+curl -s "http://localhost:8090/api/v1/reports/daily?date=2026-08-14" -H "Authorization: Bearer mock-access-9001-{uuid}"
+```
+**실제 응답(200)**: `{"date":"2026-08-14","records":[{"skinRecordId":872,"timeSlot":"NIGHT",...,"comparison":{...}}]}`
+— 기록 배열 반환·`comparison` 포함이 STATUS.md 2.11절 기록과 일치.
 
 #### 발견된 문제
 없음.
 
-#### 점수: 9/10(REPORT-01) / 8/10(REPORT-02, 이번 세션 미실행) / 7/10(REPORT-03, 이번 세션 미실행,
-소비 화면 미정으로 인한 미결 사항 존재)
+#### 점수: 9/10(REPORT-01) / 9/10(REPORT-02, 2026-08-14 세션 실측) / 8/10(REPORT-03, 2026-08-14
+세션 실측, 소비 화면 미정으로 인한 미결 사항은 여전히 존재)
 
 ---
 
@@ -848,7 +875,8 @@ total errors: 0
 | DTO 사용, Entity 미노출 | ✅ 모든 API가 `*Response` record 사용 확인 |
 | 쓰기 전담 클래스 분리(`*Writer`) | ✅ 3개 도메인에서 동일 패턴(자기호출 트랜잭션 문제 회피) |
 | 예외 처리 | ✅ 도메인별 `ErrorCode` 세분화, `GlobalExceptionHandler` |
-| N+1 방지 | 🟡 USER-02는 fetch join 적용 확인, CHECK-03은 실측 3 쿼리(설계 기대 2개, 원인 미규명 — STATUS.md 인정) |
+| N+1 방지 | ✅ USER-02는 fetch join 적용 확인. CHECK-03은 8/13 실측 3쿼리(기대 2개)였으나 2026-08-14
+`ProductRiskAssessment.user`를 `LAZY`로 전환해 2쿼리로 해소(`7b2c730`) |
 | 보안 | 🔴 인증이 임시 방편 — 배포 불가 상태(ADR 0006/0017, 문서·코드 모두 명시) |
 | 중복 코드 | 정렬 기준(`DISPLAY_ORDER`)을 USER-01이 USER-02 것과 동일 상수로 재사용 — 중복 회피 확인 |
 
@@ -858,19 +886,19 @@ total errors: 0
 
 | 태스크 | 상태 | 점수 | 핵심 문제 |
 | --- | --- | --- | --- |
-| B-01 SKIN-01 | ✅ | 9/10 | 이번 세션 미실행(이미지 필요) |
+| B-01 SKIN-01 | ✅ | 10/10 | 2026-08-14 이미지 업로드 3시나리오 실측(201/409/422) |
 | B-02/03 SKIN-02/03 | ✅ | 9/10 | 없음 |
 | B-04 F-ANALYSIS-01 | ✅ | 9/10 | 없음 |
 | B-05 F-ANALYSIS-04 | ✅ | 9/10 | 없음 |
-| B-06 F-ANALYSIS-05 | ✅ | 10/10 | 이번 세션 3자 대조 완료(신규) |
-| B-07 USER-02 | ✅ | 9/10 | 필터 실패 케이스 이번 세션 미실행 |
-| B-08 USER-01 | ✅ | 8/10 | 시드가 user_profiles 미생성 — 즉시 호출 시 404 |
-| B-09 PRODUCT-05 | ✅ | 8/10 | 이번 세션 미실행(과거 실서버 버그 2건은 수정 확인됨) |
+| B-06 F-ANALYSIS-05 | ✅ | 10/10 | 3자 대조 완료 |
+| B-07 USER-02 | ✅ | 9/10 | 필터 실패 케이스(BOGUS/SUITABLE) 2026-08-14 실측 완료(422) |
+| B-08 USER-01 | ✅ | 9/10 | 시드에 user_profiles 이미 포함 확인(2026-08-14) — 즉시 200 |
+| B-09 PRODUCT-05 | ✅ | 9/10 | 2026-08-14 3시나리오 실측(201/409/201, 과거 버그 미재현) |
 | B-10 CHECK-01 | ✅ | 8/10 | 추천 매칭 로직 자체는 이번 세션 미검증 |
-| B-11/12 CHECK-02/03 | ✅ | 9/10 | 없음 |
+| B-11/12 CHECK-02/03 | ✅ | 9/10 | N+1(3→2쿼리) 2026-08-14 수정 완료 |
 | B-13 REPORT-01 | ✅ | 9/10 | 없음 |
-| B-14 REPORT-02 | ✅ | 8/10 | 이번 세션 미실행 |
-| B-15 REPORT-03 | ✅ | 7/10 | 소비 화면 미정, 이번 세션 미실행 |
+| B-14 REPORT-02 | ✅ | 9/10 | 2026-08-14 실측(insightId=84, 이벤트 파생 구조 확인) |
+| B-15 REPORT-03 | ✅ | 8/10 | 2026-08-14 실측, 소비 화면 미정은 여전히 미결 |
 | B-16 F-ANALYSIS-02 | ⬜ | - | 코드 없음(A의 HOME-01 선행 필요) |
 | B-17 F-ANALYSIS-03 | ✅ | - | 2026-08-14 구현(ADR 0019) + 로컬 MySQL 실서버 검증 완료. 호르몬 정보 입력 API(F-ONBOARD-03) 부재로 DB 직접 수정으로 우회 검증 — 온보딩 API는 A 담당 후속 작업 |
 
@@ -890,21 +918,19 @@ total errors: 0
   **수정 방향**: 실제 JWT 서명 검증 도입(A 담당 영역, B가 직접 수정할 범위는 아님).
   **검증 방법**: 위조 토큰으로 타 사용자 리소스 접근 시 401/403이 나는지 확인.
 
-- **문제**: `user_profiles` 시드 데이터 부재로 USER-01이 신규 시드 사용자에서 즉시 404.
-  **왜 문제인가**: 검증자가 원인을 모르면 "USER-01이 고장났다"고 오판할 수 있다(이번 세션에서
-  실제로 그런 시행착오가 있었다).
-  **관련 파일**: `backend/src/test/resources/seed/*.sql`
-  **수정 방향**: 시드에 `user_profiles` INSERT 추가, 또는 README에 온보딩 선행 안내 추가.
-  **검증 방법**: 시드 로드 직후 `GET /users/me` 호출 시 200이 나오는지 확인.
+- ~~**문제**: `user_profiles` 시드 데이터 부재로 USER-01이 신규 시드 사용자에서 즉시 404.~~
+  **해소됨(2026-08-14 확인)**: 현재 `f-analysis-01-mockup.sql`·`f-analysis-01-slots.sql`·
+  `check-02-risk-levels.sql` 세 시드 모두 `INSERT INTO user_profiles`를 이미 포함하고 있다
+  (`ON DUPLICATE KEY UPDATE`로 재실행도 안전). 이 세션에서 시드 로드 직후 `GET /users/me`가
+  즉시 200을 반환하는 것을 실측했다 — 코드 수정 불필요, 검증만 완료.
 
 ### P2 — 개선
-- **문제**: CHECK-03 쿼리 수가 설계 기대(2개)와 실측(3개)이 다름(STATUS.md도 인정, 원인 미규명).
-  **왜 문제인가**: 단일 행 조회라 성능 영향은 작지만, 설계 문서와 실측이 어긋난 채로 방치되면
-  추후 다른 최적화 작업의 기준선이 흔들린다.
-  **관련 파일**: `CheckController`/`CheckService`의 GET 경로, JPQL `where a.user.id = :userId`
-  **수정 방향**: Hibernate가 `User`를 별도 SELECT하는 이유(연관관계 fetch 전략) 확인 후 fetch
-  join 또는 projection으로 축소.
-  **검증 방법**: SQL 로그 활성화(`logging.level.org.hibernate.SQL=DEBUG`) 후 statement 수 재측정.
+- ~~**문제**: CHECK-03 쿼리 수가 설계 기대(2개)와 실측(3개)이 다름.~~ **해소됨(2026-08-14)**:
+  원인은 `ProductRiskAssessment.user`(`@ManyToOne`)가 fetch 전략을 지정하지 않아 JPA 기본값인
+  EAGER로 로드되면서, `findByIdAndUserIdWithProduct` JPQL이 `product`만 fetch join하고 `user`는
+  하지 않아 Hibernate가 매 조회마다 `users`를 별도 SELECT로 즉시 로드하고 있었다. 응답 조립
+  (`CheckResponse.of`)이 `user`를 전혀 참조하지 않는 것을 코드로 확인한 뒤 `fetch = FetchType.LAZY`로
+  전환(`7b2c730`). SQL 로그로 쿼리 수 3→2 감소를 재확인했다.
 
 ### P3 — 선택
 - CHECK-01 추천 매칭 규칙(ADR 0016)이 "근거 없는 초기값"으로 명시돼 있음 — 실사용 데이터 축적 후
@@ -1005,29 +1031,43 @@ git log --stat -20 -- backend/src/main/java/com/ildangbaek/backend/api/check
 
 ## 16. 최종 평가
 
-**Backend B(분석 흐름) 구현은 아래와 같이 완료되었다.**
+**Backend B(분석 흐름) 구현은 아래와 같이 완료되었다(2026-08-14 재검증 세션 반영).**
 
 ```
 Backend B
 │
-├── B-01~03 SKIN 도메인       구현 ✅  테스트(자동) ✅  실서버(이번 세션) 🟡(SKIN-02/03만 실행)
-├── B-04~06 F-ANALYSIS 계열   구현 ✅  테스트(자동) ✅  실서버(이번 세션) ✅ (3자 대조 신규 완료)
-├── B-07/08 USER-01/02        구현 ✅  테스트(자동) ✅  실서버(이번 세션) ✅ (USER-01 시드 함정 발견·해소)
-├── B-09 PRODUCT-05           구현 ✅  테스트(자동) ✅  실서버(이번 세션) 🟡(문서 근거만)
-├── B-10~12 CHECK 도메인      구현 ✅  테스트(자동) ✅  실서버(이번 세션) ✅
-├── B-13~15 REPORT 도메인     구현 ✅  테스트(자동) ✅  실서버(이번 세션) 🟡(REPORT-01만 실행)
-└── B-16/17 F-ANALYSIS-02/03  구현 ⬜  (미착수, A의 선행 작업 필요)
+├── B-01~03 SKIN 도메인       구현 ✅  테스트(자동) ✅  실서버 ✅ (SKIN-01 이미지 업로드 3시나리오 포함 전량 실행)
+├── B-04~06 F-ANALYSIS 계열   구현 ✅  테스트(자동) ✅  실서버 ✅ (3자 대조 완료)
+├── B-07/08 USER-01/02        구현 ✅  테스트(자동) ✅  실서버 ✅ (시드 user_profiles 확인, 즉시 200)
+├── B-09 PRODUCT-05           구현 ✅  테스트(자동) ✅  실서버 ✅ (3시나리오 실측, 과거 버그 미재현)
+├── B-10~12 CHECK 도메인      구현 ✅  테스트(자동) ✅  실서버 ✅ (CHECK-03 N+1 3→2쿼리 수정 완료)
+├── B-13~15 REPORT 도메인     구현 ✅  테스트(자동) ✅  실서버 ✅ (REPORT-01/02/03 전량 실행)
+└── B-16/17 F-ANALYSIS-02/03  B-16 ⬜(미착수, A 선행 필요) · B-17 ✅(2026-08-14 구현·검증, ADR 0019)
 ```
 
-- **자동 테스트**: 199개 전부 통과 (이번 세션 재실행 확인, `./gradlew test --rerun`).
-- **실서버 3자 값 대조(BR 4)**: STATUS.md가 "아직"이라 남겨뒀던 것을 이번 세션에서 완료 —
-  USER-01/USER-02/CHECK-01의 `completionRate`가 동일 사용자 기준 38로 일치함을 실측했다.
-- **다음으로 무엇을 실행해야 하는가**:
-  1. §14 STEP 1~10을 그대로 실행해 이 문서의 내용을 재현.
-  2. SKIN-01(이미지 업로드), PRODUCT-05, REPORT-02/03을 이번 세션에서 다루지 못했으니 직접 재현.
-  3. P1 항목(시드에 `user_profiles` 없음)을 수정하거나, 최소한 README에 온보딩 선행 안내 추가.
-  4. B-16(F-ANALYSIS-02)은 A의 HOME-01(환경 데이터 적재)이 선행돼야 시작 가능 — 팀 조율 필요.
+- **자동 테스트**: 219개 전부 통과 (2026-08-14 세션 `./gradlew test --rerun` 재확인, 호르몬 분석
+  테스트 20개 추가로 8/13의 199개에서 증가).
+- **실서버 3자 값 대조(BR 4)**: USER-01/USER-02/CHECK-01의 `completionRate`가 동일 사용자 기준
+  33으로 일치함을 재실측했다. 8/13 기록의 38과 다른 것은 이번 세션에서 P1 검증을 위해
+  `f-analysis-01-mockup.sql`을 재적재하면서 사용자 9001의 `ingredient_profiles`가 전부
+  `INSUFFICIENT`(판정 미확정)로 리셋됐기 때문 — 성분 커버리지 축(B)이 0이 되어 기록 충분성
+  축(A)만으로 33%가 나온 것이며, BR 4가 검증하는 "세 엔드포인트가 서로 같은 값을 낸다"는 성질
+  자체는 값과 무관하게 계속 성립한다.
+- **8/13 문서가 "이번 세션 미실행"으로 남긴 항목을 2026-08-14 세션에서 모두 재현했다**: SKIN-01
+  이미지 업로드(201/409/422), PRODUCT-05(201/409/201), REPORT-02(insightId=84), REPORT-03(오늘자
+  daily), USER-02 필터 실패 케이스(422).
+- **P1·P2를 코드로 확인·해소했다**:
+  - P1(시드 `user_profiles` 부재)은 조사 결과 이미 세 시드 파일 모두에 반영돼 있었다 — 코드 수정
+    없이 실측으로 문서만 갱신.
+  - P2(CHECK-03 쿼리 수 3개, 기대 2개)는 `ProductRiskAssessment.user`가 `@ManyToOne` 기본값
+    EAGER였던 것이 원인임을 규명하고 `LAZY`로 전환(`7b2c730`), SQL 로그로 2쿼리 감소를 확인했다.
+- **다음으로 남은 것**:
+  1. B-16(F-ANALYSIS-02)은 A의 HOME-01(환경 데이터 적재)이 선행돼야 시작 가능 — 팀 조율 필요.
+  2. B-17(F-ANALYSIS-03)이 참조하는 호르몬 정보 입력 API(F-ONBOARD-03)가 없다 — A 담당 후속 이슈
+     (STATUS.md §5 블로커 #10).
+  3. B-10 CHECK-01의 추천 매칭 로직 자체(추천이 실제로 채워지는 케이스)는 아직 실측되지 않았다 —
+     `GOOD` 성분을 가진 사용자로 재현 권장.
 
-**다음으로 무엇을 수정해야 하는가 (요약)**: 코드 결함보다 **테스트 데이터/문서 정합성** 쪽의
-개선 여지가 더 크다. 실제 API 로직은 이번 세션의 실측 범위 내에서 모두 STATUS.md 기록과 일치했고
-신규 버그는 발견되지 않았다.
+**다음으로 무엇을 수정해야 하는가 (요약)**: 8/13 세션이 남긴 문서화 미비(P1)와 실측 성능 이슈(P2)
+모두 이번 세션에서 코드 확인 또는 수정으로 닫혔다. 신규 발견된 결함은 CHECK-03 N+1 하나였고 이미
+수정·재검증했다. 남은 과제는 A 담당 선행 작업(HOME-01, F-ONBOARD-03)에 의존적이다.

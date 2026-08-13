@@ -3,8 +3,10 @@
 > 이 문서는 **실제 구현·검증·배포 상태**를 기록한다. 계획이나 목표가 아니라 **지금 저장소에 있는 것**을 적는다.
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
-- 최종 갱신: 2026-08-13
-- 기준 커밋: `58296fb` (PRODUCT-05 버그 수정 · F-ANALYSIS-01 ADR 0014 재검증) + SKIN-02 실서버 검증 · 버그 수정 작업분 + 3장 프론트엔드 화면 현황 실측 정정 + **A 담당(AUTH·ONBOARD) 코드 대조 반영**(`bfb075b`·`fd6c336` merge 확인, 인증 이원화 발견)
+- 최종 갱신: 2026-08-14
+- 기준 커밋: `7b2c730` (CHECK-03 N+1 수정) — F-ANALYSIS-03 호르몬 요인 보정(ADR 0019) 반영 +
+  BACKEND_B_IMPLEMENTATION_VERIFICATION.md 재검증 세션에서 P1(시드 `user_profiles` 확인)·
+  P2(CHECK-03 쿼리 수 3→2) 해소, SKIN-01·PRODUCT-05·REPORT-02/03 재현 검증 완료
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 ## 상태 표기
@@ -742,10 +744,12 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 설정돼 있지 않아 자식 INSERT는 배치되지 않는다 — 실측(성분 3종 제품)으로 SELECT 6 + INSERT 4 =
 총 10 statement를 확인했다.
 
-CHECK-03은 **실측 3개**다. 설계상 2개(평가 조회 · 성분평가 조회)를 기대했으나, `where a.user.id =
-:userId` 조건이 있는 JPQL에서 Hibernate가 `User`를 별도 SELECT로 한 번 더 조회하는 것을 SQL 로그로
-확인했다(단일 행 조회라 영향은 작다). 계획 문서의 기대치(2개)와 실측(3개)이 다르다는 것을 여기
-정직하게 남긴다 — 원인 규명과 최적화는 범위 밖으로 남겼다.
+CHECK-03은 설계상 2개(평가 조회 · 성분평가 조회)를 기대했으나 **실측 3개**였다(2026-08-12).
+`where a.user.id = :userId` 조건의 JPQL이 `product`는 fetch join하면서 `user`는 하지 않아,
+`ProductRiskAssessment.user`가 `@ManyToOne` 기본값(EAGER)으로 매 조회마다 `users`를 별도
+SELECT로 즉시 로드하고 있었다. **2026-08-14 원인 규명 및 수정 완료** — 응답 조립(`CheckResponse.of`)이
+`user`를 전혀 참조하지 않는 것을 코드로 확인한 뒤 `user` 필드를 `FetchType.LAZY`로 바꿨다. 로컬
+MySQL 실서버에서 SQL 로그로 쿼리 수가 3개 → **2개**로 줄어드는 것을 재확인했다(`ProductRiskAssessment.java`).
 
 **로컬 MySQL 실서버 검증** (2026-08-12). 기존 시드(`f-analysis-01-mockup.sql`, 사용자 9001)로
 SKIN-01을 한 번 더 트리거해 프로파일을 채운 뒤(레티놀·히알루론산 CAUTION, 판테놀 INSUFFICIENT),
@@ -774,8 +778,7 @@ DB 직접 확인 — `summary` · `contribution_score`가 모든 행에서 `NULL
 25.00·40.00 등 실제 산식값으로 채워진 것을 확인했다.
 
 **아직 하지 않은 것** — 프론트 연동. `EXPO_PUBLIC_USE_MOCK=true`라 S-21·S-22는 아직 목업을 본다.
-CHECK-01(쇼핑 홈)은 구현 완료했으나(2.15절) 실서버 검증은 아직이다. CHECK-03의 쿼리 수 3개 실측
-원인은 규명하지 않았다.
+CHECK-01(쇼핑 홈)은 구현 완료했으나(2.15절) 실서버 검증은 아직이다.
 
 ---
 
