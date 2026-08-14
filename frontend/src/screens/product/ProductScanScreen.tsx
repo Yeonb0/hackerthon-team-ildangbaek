@@ -35,6 +35,8 @@ import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import type { ScanMode } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -318,8 +320,8 @@ const styles = StyleSheet.create({
   },
   guideText: {
     color: color.white,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: adjustFontSize(14),
+    ...weightFamily('semibold'),
     textShadowColor: color.scrim40,
     textShadowRadius: 4,
   },
@@ -344,8 +346,8 @@ const styles = StyleSheet.create({
   },
   processingText: {
     color: color.white,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: adjustFontSize(14),
+    ...weightFamily('semibold'),
   },
   errorBanner: {
     position: 'absolute',
@@ -359,7 +361,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: color.white,
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('regular'),
     textAlign: 'center',
   },
   errorActions: {

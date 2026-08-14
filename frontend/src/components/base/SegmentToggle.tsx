@@ -1,6 +1,8 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type SegmentOption<T extends string> = {
   value: T;
@@ -63,8 +65,9 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: adjustFontSize(14),
+    // 2026-08-15 — fontWeight: '600' → weightFamily로 교체(글꼴 토큰 적용).
+    ...weightFamily('semibold'),
     color: color.ink600,
   },
   labelSelected: {

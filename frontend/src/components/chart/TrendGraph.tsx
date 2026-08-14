@@ -5,6 +5,8 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { GraphPoint } from '@/types/report';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type TrendGraphProps = {
   points: GraphPoint[];
@@ -191,11 +193,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   labelText: {
-    fontSize: 11,
+    fontSize: adjustFontSize(11),
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
   },

@@ -17,6 +17,8 @@ import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { Gender } from '@/types/onboarding';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: 'FEMALE', label: '여성' },
@@ -184,7 +186,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: s(22),
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
     marginBottom: space[6],
   },
@@ -192,8 +194,8 @@ const styles = StyleSheet.create({
     marginTop: space[6],
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: adjustFontSize(13),
+    ...weightFamily('semibold'),
     color: color.ink600,
     marginBottom: space[2],
   },
@@ -204,7 +206,8 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     marginTop: space[1],
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.statusCaution,
   },
   errorBanner: {

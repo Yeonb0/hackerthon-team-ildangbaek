@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { AppIcon, AppIconName } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export type TagVariant = 'match' | 'caution' | 'insufficient';
 
@@ -75,7 +77,7 @@ const styles = StyleSheet.create({
     marginRight: space[1],
   },
   label: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: adjustFontSize(12),
+    ...weightFamily('semibold'),
   },
 });

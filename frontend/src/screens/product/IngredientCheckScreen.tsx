@@ -25,6 +25,7 @@ import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, space, typography } from '@/theme';
 import type { IngredientStatus } from '@/types/product';
 import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -347,6 +348,6 @@ const styles = StyleSheet.create({
   },
   routineChipTextActive: {
     color: color.bg,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
   },
 });

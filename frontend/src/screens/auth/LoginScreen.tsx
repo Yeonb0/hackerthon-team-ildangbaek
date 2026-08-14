@@ -10,6 +10,7 @@ import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { AuthProvider } from '@/types/auth';
+import { weightFamily } from '@/theme/typography';
 
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'Login'>>();
@@ -117,18 +118,21 @@ const styles = StyleSheet.create({
     color: color.statusCaution,
     marginTop: space[4],
     fontSize: s(13),
+    ...weightFamily('regular'),
   },
   signupLink: {
     marginTop: space[5],
   },
   signupLinkText: {
     fontSize: s(13),
+    ...weightFamily('regular'),
     color: color.ink600,
     textDecorationLine: 'underline',
   },
   mockNotice: {
     marginTop: space[6],
     fontSize: s(12),
+    ...weightFamily('regular'),
     color: color.ink300,
   },
 });

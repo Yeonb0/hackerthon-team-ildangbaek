@@ -1,7 +1,8 @@
 // MetricDetailScreen.tsx
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/components/base/Card';
 import { SegmentToggle } from '@/components/base/SegmentToggle';
@@ -9,9 +10,14 @@ import { TrendGraph } from '@/components/chart/TrendGraph';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { EmptyState } from '@/components/state/EmptyState';
+import { IconBack } from '@/components/icons';
 import { useReportInsight } from '@/api/queries/report';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
+
+type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
 const TYPE_LABEL: Record<'INGREDIENT' | 'ENVIRONMENT', string> = {
   INGREDIENT: '성분 요인',
@@ -20,10 +26,12 @@ const TYPE_LABEL: Record<'INGREDIENT' | 'ENVIRONMENT', string> = {
 
 /**
  * S-20 요인 상세. REPORT-02(GET /reports/insights/{insightId}) 기준.
- * S-19에서 인사이트 카드를 눌러 들어옵니다. 뒤로가기는 이 코드베이스의 다른
- * push형 상세 화면들(PhotoGuideScreen 등)과 동일하게 OS 기본 제스처/뒤로가기
- * 버튼에 맡기고, 화면 안에 별도 뒤로가기 버튼은 두지 않았습니다 (headerShown: false
- * 정책이지만 이 프로젝트에서 그 경우 항상 그래왔던 방식).
+ * S-19에서 인사이트 카드를 눌러 들어옵니다.
+ *
+ * ⚠️ Phase 13(2026-08-15) — 예전엔 OS 기본 제스처/뒤로가기 버튼에만 맡기고 화면 안에
+ * 별도 뒤로가기 버튼을 두지 않았는데, 카메라 화면 등 제스처가 애매한 곳들이 있다는
+ * 게 확인되어 전체 화면 재점검 과정에서 이 화면에도 네브바 뒤로가기 버튼을
+ * 추가했습니다 (IngredientCheckScreen과 동일한 navBar 패턴).
  *
  * 추이 그래프는 S-19와 동일하게 선(line)을 씁니다(관리자님 요청, 2026-08-10).
  * 이벤트 목록(BR — "추이 그래프 + 주요 이벤트 목록")은 날짜순으로 그대로 나열합니다.
@@ -37,6 +45,7 @@ const TYPE_LABEL: Record<'INGREDIENT' | 'ENVIRONMENT', string> = {
  * 맞췄습니다.
  */
 export function MetricDetailScreen() {
+  const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProp<DetailStackParamList, 'MetricDetail'>>();
   const insets = useSafeAreaInsets();
 
@@ -48,12 +57,34 @@ export function MetricDetailScreen() {
 
   const { data, isLoading, isError, refetch } = useReportInsight(route.params.insightId);
 
+  const backButton = (
+    <Pressable
+      onPress={() => navigation.goBack()}
+      accessibilityRole="button"
+      accessibilityLabel="뒤로가기"
+      hitSlop={8}
+      style={styles.navBackButton}
+    >
+      <IconBack size={22} color={color.ink900} />
+    </Pressable>
+  );
+
   if (isLoading) {
-    return <LoadingState variant="spinner" style={styles.centerFill} />;
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.nav, { paddingTop: insets.top }]}>{backButton}</View>
+        <LoadingState variant="spinner" style={styles.centerFill} />
+      </View>
+    );
   }
 
   if (isError || !data) {
-    return <ErrorState variant="network" onRetry={() => refetch()} style={styles.centerFill} />;
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.nav, { paddingTop: insets.top }]}>{backButton}</View>
+        <ErrorState variant="network" onRetry={() => refetch()} style={styles.centerFill} />
+      </View>
+    );
   }
 
   const displayedGraph = data.graph.slice(-displayPeriod);
@@ -63,11 +94,13 @@ export function MetricDetailScreen() {
     : data.events;
 
   return (
-    <ScrollView
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + space[5] }]}
-    >
+    <View style={styles.screen}>
+      <View style={[styles.nav, { paddingTop: insets.top }]}>
+        {backButton}
+        <Text style={styles.navTitle}>{data.title}</Text>
+      </View>
+      <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.eyebrow}>{TYPE_LABEL[data.type]}</Text>
-      <Text style={styles.title}>{data.title}</Text>
       <Text style={styles.subtitle}>{data.subtitle}</Text>
 
       <SegmentToggle
@@ -117,7 +150,8 @@ export function MetricDetailScreen() {
           description="기록이 더 쌓이면 관련 이벤트를 찾아드려요."
         />
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -127,24 +161,43 @@ function formatEventDate(date: string) {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: color.bg,
+  },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navTitle: {
+    ...typography.h2,
+    color: color.ink900,
+    flexShrink: 1,
+  },
   centerFill: {
     flex: 1,
   },
   content: {
     padding: space[5],
+    paddingTop: space[2],
     paddingBottom: space[8],
     gap: space[3],
     backgroundColor: color.bg,
     flexGrow: 1,
   },
   eyebrow: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: adjustFontSize(13),
+    ...weightFamily('semibold'),
     color: color.brand700,
-  },
-  title: {
-    ...typography.display,
-    color: color.ink900,
   },
   subtitle: {
     ...typography.body,
@@ -184,7 +237,7 @@ const styles = StyleSheet.create({
   },
   eventLabel: {
     ...typography.body,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink900,
   },
   eventImpact: {
@@ -198,8 +251,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink300,
   },
   observingText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: adjustFontSize(11),
+    ...weightFamily('semibold'),
     color: color.ink900,
   },
 });

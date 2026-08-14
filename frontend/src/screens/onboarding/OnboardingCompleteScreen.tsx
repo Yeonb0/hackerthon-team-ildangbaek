@@ -25,6 +25,8 @@ import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { OnboardingSummaryRow } from '@/types/onboarding';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export function OnboardingCompleteScreen() {
   const navigation =
@@ -116,13 +118,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: s(22),
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
     marginBottom: space[2],
     textAlign: 'center',
   },
   description: {
-    fontSize: 14,
+    fontSize: adjustFontSize(14),
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
     marginBottom: space[6],
@@ -141,12 +144,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: adjustFontSize(14),
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   summaryValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: adjustFontSize(14),
+    ...weightFamily('semibold'),
     color: color.ink900,
   },
   startButton: {

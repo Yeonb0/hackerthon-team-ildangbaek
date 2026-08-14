@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
 import { Toast } from '@/components/base/Toast';
-import { IconClose } from '@/components/icons';
+import { IconBack, IconClose } from '@/components/icons';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { ProductSearchBar } from '@/components/domain/ProductSearchBar';
@@ -45,6 +45,7 @@ import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, space, typography } from '@/theme';
 import type { RoutineSummaryItem, SavedProductSummary } from '@/types/product';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -237,8 +238,17 @@ export function ProductRecordScreen() {
     });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
-      <View style={styles.headerArea}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.nav}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
         <Text style={styles.title}>{TIME_SLOT_TITLE[timeSlot]}</Text>
       </View>
 
@@ -619,10 +629,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: color.bg,
   },
-  headerArea: {
-    paddingHorizontal: space[5],
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: space[3],
-    paddingBottom: space[3],
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     ...typography.h1,
@@ -650,7 +668,7 @@ const styles = StyleSheet.create({
   chipText: {
     ...typography.caption,
     color: color.brand700,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
   },
   content: {
     paddingHorizontal: space[5],
@@ -701,7 +719,7 @@ const styles = StyleSheet.create({
   directRegisterText: {
     ...typography.caption,
     color: color.brand700,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
   },
   notFoundArea: {
     alignItems: 'center',

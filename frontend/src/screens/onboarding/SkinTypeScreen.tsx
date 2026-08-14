@@ -1,12 +1,14 @@
-// src/screens/onboarding/SkinTypeScreen.tsx
+ // src/screens/onboarding/SkinTypeScreen.tsx
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { OptionCard } from '@/components/base/OptionCard';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
+import { IconBack } from '@/components/icons';
 import { saveSkinTypes } from '@/api/onboarding';
 import { ApiError, getFieldErrors } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
@@ -15,6 +17,8 @@ import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { SkinTypeCode } from '@/types/onboarding';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 const SKIN_TYPE_OPTIONS: { value: SkinTypeCode; title: string; description: string }[] = [
   { value: 'OILY', title: '지성', description: 'T존이 번들거리거나 메이크업이 잘 들뜨는 편이에요' },
@@ -29,6 +33,7 @@ const CURRENT_STEP_INDEX = 2;
 export function SkinTypeScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'SkinType'>>();
+  const insets = useSafeAreaInsets();
 
   const totalStepCount = useOnboardingStore((state) => state.totalStepCount);
 
@@ -88,7 +93,19 @@ export function SkinTypeScreen() {
   const progress = totalStepCount ? CURRENT_STEP_INDEX / totalStepCount : 0.4;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.screen}>
+      <View style={[styles.nav, { paddingTop: insets.top }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.container}>
       <ProgressBar
         progress={progress}
         current={totalStepCount ? CURRENT_STEP_INDEX : undefined}
@@ -134,11 +151,28 @@ export function SkinTypeScreen() {
         onPress={handleSubmit}
         style={styles.submitButton}
       />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: color.bg,
+  },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flexGrow: 1,
     padding: space[6],
@@ -149,12 +183,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: s(22),
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
     marginBottom: space[1],
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('regular'),
     color: color.ink600,
     marginBottom: space[6],
   },
@@ -163,7 +198,8 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     marginTop: space[3],
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.statusCaution,
   },
   errorBanner: {

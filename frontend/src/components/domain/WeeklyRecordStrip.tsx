@@ -4,6 +4,7 @@ import { RecordDot } from '@/components/domain/RecordDot';
 import { getTodayDateString, isFutureDateString } from '@/lib/date';
 import { color, space, typography } from '@/theme';
 import type { WeeklyCalendarDay } from '@/types/home';
+import { weightFamily } from '@/theme/typography';
 
 type WeeklyRecordStripProps = {
   /**
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
   },
   weekdayToday: {
     color: color.brand700,
-    fontWeight: '700',
+    ...weightFamily('bold'),
   },
   weekdayMuted: {
     color: color.ink300,

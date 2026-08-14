@@ -26,6 +26,8 @@ import { saveNotificationSetting } from '@/api/notification';
 import { useAuthStore } from '@/store/authStore';
 import { color, radius, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export function NotificationPermissionScreen() {
   const setOnboardingCompleted = useAuthStore((state) => state.setOnboardingCompleted);
@@ -124,13 +126,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: s(22),
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
     marginBottom: space[2],
     textAlign: 'center',
   },
   description: {
-    fontSize: 14,
+    fontSize: adjustFontSize(14),
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
     marginBottom: space[6],
@@ -153,12 +156,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   previewTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: adjustFontSize(13),
+    ...weightFamily('bold'),
     color: color.ink900,
   },
   previewBody: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('regular'),
     color: color.ink600,
     marginTop: space[1],
   },

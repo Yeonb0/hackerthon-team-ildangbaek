@@ -6,6 +6,7 @@ import { getMonthGridCells, isFutureDateString } from '@/lib/date';
 import type { WeekStart } from '@/lib/date';
 import { color, space, typography } from '@/theme';
 import type { RecordCalendarDay } from '@/types/record';
+import { weightFamily } from '@/theme/typography';
 
 type RecordCalendarProps = {
   year: number;
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
   },
   dayTextToday: {
     color: color.brand700,
-    fontWeight: '700',
+    ...weightFamily('bold'),
   },
   dots: {
     flexDirection: 'row',

@@ -1,14 +1,16 @@
 // src/screens/onboarding/HormoneScreen.tsx
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Chip } from '@/components/base/Chip';
 import { DateField } from '@/components/base/DateField';
 import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
+import { IconBack } from '@/components/icons';
 import { saveHormoneInfo } from '@/api/onboarding';
 import { ApiError, getFieldErrors } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
@@ -18,6 +20,8 @@ import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { HormoneStatus } from '@/types/onboarding';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 // 주사(HORMONE_INJECTION)는 관리자 결정으로 일단 숨김 처리 — 추후 기능으로 보류.
 // 타입(types/onboarding.ts)에는 그대로 남겨뒀으니 나중에 이 배열에 한 줄만 추가하면 됩니다.
@@ -43,6 +47,7 @@ const CURRENT_STEP_INDEX = 3;
 export function HormoneScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'Hormone'>>();
+  const insets = useSafeAreaInsets();
 
   const totalStepCount = useOnboardingStore((state) => state.totalStepCount);
 
@@ -96,7 +101,19 @@ export function HormoneScreen() {
   const progress = totalStepCount ? CURRENT_STEP_INDEX / totalStepCount : 0.7;
 
   return (
-    <KeyboardAvoidingView
+    <View style={styles.screen}>
+      <View style={[styles.nav, { paddingTop: insets.top }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
+      </View>
+      <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
@@ -177,11 +194,28 @@ export function HormoneScreen() {
           style={styles.skipButton}
         />
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: color.bg,
+  },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   flex: {
     flex: 1,
     backgroundColor: color.bg,
@@ -195,12 +229,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: s(22),
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
     marginBottom: space[1],
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('regular'),
     color: color.ink600,
     marginBottom: space[6],
   },
@@ -214,8 +249,8 @@ const styles = StyleSheet.create({
     gap: space[4],
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: adjustFontSize(13),
+    ...weightFamily('semibold'),
     color: color.ink600,
     marginBottom: space[2],
   },
@@ -224,7 +259,8 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     marginTop: space[1],
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.statusCaution,
   },
   errorBanner: {

@@ -16,6 +16,7 @@ import { ApiError } from '@/api/unwrap';
 import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { SkinRecordResult } from '@/types/skin';
+import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -177,7 +178,7 @@ const styles = StyleSheet.create({
   },
   totalScoreValue: {
     ...typography.display,
-    fontSize: 56,
+    fontSize: adjustFontSize(56),
     lineHeight: 60,
     color: color.brand700,
   },
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
   summaryLabel: {
     ...typography.caption,
     color: color.ink600,
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
   },
   // 스크롤 영역 밖, 화면 하단에 고정되는 버튼 바 (관리자님 요청, 2026-08-14).
   buttonRow: {

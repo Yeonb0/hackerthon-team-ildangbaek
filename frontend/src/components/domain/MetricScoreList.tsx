@@ -4,6 +4,8 @@ import { IconArrowDown, IconArrowUp, IconMinus } from '@/components/icons';
 import { MetricListItem } from '@/api/adapters';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type MetricScoreListProps = {
   /** src/api/adapters.ts의 toMetricList() 출력을 그대로 넘깁니다. 개수 무관 동작. */
@@ -73,8 +75,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: adjustFontSize(14),
+    ...weightFamily('semibold'),
     color: color.ink900,
   },
   barRow: {
@@ -86,8 +88,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   score: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: adjustFontSize(13),
+    ...weightFamily('semibold'),
     color: color.ink600,
     minWidth: 24,
     textAlign: 'right',
@@ -98,11 +100,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   deltaText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: adjustFontSize(12),
+    ...weightFamily('semibold'),
   },
   deltaNeutral: {
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.ink600,
   },
 });
