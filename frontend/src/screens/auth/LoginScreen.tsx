@@ -49,7 +49,7 @@ export function LoginScreen() {
           (관리자님 확인 2026-08-11). 아이콘용 크롭본은 디자인팀에서 받는 대로 별도 적용 예정 —
           여기 쓰는 건 전체 로고(마스코트+워드마크+태그라인) 원본입니다.
         */}
-        <Image source={require('../../../assets/skinteller-logo.png')} style={styles.logo} resizeMode="contain" />
+        <Image source={require('../../../assets/Skinteller-logo.png')} style={styles.logo} resizeMode="contain" />
       </View>
 
       <View style={styles.buttonGroup}>

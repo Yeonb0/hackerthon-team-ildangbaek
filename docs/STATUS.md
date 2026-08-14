@@ -147,7 +147,7 @@
 | SKIN-02 오늘 피부 결과 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13) — 실서버에서만 드러난 버그 1건(NIGHT 자정 경계 404) 수정 |
 | SKIN-03 피부 기록 상세 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13). 소유권 격리(404) 확인 |
 | F-ANALYSIS-01 성분-피부 시차 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.7절). ADR 0014 기준 재검증 완료 — 회귀 기준선 · 슬롯 분리 전용 시드 · PRODUCT-05 실입력 경로 3축 |
-| F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
+| F-ANALYSIS-02 환경 요인 보정 | ✅ | 자외선 급변일 계산(`IngredientLagAnalysisService.loadUvVolatileDates`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동, 호르몬 보정과 곱셈 합성(ADR 0021). 로직·단위 테스트는 완료. **단, `daily_environments`에 실제로 쓰는 프로덕션 코드(F-HOME-03, A 담당)가 아직 없어 실사용 데이터에서는 급변일 집합이 항상 비어 보정이 미적용 경로로만 흐름 — BR 3이 요구하는 정상 동작이며, F-HOME-03 적재가 붙는 즉시 코드 변경 없이 동작. 검증은 목업 데이터로 함** |
 | F-ANALYSIS-03 호르몬 요인 반영 | ✅ | 주기 구간 계산(`MenstrualCycleCalculator`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동(ADR 0019). 로컬 MySQL로 실서버 확인(2026-08-14) — `user_profiles`에 호르몬 정보를 직접 넣고 SKIN-01 재분석 시 신뢰도 100→80(20% 감쇄) 및 확정→확인중 전환을 API 응답(`GET /reports`)에서 재현. **단, 호르몬 정보를 입력하는 API(F-ONBOARD-03 `hormone` 단계)가 아직 없어 DB 직접 수정으로 우회 검증함 — A 담당 온보딩 API 미구현이 후속 이슈** |
 | F-ANALYSIS-04 성분 프로파일 갱신 | ✅ | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11). PRODUCT-05 실입력 경로 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 제품 기록이 `CAUTION` 행까지 만든다 |
 | F-ANALYSIS-05 프로파일 완성도 계산 | ✅ | 산출식 구현 완료(ADR 0011). **소비처 3곳(USER-01 · USER-02 · CHECK-01) 모두 연결 완료.** 단위 테스트로 세 서비스가 `ProfileCompletionCalculator` 값을 그대로 위임하는지 확인(BR 4) — 실서버 3자 대조는 아직 |
@@ -356,8 +356,8 @@ REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로 확인했다(
 **분석이 완료된 피부 기록만 관측으로 쓴다.** `analysisStatus != COMPLETED`인 기록은 지표를 믿을 수
 없는데, 그 값이 기준선이 되면 있지도 않은 변화를 패턴으로 잡는다.
 
-**아직 하지 않은 것** — F-ANALYSIS-02 환경 보정이 없어 자외선 영향과 성분 영향이 섞여 있다.
-`IngredientProfile` 갱신은 F-ANALYSIS-04에서 이어서 구현했다(아래 2.8).
+F-ANALYSIS-02 환경 보정(B-16, ADR 0021)이 자외선 급변일에 걸친 관측 쌍을 구분해 확정 임계값·
+신뢰도에 반영한다(2.16절). `IngredientProfile` 갱신은 F-ANALYSIS-04에서 이어서 구현했다(아래 2.8).
 
 ### 2.8 F-ANALYSIS-04 구현 내역
 
@@ -418,7 +418,8 @@ REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로 확인했다(
 > 로컬 확인용 시드: `seed/f-analysis-04-sensitive.sql`
 
 **아직 하지 않은 것** — F-ANALYSIS-05(프로파일 완성도)는 이번 범위 밖이다. 완화 임계값 2점은
-ADR 0009의 3점과 마찬가지로 근거 없는 초기값이며, F-ANALYSIS-02 구현 시 함께 재검토해야 한다.
+ADR 0009의 3점과 마찬가지로 근거 없는 초기값이다. F-ANALYSIS-02가 이제 구현됐으므로(2.16절,
+ADR 0021) 재검토 대상이지만 아직 하지 않았다 — 실사용 데이터가 쌓인 뒤로 미룬다.
 `skin_types` 마스터 데이터 적재(운영 시드)도 아직 없다 — 온보딩 구현과 함께 필요하다.
 
 ### 2.9 F-ANALYSIS-05 구현 내역
@@ -855,6 +856,28 @@ USER-02만 붙어 있던 상태(2.9·2.10절)를 마저 채워 BR 4("세 API가 
 failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태, 2026-08-13). 로컬 MySQL로
 세 API를 동일 사용자로 직접 호출해 값을 대조하는 실서버 검증은 아직 하지 않았다 — 다음 작업으로
 남긴다.
+
+### 2.16 F-ANALYSIS-02 환경 요인 보정 구현 내역 (B-16, ADR 0021)
+
+호르몬 요인 보정(F-ANALYSIS-03, ADR 0019)과 정확히 같은 개입 지점에 자외선 급변일 보정을 추가했다.
+전일 대비 `uv_index_max` 변화폭이 3 이상인 날을 급변일로 본다.
+
+| 클래스 | 역할 |
+| --- | --- |
+| `IngredientLagAnalysisService.loadUvVolatileDates` | 분석 기간의 `DailyEnvironment`를 조회해 급변일 집합을 만든다. `loadMenstrualDates`와 대칭 구조 |
+| `LagCorrelationAnalyzer` | 관측 쌍의 급변일 걸침 비율이 50% 이상이면 확정 임계값을 67%→80%로 상향(`COVARIATE_AFFECTED_*`, 호르몬 보정과 상수 공유) |
+| `LagInsightWriter` | 같은 조건에서 신뢰도를 20% 감쇄. 호르몬 보정과 동시에 걸리면 곱셈으로 합성(0.8 × 0.8 = 36% 감쇄) |
+
+**`daily_environments`에 쓰는 프로덕션 코드가 아직 없다.** `DailyEnvironment` 엔티티·저장소는
+이미 존재하지만, F-HOME-03의 `HomeService`는 현재 환경 응답을 고정값(`SUNNY, 24, 5, MODERATE, 55`)
+으로 내려줄 뿐 DB에 쓰지 않는다. 따라서 실사용 데이터에서는 `loadUvVolatileDates`가 항상 빈
+집합을 내고 보정은 미적용 경로로만 흐른다 — BR 3이 요구하는 정상 동작이며, F-HOME-03이 실제로
+적재를 시작하면 이 코드는 변경 없이 동작한다. 검증은 목업 데이터로 했다(단위 테스트).
+
+자동 테스트 6개 추가 — `LagCorrelationAnalyzerTest` 2개(급변일 걸침 50% 이상 시 미확정 ·
+정보 없으면 기존 임계값), `LagInsightWriterTest` 2개(환경 단독 감쇄 · 호르몬과 곱셈 합성),
+`IngredientLagAnalysisServiceTest` 1개(급변일 조회 연동), `IngredientProfileWriterTest`는
+생성자 시그니처만 갱신. 백엔드 전체 테스트 통과 확인(2026-08-14).
 
 ---
 

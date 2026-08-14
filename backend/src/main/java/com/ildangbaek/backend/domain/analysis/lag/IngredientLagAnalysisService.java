@@ -2,6 +2,8 @@ package com.ildangbaek.backend.domain.analysis.lag;
 
 import com.ildangbaek.backend.domain.analysis.hormone.MenstrualCycleCalculator;
 import com.ildangbaek.backend.domain.analysis.hormone.MenstrualCyclePhase;
+import com.ildangbaek.backend.domain.environment.entity.DailyEnvironment;
+import com.ildangbaek.backend.domain.environment.repository.DailyEnvironmentRepository;
 import com.ildangbaek.backend.domain.product.entity.ProductIngredient;
 import com.ildangbaek.backend.domain.product.repository.ProductIngredientRepository;
 import com.ildangbaek.backend.domain.record.entity.AnalysisStatus;
@@ -17,6 +19,7 @@ import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.domain.user.entity.UserProfile;
 import com.ildangbaek.backend.domain.user.repository.UserProfileRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -42,6 +45,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>F-ANALYSIS-03 · 분석 기간 중 생리 중이었던 날짜도 함께 조회해 분석기에 넘긴다. 프로필이 없거나
  * 호르몬 정보가 비어 있으면 빈 집합을 넘기며, 이 경우 시차 분석은 기존 임계값만 적용한다.
  *
+ * <p>F-ANALYSIS-02 · 분석 기간 중 자외선이 급변한 날짜도 함께 조회해 분석기에 넘긴다. 환경 데이터가
+ * 없으면 빈 집합을 넘기며, 이 경우 환경 보정은 적용되지 않는다. F-HOME-03(환경 데이터 적재)이
+ * 아직 프로덕션에서 {@code daily_environments}에 쓰지 않으므로 실사용 데이터에서는 이 보정이
+ * 항상 미적용 경로로 흐른다 — BR 3이 요구하는 정상 동작이다. (ADR 0021)
+ *
  * <p><strong>제품 기록 쓰기 API(PRODUCT-05, A 담당)가 아직 없다.</strong> 그래서 실사용 데이터에서는
  * {@code product_records}가 비어 있고 노출이 0건이라 결과도 비어 있다. 이는 정상 동작이다 — 명세 BR 4,
  * 5가 데이터 부족 시 패턴을 확정하지 말라고 요구한다. 표는 이미 존재하므로 A의 API가 붙는 즉시
@@ -55,12 +63,19 @@ public class IngredientLagAnalysisService {
     /** 분석 대상 기간. 시차 최대 7일을 감안해 30일을 본다. */
     private static final int ANALYSIS_WINDOW_DAYS = 30;
 
+    /**
+     * 전일 대비 자외선 지수(uv_index_max) 변화폭이 이 값 이상이면 급변일로 본다. 자외선 지수는
+     * 0~11 척도이고 3은 노출 등급 한 단계 이동에 해당한다. 근거 없는 초기값이다. (ADR 0021)
+     */
+    static final BigDecimal UV_VOLATILE_DELTA = BigDecimal.valueOf(3);
+
     private final ProductRecordRepository productRecordRepository;
     private final ProductRecordItemRepository productRecordItemRepository;
     private final ProductIngredientRepository productIngredientRepository;
     private final SkinRecordRepository skinRecordRepository;
     private final SkinMetricRepository skinMetricRepository;
     private final UserProfileRepository userProfileRepository;
+    private final DailyEnvironmentRepository dailyEnvironmentRepository;
     private final LagCorrelationAnalyzer analyzer;
     private final MenstrualCycleCalculator menstrualCycleCalculator;
     private final LagInsightWriter insightWriter;
@@ -92,7 +107,8 @@ public class IngredientLagAnalysisService {
         }
 
         Set<LocalDate> menstrualDates = loadMenstrualDates(user.getId(), startDate, today);
-        List<LagPattern> patterns = analyzer.analyze(exposures, observations, menstrualDates);
+        Set<LocalDate> uvVolatileDates = loadUvVolatileDates(user.getId(), startDate, today);
+        List<LagPattern> patterns = analyzer.analyze(exposures, observations, menstrualDates, uvVolatileDates);
 
         // 패턴이 없어도 프로파일은 갱신한다. 노출된 성분에 "아직 데이터가 부족하다"는 상태를 남겨야
         // USER-02가 그 성분을 몇 번 썼는지 보여줄 수 있다. (F-ANALYSIS-04)
@@ -121,6 +137,31 @@ public class IngredientLagAnalysisService {
             }
         }
         return menstrualDates;
+    }
+
+    /**
+     * 분석 기간 중 전일 대비 자외선 지수가 급변한 날짜를 모은다. (F-ANALYSIS-02 BR 1, 2)
+     *
+     * <p>환경 데이터가 없거나 {@code uvIndexMax}가 비어 있으면 그 날은 급변일 판정에서 제외한다 —
+     * 결측을 변화로 읽으면 데이터가 드문드문 쌓인 사용자일수록 보정이 과하게 걸린다. 비교할 전일
+     * 데이터가 없는 첫날도 같은 이유로 제외한다. 정보 부족이 분석 자체를 막지는 않는다(BR 3).
+     */
+    private Set<LocalDate> loadUvVolatileDates(Long userId, LocalDate startDate, LocalDate endDate) {
+        List<DailyEnvironment> environments = dailyEnvironmentRepository
+                .findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(userId, startDate.minusDays(1), endDate);
+
+        Set<LocalDate> uvVolatileDates = new HashSet<>();
+        DailyEnvironment previous = null;
+        for (DailyEnvironment current : environments) {
+            if (previous != null && previous.getUvIndexMax() != null && current.getUvIndexMax() != null) {
+                BigDecimal delta = current.getUvIndexMax().subtract(previous.getUvIndexMax()).abs();
+                if (delta.compareTo(UV_VOLATILE_DELTA) >= 0) {
+                    uvVolatileDates.add(current.getRecordDate());
+                }
+            }
+            previous = current;
+        }
+        return uvVolatileDates;
     }
 
     /** 날짜·시간대별 피부 관측값. 제품 노출과 같은 슬롯을 비교하기 위해 평균으로 접지 않는다. */

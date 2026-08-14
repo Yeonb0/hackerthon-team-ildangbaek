@@ -8,7 +8,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ildangbaek.skinteller"
+      "bundleIdentifier": "com.ildangbaek.skinteller",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.ildangbaek.skinteller",
@@ -30,7 +33,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/skinteller-logo.png",
+          "image": "./assets/Skinteller-logo.png",
           "imageWidth": 240,
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"

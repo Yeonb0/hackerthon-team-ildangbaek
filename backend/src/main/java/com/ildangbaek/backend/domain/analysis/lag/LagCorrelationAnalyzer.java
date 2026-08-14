@@ -38,8 +38,15 @@ import org.springframework.stereotype.Component;
  *
  * <h2>호르몬 요인 보정 (F-ANALYSIS-03 BR 1, 4)</h2>
  * 관측 쌍의 절반 이상이 생리 기간에 걸치면 호르몬 변화와 성분 반응을 구분할 수 없으므로 확정 임계값을
- * {@value #MIN_AGREEMENT_RATE} 대신 {@value #MENSTRUAL_AFFECTED_AGREEMENT_RATE}로 엄격하게 요구한다.
+ * {@value #MIN_AGREEMENT_RATE} 대신 {@value #COVARIATE_AFFECTED_AGREEMENT_RATE}로 엄격하게 요구한다.
  * 생리 정보가 없는 사용자는 빈 집합을 넘기면 되며, 이 경우 기존 임계값만 적용된다(BR 3).
+ *
+ * <h2>환경 요인 보정 (F-ANALYSIS-02 BR 1, 2, 4)</h2>
+ * 관측 쌍의 절반 이상이 자외선 급변일에 걸치면 같은 방식으로 확정 임계값을 엄격하게 요구한다.
+ * 호르몬 보정과 임계값·비율 기준을 공유한다({@link #COVARIATE_AFFECTED_AGREEMENT_RATE},
+ * {@link #COVARIATE_AFFECTED_THRESHOLD}) — 두 보정 모두 "공변량이 관측 쌍의 절반 이상을 물들이면
+ * 더 엄격하게 본다"는 같은 규칙이기 때문이다(ADR 0021). 환경 데이터가 없는 사용자는 빈 집합을
+ * 넘기면 되며, 이 경우 기존 임계값만 적용된다(BR 3).
  */
 @Component
 public class LagCorrelationAnalyzer {
@@ -57,19 +64,20 @@ public class LagCorrelationAnalyzer {
     static final double MIN_MEANINGFUL_DELTA = 3.0;
 
     /**
-     * 관측 쌍의 절반 이상이 생리 기간에 걸치면 확정에 이 임계값을 대신 요구한다. 호르몬 변화가
-     * 성분 반응과 섞였을 가능성이 커 기본 임계값(0.67)보다 엄격하게 본다. (F-ANALYSIS-03 BR 1, 4)
+     * 관측 쌍의 절반 이상이 생리 기간·자외선 급변일에 걸치면 확정에 이 임계값을 대신 요구한다.
+     * 호르몬·환경 변화가 성분 반응과 섞였을 가능성이 커 기본 임계값(0.67)보다 엄격하게 본다.
+     * 호르몬 보정(F-ANALYSIS-03 BR 1, 4)과 환경 보정(F-ANALYSIS-02 BR 1, 2, 4)이 값을 공유한다. (ADR 0021)
      */
-    static final double MENSTRUAL_AFFECTED_AGREEMENT_RATE = 0.8;
+    static final double COVARIATE_AFFECTED_AGREEMENT_RATE = 0.8;
 
     /**
-     * 관측 쌍의 이 비율 이상이 생리 기간에 걸치면 위 임계값을 적용한다.
+     * 관측 쌍의 이 비율 이상이 생리 기간·자외선 급변일에 걸치면 위 임계값을 적용한다.
      * {@link LagInsightWriter}가 신뢰도 감쇄 기준으로도 같은 값을 쓴다.
      */
-    static final double MENSTRUAL_AFFECTED_THRESHOLD = 0.5;
+    static final double COVARIATE_AFFECTED_THRESHOLD = 0.5;
 
     public List<LagPattern> analyze(List<IngredientExposure> exposures, List<SkinObservation> observations) {
-        return analyze(exposures, observations, Set.of());
+        return analyze(exposures, observations, Set.of(), Set.of());
     }
 
     /**
@@ -81,6 +89,20 @@ public class LagCorrelationAnalyzer {
      */
     public List<LagPattern> analyze(List<IngredientExposure> exposures, List<SkinObservation> observations,
                                      Set<LocalDate> menstrualDates) {
+        return analyze(exposures, observations, menstrualDates, Set.of());
+    }
+
+    /**
+     * @param exposures       성분 사용 이력. 같은 성분이 같은 날 여러 슬롯에 있어도 된다.
+     * @param observations    날짜·시간대별 피부 관측값
+     * @param menstrualDates  사용자가 생리 중이었던 날짜 집합. 정보가 없으면 빈 집합을 넘긴다 — 그 경우
+     *                        호르몬 보정 없이 기존 임계값만 적용된다. (F-ANALYSIS-03 BR 3)
+     * @param uvVolatileDates 전일 대비 자외선 지수가 급변한 날짜 집합. 정보가 없으면 빈 집합을 넘긴다 —
+     *                        그 경우 환경 보정 없이 기존 임계값만 적용된다. (F-ANALYSIS-02 BR 3)
+     * @return 성분별 패턴 후보. 확정된 것과 확인 중인 것이 모두 들어 있다.
+     */
+    public List<LagPattern> analyze(List<IngredientExposure> exposures, List<SkinObservation> observations,
+                                     Set<LocalDate> menstrualDates, Set<LocalDate> uvVolatileDates) {
         long observedDays = observations.stream().map(SkinObservation::date).distinct().count();
         if (observedDays < MIN_RECORD_DAYS || exposures.isEmpty()) {
             return List.of();
@@ -99,7 +121,8 @@ public class LagCorrelationAnalyzer {
         for (IngredientUsage usage : usageByIngredient.values()) {
             for (SkinMetricType metric : SkinMetricType.values()) {
                 for (int lag = MIN_LAG_DAYS; lag <= MAX_LAG_DAYS; lag++) {
-                    collectPattern(usage, metric, lag, byDateAndSlot, menstrualDates).ifPresent(patterns::add);
+                    collectPattern(usage, metric, lag, byDateAndSlot, menstrualDates, uvVolatileDates)
+                            .ifPresent(patterns::add);
                 }
             }
         }
@@ -129,9 +152,10 @@ public class LagCorrelationAnalyzer {
      */
     private Optional<LagPattern> collectPattern(IngredientUsage usage, SkinMetricType metric, int lagDays,
                                                 Map<ObservationKey, Map<SkinMetricType, Double>> byDateAndSlot,
-                                                Set<LocalDate> menstrualDates) {
+                                                Set<LocalDate> menstrualDates, Set<LocalDate> uvVolatileDates) {
         List<Double> deltas = new ArrayList<>();
         int menstrualAffected = 0;
+        int environmentAffected = 0;
         for (ObservationKey usedOn : usage.observationKeys()) {
             LocalDate afterDate = usedOn.date().plusDays(lagDays);
             Double baseline = valueAt(byDateAndSlot, usedOn, metric);
@@ -143,6 +167,10 @@ public class LagCorrelationAnalyzer {
             // 기준선·이후 관측일 중 하나라도 생리 기간에 걸치면 호르몬 변화가 섞였을 수 있다.
             if (menstrualDates.contains(usedOn.date()) || menstrualDates.contains(afterDate)) {
                 menstrualAffected++;
+            }
+            // 기준선·이후 관측일 중 하나라도 자외선 급변일에 걸치면 환경 변화가 섞였을 수 있다.
+            if (uvVolatileDates.contains(usedOn.date()) || uvVolatileDates.contains(afterDate)) {
+                environmentAffected++;
             }
         }
         if (deltas.isEmpty()) {
@@ -158,17 +186,21 @@ public class LagCorrelationAnalyzer {
 
         double averageDelta = deltas.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
         int observations = deltas.size();
-        // 관측 쌍의 절반 이상이 생리 기간에 걸치면 호르몬 변화와 성분 반응을 구분하기 어려우므로
-        // 더 엄격한 임계값을 요구한다. (F-ANALYSIS-03 BR 1, 4)
-        double requiredAgreementRate = (double) menstrualAffected / observations >= MENSTRUAL_AFFECTED_THRESHOLD
-                ? MENSTRUAL_AFFECTED_AGREEMENT_RATE
+        // 관측 쌍의 절반 이상이 생리 기간·자외선 급변일에 걸치면 호르몬·환경 변화와 성분 반응을
+        // 구분하기 어려우므로 더 엄격한 임계값을 요구한다. 둘 중 하나라도 걸리면 같은 임계값이라
+        // 별도로 합성할 필요가 없다. (F-ANALYSIS-03 BR 1, 4 / F-ANALYSIS-02 BR 1, 2, 4 / ADR 0021)
+        boolean menstrualCovariate = (double) menstrualAffected / observations >= COVARIATE_AFFECTED_THRESHOLD;
+        boolean environmentCovariate = (double) environmentAffected / observations >= COVARIATE_AFFECTED_THRESHOLD;
+        double requiredAgreementRate = menstrualCovariate || environmentCovariate
+                ? COVARIATE_AFFECTED_AGREEMENT_RATE
                 : MIN_AGREEMENT_RATE;
         boolean confirmed = observations >= MIN_OBSERVATIONS
                 && (double) agreement / observations >= requiredAgreementRate
                 && Math.abs(averageDelta) >= MIN_MEANINGFUL_DELTA;
 
         return Optional.of(new LagPattern(usage.ingredientId(), usage.ingredientName(), metric,
-                lagDays, direction, observations, agreement, averageDelta, confirmed, menstrualAffected));
+                lagDays, direction, observations, agreement, averageDelta, confirmed,
+                menstrualAffected, environmentAffected));
     }
 
     private Double valueAt(Map<ObservationKey, Map<SkinMetricType, Double>> byDateAndSlot, ObservationKey key,
