@@ -13,6 +13,7 @@ import { sendVerificationCode } from '@/api/emailAuth';
 import { isValidPassword } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 export function PasswordSetupScreen() {
   const navigation =
@@ -125,12 +126,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 13,
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
     marginTop: space[2],

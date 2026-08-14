@@ -3,6 +3,7 @@ import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { IconCheck, IconCircleEmpty } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 type OptionCardProps = {
   title: string;
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink900,
   },
   titleSelected: {
@@ -85,6 +86,7 @@ const styles = StyleSheet.create({
   description: {
     marginTop: space[1],
     fontSize: 12,
+    ...weightFamily('regular'),
     color: color.ink600,
   },
 });

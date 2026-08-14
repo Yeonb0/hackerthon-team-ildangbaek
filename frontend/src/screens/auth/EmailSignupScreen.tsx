@@ -10,6 +10,7 @@ import { IconBack } from '@/components/icons';
 import { isValidEmail } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 export function EmailSignupScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'EmailSignup'>>();
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
     marginBottom: space[6],
     textAlign: 'center',
@@ -108,6 +109,7 @@ const styles = StyleSheet.create({
   },
   loginLinkText: {
     fontSize: 13,
+    ...weightFamily('regular'),
     color: color.ink600,
     textDecorationLine: 'underline',
   },

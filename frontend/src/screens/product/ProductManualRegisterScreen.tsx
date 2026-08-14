@@ -34,6 +34,7 @@ import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, space, typography } from '@/theme';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import type { ProductCategory } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -397,7 +398,7 @@ const styles = StyleSheet.create({
   photoPickerLabel: {
     ...typography.caption,
     color: color.brand700,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
   },
   nav: {
     backgroundColor: color.bg,
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
   categoryChipText: {
     ...typography.caption,
     color: color.ink600,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
   },
   categoryChipTextActive: {
     color: color.bg,
@@ -471,7 +472,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink600,
   },
   textarea: {
@@ -482,6 +483,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
     paddingVertical: space[3],
     fontSize: 15,
+    ...weightFamily('regular'),
     color: color.ink900,
     backgroundColor: color.bg,
     textAlignVertical: 'top',

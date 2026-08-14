@@ -45,6 +45,7 @@ import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, space, typography } from '@/theme';
 import type { RoutineSummaryItem, SavedProductSummary } from '@/types/product';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -667,7 +668,7 @@ const styles = StyleSheet.create({
   chipText: {
     ...typography.caption,
     color: color.brand700,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
   },
   content: {
     paddingHorizontal: space[5],
@@ -718,7 +719,7 @@ const styles = StyleSheet.create({
   directRegisterText: {
     ...typography.caption,
     color: color.brand700,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
   },
   notFoundArea: {
     alignItems: 'center',

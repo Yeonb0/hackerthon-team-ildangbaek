@@ -9,6 +9,7 @@ import { Button } from '@/components/base/Button';
 import { Card } from '@/components/base/Card';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -114,11 +115,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
   },
   subtitle: {
     fontSize: 14,
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   exampleBox: {
@@ -142,10 +144,12 @@ const styles = StyleSheet.create({
   },
   exampleOvalLabel: {
     fontSize: 11,
+    ...weightFamily('regular'),
     color: color.ink300,
   },
   exampleLabel: {
     fontSize: 11,
+    ...weightFamily('regular'),
     color: color.ink300,
   },
   tipsCard: {
@@ -166,12 +170,13 @@ const styles = StyleSheet.create({
   },
   tipNumberText: {
     fontSize: 12,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.brand700,
   },
   tipText: {
     flex: 1,
     fontSize: 14,
+    ...weightFamily('regular'),
     color: color.ink900,
     lineHeight: 20,
   },

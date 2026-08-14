@@ -9,6 +9,7 @@ import { color, space, typography } from '@/theme';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import type { TimeSlot } from '@/app/routes';
 import type { RoutineProductItem } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
 
 const TIME_SLOT_LABEL: Record<TimeSlot, string> = { MORNING: '모닝', NIGHT: '나이트' };
 
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
   },
   retryText: {
     ...typography.caption,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.brand700,
   },
   productRow: {
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
   },
   editLinkText: {
     ...typography.caption,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.brand700,
   },
 });

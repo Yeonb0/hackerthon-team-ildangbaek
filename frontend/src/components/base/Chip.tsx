@@ -2,6 +2,7 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 type ChipProps = {
   label: string;
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink600,
   },
   labelSelected: {

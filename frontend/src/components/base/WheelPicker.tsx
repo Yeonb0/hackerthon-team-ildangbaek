@@ -12,6 +12,7 @@
 import React, { useEffect, useRef } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { color } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 const ITEM_SIZE = 48;
 const VISIBLE_ITEMS = 5; // 홀수 — 가운데 1개가 선택 항목
@@ -174,11 +175,12 @@ const styles = StyleSheet.create({
   },
   itemText: {
     fontSize: 16,
+    ...weightFamily('regular'),
     color: color.ink300,
   },
   itemTextSelected: {
     fontSize: 20,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
   },
 });

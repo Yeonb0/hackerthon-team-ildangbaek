@@ -34,7 +34,7 @@ export const FONT_FAMILIES: Record<FontChoice, Record<FontWeightKey, string>> = 
  * 글꼴별 크기 보정(pt). 같은 fontSize라도 글꼴마다 실제 글자가 차지하는 크기가 달라서,
  * 한쪽 기준으로 잡은 레이아웃이 다른 글꼴에서 커 보이거나 작아 보입니다.
  *
- * nanumSquareNeo: -1 — 나눔스퀘어네오가 Pretendard보다 크게 보인다는 관리자 판단
+ * nanumSquareNeo: -2 — 나눔스퀘어네오가 Pretendard보다 크게 보인다는 관리자 판단
  * (2026-08-15). 값만 바꾸면 전체에 반영됩니다.
  *
  * ⚠️ lineHeight는 건드리지 않습니다. 줄 높이까지 같이 줄이면 나눔스퀘어네오의 큰
@@ -42,7 +42,7 @@ export const FONT_FAMILIES: Record<FontChoice, Record<FontWeightKey, string>> = 
  */
 export const FONT_SIZE_OFFSET: Record<FontChoice, number> = {
   pretendard: 0,
-  nanumSquareNeo: -1,
+  nanumSquareNeo: -4,
 };
 
 /**

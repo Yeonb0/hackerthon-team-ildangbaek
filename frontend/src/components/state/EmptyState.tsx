@@ -3,6 +3,7 @@ import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { AppIcon, AppIconName } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 type EmptyStateProps = {
   /** 신규 세트에 대응 아이콘이 있으면 그 이름, 없으면 계속 Ionicons 이름을 씁니다. */
@@ -52,12 +53,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink900,
     textAlign: 'center',
   },
   description: {
     fontSize: 13,
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
   },

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 type CategoryFilterBarProps = {
   categories: string[];
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 13,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink600,
   },
   chipTextActive: {

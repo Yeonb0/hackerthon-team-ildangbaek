@@ -13,6 +13,7 @@ import { FaceGuideOverlay } from '@/components/domain/FaceGuideOverlay';
 import { prepareSkinPhoto } from '@/lib/image';
 import { DetailRoutes, DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
   guideText: {
     color: color.white,
     fontSize: 14,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     textShadowColor: color.scrim40,
     textShadowRadius: 4,
   },
@@ -283,6 +284,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: color.white,
     fontSize: 13,
+    ...weightFamily('regular'),
     textAlign: 'center',
   },
 });

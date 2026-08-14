@@ -14,6 +14,7 @@ import { IconBack } from '@/components/icons';
 import { useReportInsight } from '@/api/queries/report';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     fontSize: 13,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.brand700,
   },
   subtitle: {
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
   },
   eventLabel: {
     ...typography.body,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink900,
   },
   eventImpact: {
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
   },
   observingText: {
     fontSize: 11,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink900,
   },
 });

@@ -52,6 +52,7 @@ import { color, space, typography } from '@/theme';
 import type { CheckResult, RiskLevel } from '@/types/check';
 import type { IngredientStatus } from '@/types/product';
 import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -381,7 +382,7 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: 22,
-    fontWeight: '800',
+    ...weightFamily('bold'),
   },
   summaryDescription: {
     ...typography.caption,

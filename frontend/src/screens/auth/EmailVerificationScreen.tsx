@@ -12,6 +12,7 @@ import { getResendRemainingSeconds, sendVerificationCode, verifyEmailCode } from
 import { isValidVerificationCode } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 export function EmailVerificationScreen() {
   const navigation =
@@ -147,12 +148,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 13,
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
     marginTop: space[2],
@@ -164,11 +166,12 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 13,
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   resendActive: {
     color: color.brand700,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     textDecorationLine: 'underline',
   },
   resendInactive: {

@@ -42,6 +42,7 @@ import { getTodayDateString } from '@/lib/date';
 import { color, navIcon, space } from '@/theme/tokens';
 import type { GraphPoint } from '@/types/report';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
 
 /**
  * 개발용 컴포넌트 카탈로그.
@@ -723,11 +724,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    ...weightFamily('bold'),
     color: color.ink900,
   },
   hint: {
     fontSize: 12,
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   row: {
@@ -759,6 +761,7 @@ const styles = StyleSheet.create({
   },
   iconLabel: {
     fontSize: 10,
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
   },

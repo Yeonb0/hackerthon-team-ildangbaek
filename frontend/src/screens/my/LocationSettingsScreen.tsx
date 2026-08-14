@@ -28,6 +28,7 @@ import { useLocationSearch, useUpdateLocation } from '@/api/queries/user';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { LocationItem } from '@/types/user';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -247,7 +248,7 @@ const styles = StyleSheet.create({
   currentBadge: {
     ...typography.micro,
     color: color.brand700,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
   },
   bottomBar: {
     paddingHorizontal: space[5],

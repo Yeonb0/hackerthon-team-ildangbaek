@@ -9,6 +9,7 @@ import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Line, Polygon } from 'react-native-svg';
 import type { MetricListItem } from '@/api/adapters';
 import { color, typography } from '@/theme';
+import { weightFamily } from '@/theme/typography';
 
 type SkinDiamondChartProps = {
   /** 정확히 4개를 기대합니다 — 순서대로 위/오른쪽/아래/왼쪽 축에 배치됩니다. */
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
   axisLabelText: {
     ...typography.caption,
     color: color.ink600,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     textAlign: 'center',
   },
 });
