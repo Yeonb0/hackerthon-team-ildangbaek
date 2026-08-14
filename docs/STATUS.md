@@ -9,6 +9,28 @@
   P2(CHECK-03 쿼리 수 3→2) 해소, SKIN-01·PRODUCT-05·REPORT-02/03 재현 검증 완료
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
+> **2026-08-14 `origin/main` 병합.** A 담당 브랜치가 `main`에 반영한 AUTH(이메일)·PRODUCT-01~04
+> ·PRODUCT-09(매칭)·PRODUCT-05 홈 조회·ROUTINE·USER 계정/저장 제품 조회를 `yunjin`에 병합했다.
+> 코드 충돌 해결 내역:
+> - `UserController`: `GET /users/me`는 정본(USER-01) `MyPageService.getMyPage`로 유지, main의
+>   `UserService.getMe`는 `GET /users/me/account`(USER-01-B, 신규)로 경로 분리. `docs/api_명세서.md`에
+>   USER-01-B·USER-01-C(`GET /users/me/products`) 추가.
+> - `ProductRepository`: 양쪽 조회 메서드 모두 유지(순수 추가 충돌).
+> - PRODUCT-05 저장 API 중복 구현(`api/product.ProductRecordController` vs
+>   `api/productrecord.ProductRecordController`): main 쪽(`GET /home` 포함)을 정본으로 채택,
+>   yunjin 쪽 구현·테스트 3개 삭제.
+> - PRODUCT-09 매칭 API 중복 구현(`ProductMatchController` vs `ProductController.match`): main의
+>   통합 `ProductController`로 일원화, yunjin의 `ProductMatchController`/`ProductMatchService` 삭제.
+> - `ProductCategory` enum: main의 확장 값 목록(`CLEANSING`/`SUNCREAM` 등)을 채택, `CheckHomeService`·
+>   `CheckServiceTest`의 구값(`CLEANSER`/`SUNSCREEN`) 참조를 갱신. 로컬 MySQL `products` 및 FK
+>   종속 테이블은 구 ENUM 스키마가 남아 있어 DROP 후 Hibernate 재생성으로 해소(로컬 개발 데이터 초기화).
+> - `UserProfile.updateHormoneInfo` 시그니처 확장(피임약·프로게스테론·호르몬대체요법 3개 boolean 추가)에
+>   맞춰 구 테스트 호출부 갱신.
+> - 인증 방식 이원화 우려 없음: `CurrentUserResolver`(main)와 `CurrentUserIdArgumentResolver`(yunjin)
+>   모두 `MockAccessToken.parseUserId`에 위임하도록 이미 통합되어 있다(ADR 0017).
+> - 백엔드 전체 테스트(210개) 통과 확인. main이 새로 들여온 AUTH(이메일)·PRODUCT-01~04·ROUTINE 도메인의
+>   실제 기능 완성도·실서버 검증 상태는 이 세션에서 재조사하지 않았다 — 별도 검증 필요.
+
 ## 상태 표기
 
 | 표기 | 의미 |

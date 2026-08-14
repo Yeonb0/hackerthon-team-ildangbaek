@@ -671,6 +671,80 @@ json
 
 ---
 
+## USER-01-B · 계정 정보 조회
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `GET` |
+| URI | `/api/v1/users/me/account` |
+| 인증 | 필요 |
+
+**Success Response — 200**
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": {
+    "userId": 1,
+    "email": "user@example.com",
+    "name": "김민지",
+    "gender": "FEMALE",
+    "age": 27,
+    "regionName": "서울 강남구",
+    "onboardingCompleted": true,
+    "skinTypes": ["OILY", "SENSITIVE"],
+    "notification": { "enabled": true }
+  }
+}
+```
+
+**Business Rule**
+
+1. USER-01(마이페이지 요약)과 별개로 계정·프로필 원본 필드를 그대로 반환한다.
+
+---
+
+## USER-01-C · 저장 제품 목록 조회
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `GET` |
+| URI | `/api/v1/users/me/products` |
+| 인증 | 필요 |
+
+**Success Response — 200**
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": [
+    {
+      "productId": 11,
+      "name": "라운드랩 자작나무 수분 토너",
+      "brand": "라운드랩",
+      "category": "TONER",
+      "imageUrl": "https://example.com/products/roundlab-birch-toner.jpg",
+      "firstSavedAt": "2026-07-01T09:00:00",
+      "lastUsedAt": "2026-08-10T08:20:00"
+    }
+  ]
+}
+```
+
+**Business Rule**
+
+1. 사용 중(`USING`) 상태인 제품만 최근 사용순으로 반환한다.
+
+---
+
 ## USER-02 · 성분 프로파일 전체 조회
 
 | 항목 | 내용 |
@@ -2629,6 +2703,8 @@ json
 | Onboard | ONBOARD-04 | PATCH | `/users/me/onboarding/hormone` | O |
 | Onboard | ONBOARD-05 | POST | `/users/me/onboarding/complete` | O |
 | User | USER-01 | GET | `/users/me` | O |
+| User | USER-01-B | GET | `/users/me/account` | O |
+| User | USER-01-C | GET | `/users/me/products` | O |
 | User | USER-02 | GET | `/users/me/ingredient-profile` | O |
 | User | USER-03 | GET | `/users/me/profile` | O |
 | User | USER-04 | PATCH | `/users/me/profile` | O |
