@@ -1,5 +1,6 @@
 package com.ildangbaek.backend.api.user.service;
 
+import com.ildangbaek.backend.api.user.dto.request.LocationUpdateRequest;
 import com.ildangbaek.backend.api.user.dto.request.NotificationSettingRequest;
 import com.ildangbaek.backend.api.user.dto.response.MyPageResponse;
 import com.ildangbaek.backend.api.user.dto.response.NotificationSettingResponse;
@@ -14,6 +15,8 @@ import com.ildangbaek.backend.domain.user.entity.UserProfile;
 import com.ildangbaek.backend.domain.user.repository.NotificationSettingRepository;
 import com.ildangbaek.backend.domain.user.repository.UserProfileRepository;
 import com.ildangbaek.backend.domain.user.repository.UserSkinTypeRepository;
+import com.ildangbaek.backend.global.exception.BusinessException;
+import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.time.Year;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -70,6 +73,28 @@ public class UserService {
                 .stream()
                 .map(this::toSavedProductResponse)
                 .toList();
+    }
+
+    @Transactional
+    public void updateLocation(Long userId, LocationUpdateRequest request) {
+        UserProfile profile = userProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        profile.updateRegion(locationName(request));
+    }
+
+    private String locationName(LocationUpdateRequest request) {
+        if (request.locationId() == null) {
+            return "Current location";
+        }
+        return switch (request.locationId().intValue()) {
+            case 1 -> "Seoul";
+            case 2 -> "Gyeonggi";
+            case 3 -> "Incheon";
+            case 4 -> "Busan";
+            case 5 -> "Daegu";
+            case 6 -> "Gwangju";
+            default -> "Selected location";
+        };
     }
 
     private List<String> skinTypes(User user) {

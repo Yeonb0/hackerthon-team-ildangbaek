@@ -3,6 +3,7 @@ package com.ildangbaek.backend.api.user.controller;
 import com.ildangbaek.backend.api.auth.service.CurrentUserResolver;
 import com.ildangbaek.backend.api.user.dto.IngredientProfileResponse;
 import com.ildangbaek.backend.api.user.dto.MyPageResponse;
+import com.ildangbaek.backend.api.user.dto.request.LocationUpdateRequest;
 import com.ildangbaek.backend.api.user.dto.request.NotificationSettingRequest;
 import com.ildangbaek.backend.api.user.dto.response.NotificationSettingResponse;
 import com.ildangbaek.backend.api.user.dto.response.SavedProductResponse;
@@ -60,6 +61,15 @@ public class UserController {
     ) {
         User user = currentUserResolver.resolve(authorization);
         return ApiResponse.success(userService.getSavedProducts(user));
+    }
+
+    @PatchMapping("/location")
+    public ApiResponse<Void> updateLocation(
+            @CurrentUserId Long userId,
+            @Valid @RequestBody LocationUpdateRequest request
+    ) {
+        userService.updateLocation(userId, request);
+        return ApiResponse.success(null);
     }
 
     /**
