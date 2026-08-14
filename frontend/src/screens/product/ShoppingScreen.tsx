@@ -61,8 +61,10 @@ export function ShoppingScreen() {
   const debouncedKeyword = useDebouncedValue(keyword, 300);
   const searchQuery = useProductSearch(debouncedKeyword);
 
-  const handleProductSelected = (productId: number) => {
-    navigation.navigate(DetailRoutes.CheckResult, { productId });
+  // Phase 11-C(관리자 결정, 2026-08-13) — 추천/검색/스캔 3개 진입 경로 모두 SHOP-02
+  // 제품 상세(ProductDetail)로 통일. reason은 추천 카드를 탭했을 때만 넘겨줍니다.
+  const handleProductSelected = (productId: number, reason?: string) => {
+    navigation.navigate(DetailRoutes.ProductDetail, { productId, reason });
   };
 
   const handleFindModeChange = (mode: FindMode) => {
@@ -102,7 +104,7 @@ export function ShoppingScreen() {
                 key={rec.productId}
                 accessibilityRole="button"
                 accessibilityLabel={`${rec.name} 확인하기`}
-                onPress={() => handleProductSelected(rec.productId)}
+                onPress={() => handleProductSelected(rec.productId, rec.reason)}
                 style={({ pressed }) => [styles.recommendationCard, pressed && styles.recommendationCardPressed]}
               >
                 <View style={styles.recommendationThumbnail}>

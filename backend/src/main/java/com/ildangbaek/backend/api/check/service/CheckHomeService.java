@@ -46,7 +46,7 @@ public class CheckHomeService {
 
     /** 세안·토너·세럼류는 트러블/홍조 진정 목적으로 우선 쓰인다고 추정한다(ADR 0018). */
     private static final Set<ProductCategory> TODAY_NEEDED_CATEGORIES =
-            Set.of(ProductCategory.CLEANSER, ProductCategory.TONER, ProductCategory.SERUM);
+            Set.of(ProductCategory.CLEANSING, ProductCategory.TONER, ProductCategory.SERUM);
 
     /** 크림류는 보습 목적으로 우선 쓰인다고 추정한다(ADR 0018). */
     private static final Set<ProductCategory> HUMIDITY_CARE_CATEGORIES = Set.of(ProductCategory.CREAM);

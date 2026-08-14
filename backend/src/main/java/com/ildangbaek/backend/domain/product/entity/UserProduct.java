@@ -62,9 +62,14 @@ public class UserProduct {
 
     public void markUsedNow() {
         this.lastUsedAt = LocalDateTime.now();
+        this.usageStatus = UsageStatus.USING;
     }
 
     public void stopUsing() {
         this.usageStatus = UsageStatus.STOPPED;
+    }
+
+    public void resumeUsing() {
+        this.usageStatus = UsageStatus.USING;
     }
 }

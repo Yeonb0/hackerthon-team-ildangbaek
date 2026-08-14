@@ -4,7 +4,14 @@
 import type { IngredientStatus } from '@/types/user';
 
 export const AuthRoutes = {
-  Login: 'Login', // S-00
+  Login: 'Login', // S-00 (AUTH-01)
+  // Phase 11-A — 이메일 로그인/회원가입/인증 플로우 (백엔드 API 없음, 프론트 목업)
+  EmailLogin: 'EmailLogin', // AUTH-03
+  EmailSignup: 'EmailSignup', // AUTH-04
+  PasswordSetup: 'PasswordSetup', // AUTH-05
+  EmailVerification: 'EmailVerification', // AUTH-06
+  VerificationSuccess: 'VerificationSuccess', // AUTH-06.1
+  VerificationFail: 'VerificationFail', // AUTH-06.2
 } as const;
 
 export const OnboardingRoutes = {
@@ -32,15 +39,32 @@ export const DetailRoutes = {
   AnalyzingSkin: 'AnalyzingSkin', // S-17
   SkinResult: 'SkinResult', // S-18 · 분석 결과 표시 (저장은 SKIN-01 POST 시점에 이미 완료 — TBD-10b A안)
   MetricDetail: 'MetricDetail', // S-20
-  CheckResult: 'CheckResult', // S-22
+  CheckResult: 'CheckResult', // S-22 · Phase 11-C부터 화면 자체는 미사용(아래 ProductDetail 참고).
+  // 다른 진입점에서 재사용할 가능성을 고려해 라우트/화면 파일은 남겨둠 (관리자 확인 필요).
+  // Phase 11-C — SHOP-02 제품 상세. 추천/검색/스캔 3개 진입 경로가 모두 여기로 모임(관리자 결정,
+  // 2026-08-13). CHECK-02(computeCheck)를 그대로 재사용해서 성분별 사유(reason)를 보여주므로
+  // 사실상 기존 CheckResult 화면의 상위 호환 — CheckResult는 이제 어디서도 navigate하지 않음.
+  ProductDetail: 'ProductDetail',
   LocationSettings: 'LocationSettings', // S-24
   IngredientList: 'IngredientList', // 성분 전체 보기 (F-MY-03 신규 화면, S-23에서 진입)
+  // Phase 11-B — PROD-07 루틴 수정(드래그 순서 변경). Figma 구조 기준 별도 화면으로 분리
+  // (관리자 결정, 2026-08-13). S-11의 RoutineQuickRecordCard에서 "수정" 진입점으로 연결됩니다.
+  RoutineEdit: 'RoutineEdit',
+  // Phase 11-C — PROD-05 제품 직접 등록(F-PRODUCT-08, TBD-07). 백엔드 API 없이 프론트 목업
+  // 전용(관리자 결정, 2026-08-13). ProductRecord(S-11/12)의 "제품 직접 등록" 버튼에서 옴.
+  ProductManualRegister: 'ProductManualRegister',
 } as const;
 
 export type TimeSlot = 'MORNING' | 'NIGHT';
 
 export type AuthStackParamList = {
   [AuthRoutes.Login]: undefined;
+  [AuthRoutes.EmailLogin]: undefined;
+  [AuthRoutes.EmailSignup]: undefined;
+  [AuthRoutes.PasswordSetup]: { email: string };
+  [AuthRoutes.EmailVerification]: { email: string; password: string };
+  [AuthRoutes.VerificationSuccess]: { email: string; password: string };
+  [AuthRoutes.VerificationFail]: { email: string; password: string };
 };
 
 export type OnboardingStackParamList = {
@@ -76,10 +100,15 @@ export type DetailStackParamList = {
   // Phase 0 명명을 그대로 두지만, 실제로는 지표가 아니라 인사이트 단위로 조회합니다.
   [DetailRoutes.MetricDetail]: { insightId: number };
   [DetailRoutes.CheckResult]: { productId: number };
+  // reason은 추천 카드(CHECK-01)를 통해 들어왔을 때만 있음 — 검색·스캔 진입은 생략.
+  [DetailRoutes.ProductDetail]: { productId: number; reason?: string };
   [DetailRoutes.LocationSettings]: undefined;
   // initialStatus: 마이페이지 요약 카드에서 특정 배지(맞음/주의/데이터부족)를 탭해 들어온
   // 경우 그 상태로 필터를 미리 켜둡니다. 없으면 전체 목록.
   [DetailRoutes.IngredientList]: { initialStatus?: IngredientStatus } | undefined;
+  [DetailRoutes.RoutineEdit]: { routineId: number };
+  // initialKeyword: 검색결과없음(PROD-03) 경로로 들어왔을 때만 있음 — 검색어를 제품명에 prefill
+  [DetailRoutes.ProductManualRegister]: { timeSlot: TimeSlot; initialKeyword?: string };
 };
 
 // Root: Auth ↔ Onboarding ↔ Main 전체 교체 (뒤로가기로 못 돌아감)

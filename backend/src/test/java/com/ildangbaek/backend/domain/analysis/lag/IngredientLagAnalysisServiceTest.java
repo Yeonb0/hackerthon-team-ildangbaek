@@ -176,7 +176,7 @@ class IngredientLagAnalysisServiceTest {
                         .gender(com.ildangbaek.backend.domain.user.entity.Gender.FEMALE)
                         .build();
         profile.updateHormoneInfo(com.ildangbaek.backend.domain.user.entity.MenstrualStatus.MENSTRUATING,
-                TODAY.minusDays(18), (short) 6);
+                TODAY.minusDays(18), (short) 6, false, false, false);
 
         when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
                 anyLong(), any(), any())).thenReturn(records);

@@ -2,9 +2,15 @@ package com.ildangbaek.backend.domain.product.entity;
 
 public enum ProductCategory {
     TONER,
+    ESSENCE,
     SERUM,
+    AMPOULE,
+    GEL,
+    LOTION,
     CREAM,
-    CLEANSER,
-    SUNSCREEN,
-    ETC
+    BALM,
+    OIL,
+    SUNCREAM,
+    CLEANSING,
+    MASK
 }

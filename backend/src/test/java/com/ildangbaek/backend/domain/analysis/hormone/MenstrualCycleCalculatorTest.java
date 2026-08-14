@@ -53,7 +53,7 @@ class MenstrualCycleCalculatorTest {
     @Test
     void returnsHormoneControlledForOralContraceptive() {
         UserProfile profile = profile(MenstrualStatus.MENSTRUATING, CYCLE_START, (short) 28);
-        profile.updateHormoneInfo(MenstrualStatus.MENSTRUATING, CYCLE_START, (short) 28);
+        profile.updateHormoneInfo(MenstrualStatus.MENSTRUATING, CYCLE_START, (short) 28, false, false, false);
         ReflectionTestUtils.setField(profile, "oralContraceptive", true);
 
         assertThat(calculator.calculate(profile, CYCLE_START)).isEqualTo(MenstrualCyclePhase.HORMONE_CONTROLLED);
@@ -80,7 +80,7 @@ class MenstrualCycleCalculatorTest {
     private UserProfile profile(MenstrualStatus status, LocalDate lastStart, Short cycleDays) {
         User user = User.builder().build();
         UserProfile profile = UserProfile.builder().user(user).nickname("검증용").gender(Gender.FEMALE).build();
-        profile.updateHormoneInfo(status, lastStart, cycleDays);
+        profile.updateHormoneInfo(status, lastStart, cycleDays, false, false, false);
         return profile;
     }
 }

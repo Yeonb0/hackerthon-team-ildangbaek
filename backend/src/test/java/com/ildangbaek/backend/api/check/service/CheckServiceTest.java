@@ -86,7 +86,7 @@ class CheckServiceTest {
     private Product product(Long id, String name) {
         Product p = Product.builder()
                 .productName(name)
-                .category(ProductCategory.SUNSCREEN)
+                .category(ProductCategory.SUNCREAM)
                 .dataSource(ProductDataSource.USER)
                 .build();
         ReflectionTestUtils.setField(p, "id", id);

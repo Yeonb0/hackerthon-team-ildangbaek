@@ -7,6 +7,12 @@
 // DevResetButton "제품 기록 초기화"에서 resetMockProductSession()으로 되돌립니다.
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
+import {
+  clearMockManualProductsState,
+  getMockManualProductsState,
+  setMockManualProductsState,
+} from '@/api/mock/mockPersistence';
+import type { PersistedManualProductsState } from '@/api/mock/mockPersistence';
 import type { TimeSlot } from '@/app/routes';
 import type {
   IngredientItem,
@@ -15,6 +21,7 @@ import type {
   ProductDetailResult,
   ProductRecordHomeResult,
   ProductSearchResult,
+  RegisterProductInput,
   RoutineListItem,
   RoutineProductItem,
   RoutineQuickRecordResult,
@@ -48,7 +55,58 @@ const CATALOG: CatalogProduct[] = [
 ];
 
 export function findCatalogProduct(productId: number): CatalogProduct | undefined {
-  return CATALOG.find((p) => p.productId === productId);
+  return (
+    CATALOG.find((p) => p.productId === productId) ??
+    MANUAL_CATALOG.find((p) => p.productId === productId)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT-08 · 제품 직접 등록 (F-PRODUCT-08, TBD-07 — 백엔드 API 자체가 없어 전체 목업)
+// CATALOG(고정 배열)과 분리해둔 이유: "제품 기록 초기화"를 눌러도 데모 기본 카탈로그는
+// 그대로 있어야 하는데, 사용자가 새로 등록한 제품은 세션 상태라 초기화 대상이라서.
+// ---------------------------------------------------------------------------
+const MANUAL_CATALOG: CatalogProduct[] = [];
+const MANUAL_PROFILES = new Map<number, ProductIngredientProfile>();
+let nextManualProductId = 9000;
+let nextManualIngredientId = 5000;
+
+export function registerMockProduct(input: RegisterProductInput): CatalogProduct {
+  const productId = nextManualProductId;
+  nextManualProductId += 1;
+
+  const product: CatalogProduct = {
+    productId,
+    name: input.name,
+    brand: input.brand,
+    category: input.category,
+  };
+  MANUAL_CATALOG.push(product);
+
+  // 사용자가 손으로 입력한 성분은 개인 매칭 판정을 내릴 근거가 없어서 전부 INSUFFICIENT로
+  // 등록합니다 — PRODUCT-03 BR4(성분 데이터 부족)와 같은 의미. 최대 10건(keyIngredients 제약).
+  const trimmedNames = input.ingredientNames.map((n) => n.trim()).filter(Boolean);
+  const keyIngredients: KeyIngredient[] = trimmedNames.slice(0, 10).map((name) => {
+    const ingredientId = nextManualIngredientId;
+    nextManualIngredientId += 1;
+    return { ingredientId, name, status: 'INSUFFICIENT' as const };
+  });
+
+  MANUAL_PROFILES.set(productId, {
+    ingredientCount: trimmedNames.length,
+    keyIngredients,
+    imageUrl: input.imageUri ?? null,
+  });
+
+  // 관리자님 실기기 확인(2026-08-14) — 등록만 하고 아직 기록완료를 안 거쳐도(루틴에
+  // 추가만 하는 경로) "저장된 제품" 목록엔 바로 나와야 합니다. savedProducts는 원래
+  // "기록완료"할 때만 채워지는 값이었는데, 등록 시점에도 넣어주는 걸로 확장했습니다
+  // (이후 실제로 기록완료하면 어차피 같은 Map에 다시 set되면서 시각만 갱신됩니다).
+  savedProducts.set(productId, new Date().toISOString());
+
+  persistManualState();
+
+  return product;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,11 +127,89 @@ const ROUTINES: { routineId: number; name: string; timeSlot: TimeSlot; productId
   { routineId: 2, name: '나이트루틴', timeSlot: 'NIGHT', productIds: [11, 18] },
 ];
 
+// resetMockProductSession()에서 위 초기값으로 되돌리기 위한 스냅샷 — ROUTINES.productIds를
+// addProductToRoutine()으로 직접 mutate하기 때문에 필요합니다.
+const INITIAL_ROUTINE_PRODUCT_IDS: Record<number, number[]> = {
+  1: [11, 15, 21],
+  2: [11, 18],
+};
+
+/**
+ * Phase 11-C 추가(관리자님 요청, 2026-08-13) — 제품 직접 등록(PRODUCT-08) 시 특정 루틴에
+ * 바로 추가할 수 있게. 루틴 수정 API 자체가 없어서(api_명세서.md 전수 확인) 이것도
+ * registerMockProduct와 마찬가지로 완전히 목업입니다.
+ */
+export function addProductToRoutine(routineId: number, productId: number): void {
+  const routine = ROUTINES.find((r) => r.routineId === routineId);
+  if (!routine) {
+    throw new ApiError(ErrorCode.ROUTINE_NOT_FOUND, '루틴을 찾을 수 없어요.');
+  }
+  if (!routine.productIds.includes(productId)) {
+    routine.productIds.push(productId);
+  }
+  persistManualState();
+}
+
+// ---------------------------------------------------------------------------
+// Fast Refresh/새로고침 생존(관리자님 실기기 확인, 2026-08-14) — mockPersistence.ts
+// 참고. 모듈 로드 시 한 번 fire-and-forget으로 이전 상태를 불러오고, 등록·루틴 추가가
+// 생길 때마다 다시 저장합니다. 함수 선언은 호이스팅되지만 실제 호출은 아래
+// hydrateManualState() 시점에 일어나므로, 위에서 쓰는 MANUAL_CATALOG·ROUTINES가 전부
+// 이미 초기화된 뒤라 안전합니다.
+// ---------------------------------------------------------------------------
+function snapshotManualState(): PersistedManualProductsState {
+  return {
+    catalog: MANUAL_CATALOG.map((p) => ({ ...p })),
+    profiles: Object.fromEntries(MANUAL_PROFILES.entries()),
+    nextProductId: nextManualProductId,
+    nextIngredientId: nextManualIngredientId,
+    routineProductIds: Object.fromEntries(ROUTINES.map((r) => [r.routineId, [...r.productIds]])),
+    // 9000 이상은 직접 등록한 제품 ID 범위 — 데모 기본 저장 제품(11, 15)은 resetMockProductSession
+    // 쪽 하드코딩된 시드값으로 이미 매번 복원되니 여기 같이 저장할 필요가 없습니다.
+    savedProducts: Array.from(savedProducts.entries()).filter(([id]) => id >= 9000),
+  };
+}
+
+function persistManualState(): void {
+  // 저장 실패해도(웹 프리뷰 등) 화면 동작엔 영향 없이 조용히 무시합니다.
+  setMockManualProductsState(snapshotManualState()).catch(() => {});
+}
+
+async function hydrateManualState(): Promise<void> {
+  const saved = await getMockManualProductsState();
+  if (!saved) return;
+  MANUAL_CATALOG.push(...(saved.catalog as CatalogProduct[]));
+  Object.entries(saved.profiles).forEach(([id, profile]) => {
+    MANUAL_PROFILES.set(Number(id), profile as ProductIngredientProfile);
+  });
+  nextManualProductId = Math.max(nextManualProductId, saved.nextProductId);
+  nextManualIngredientId = Math.max(nextManualIngredientId, saved.nextIngredientId);
+  Object.entries(saved.routineProductIds).forEach(([routineId, productIds]) => {
+    const routine = ROUTINES.find((r) => r.routineId === Number(routineId));
+    if (routine) routine.productIds = productIds;
+  });
+  saved.savedProducts.forEach(([id, lastUsedAt]) => {
+    savedProducts.set(id, lastUsedAt);
+  });
+}
+
+// ⚠️ 하이드레이션은 비동기라 완료 전 아주 짧은 순간엔 이전 세션 제품이 안 보일 수
+// 있습니다 — 데모 목적상 감수. (mockPersistence.ts 상단 설명 참고)
+hydrateManualState();
+
 export function resetMockProductSession(): void {
   recordedSlots.clear();
   savedProducts.clear();
   savedProducts.set(11, '2026-08-06T08:12:00+09:00');
   savedProducts.set(15, '2026-08-05T08:30:00+09:00');
+  MANUAL_CATALOG.length = 0;
+  MANUAL_PROFILES.clear();
+  nextManualProductId = 9000;
+  nextManualIngredientId = 5000;
+  ROUTINES.forEach((r) => {
+    r.productIds = [...(INITIAL_ROUTINE_PRODUCT_IDS[r.routineId] ?? [])];
+  });
+  clearMockManualProductsState().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -165,8 +301,12 @@ export function buildMockProductRecordHome(timeSlot: TimeSlot): ProductRecordHom
 // ---------------------------------------------------------------------------
 export function searchMockProducts(keyword: string): ProductSearchResult {
   const normalized = keyword.trim().toLowerCase();
+  // Phase 11-C 추가(관리자님 확인, 2026-08-13) — 직접 등록한 제품도 "DB에 저장된 전체
+  // 화장품"의 일부로 취급해서 검색에 같이 나오게 합니다. 이전엔 CATALOG(고정 7종)만 봐서
+  // 한 번 등록한 제품을 나중에 다시 검색해도 안 나오는 문제가 있었습니다.
+  const searchPool = [...CATALOG, ...MANUAL_CATALOG];
   const matched = normalized
-    ? CATALOG.filter(
+    ? searchPool.filter(
         (p) =>
           p.name.toLowerCase().includes(normalized) || p.brand.toLowerCase().includes(normalized)
       )
@@ -256,6 +396,8 @@ let nextFillerIngredientId = 1000;
 interface ProductIngredientProfile {
   ingredientCount: number;
   keyIngredients: KeyIngredient[];
+  /** 직접 등록(PRODUCT-08)한 제품만 채워짐 — 카메라로 찍은 사진의 로컬 URI. */
+  imageUrl?: string | null;
 }
 
 // productId 82(마누카 히알루론산 토너)는 일부러 프로필에서 뺐습니다 — PRODUCT-03 BR4
@@ -346,7 +488,7 @@ export function getMockProductDetail(productId: number): ProductDetailResult {
     throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '제품을 찾을 수 없어요.');
   }
 
-  const profile = PRODUCT_INGREDIENT_PROFILES[productId];
+  const profile = PRODUCT_INGREDIENT_PROFILES[productId] ?? MANUAL_PROFILES.get(productId);
   const ingredientCount = profile?.ingredientCount ?? 0;
   const keyIngredients = profile?.keyIngredients ?? [];
   const ingredients = profile ? buildIngredientList(keyIngredients, ingredientCount) : [];
@@ -358,8 +500,9 @@ export function getMockProductDetail(productId: number): ProductDetailResult {
     keyIngredients,
     ingredients,
     // 관리자님 요청(2026-08-10)으로 타입엔 자리를 만들었지만, 실제 이미지 파이프라인·백엔드
-    // 필드가 아직 없어서 목업은 항상 null입니다 — ProductCard와 같은 "항상 placeholder" 패턴.
-    imageUrl: null,
+    // 필드가 아직 없어서 카탈로그 제품은 항상 null입니다 — ProductCard와 같은 "항상
+    // placeholder" 패턴. 직접 등록(PRODUCT-08)한 제품만 촬영한 사진이 실제로 채워집니다.
+    imageUrl: profile?.imageUrl ?? null,
   };
 }
 
