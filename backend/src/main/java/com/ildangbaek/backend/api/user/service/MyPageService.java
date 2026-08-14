@@ -8,6 +8,7 @@ import com.ildangbaek.backend.domain.analysis.entity.IngredientStatus;
 import com.ildangbaek.backend.domain.analysis.entity.ReactionType;
 import com.ildangbaek.backend.domain.analysis.profile.ProfileCompletionCalculator;
 import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileRepository;
+import com.ildangbaek.backend.domain.record.repository.ProductRecordRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import com.ildangbaek.backend.domain.user.entity.NotificationSetting;
 import com.ildangbaek.backend.domain.user.entity.SkinTypeCode;
@@ -51,6 +52,7 @@ public class MyPageService {
     private final NotificationSettingRepository notificationSettingRepository;
     private final IngredientProfileRepository ingredientProfileRepository;
     private final SkinRecordRepository skinRecordRepository;
+    private final ProductRecordRepository productRecordRepository;
     private final ProfileCompletionCalculator profileCompletionCalculator;
 
     @Transactional(readOnly = true)
@@ -61,7 +63,8 @@ public class MyPageService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         long joinedDays = ChronoUnit.DAYS.between(user.getCreatedAt().toLocalDate(), LocalDate.now());
-        long totalRecordCount = skinRecordRepository.countByUserId(userId);
+        long totalRecordCount =
+                skinRecordRepository.countByUserId(userId) + productRecordRepository.countByUserId(userId);
         List<SkinTypeCode> skinTypes = userSkinTypeRepository.findAllByUserId(userId).stream()
                 .map(userSkinType -> userSkinType.getSkinType().getCode())
                 .toList();
