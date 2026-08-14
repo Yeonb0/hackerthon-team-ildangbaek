@@ -1,7 +1,15 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { getHumidityGradeLabel, getUvGradeLabel, getWeatherLabel } from '@/lib/weather';
-import { color, environmentTint, radius, space, typography } from '@/theme';
+import {
+  color,
+  environmentTint,
+  pinDisplayFont,
+  radius,
+  space,
+  typography,
+  weightFamily,
+} from '@/theme';
 import type { HomeEnvironment } from '@/types/home';
 
 type EnvironmentCardProps = {
@@ -22,6 +30,17 @@ type EnvironmentCardProps = {
  * 온도(큰 글씨)와 날씨 설명을 Figma처럼 별도 줄로 분리했습니다. 단, Figma엔 "어제보다 2° 높아요"
  * 같은 전일 대비 문구가 있는데, `HomeEnvironment` 타입에 그 값이 아직 없어서(백엔드 미제공)
  * 지금은 넣지 않았습니다 — 값이 추가되면 `weatherLine`에 이어붙이면 됩니다.
+ *
+ * 2026-08-15 — 기온 숫자만 배달의민족 주아체(BMJUA)로 고정했습니다(관리자 요청).
+ * 마이페이지 글꼴 설정(Pretendard/나눔스퀘어네오)의 영향을 받지 않는 자리입니다.
+ *
+ * ⚠️ 단위(°C)는 주아체로 그리면 안 됩니다.
+ * 주아체 파일은 U+00B0(°)와 U+2103(℃)을 cmap에 매핑해 두고도 글리프가 비어 있습니다
+ * (contours=0, advance width 800). 그대로 쓰면 동그라미가 사라지고 넓은 공백만 남습니다.
+ * 그래서 숫자만 주아체로, 단위는 본문 글꼴로 중첩 Text를 써서 분리했습니다.
+ * 다른 자리에 주아체를 쓸 때도 기호류(°, ℃ 등)는 같은 방식으로 빼야 합니다.
+ * 주아체는 Regular 단일 weight라 fontWeight는 주지 않습니다 — 주면 안드로이드가
+ * 합성 볼드를 얹어 획이 뭉갭니다.
  *
  * 날씨 아이콘은 디자인 에셋이 아직 없어서(체크포인트 A 시점 관리자 결정) 자리(점선 박스,
  * 40x40)만 온도 옆에 마련해뒀습니다 — Figma HOME-01엔 이 자리 자체가 없지만, lib/weather.ts에
@@ -47,7 +66,12 @@ export function EnvironmentCard({ environment, hasFailed = false, style }: Envir
             추가해서 이 View 하나만 실제 아이콘(Image/SVG)으로 바꾸면 됩니다. 화면 레이아웃은
             이미 이 자리를 잡아두고 있어서 그때 가서 다른 곳을 안 건드려도 됩니다. */}
         <View style={styles.weatherIconPlaceholder} />
-        <Text style={styles.temperature}>{environment.temperature}°C</Text>
+        {/* 중첩 Text는 부모의 글꼴을 물려받으므로, 단위 쪽에서 fontFamily를 명시적으로
+            덮어써야 본문 글꼴로 그려집니다. */}
+        <Text style={styles.temperature}>
+          {environment.temperature}
+          <Text style={styles.temperatureUnit}>°C</Text>
+        </Text>
       </View>
       <Text style={styles.weather}>{getWeatherLabel(environment.weather)}</Text>
       <View style={styles.badgeRow}>
@@ -85,8 +109,17 @@ const styles = StyleSheet.create({
   },
   temperature: {
     fontSize: 40,
-    fontWeight: '700',
+    // 주아체는 글자 상자가 커서 lineHeight를 명시하지 않으면 안드로이드에서 위아래가
+    // 잘립니다. fontSize의 1.2배로 잡아뒀습니다.
+    lineHeight: 48,
     color: color.ink900,
+    ...pinDisplayFont('bmjua'),
+  },
+  temperatureUnit: {
+    // 주아체에 도(°) 글리프가 비어 있어서 이 조각만 본문 글꼴로 그립니다(위 주석 참고).
+    fontSize: 26,
+    color: color.ink900,
+    ...weightFamily('bold'),
   },
   weather: {
     ...typography.body,
@@ -108,16 +141,16 @@ const styles = StyleSheet.create({
   },
   uvBadgeText: {
     ...typography.caption,
+    ...weightFamily('semibold'),
     color: environmentTint.uvText,
-    fontWeight: '600',
   },
   humidityBadge: {
     backgroundColor: environmentTint.humidityBg,
   },
   humidityBadgeText: {
     ...typography.caption,
+    ...weightFamily('semibold'),
     color: environmentTint.humidityText,
-    fontWeight: '600',
   },
   errorText: {
     ...typography.body,

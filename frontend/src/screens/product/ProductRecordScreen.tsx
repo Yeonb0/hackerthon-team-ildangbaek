@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
 import { Toast } from '@/components/base/Toast';
-import { IconClose } from '@/components/icons';
+import { IconBack, IconClose } from '@/components/icons';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { ProductSearchBar } from '@/components/domain/ProductSearchBar';
@@ -237,8 +237,17 @@ export function ProductRecordScreen() {
     });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
-      <View style={styles.headerArea}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.nav}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
         <Text style={styles.title}>{TIME_SLOT_TITLE[timeSlot]}</Text>
       </View>
 
@@ -619,10 +628,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: color.bg,
   },
-  headerArea: {
-    paddingHorizontal: space[5],
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: space[3],
-    paddingBottom: space[3],
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     ...typography.h1,

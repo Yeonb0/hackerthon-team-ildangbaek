@@ -27,7 +27,7 @@ import { ErrorState } from '@/components/state/ErrorState';
 import { useMyPage, useUpdateNotificationSetting, useLogout } from '@/api/queries/user';
 import { useFontStore, FontChoice } from '@/store/fontStore';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
-import { color, space, typography } from '@/theme';
+import { color, space, typography, weightFamily } from '@/theme';
 import type { IngredientStatus } from '@/types/user';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
@@ -49,13 +49,25 @@ export function MyPageScreen() {
 
   const [logoutPopupVisible, setLogoutPopupVisible] = useState(false);
   const [restartPopupVisible, setRestartPopupVisible] = useState(false);
+  /** 확인 팝업 대기 중인 선택값. null이면 팝업이 닫힌 상태입니다. */
+  const [pendingFontChoice, setPendingFontChoice] = useState<FontChoice | null>(null);
 
-  const handleSelectFont = async (choice: FontChoice) => {
+  // 글꼴을 바꾸면 앱이 재시작됩니다(번들을 다시 평가해야 화면 글꼴이 바뀜 — typography.ts
+  // 주석 참고). 사용자 입장에선 갑자기 앱이 튕긴 것처럼 보이므로 먼저 확인을 받습니다.
+  // 여기서 바로 저장하지 않기 때문에, "아니오"를 누르면 토글 선택 표시도 원래대로 남습니다.
+  const handleSelectFont = (choice: FontChoice) => {
     if (choice === fontChoice) return;
-    await setFontChoice(choice);
-    // fontFamily는 StyleSheet.create 스냅샷이라 지금 떠 있는 화면엔 즉시 반영되지
-    // 않습니다(typography.ts 주석 참고) — 재시작이 필요하다는 걸 바로 안내합니다.
-    setRestartPopupVisible(true);
+    setPendingFontChoice(choice);
+  };
+
+  const handleConfirmFontChange = async () => {
+    const choice = pendingFontChoice;
+    setPendingFontChoice(null);
+    if (!choice) return;
+    // 리로드가 걸리면 이 아래는 실행되지 않습니다. false면 수동 재시작 안내로 넘어갑니다
+    // (프로덕션 빌드 — expo-updates를 붙이기 전까지의 폴백).
+    const reloaded = await setFontChoice(choice);
+    if (!reloaded) setRestartPopupVisible(true);
   };
 
   if (isLoading) {
@@ -159,10 +171,16 @@ export function MyPageScreen() {
           <View style={styles.menuRow}>
             <IconBell size={20} color={color.ink600} />
             <Text style={styles.menuLabel}>알림 설정</Text>
+            {/* thumbColor를 안 주면 안드로이드가 OS 기본 accent(초록)를 씁니다 —
+                trackColor만 브랜드 색으로 바꿔도 동그라미가 초록으로 남던 원인입니다.
+                흰 동그라미 + 보라 트랙 조합으로 고정합니다.
+                ios_backgroundColor는 iOS 꺼짐 상태 트랙 색입니다. */}
             <Switch
               value={data.notificationEnabled}
               onValueChange={(enabled) => updateNotification.mutate({ enabled })}
               trackColor={{ false: color.ink300, true: color.brand500 }}
+              thumbColor={color.bg}
+              ios_backgroundColor={color.ink300}
             />
           </View>
 
@@ -208,12 +226,22 @@ export function MyPageScreen() {
       />
 
       <Popup
+        visible={pendingFontChoice !== null}
+        title="앱이 다시 시작돼요"
+        description={'글꼴을 바꾸려면 앱을 한 번 다시 시작해야 해요.\n지금 바꿀까요?'}
+        primaryLabel="예"
+        onPrimaryPress={handleConfirmFontChange}
+        secondaryLabel="아니오"
+        onSecondaryPress={() => setPendingFontChoice(null)}
+        onRequestClose={() => setPendingFontChoice(null)}
+      />
+
+      {/* 리로드가 불가능한 환경(프로덕션 빌드)에서만 뜹니다 — expo-updates를 붙이면
+          이 폴백은 필요 없어집니다. */}
+      <Popup
         visible={restartPopupVisible}
         title="글꼴 설정을 저장했어요"
-        description={
-          '지금 버전에서는 선택하신 글꼴이 화면에 바로 적용되지 않아요.\n' +
-          '이 부분은 다음 업데이트에서 마저 반영할 예정이에요.'
-        }
+        description={'앱을 완전히 종료했다가 다시 열면 선택하신 글꼴이 적용돼요.'}
         primaryLabel="확인"
         onPrimaryPress={() => setRestartPopupVisible(false)}
         onRequestClose={() => setRestartPopupVisible(false)}
@@ -261,8 +289,10 @@ const styles = StyleSheet.create({
   },
   completionText: {
     ...typography.caption,
+    // fontWeight: '600' → weightFamily (굵기별 폰트 파일 위에 fontWeight를 얹으면
+    // 안드로이드가 합성 볼드를 겹쳐 얹습니다).
+    ...weightFamily('semibold'),
     color: color.brand700,
-    fontWeight: '600',
   },
   gauge: {
     marginTop: space[1],

@@ -10,6 +10,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 type InputProps = Omit<TextInputProps, 'style'> & {
   label?: string;
@@ -32,13 +33,15 @@ export function Input({ label, error, style, ...textInputProps }: InputProps) {
   );
 }
 
+// 2026-08-15 — TextInput도 fontFamily를 명시해야 입력 글씨·placeholder가 앱 글꼴을
+// 따릅니다. 지정하지 않으면 OS 기본 글꼴로 남습니다(입력칸만 다른 글꼴로 보이던 원인).
 const styles = StyleSheet.create({
   container: {
     width: '100%',
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
+    ...weightFamily('semibold'),
     color: color.ink600,
     marginBottom: space[2],
   },
@@ -49,6 +52,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: space[4],
     fontSize: 16,
+    ...weightFamily('regular'),
     color: color.ink900,
     backgroundColor: color.bg,
   },
@@ -58,6 +62,7 @@ const styles = StyleSheet.create({
   errorText: {
     marginTop: space[1],
     fontSize: 12,
+    ...weightFamily('regular'),
     color: color.statusCaution,
   },
 });

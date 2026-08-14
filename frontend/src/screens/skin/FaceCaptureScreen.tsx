@@ -1,11 +1,12 @@
 // FaceCaptureScreen.tsx
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
+import { IconBack } from '@/components/icons';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
 import { LoadingState } from '@/components/state/LoadingState';
 import { FaceGuideOverlay } from '@/components/domain/FaceGuideOverlay';
@@ -57,8 +58,21 @@ export function FaceCaptureScreen() {
 
   if (!permission.granted) {
     return (
-      <View style={[styles.centerFill, { paddingTop: insets.top }]}>
-        <PermissionDenied type="camera" />
+      <View style={styles.permissionScreen}>
+        <View style={[styles.permissionNav, { paddingTop: insets.top }]}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="뒤로가기"
+            hitSlop={8}
+            style={styles.permissionNavBackButton}
+          >
+            <IconBack size={22} color={color.ink900} />
+          </Pressable>
+        </View>
+        <View style={styles.centerFill}>
+          <PermissionDenied type="camera" />
+        </View>
       </View>
     );
   }
@@ -152,7 +166,20 @@ export function FaceCaptureScreen() {
         <FaceGuideOverlay />
       </View>
 
-      <View style={[styles.topBar, { paddingTop: insets.top + space[3] }]} pointerEvents="none">
+      <Pressable
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="뒤로가기"
+        hitSlop={8}
+        style={[styles.backButton, { top: insets.top + space[3] }]}
+      >
+        <IconBack size={22} color={color.brand700} />
+      </Pressable>
+
+      <View
+        style={[styles.topBar, { paddingTop: insets.top + space[3] }]}
+        pointerEvents="box-none"
+      >
         <Text style={styles.guideText}>가이드 안에 얼굴을 맞춰주세요</Text>
       </View>
 
@@ -184,6 +211,34 @@ const styles = StyleSheet.create({
   // absoluteFillObject는 쓰지 않습니다.
   cameraFill: StyleSheet.absoluteFill,
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  permissionScreen: { flex: 1, backgroundColor: color.bg },
+  permissionNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  permissionNavBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButton: {
+    position: 'absolute',
+    left: space[5],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.bg,
+    shadowColor: color.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   overlayContainer: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',

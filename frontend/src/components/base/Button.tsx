@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { color, gradient, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'gradient';
 
@@ -131,7 +132,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
+    // 2026-08-15 — 이 컴포넌트는 tokens만 import해서 글꼴 토큰이 닿지 않았습니다.
+    // fontWeight: '600'을 weightFamily로 바꿔 사용자 글꼴 설정을 따르게 합니다
+    // (굵기별 폰트 파일 위에 fontWeight를 얹으면 안드로이드 합성 볼드가 겹칩니다).
+    ...weightFamily('semibold'),
   },
   hiddenLabel: {
     opacity: 0,

@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
 import { IconBarcode, IconClose, IconSearch } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 
 type ProductSearchBarProps = {
   value: string;
@@ -75,6 +76,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
+    // 2026-08-15 — TextInput은 fontFamily를 명시해야 입력 글씨와 placeholder가
+    // 앱 글꼴을 따릅니다(검색창만 다른 글꼴로 남던 원인).
+    ...weightFamily('regular'),
     color: color.ink900,
     height: '100%',
   },

@@ -9,14 +9,16 @@
 // 상태별 필터는 새 컴포넌트를 만들지 않고 Phase 7의 CategoryFilterBar(범용
 // categories: string[])를 그대로 재사용했습니다.
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tag, TagVariant } from '@/components/base/Tag';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { EmptyState } from '@/components/state/EmptyState';
+import { IconBack } from '@/components/icons';
 import { useIngredientProfile } from '@/api/queries/user';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
@@ -36,7 +38,10 @@ const STATUS_LABEL: Record<IngredientStatus, string> = {
 
 const STATUS_OPTIONS: IngredientStatus[] = ['GOOD', 'CAUTION', 'INSUFFICIENT'];
 
+type NavProp = NativeStackNavigationProp<DetailStackParamList>;
+
 export function IngredientListScreen() {
+  const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<DetailStackParamList, 'IngredientList'>>();
 
@@ -48,8 +53,19 @@ export function IngredientListScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + space[4] }]}>
+      <View style={[styles.nav, { paddingTop: insets.top }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
         <Text style={styles.title}>성분 전체 보기</Text>
+      </View>
+      <View style={styles.header}>
         <CategoryFilterBar
           categories={STATUS_OPTIONS}
           selected={selectedStatus}
@@ -107,6 +123,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: color.bg,
+  },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     paddingHorizontal: space[5],

@@ -17,7 +17,7 @@ import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconCheck } from '@/components/icons';
+import { IconBack, IconCheck } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
 import { Popup } from '@/components/base/Popup';
@@ -102,7 +102,19 @@ export function LocationSettingsScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + space[4] }]}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>위치 설정</Text>
+          <View style={styles.titleGroup}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel="뒤로가기"
+              hitSlop={8}
+            >
+              <IconBack size={22} color={color.ink900} />
+            </Pressable>
+            <Text style={styles.title}>위치 설정</Text>
+          </View>
+          {/* F-MY-04 BR5: "변경 없음" 텍스트 버튼 — 위 뒤로가기 아이콘과 동작은 같지만
+              (저장 안 하고 나가기) 명세서에 명시된 문구라 그대로 유지합니다. */}
           <Pressable onPress={() => navigation.goBack()} accessibilityRole="button">
             <Text style={styles.skipText}>변경 없음</Text>
           </Pressable>
@@ -186,6 +198,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  titleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
   },
   title: {
     ...typography.h1,

@@ -1,11 +1,13 @@
 // src/screens/auth/PasswordSetupScreen.tsx — AUTH-05 (회원가입 2단계: 비밀번호 설정)
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
+import { IconBack } from '@/components/icons';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
 import { sendVerificationCode } from '@/api/emailAuth';
 import { isValidPassword } from '@/lib/emailAuthValidation';
@@ -15,6 +17,7 @@ import { color, space } from '@/theme/tokens';
 export function PasswordSetupScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<AuthStackParamList, 'PasswordSetup'>>();
+  const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<AuthStackParamList, 'PasswordSetup'>>();
   const { email } = route.params;
 
@@ -45,7 +48,19 @@ export function PasswordSetupScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.screen}>
+      <View style={[styles.nav, { paddingTop: insets.top }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
+      </View>
+      <View style={styles.container}>
       <Text style={styles.title}>비밀번호 설정</Text>
       <Text style={styles.subtitle}>영문·숫자 포함 8자 이상</Text>
 
@@ -80,11 +95,28 @@ export function PasswordSetupScreen() {
         onPress={handleNext}
         style={styles.submitButton}
       />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: color.bg,
+  },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',

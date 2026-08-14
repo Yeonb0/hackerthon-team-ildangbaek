@@ -1,14 +1,16 @@
 // src/screens/onboarding/HormoneScreen.tsx
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Chip } from '@/components/base/Chip';
 import { DateField } from '@/components/base/DateField';
 import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
+import { IconBack } from '@/components/icons';
 import { saveHormoneInfo } from '@/api/onboarding';
 import { ApiError, getFieldErrors } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
@@ -43,6 +45,7 @@ const CURRENT_STEP_INDEX = 3;
 export function HormoneScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'Hormone'>>();
+  const insets = useSafeAreaInsets();
 
   const totalStepCount = useOnboardingStore((state) => state.totalStepCount);
 
@@ -96,7 +99,19 @@ export function HormoneScreen() {
   const progress = totalStepCount ? CURRENT_STEP_INDEX / totalStepCount : 0.7;
 
   return (
-    <KeyboardAvoidingView
+    <View style={styles.screen}>
+      <View style={[styles.nav, { paddingTop: insets.top }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
+      </View>
+      <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
@@ -177,11 +192,28 @@ export function HormoneScreen() {
           style={styles.skipButton}
         />
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: color.bg,
+  },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   flex: {
     flex: 1,
     backgroundColor: color.bg,
