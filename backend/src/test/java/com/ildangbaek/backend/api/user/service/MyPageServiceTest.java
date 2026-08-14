@@ -12,6 +12,7 @@ import com.ildangbaek.backend.domain.analysis.entity.ReactionType;
 import com.ildangbaek.backend.domain.analysis.profile.ProfileCompletionCalculator;
 import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileRepository;
 import com.ildangbaek.backend.domain.product.entity.Ingredient;
+import com.ildangbaek.backend.domain.record.repository.ProductRecordRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import com.ildangbaek.backend.domain.user.entity.AuthProvider;
 import com.ildangbaek.backend.domain.user.entity.NotificationSetting;
@@ -59,6 +60,8 @@ class MyPageServiceTest {
     @Mock
     private SkinRecordRepository skinRecordRepository;
     @Mock
+    private ProductRecordRepository productRecordRepository;
+    @Mock
     private ProfileCompletionCalculator profileCompletionCalculator;
 
     private MyPageService service;
@@ -69,7 +72,7 @@ class MyPageServiceTest {
     void setUp() {
         service = new MyPageService(userRepository, userProfileRepository, userSkinTypeRepository,
                 notificationSettingRepository, ingredientProfileRepository, skinRecordRepository,
-                profileCompletionCalculator);
+                productRecordRepository, profileCompletionCalculator);
 
         user = User.builder().provider(AuthProvider.KAKAO).providerUserId("u1").build();
         ReflectionTestUtils.setField(user, "id", USER_ID);
@@ -84,6 +87,7 @@ class MyPageServiceTest {
         when(notificationSettingRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
         when(ingredientProfileRepository.findAllByUserIdWithIngredient(USER_ID)).thenReturn(List.of());
         when(skinRecordRepository.countByUserId(USER_ID)).thenReturn(0L);
+        when(productRecordRepository.countByUserId(USER_ID)).thenReturn(0L);
         when(profileCompletionCalculator.calculate(USER_ID)).thenReturn(0);
     }
 
@@ -148,13 +152,14 @@ class MyPageServiceTest {
     }
 
     @Test
-    @DisplayName("totalRecordCount는 SkinRecord 행 수를 그대로 쓴다 — 모닝·나이트 각각 1회")
-    void usesSkinRecordRowCount() {
+    @DisplayName("totalRecordCount는 피부 기록과 제품 기록을 합산한다")
+    void sumsSkinAndProductRecordCounts() {
         when(skinRecordRepository.countByUserId(USER_ID)).thenReturn(22L);
+        when(productRecordRepository.countByUserId(USER_ID)).thenReturn(5L);
 
         MyPageResponse response = service.getMyPage(USER_ID);
 
-        assertThat(response.totalRecordCount()).isEqualTo(22L);
+        assertThat(response.totalRecordCount()).isEqualTo(27L);
     }
 
     @Test
