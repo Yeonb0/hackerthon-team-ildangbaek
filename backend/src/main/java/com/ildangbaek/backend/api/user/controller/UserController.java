@@ -2,10 +2,11 @@ package com.ildangbaek.backend.api.user.controller;
 
 import com.ildangbaek.backend.api.auth.service.CurrentUserResolver;
 import com.ildangbaek.backend.api.user.dto.IngredientProfileResponse;
+import com.ildangbaek.backend.api.user.dto.MyPageResponse;
 import com.ildangbaek.backend.api.user.dto.request.NotificationSettingRequest;
-import com.ildangbaek.backend.api.user.dto.response.MyPageResponse;
 import com.ildangbaek.backend.api.user.dto.response.NotificationSettingResponse;
 import com.ildangbaek.backend.api.user.dto.response.SavedProductResponse;
+import com.ildangbaek.backend.api.user.service.MyPageService;
 import com.ildangbaek.backend.api.user.service.UserIngredientProfileService;
 import com.ildangbaek.backend.api.user.service.UserService;
 import com.ildangbaek.backend.domain.analysis.entity.IngredientStatus;
@@ -31,12 +32,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/users/me")
 public class UserController {
 
+    private final MyPageService myPageService;
     private final CurrentUserResolver currentUserResolver;
     private final UserService userService;
     private final UserIngredientProfileService userIngredientProfileService;
 
-    @GetMapping
-    public ApiResponse<MyPageResponse> getMe(
+    @GetMapping("/account")
+    public ApiResponse<com.ildangbaek.backend.api.user.dto.response.MyPageResponse> getAccount(
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         User user = currentUserResolver.resolve(authorization);
@@ -58,6 +60,14 @@ public class UserController {
     ) {
         User user = currentUserResolver.resolve(authorization);
         return ApiResponse.success(userService.getSavedProducts(user));
+    }
+
+    /**
+     * USER-01 · 마이페이지 조회.
+     */
+    @GetMapping
+    public ApiResponse<MyPageResponse> getMyPage(@CurrentUserId Long userId) {
+        return ApiResponse.success(myPageService.getMyPage(userId));
     }
 
     /**

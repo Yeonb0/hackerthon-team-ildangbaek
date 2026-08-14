@@ -35,6 +35,11 @@ import org.springframework.stereotype.Component;
  * 목업 데이터로 조정한 초기값이며, 실사용 데이터가 쌓이면 재검토 대상이다. (ADR 0009)
  *
  * <p>노출이 아예 없으면 빈 목록을 낸다. 제품 기록이 없는 사용자에게 억지 패턴을 만들지 않기 위해서다.
+ *
+ * <h2>호르몬 요인 보정 (F-ANALYSIS-03 BR 1, 4)</h2>
+ * 관측 쌍의 절반 이상이 생리 기간에 걸치면 호르몬 변화와 성분 반응을 구분할 수 없으므로 확정 임계값을
+ * {@value #MIN_AGREEMENT_RATE} 대신 {@value #MENSTRUAL_AFFECTED_AGREEMENT_RATE}로 엄격하게 요구한다.
+ * 생리 정보가 없는 사용자는 빈 집합을 넘기면 되며, 이 경우 기존 임계값만 적용된다(BR 3).
  */
 @Component
 public class LagCorrelationAnalyzer {
@@ -52,11 +57,30 @@ public class LagCorrelationAnalyzer {
     static final double MIN_MEANINGFUL_DELTA = 3.0;
 
     /**
-     * @param exposures    성분 사용 이력. 같은 성분이 같은 날 여러 슬롯에 있어도 된다.
-     * @param observations 날짜·시간대별 피부 관측값
+     * 관측 쌍의 절반 이상이 생리 기간에 걸치면 확정에 이 임계값을 대신 요구한다. 호르몬 변화가
+     * 성분 반응과 섞였을 가능성이 커 기본 임계값(0.67)보다 엄격하게 본다. (F-ANALYSIS-03 BR 1, 4)
+     */
+    static final double MENSTRUAL_AFFECTED_AGREEMENT_RATE = 0.8;
+
+    /**
+     * 관측 쌍의 이 비율 이상이 생리 기간에 걸치면 위 임계값을 적용한다.
+     * {@link LagInsightWriter}가 신뢰도 감쇄 기준으로도 같은 값을 쓴다.
+     */
+    static final double MENSTRUAL_AFFECTED_THRESHOLD = 0.5;
+
+    public List<LagPattern> analyze(List<IngredientExposure> exposures, List<SkinObservation> observations) {
+        return analyze(exposures, observations, Set.of());
+    }
+
+    /**
+     * @param exposures      성분 사용 이력. 같은 성분이 같은 날 여러 슬롯에 있어도 된다.
+     * @param observations   날짜·시간대별 피부 관측값
+     * @param menstrualDates 사용자가 생리 중이었던 날짜 집합. 정보가 없으면 빈 집합을 넘긴다 — 그 경우
+     *                       호르몬 보정 없이 기존 임계값만 적용된다. (F-ANALYSIS-03 BR 3)
      * @return 성분별 패턴 후보. 확정된 것과 확인 중인 것이 모두 들어 있다.
      */
-    public List<LagPattern> analyze(List<IngredientExposure> exposures, List<SkinObservation> observations) {
+    public List<LagPattern> analyze(List<IngredientExposure> exposures, List<SkinObservation> observations,
+                                     Set<LocalDate> menstrualDates) {
         long observedDays = observations.stream().map(SkinObservation::date).distinct().count();
         if (observedDays < MIN_RECORD_DAYS || exposures.isEmpty()) {
             return List.of();
@@ -75,7 +99,7 @@ public class LagCorrelationAnalyzer {
         for (IngredientUsage usage : usageByIngredient.values()) {
             for (SkinMetricType metric : SkinMetricType.values()) {
                 for (int lag = MIN_LAG_DAYS; lag <= MAX_LAG_DAYS; lag++) {
-                    collectPattern(usage, metric, lag, byDateAndSlot).ifPresent(patterns::add);
+                    collectPattern(usage, metric, lag, byDateAndSlot, menstrualDates).ifPresent(patterns::add);
                 }
             }
         }
@@ -104,16 +128,22 @@ public class LagCorrelationAnalyzer {
      * 한 (성분, 지표, 시차) 조합의 패턴 후보를 만든다. 관측 쌍이 하나도 없으면 후보 자체가 없다.
      */
     private Optional<LagPattern> collectPattern(IngredientUsage usage, SkinMetricType metric, int lagDays,
-                                                Map<ObservationKey, Map<SkinMetricType, Double>> byDateAndSlot) {
+                                                Map<ObservationKey, Map<SkinMetricType, Double>> byDateAndSlot,
+                                                Set<LocalDate> menstrualDates) {
         List<Double> deltas = new ArrayList<>();
+        int menstrualAffected = 0;
         for (ObservationKey usedOn : usage.observationKeys()) {
+            LocalDate afterDate = usedOn.date().plusDays(lagDays);
             Double baseline = valueAt(byDateAndSlot, usedOn, metric);
-            Double after = valueAt(byDateAndSlot,
-                    new ObservationKey(usedOn.date().plusDays(lagDays), usedOn.timeSlot()), metric);
+            Double after = valueAt(byDateAndSlot, new ObservationKey(afterDate, usedOn.timeSlot()), metric);
             if (baseline == null || after == null) {
                 continue;
             }
             deltas.add(after - baseline);
+            // 기준선·이후 관측일 중 하나라도 생리 기간에 걸치면 호르몬 변화가 섞였을 수 있다.
+            if (menstrualDates.contains(usedOn.date()) || menstrualDates.contains(afterDate)) {
+                menstrualAffected++;
+            }
         }
         if (deltas.isEmpty()) {
             return Optional.empty();
@@ -128,12 +158,17 @@ public class LagCorrelationAnalyzer {
 
         double averageDelta = deltas.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
         int observations = deltas.size();
+        // 관측 쌍의 절반 이상이 생리 기간에 걸치면 호르몬 변화와 성분 반응을 구분하기 어려우므로
+        // 더 엄격한 임계값을 요구한다. (F-ANALYSIS-03 BR 1, 4)
+        double requiredAgreementRate = (double) menstrualAffected / observations >= MENSTRUAL_AFFECTED_THRESHOLD
+                ? MENSTRUAL_AFFECTED_AGREEMENT_RATE
+                : MIN_AGREEMENT_RATE;
         boolean confirmed = observations >= MIN_OBSERVATIONS
-                && (double) agreement / observations >= MIN_AGREEMENT_RATE
+                && (double) agreement / observations >= requiredAgreementRate
                 && Math.abs(averageDelta) >= MIN_MEANINGFUL_DELTA;
 
         return Optional.of(new LagPattern(usage.ingredientId(), usage.ingredientName(), metric,
-                lagDays, direction, observations, agreement, averageDelta, confirmed));
+                lagDays, direction, observations, agreement, averageDelta, confirmed, menstrualAffected));
     }
 
     private Double valueAt(Map<ObservationKey, Map<SkinMetricType, Double>> byDateAndSlot, ObservationKey key,

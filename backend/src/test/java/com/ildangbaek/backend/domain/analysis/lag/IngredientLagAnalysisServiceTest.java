@@ -26,8 +26,10 @@ import com.ildangbaek.backend.domain.record.repository.ProductRecordItemReposito
 import com.ildangbaek.backend.domain.record.repository.ProductRecordRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinMetricRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
+import com.ildangbaek.backend.domain.analysis.hormone.MenstrualCycleCalculator;
 import com.ildangbaek.backend.domain.user.entity.AuthProvider;
 import com.ildangbaek.backend.domain.user.entity.User;
+import com.ildangbaek.backend.domain.user.repository.UserProfileRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -66,6 +68,8 @@ class IngredientLagAnalysisServiceTest {
     @Mock
     private SkinMetricRepository skinMetricRepository;
     @Mock
+    private UserProfileRepository userProfileRepository;
+    @Mock
     private LagInsightWriter insightWriter;
     @Mock
     private IngredientProfileWriter profileWriter;
@@ -77,9 +81,10 @@ class IngredientLagAnalysisServiceTest {
 
     @BeforeEach
     void setUp() {
+        when(userProfileRepository.findByUserId(anyLong())).thenReturn(java.util.Optional.empty());
         service = new IngredientLagAnalysisService(productRecordRepository, productRecordItemRepository,
-                productIngredientRepository, skinRecordRepository, skinMetricRepository,
-                new LagCorrelationAnalyzer(), insightWriter, profileWriter);
+                productIngredientRepository, skinRecordRepository, skinMetricRepository, userProfileRepository,
+                new LagCorrelationAnalyzer(), new MenstrualCycleCalculator(), insightWriter, profileWriter);
 
         user = User.builder().provider(AuthProvider.KAKAO).providerUserId("u1").build();
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -132,6 +137,67 @@ class IngredientLagAnalysisServiceTest {
         ArgumentCaptor<List<LagPattern>> captor = ArgumentCaptor.forClass(List.class);
         verify(insightWriter).write(any(), captor.capture(), any(), any());
         assertThat(captor.getValue()).noneMatch(LagPattern::confirmed);
+    }
+
+    @DisplayName("생리 중인 사용자의 관측이 절반 이상 걸치면 방향이 일치해도 확정하지 않는다")
+    @SuppressWarnings("unchecked")
+    @Test
+    void appliesMenstrualCorrectionWhenLoadingObservations() {
+        // 주기를 6일로 잡아 0, 6, 12, 18일차 사용이 매번 같은 위상(생리 0일차)에서 일어나고,
+        // 그 D+2 관측일(각 -2, 4, 10, 16일차)도 매번 생리 기간(0~4일차)에 걸리게 한다.
+        // 기준선(사용일) 트러블을 50, D+2를 65로 둬 세 쌍은 +15(악화)로, 마지막 사용(18일차)의
+        // D+2(16일차)만 -15(개선)로 반대 방향을 심는다. 방향 일치율은 75%(3/4)로 기본 임계값(67%)은
+        // 넘지만 생리 보정 임계값(80%)은 못 넘는다.
+        List<SkinRecord> records = new ArrayList<>();
+        List<SkinMetric> metrics = new ArrayList<>();
+        List<Integer> useDays = List.of(0, 6, 12, 18);
+        List<Integer> afterDays = List.of(-2, 4, 10, 16);
+        for (int day = -2; day < 20; day++) {
+            int value = 50;
+            if (afterDays.contains(day)) {
+                value = day == 16 ? 35 : 65;
+            }
+            SkinRecord record = skinRecord((long) day + 100, TODAY.minusDays(day), true);
+            records.add(record);
+            metrics.add(metric(record, value));
+        }
+
+        List<ProductRecord> productRecords = new ArrayList<>();
+        List<ProductRecordItem> items = new ArrayList<>();
+        for (int day : useDays) {
+            ProductRecord productRecord = productRecord((long) day + 1, TODAY.minusDays(day));
+            productRecords.add(productRecord);
+            items.add(productRecordItem(productRecord, serum));
+        }
+
+        com.ildangbaek.backend.domain.user.entity.UserProfile profile =
+                com.ildangbaek.backend.domain.user.entity.UserProfile.builder()
+                        .user(user).nickname("검증용")
+                        .gender(com.ildangbaek.backend.domain.user.entity.Gender.FEMALE)
+                        .build();
+        profile.updateHormoneInfo(com.ildangbaek.backend.domain.user.entity.MenstrualStatus.MENSTRUATING,
+                TODAY.minusDays(18), (short) 6, false, false, false);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(records);
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList())).thenReturn(metrics);
+        when(productRecordRepository.findAllByUserIdAndRecordDateBetween(anyLong(), any(), any()))
+                .thenReturn(productRecords);
+        when(productRecordItemRepository.findAllWithProductByProductRecordIdIn(anyList())).thenReturn(items);
+        when(productIngredientRepository.findAllWithIngredientByProductIdIn(anyList()))
+                .thenReturn(List.of(productIngredient(serum, retinol)));
+        when(userProfileRepository.findByUserId(anyLong())).thenReturn(java.util.Optional.of(profile));
+        when(insightWriter.write(any(), anyList(), any(), any())).thenReturn(List.of());
+
+        service.analyzeAndStore(user, TODAY);
+
+        ArgumentCaptor<List<LagPattern>> captor = ArgumentCaptor.forClass(List.class);
+        verify(insightWriter).write(any(), captor.capture(), any(), any());
+        LagPattern found = captor.getValue().stream()
+                .filter(pattern -> pattern.metricType() == SkinMetricType.TROUBLE && pattern.lagDays() == 2)
+                .findFirst().orElseThrow();
+        assertThat(found.menstrualAffectedCount()).isEqualTo(4);
+        assertThat(found.confirmed()).isFalse();
     }
 
     @DisplayName("제품 기록이 없으면 분석하지 않는다 — 제품 기록 API(A 담당) 도입 전의 정상 상태")

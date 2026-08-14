@@ -26,6 +26,7 @@ import com.ildangbaek.backend.domain.user.repository.UserRepository;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.storage.ImageStorage;
+import com.ildangbaek.backend.global.util.RecordDateResolver;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -285,6 +286,26 @@ class SkinRecordServiceTest {
         SkinRecordResponse response = service.getToday(1L, TimeSlot.MORNING);
 
         assertThat(response.skinRecordId()).isEqualTo(6L);
+    }
+
+    @DisplayName("SKIN-02: NIGHT 조회 날짜는 RecordDateResolver로 계산한다 — LocalDate.now() 직접 사용 금지")
+    @Test
+    void getTodayResolvesNightDateWithRecordDateResolver() {
+        // 자정 직후(00:00~05:59)에 저장한 NIGHT 기록은 record_date가 전날이다(RecordDateResolver).
+        // getToday가 LocalDate.now()를 그대로 쓰면 그 시간대에 방금 저장한 기록을 못 찾는다 —
+        // 조회도 같은 유틸을 거쳐야 한다는 것을 리포지토리 호출 인자로 고정한다.
+        LocalDate expectedDate = RecordDateResolver.resolve(LocalDateTime.now(), TimeSlot.NIGHT);
+        SkinRecord record = savedRecord(8L, expectedDate, TimeSlot.NIGHT, 60);
+        when(skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(1L, expectedDate, TimeSlot.NIGHT))
+                .thenReturn(Optional.of(record));
+        when(skinMetricRepository.findAllBySkinRecordId(8L)).thenReturn(previousMetrics(record, 60));
+        when(skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(1L, expectedDate.minusDays(1), TimeSlot.NIGHT))
+                .thenReturn(Optional.empty());
+
+        SkinRecordResponse response = service.getToday(1L, TimeSlot.NIGHT);
+
+        assertThat(response.skinRecordId()).isEqualTo(8L);
+        verify(skinRecordRepository).findByUserIdAndRecordDateAndTimeSlot(1L, expectedDate, TimeSlot.NIGHT);
     }
 
     @DisplayName("SKIN-02: 기록이 없으면 404 SKIN_RECORD_NOT_FOUND")

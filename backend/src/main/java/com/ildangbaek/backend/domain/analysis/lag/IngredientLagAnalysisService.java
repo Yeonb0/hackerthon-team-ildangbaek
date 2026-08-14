@@ -1,5 +1,7 @@
 package com.ildangbaek.backend.domain.analysis.lag;
 
+import com.ildangbaek.backend.domain.analysis.hormone.MenstrualCycleCalculator;
+import com.ildangbaek.backend.domain.analysis.hormone.MenstrualCyclePhase;
 import com.ildangbaek.backend.domain.product.entity.ProductIngredient;
 import com.ildangbaek.backend.domain.product.repository.ProductIngredientRepository;
 import com.ildangbaek.backend.domain.record.entity.AnalysisStatus;
@@ -13,10 +15,13 @@ import com.ildangbaek.backend.domain.record.repository.ProductRecordRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinMetricRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import com.ildangbaek.backend.domain.user.entity.User;
+import com.ildangbaek.backend.domain.user.entity.UserProfile;
+import com.ildangbaek.backend.domain.user.repository.UserProfileRepository;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +38,9 @@ import org.springframework.transaction.annotation.Transactional;
  * F-ANALYSIS-04)로 남긴다.
  *
  * <p>계산은 전부 분석기에 있다. 이 클래스는 조회와 형변환만 한다.
+ *
+ * <p>F-ANALYSIS-03 · 분석 기간 중 생리 중이었던 날짜도 함께 조회해 분석기에 넘긴다. 프로필이 없거나
+ * 호르몬 정보가 비어 있으면 빈 집합을 넘기며, 이 경우 시차 분석은 기존 임계값만 적용한다.
  *
  * <p><strong>제품 기록 쓰기 API(PRODUCT-05, A 담당)가 아직 없다.</strong> 그래서 실사용 데이터에서는
  * {@code product_records}가 비어 있고 노출이 0건이라 결과도 비어 있다. 이는 정상 동작이다 — 명세 BR 4,
@@ -52,7 +60,9 @@ public class IngredientLagAnalysisService {
     private final ProductIngredientRepository productIngredientRepository;
     private final SkinRecordRepository skinRecordRepository;
     private final SkinMetricRepository skinMetricRepository;
+    private final UserProfileRepository userProfileRepository;
     private final LagCorrelationAnalyzer analyzer;
+    private final MenstrualCycleCalculator menstrualCycleCalculator;
     private final LagInsightWriter insightWriter;
     private final IngredientProfileWriter profileWriter;
 
@@ -81,7 +91,8 @@ public class IngredientLagAnalysisService {
             return 0;
         }
 
-        List<LagPattern> patterns = analyzer.analyze(exposures, observations);
+        Set<LocalDate> menstrualDates = loadMenstrualDates(user.getId(), startDate, today);
+        List<LagPattern> patterns = analyzer.analyze(exposures, observations, menstrualDates);
 
         // 패턴이 없어도 프로파일은 갱신한다. 노출된 성분에 "아직 데이터가 부족하다"는 상태를 남겨야
         // USER-02가 그 성분을 몇 번 썼는지 보여줄 수 있다. (F-ANALYSIS-04)
@@ -90,6 +101,26 @@ public class IngredientLagAnalysisService {
         // 빈 후보도 이번 분석의 최신 결과다. writer가 기존 성분 인사이트를 지운 뒤 빈 목록을 저장해
         // 분석 창에서 근거가 사라진 카드를 계속 노출하지 않게 한다.
         return insightWriter.write(user, patterns, startDate, today).size();
+    }
+
+    /**
+     * 분석 기간 중 사용자가 생리 중이었던 날짜를 모은다. (F-ANALYSIS-03 BR 1)
+     *
+     * <p>프로필이 없거나 생리 상태·주기 정보가 없으면 빈 집합을 낸다 — 이 경우 시차 분석은 호르몬
+     * 보정 없이 기존 임계값만 적용한다(BR 3). 정보 부족이 분석 자체를 막지는 않는다.
+     */
+    private Set<LocalDate> loadMenstrualDates(Long userId, LocalDate startDate, LocalDate endDate) {
+        UserProfile profile = userProfileRepository.findByUserId(userId).orElse(null);
+        if (profile == null) {
+            return Set.of();
+        }
+        Set<LocalDate> menstrualDates = new HashSet<>();
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            if (menstrualCycleCalculator.calculate(profile, date) == MenstrualCyclePhase.MENSTRUAL) {
+                menstrualDates.add(date);
+            }
+        }
+        return menstrualDates;
     }
 
     /** 날짜·시간대별 피부 관측값. 제품 노출과 같은 슬롯을 비교하기 위해 평균으로 접지 않는다. */

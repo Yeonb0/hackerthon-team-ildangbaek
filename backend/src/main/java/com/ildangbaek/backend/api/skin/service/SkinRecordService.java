@@ -81,11 +81,16 @@ public class SkinRecordService {
 
     /**
      * SKIN-02 · 오늘 피부 결과 조회. {@code timeSlot} 미지정 시 가장 최근 기록을 반환한다.
+     *
+     * <p>{@code timeSlot} 지정 시 조회 날짜는 {@link RecordDateResolver}로 계산한다. 자정 직후
+     * (00:00~05:59)에 {@code NIGHT}를 조회하면 저장 시점과 같은 이유로 전날 날짜로 귀속된 기록을
+     * 찾아야 한다 — {@code LocalDate.now()}를 그대로 쓰면 방금 저장한 기록이 404로 안 잡힌다.
      */
     public SkinRecordResponse getToday(Long userId, TimeSlot timeSlot) {
         SkinRecord record = (timeSlot == null
                 ? skinRecordRepository.findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(userId)
-                : skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(userId, LocalDate.now(), timeSlot))
+                : skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
+                        userId, RecordDateResolver.resolve(LocalDateTime.now(), timeSlot), timeSlot))
                 .orElseThrow(() -> new BusinessException(ErrorCode.SKIN_RECORD_NOT_FOUND));
         return toResponse(userId, record);
     }

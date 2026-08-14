@@ -671,6 +671,80 @@ json
 
 ---
 
+## USER-01-B · 계정 정보 조회
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `GET` |
+| URI | `/api/v1/users/me/account` |
+| 인증 | 필요 |
+
+**Success Response — 200**
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": {
+    "userId": 1,
+    "email": "user@example.com",
+    "name": "김민지",
+    "gender": "FEMALE",
+    "age": 27,
+    "regionName": "서울 강남구",
+    "onboardingCompleted": true,
+    "skinTypes": ["OILY", "SENSITIVE"],
+    "notification": { "enabled": true }
+  }
+}
+```
+
+**Business Rule**
+
+1. USER-01(마이페이지 요약)과 별개로 계정·프로필 원본 필드를 그대로 반환한다.
+
+---
+
+## USER-01-C · 저장 제품 목록 조회
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `GET` |
+| URI | `/api/v1/users/me/products` |
+| 인증 | 필요 |
+
+**Success Response — 200**
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": [
+    {
+      "productId": 11,
+      "name": "라운드랩 자작나무 수분 토너",
+      "brand": "라운드랩",
+      "category": "TONER",
+      "imageUrl": "https://example.com/products/roundlab-birch-toner.jpg",
+      "firstSavedAt": "2026-07-01T09:00:00",
+      "lastUsedAt": "2026-08-10T08:20:00"
+    }
+  ]
+}
+```
+
+**Business Rule**
+
+1. 사용 중(`USING`) 상태인 제품만 최근 사용순으로 반환한다.
+
+---
+
 ## USER-02 · 성분 프로파일 전체 조회
 
 | 항목 | 내용 |
@@ -1536,6 +1610,66 @@ json
 
 ---
 
+## PRODUCT-09 · 제품 직접 등록 전 카탈로그 매칭 조회
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `GET` |
+| URI | `/api/v1/products/match` |
+| 인증 | 필요 |
+| 관련 화면 | 없음(F-PRODUCT-08 TBD-07과 연결 예정) |
+| 관련 기능 | F-PRODUCT-08(TBD) |
+
+> **F-PRODUCT-08(제품 직접 등록) 자체는 여전히 미정 · TBD-07 상태입니다.** 이 API는 그 결정과
+> 무관하게, "제품명+브랜드명이 이미 카탈로그에 있으면 성분·카테고리를 자동으로 채워준다"는
+> 조회 기능만 먼저 제공합니다(관리자 결정, 2026-08-14). F-PRODUCT-08의 화면·저장 흐름이
+> 확정되면 이 API를 그 흐름에 연결합니다.
+
+**Query Parameter**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | String | O | 제품명(정확 일치) |
+| `brand` | String | O | 브랜드명(정확 일치) |
+
+**Success Response — 200 (매칭됨)**
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": {
+    "matched": true,
+    "productId": 71,
+    "category": "SERUM",
+    "ingredients": ["정제수", "글리세린", "히알루론산", "판테놀"]
+  }
+}
+```
+
+**Success Response — 200 (매칭 안 됨)**
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": { "matched": false, "productId": null, "category": null, "ingredients": [] }
+}
+```
+
+**Business Rule**
+
+1. `name`+`brand`가 활성(`active=true`) 제품과 정확히 일치하면 `matched: true`와 함께
+   `productId`·`category`·`ingredients`(표시 순서)를 반환한다.
+2. 매칭되지 않으면 오류가 아니라 `matched: false`를 반환한다. 클라이언트는 기존 직접 입력 흐름을
+   그대로 진행한다.
+3. 바코드/이미지 스캔(PRODUCT-04)과는 별개 경로다 — 이 API는 텍스트 매칭 전용이며 이미지 인식을
+   하지 않는다.
+
+---
+
 ## PRODUCT-05 · 제품 기록 저장 ⭐
 
 | 항목 | 내용 |
@@ -2036,15 +2170,23 @@ json
         "productId": 71,
         "name": "라로슈포제 시카플라스트",
         "brand": "라로슈포제",
-        "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요"
+        "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요",
+        "category": "MATCHED_INGREDIENT"
       },
       {
         "productId": 82,
         "name": "마누카 히알루론산 토너",
         "brand": "마누카",
-        "reason": "히알루론산 반응이 좋았어요"
+        "reason": "히알루론산 반응이 좋았어요",
+        "category": "TODAY_NEEDED"
       }
     ],
+    "todayContext": {
+      "troubleScore": 38,
+      "rednessScore": 62,
+      "humidity": 55,
+      "humidityGrade": "NORMAL"
+    },
     "failedSections": []
   }
 }
@@ -2054,6 +2196,19 @@ json
 
 1. 추천은 개인 성분 프로파일을 근거로 하며 **`reason` 없는 추천은 노출하지 않는다.**
 2. 프로파일 데이터가 부족하면 `recommendations: []`를 반환한다. 클라이언트는 추천 대신 기록 유도 안내를 표시한다. **오류가 아니다.**
+3. **매칭 기준(ADR 0016)**: `ingredient_profiles`에서 `GOOD`(SUITABLE) 성분을 `key_ingredient=true`로
+   가진 제품을 추천 후보로 삼는다. `CAUTION`·`INSUFFICIENT` 성분과 `key_ingredient=false` 성분은
+   근거로 쓰지 않는다. 한 제품이 여러 GOOD 성분과 매칭돼도 추천 목록엔 **제품 단위로 1건만** 나오고,
+   `reason`은 매칭된 성분명을 모두 모아 `"{성분명1}·{성분명2}이 잘 맞는 성분이에요"` 형태로 조립한다.
+4. `profileCompletion`은 F-ANALYSIS-05 값을 그대로 쓰며, USER-01·USER-02와 동일한 값이어야 한다
+   (`ProfileCompletionCalculator` 단독 계산, ADR 0011 BR 4).
+5. `failedSections`는 이 응답이 전부 내부 DB 조회이므로 현재는 항상 빈 배열이다. 1.8절의 외부 API
+   부분 실패 알림 용도이며, 이 화면에 외부 API가 붙기 전까지는 값이 채워지지 않는다.
+6. **3분류 · 오늘 컨텍스트(ADR 0018)**: `recommendations[].category`는
+   `TODAY_NEEDED`/`HUMIDITY_CARE`/`MATCHED_INGREDIENT` 중 하나이며, 제품 카테고리 기준 추정
+   매칭이다(임계값·매핑은 잠정치, 재검토 대상). `todayContext`는 오늘(가장 최근) 피부 기록의
+   트러블·홍조 점수와 오늘 환경 데이터의 습도·습도 등급을 담으며, 해당 데이터가 없으면 각 필드가
+   개별적으로 `null`이다.
 
 ---
 
@@ -2066,7 +2221,7 @@ json
 | 인증 | 필요 |
 | 관련 화면 | S-21 → S-22 |
 | 관련 기능 | F-CHECK-03 |
-| 멱등성 | `Idempotency-Key` 권장 |
+| 멱등성 | **미구현**(블로커 #8). 재요청은 새 평가를 만든다(append-only, ADR 0015 결정 7) — `checkId`가 매번 달라진다 |
 
 **Request Body**
 
@@ -2084,7 +2239,7 @@ json
 {
   "isSuccess": true,
   "code": "COMMON_CREATED",
-  "message": "분석이 완료되었어요.",
+  "message": "생성에 성공했습니다.",
   "result": {
     "checkId": 13,
     "productId": 71,
@@ -2111,6 +2266,18 @@ json
 }
 ```
 
+> **명세와 다른 점**: `message`가 예시("분석이 완료되었어요.")와 다르다. 공용 `SuccessCode`에
+> 엔드포인트별 문구가 없어 `"생성에 성공했습니다."`가 나간다(ADR 0015 결과). `ingredients`는
+> 제품의 성분 표시 순서(`display_order`)를 따른다.
+
+**등급 문구 전체표** (ADR 0015 결정 8)
+
+| riskLevel | riskTitle | riskDescription |
+| --- | --- | --- |
+| `LOW` | 잘 맞아요 | 내 피부 기준으로 주의할 성분이 없어요 |
+| `MEDIUM` | 보통이에요 | 내 피부 기준으로 주의할 성분이 일부 있어요 |
+| `HIGH` | 주의가 필요해요 | 내 피부 기준으로 맞지 않는 성분이 포함되어 있어요 |
+
 **Transaction**
 
 ```
@@ -2122,22 +2289,29 @@ BEGIN → Product 조회 → Ingredient 조회 → IngredientProfile 조회
 
 1. 제품 전체 성분을 개인 프로파일과 대조한다.
 2. `CAUTION` 성분의 수와 비중으로 위험도를 산출한다.
-3. **`INSUFFICIENT` 성분은 위험도를 높이지도 낮추지도 않는다.**
+   **산출 기준(ADR 0015)**: 비중의 분모는 판정된 성분(`goodCount`+`cautionCount`)만이다.
+   `cautionCount ≥ 3`이거나, 판정 성분이 5종 이상이고 비중 `≥ 0.40`이면 `HIGH`.
+   `cautionCount ≥ 1`이면 최소 `MEDIUM`. `cautionCount == 0`이면 `LOW`. 두 축 중 더 심각한
+   등급을 최종 등급으로 한다. 임계값(3건·0.40·5종)에 이론적 근거는 없다 — ADR 0009·0010·0011과
+   같은 성격의 초기값이다.
+3. **`INSUFFICIENT` 성분은 위험도를 높이지도 낮추지도 않는다.** 비중 계산의 분모에서 제외하는
+   것으로 보장한다.
 4. 근거가 있는 성분만 `reason`을 채운다. 데이터가 부족한 성분의 `reason`은 `null`이다.
+   확정 성분(`GOOD`/`CAUTION`)이라도 근거 문구가 없으면 지어내지 않고 `reason`을 `null`로 둔다.
 5. `riskTitle` · `riskDescription`은 서버가 완성해 내려준다. S-22에서 등급이 큰 제목으로 노출되기 때문이다.
 6. **위험도만 반환하지 않고 판단 근거를 반드시 함께 반환한다.**
 
 **Error**
 
-| HTTP | Code | 클라이언트 안내 |
-| --- | --- | --- |
-| 404 | `CHECK_PRODUCT_NOT_FOUND` | 제품 정보를 찾을 수 없어요 |
-| 409 | `CHECK_PROFILE_NOT_READY` | 아직 판단할 데이터가 부족해요 |
-| 409 | `CHECK_INGREDIENT_DATA_INSUFFICIENT` | 확인할 수 없는 성분이 포함되어 있어요 |
-| 500 | `CHECK_CALCULATION_FAILED` | 위험도 계산에 실패했습니다 |
+| HTTP | Code | 클라이언트 안내 | 발동 조건 |
+| --- | --- | --- | --- |
+| 404 | `CHECK_PRODUCT_NOT_FOUND` | 제품 정보를 찾을 수 없어요 | 제품이 없거나 비활성(`active=false`) |
+| 409 | `CHECK_PROFILE_NOT_READY` | 아직 판단할 데이터가 부족해요 | 이 제품의 성분 중 판정된 것이 하나도 없음(`goodCount+cautionCount==0`) |
+| 409 | `CHECK_INGREDIENT_DATA_INSUFFICIENT` | 확인할 수 없는 성분이 포함되어 있어요 | 제품에 등록된 성분(`product_ingredients`)이 0건 |
+| 500 | `CHECK_CALCULATION_FAILED` | 위험도 계산에 실패했습니다 | 정의만 되어 있고 실제로 던지는 경로는 없다(ADR 0015 결과) — 위험도 계산은 세 정수의 산술이라 실패할 수 없다 |
 
 > 두 409 코드 모두 **빈 상태 안내**로 처리한다. 빨간 오류 UI를 쓰지 않는다. 데이터 부족을 안전 또는 위험으로 임의 판단하지 않는다는 원칙이 적용된다.
-> 
+> **두 409 모두 평가를 저장하지 않는다** — 재조회할 `checkId`가 없다.
 
 ---
 
@@ -2150,7 +2324,17 @@ BEGIN → Product 조회 → Ingredient 조회 → IngredientProfile 조회
 | 인증 | 필요 |
 | 관련 화면 | S-22 |
 
-응답 구조는 CHECK-02와 동일하다.
+응답은 CHECK-02와 **같은 DTO·같은 조립 로직**을 통해 만들어진다 — 서버가 저장한 `ProductRiskAssessment`
++ `ProductRiskIngredient`를 다시 읽어 CHECK-02 응답과 동일한 구조로 낸다.
+
+**소유권** — 다른 사용자의 `checkId`를 조회하면 403이 아니라 `404 CHECK_NOT_FOUND`다. 존재 여부를
+알리지 않는다(REPORT-02와 같은 규칙).
+
+**Error**
+
+| HTTP | Code | 클라이언트 안내 |
+| --- | --- | --- |
+| 404 | `CHECK_NOT_FOUND` | 확인 결과를 찾을 수 없어요 |
 
 **Error**
 
@@ -2519,6 +2703,8 @@ json
 | Onboard | ONBOARD-04 | PATCH | `/users/me/onboarding/hormone` | O |
 | Onboard | ONBOARD-05 | POST | `/users/me/onboarding/complete` | O |
 | User | USER-01 | GET | `/users/me` | O |
+| User | USER-01-B | GET | `/users/me/account` | O |
+| User | USER-01-C | GET | `/users/me/products` | O |
 | User | USER-02 | GET | `/users/me/ingredient-profile` | O |
 | User | USER-03 | GET | `/users/me/profile` | O |
 | User | USER-04 | PATCH | `/users/me/profile` | O |
@@ -2588,6 +2774,13 @@ json
 > 추상화하고 목업 구현으로 동작한다. 목업은 `userId + recordDate + timeSlot`에서 유도한 시드로
 > **결정적인** 점수를 만들며, 목업으로 생성된 기록은 `analysis_method = MOCK`으로 식별된다.
 > 실연동 시 변경 범위는 구현체 1개와 설정값이다. ([ADR 0003](decisions/0003-AI-분석-목업-우선.md))
+>
+> **실연동 후보가 두 갈래로 준비돼 있다.** ① 외부 VLM(OpenAI gpt-4o Vision, `provider=openai`) —
+> 구현은 완료됐으나 실 API 키로 E2E 검증은 아직이다. ② 팀이 직접 운영하는 규칙 기반 영상처리
+> 서버(`provider=local-vision`) — MediaPipe로 얼굴을 검출하고 CIELAB 색공간 통계로 지표를
+> 산출한다(`ai-server/`, 딥러닝 모델 아님). 라벨링된 학습 데이터가 없어 모델 학습 대신 채택했으며,
+> 절대 정확도가 아니라 개인의 상대적 변화 추적용이다. 모공 지표는 카메라 노이즈와 신호가 겹쳐
+> 신뢰도가 낮다. ([ADR 0020](decisions/0020-규칙-기반-로컬-비전-분석.md))
 >
 > **이미지 스토리지도 같은 방식이다.** `ImageStorage` 인터페이스 뒤에 로컬 디렉터리 구현이 있고,
 > 배포 시 외부 스토리지로 교체한다. ([ADR 0007](decisions/0007-이미지-스토리지.md))

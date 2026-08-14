@@ -26,3 +26,8 @@ app:
   skin:
     analysis:
       provider: ${SKIN_ANALYSIS_PROVIDER:mock}
+      openai:
+        api-key: ${OPENAI_API_KEY:}
+        base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      local-vision:
+        base-url: ${LOCAL_VISION_BASE_URL:http://localhost:8000}

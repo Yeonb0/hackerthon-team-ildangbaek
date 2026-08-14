@@ -417,13 +417,16 @@ UNIQUE(user_id, ingredient_id)
 | id | BIGINT | PK | 평가 ID |
 | user_id | BIGINT | FK | 사용자 ID |
 | product_id | BIGINT | FK | 평가 제품 |
-| risk_level | VARCHAR(20) | NOT NULL | LOW, MEDIUM, HIGH, INSUFFICIENT |
-| risk_score | DECIMAL(5,2) | NULL | 위험 점수 |
+| risk_level | VARCHAR(20) | NOT NULL | LOW, MEDIUM, HIGH, INSUFFICIENT — **`INSUFFICIENT`는 정의만 되어 있고 저장되지 않는다.** 판정된 성분이 0건이면 등급을 매기지 않고 409(`CHECK_PROFILE_NOT_READY`)를 반환하며 행 자체를 만들지 않는다 (ADR 0015) |
+| risk_score | DECIMAL(5,2) | NULL | CAUTION 비중의 백분율(판정된 성분 대비, 0~100). ADR 0015 |
 | caution_count | INT | NOT NULL | 주의 성분 수 |
 | suitable_count | INT | NOT NULL | 맞음 성분 수 |
 | insufficient_count | INT | NOT NULL | 데이터 부족 성분 수 |
-| summary | VARCHAR(500) | NULL | 결과 요약 |
+| summary | VARCHAR(500) | NULL | **현재 미사용 — 항상 NULL.** 등급 문구는 `risk_level`에서 매번 파생하며(ADR 0015), 렌더 문구를 DB에 고정하지 않는다 |
 | assessed_at | DATETIME | NOT NULL | 평가 시각 |
+
+CHECK-02 재분석은 기존 행을 갱신하지 않고 새로 추가한다(append-only) — `(user_id, product_id)`
+유니크 제약이 없다. ADR 0015 결정 7.
 
 ## ProductRiskIngredient
 
@@ -433,8 +436,8 @@ UNIQUE(user_id, ingredient_id)
 | assessment_id | BIGINT | FK | 평가 ID |
 | ingredient_id | BIGINT | FK | 성분 ID |
 | reaction_type | VARCHAR(30) | NOT NULL | 맞음, 주의, 데이터 부족 |
-| reason | VARCHAR(500) | NULL | 개인화 판단 근거 |
-| contribution_score | DECIMAL(8,4) | NULL | 위험도 기여값 |
+| reason | VARCHAR(500) | NULL | 개인화 판단 근거. `INSUFFICIENT`이거나 확정 근거 문구가 없으면 NULL(지어내지 않는다) |
+| contribution_score | DECIMAL(8,4) | NULL | **현재 미사용 — 항상 NULL.** 위험도 산식이 개수·비중 규칙이라 성분별 가중치가 없다(ADR 0015). 가중 산식으로 바뀌면 쓰인다 |
 
 ```
 UNIQUE(assessment_id, ingredient_id)

@@ -17,6 +17,9 @@ public interface SkinRecordRepository extends JpaRepository<SkinRecord, Long> {
     @Query("select count(distinct r.recordDate) from SkinRecord r where r.user.id = :userId")
     long countDistinctRecordDatesByUserId(@Param("userId") Long userId);
 
+    /** USER-01. 모닝·나이트가 각각 별도 행이므로 단순 행 수가 곧 기록 횟수다(BR 3). */
+    long countByUserId(Long userId);
+
     Optional<SkinRecord> findByUserIdAndRecordDateAndTimeSlot(Long userId, LocalDate recordDate, TimeSlot timeSlot);
 
     List<SkinRecord> findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(

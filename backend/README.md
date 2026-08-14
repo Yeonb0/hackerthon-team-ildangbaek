@@ -50,7 +50,10 @@ DB 설정은 `application-local.yml`에 있습니다.
 | `DB_PASSWORD` | `ildangbaek1234` | |
 | `STORAGE_LOCAL_DIR` | `./uploads/images` | 이미지 저장 경로 ([ADR 0007](../docs/decisions/0007-이미지-스토리지.md)) |
 | `STORAGE_LOCAL_URL_PREFIX` | `/images/` | 반환 URL 접두사 |
-| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택 ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md)) |
+| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택. `mock` · `openai` · `local-vision` ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md) · [ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md)) |
+| `OPENAI_API_KEY` | (없음) | `SKIN_ANALYSIS_PROVIDER=openai`일 때 필수. OpenAI API 키 |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API 베이스 URL |
+| `LOCAL_VISION_BASE_URL` | `http://localhost:8000` | `SKIN_ANALYSIS_PROVIDER=local-vision`일 때 사용할 `ai-server/` 주소 |
 
 업로드 상한은 `spring.servlet.multipart.max-file-size=10MB`다. Spring 기본값(파일 1MB)이면
 정상 사진도 튕기므로 올려 두었다.
@@ -66,6 +69,32 @@ DB 설정은 `application-local.yml`에 있습니다.
 
 ```bash
 ./gradlew bootRun --args='--app.skin.analysis.mock.failure-mode=timeout'
+```
+
+**실제 AI 분석(OpenAI) 사용** — `gpt-4o`로 얼굴 이미지를 분석한다. 이미지는
+`LocalImageStorage`가 저장한 디렉터리에서 다시 읽어 base64로 인코딩해 전송한다(저장 URL이
+로컬 상대 경로라 OpenAI가 직접 가져올 수 없기 때문). 응답 JSON 파싱 실패·지표 누락은
+`SKIN_ANALYSIS_FAILED`, 얼굴 미검출 응답은 `SKIN_FACE_NOT_DETECTED`, HTTP 타임아웃은
+`SKIN_ANALYSIS_TIMEOUT`으로 매핑한다.
+
+```bash
+SKIN_ANALYSIS_PROVIDER=openai OPENAI_API_KEY=sk-... ./gradlew bootRun
+```
+
+**규칙 기반 자체 분석 서버(local-vision) 사용** — 딥러닝 모델이 아니라 MediaPipe·OpenCV로 얼굴을
+검출하고 영상처리 규칙으로 지표를 산출한다. 라벨링된 학습 데이터가 없어 채택한 방식이며, 절대
+정확도가 아니라 개인의 상대적 변화 추적용이다. 한계와 신뢰도는 `ai-server/README.md`,
+[ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md) 참고.
+
+```bash
+# 1) 별도 터미널에서 분석 서버를 먼저 띄운다
+cd ../ai-server
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+./scripts/download_model.sh
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# 2) backend에서 provider를 지정해 기동한다
+SKIN_ANALYSIS_PROVIDER=local-vision ./gradlew bootRun
 ```
 
 기본값은 `docker-compose.yml`의 MySQL 컨테이너와 그대로 맞춰져 있어, 로컬에서는 별도 설정 없이 실행됩니다.
@@ -110,7 +139,8 @@ com.ildangbaek.backend
 - Base URL은 `/api/v1`, 리소스는 복수형 · kebab-case, URI에 동사를 쓰지 않음
 - `PUT`은 사용하지 않고 부분 수정은 모두 `PATCH`
 - 인증은 `Authorization: Bearer {accessToken}` (예외: `POST /auth/login`, `POST /auth/refresh`)
-  — **다만 아직 구현되지 않았다.** 현재는 `X-User-Id` 헤더를 임시로 쓴다 (아래 「임시 인증」 참고)
+  — **다만 실제 인증(JWT 서명 검증)은 아직 없다.** 현재는 로그인 시 발급되는 목업 토큰을 그대로
+  신뢰한다 (아래 「임시 인증」 참고)
 - `onboardingCompleted = false`인 사용자가 온보딩 외 API를 호출하면 `403 ONBOARD_NOT_COMPLETED`
 - 날짜/시간은 ISO-8601, ID는 `Long`, Enum은 문자열, 빈 목록은 `[]` (null 금지)
 - 저장 API(`POST /product-records`, `/routines/{id}/records`, `/skin-records`, `/checks`)는 `Idempotency-Key` 헤더로 중복 저장을 방지 — 처리 완료된 키는 최초 응답을 그대로 반환, 처리 중인 키는 `409 COMMON_DUPLICATE_REQUEST`
@@ -155,29 +185,48 @@ ERD.md와 api_명세서.md/기능명세서.md 사이에 값 체계가 다른 필
 
 ## 임시 인증 ⚠️
 
-인증이 아직 없어 `X-User-Id` 헤더로 사용자를 식별합니다. ([ADR 0006](../docs/decisions/0006-임시-인증-방편.md))
+인증이 아직 없어 목업 Bearer 토큰으로 사용자를 식별합니다
+([ADR 0006](../docs/decisions/0006-임시-인증-방편.md) ·
+[ADR 0017](../docs/decisions/0017-임시-인증-토큰-통합.md)). `POST /api/v1/auth/login`으로 로그인하면
+`mock-access-{userId}-{uuid}` 형식의 토큰이 발급되고, 이후 모든 API는 이 토큰을
+`Authorization: Bearer ...` 헤더로 받습니다. AUTH·ONBOARD를 포함해 전 도메인이 같은 토큰을 씁니다.
 
 ```bash
+# 1) 로그인해서 토큰을 받습니다 (신규 provider_user_id면 사용자도 자동 생성됩니다)
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"EMAIL","oauthAccessToken":"local-dev@example.com"}' \
+  | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+
+# 2) 받은 토큰으로 나머지 API를 호출합니다
 curl -X POST http://localhost:8080/api/v1/skin-records \
-  -H "X-User-Id: 1" -F "image=@face.jpg" -F "timeSlot=MORNING"
+  -H "Authorization: Bearer $TOKEN" -F "image=@face.jpg" -F "timeSlot=MORNING"
 ```
 
-**이것은 인증이 아닙니다.** 헤더를 그대로 신뢰하므로 `X-User-Id: 2`를 보내면 누구나 2번 사용자로
-행세할 수 있습니다. 로컬 개발과 내부 시연에만 쓰고, **AUTH-01 완료 즉시 제거합니다.**
-교체 시 고칠 곳은 `CurrentUserIdArgumentResolver` 한 클래스입니다.
+**이것은 인증이 아닙니다.** 토큰은 서명 검증이 없어 `mock-access-2-x` 형식만 맞추면 누구나 2번
+사용자로 행세할 수 있습니다. 로컬 개발과 내부 시연에만 쓰고, **실제 인증(JWT 등) 도입 즉시
+제거합니다.** 교체 시 고칠 곳은 `MockAccessToken`과 두 리졸버(`CurrentUserIdArgumentResolver`·
+`CurrentUserResolver`)로 한정됩니다.
 
-사용자가 없으면 `USER_NOT_FOUND`가 납니다. 회원가입 경로가 아직 없으므로 직접 넣어야 합니다.
+아래 절들의 curl 예제는 시드 데이터가 지정하는 `userId`(9001 등)에 맞춰 `$TOKEN`을 씁니다.
+특정 `userId`로 시드와 맞추고 싶다면 아래처럼 직접 사용자를 만들고 그 `id`로 토큰 형식을 흉내
+내면 됩니다(UUID 부분은 파싱에 쓰이지 않으므로 아무 값이나 가능):
 
 ```sql
-INSERT INTO users (provider, provider_user_id, onboarding_completed, account_status, created_at, updated_at)
-VALUES ('KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
+INSERT INTO users (id, provider, provider_user_id, onboarding_completed, account_status, created_at, updated_at)
+VALUES (9001, 'KAKAO', 'local-dev', true, 'ACTIVE', NOW(), NOW());
+```
+
+```bash
+TOKEN="mock-access-9001-local-dev"
 ```
 
 ## F-ANALYSIS-01 시차 분석 · 목업 시드
 
-성분-피부 시차 분석은 **제품 기록**을 입력으로 씁니다. 그런데 제품 기록 저장 API(PRODUCT-05)는
-A 담당이라 아직 없어서, 실사용 경로로는 `product_records`를 채울 방법이 없습니다.
-검증용 시드 스크립트로 그 자리를 대신합니다.
+성분-피부 시차 분석은 **제품 기록**을 입력으로 씁니다. 제품 기록 저장 API(PRODUCT-05)는 구현되어
+있으므로 실사용 경로로도 채울 수 있지만(아래 "실입력 경로로 검증하기"), 이 API는 **오늘 날짜로만**
+기록합니다. 과거 사용일에 걸친 패턴을 한 번에 만들려면 시드 쪽이 훨씬 빠르므로, 회귀 검증에는
+아래 시드를 그대로 씁니다.
 
 ```bash
 # 앱을 한 번 띄워 스키마가 생성된 뒤에 실행합니다 (ddl-auto: update)
@@ -186,11 +235,12 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
   < backend/src/test/resources/seed/f-analysis-01-mockup.sql
 
 # 분석은 피부 기록 저장 시 실행됩니다. 사용자 9001로 기록을 남기면 트리거됩니다.
+TOKEN="mock-access-9001-local-dev"
 curl -X POST http://localhost:8080/api/v1/skin-records \
-  -H "X-User-Id: 9001" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
+  -H "Authorization: Bearer $TOKEN" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
 
 # 결과 확인
-curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-Id: 9001"
+curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "Authorization: Bearer $TOKEN"
 ```
 
 `--default-character-set=utf8mb4`를 빼면 성분 한글명이 깨져 들어갑니다.
@@ -206,6 +256,59 @@ curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-
 확정 임계값은 `LagCorrelationAnalyzer`의 상수 3개에 모여 있고, REPORT-01의 `OBSERVED` 임계값
 (`ReportService.OBSERVED_THRESHOLD`)과 같은 값이어야 합니다. **한쪽만 바꾸면 판정이 어긋납니다.**
 
+### 슬롯 분리(ADR 0014) 검증 시드
+
+위 시드는 피부 기록도 제품 기록도 전부 `NIGHT` 단일 슬롯이라, 슬롯을 평균으로 접든 슬롯별로
+나누든 결과가 같습니다. 그래서 그 시드로는
+[ADR 0014](../docs/decisions/0014-시차-분석-모닝나이트-슬롯-분리.md)가 고친 결함을 확인할 수 없습니다.
+전용 시드를 따로 씁니다. **위 시드는 회귀 기준선이라 그대로 두세요** — 기대값이 바뀌면 ADR 0014
+전후를 비교할 근거가 사라집니다.
+
+```bash
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek \
+  < backend/src/test/resources/seed/f-analysis-01-slots.sql
+
+# 분석은 피부 기록 저장 시에만 돌아갑니다. 두 사용자 모두 트리거해야 합니다.
+for u in 9101 9102; do
+  curl -s -o /dev/null -w "$u %{http_code}\n" -X POST http://localhost:8080/api/v1/skin-records \
+    -H "Authorization: Bearer mock-access-$u-local-dev" -F "image=@face.jpg;type=image/jpeg" -F "timeSlot=MORNING"
+done
+
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek -e \
+  "SELECT user_id, title, confidence_score, average_delta FROM analysis_insights
+    WHERE user_id IN (9101, 9102) AND metric_type = 'TROUBLE';"
+```
+
+| 사용자 | 심은 것 | 기대 |
+| --- | --- | --- |
+| 9101 | 나이트에만 쓴 나이아신아마이드. 나이트 트러블은 20일 내내 50, **모닝만** 사용일 10 / 2일 뒤 90 | `average_delta` **0.00** · 확정 안 됨(`INSUFFICIENT`) |
+| 9102 | 세라마이드를 같은 날 모닝·나이트 **양쪽**에 사용(15·9·3일 전), 두 슬롯 모두 2일 뒤 +12 | 신뢰도 100 · 근거 "**6회 중 6회**" |
+
+**9101이 핵심 판정입니다.** 여기서 `OBSERVED`가 나오면 슬롯 분리가 깨진 것입니다 — 모닝 점수가
+나이트 기준선에 섞였다는 뜻이고, 구버전(평균 합산) 규칙이면 `+40`으로 확정됩니다.
+9102의 근거 문구가 "3회 중 3회"면 노출이 슬롯별로 분리되지 않은 것입니다.
+
+`ingredient_profiles.observation_count`는 9102에서 **3**입니다(근거 문구의 "6회"와 다릅니다).
+전자는 **사용일 수**, 후자는 **관측 쌍 수**로 서로 다른 것을 셉니다 — 불일치가 아닙니다.
+
+### 실입력 경로로 검증하기 (PRODUCT-05)
+
+시드 없이 제품 기록 저장 API로만 같은 결과를 낼 수 있습니다. 실사용 경로가 살아 있는지 확인할 때
+씁니다. 다만 이 API는 **오늘 날짜로만** 기록하므로(`RecordDateResolver`), 과거 사용일 패턴을
+만들려면 만들어진 행의 `record_date`를 뒤로 옮겨야 합니다.
+
+```bash
+# 제품 기록을 HTTP로 생성합니다 (시드로 product_records를 채우지 않습니다)
+curl -s -X POST http://localhost:8080/api/v1/product-records \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"timeSlot":"NIGHT","productIds":[9001]}'
+```
+
+`force`는 선택 필드입니다(기본 `false`). 생략해도 201이어야 합니다 — 한때 400이 나던 자리라
+회귀 시 가장 먼저 확인할 지점입니다(`docs/STATUS.md` 2.13절).
+
 ## REPORT-02 요인 상세 검증
 
 위 시드를 그대로 씁니다. **`insightId`를 먼저 받아 와야 합니다** — 시차 분석이 피부 기록 저장마다
@@ -214,10 +317,10 @@ curl "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-
 
 ```bash
 # 1) 위 POST /skin-records를 먼저 실행한 뒤, 인사이트 목록에서 id를 확인합니다
-curl -s "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "X-User-Id: 9001"
+curl -s "http://localhost:8080/api/v1/reports?period=30&metric=TROUBLE" -H "Authorization: Bearer $TOKEN"
 
 # 2) 레티놀 인사이트의 insightId로 상세를 조회합니다
-curl -s "http://localhost:8080/api/v1/reports/insights/{위에서 받은 id}" -H "X-User-Id: 9001"
+curl -s "http://localhost:8080/api/v1/reports/insights/{위에서 받은 id}" -H "Authorization: Bearer $TOKEN"
 ```
 
 기대값 — `title: "레티놀 추이"`, `subtitle: "최근 30일 · 이벤트와 상관관계"`, `graph` 30개(시드가
@@ -281,12 +384,62 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
 민감성 완화 임계값(`IngredientProfileWriter.SENSITIVE_WORSENED_DELTA`)은 `LagCorrelationAnalyzer`의
 변화량 기준과 짝입니다. **한쪽을 바꾸면 다른 쪽도 함께 봐야 합니다.**
 
+## CHECK-02 위험도 분석 · 목업 시드
+
+성분 프로파일(F-ANALYSIS-04)을 실제 구매 판단에 쓰는 첫 API입니다. 등급 산출 기준은
+[ADR 0015](../docs/decisions/0015-위험도-등급-산출-기준.md)에 있습니다.
+
+```bash
+# 1) F-ANALYSIS-01 시드로 사용자 9001의 프로파일을 채운 뒤(위 절 참고), 등급 분기 전체를
+#    보려면 아래 시드를 추가로 적재합니다 — 9001은 판정 성분이 2종뿐이라 비중 축 게이트(5종)를
+#    시험할 수 없습니다.
+docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
+  -uildangbaek -pildangbaek1234 ildangbaek \
+  < backend/src/test/resources/seed/check-02-risk-levels.sql
+
+curl -s -X POST http://localhost:8080/api/v1/checks \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"productId":9001}'
+```
+
+레티놀·히알루론산이 둘 다 `CAUTION`이지만 판정 성분이 2종뿐이라(비중 축 게이트 5종 미달) 개수
+축만 적용돼 `MEDIUM`이 나옵니다. **CAUTION 2종을 최고 등급으로 부르지 않는 것은 게이트의 의도된
+동작입니다** — 표본이 작을 때 비중을 신뢰하지 않기 때문입니다.
+
+**신선한 DB에서는 `CHECK_PROFILE_NOT_READY`(409)가 정상 응답입니다.** 온보딩이 없어 프로파일이
+비어 있는 상태가 현재 실사용 경로의 기본값이기 때문입니다(ADR 0010·0011의 제약을 그대로
+상속합니다). 이 시드를 먼저 적재하고 SKIN-01을 한 번 트리거해야 `CAUTION`/`SUITABLE` 행이 생깁니다.
+
+시드가 만드는 등급 분기(사용자 9002, 5종 게이트 확인용):
+
+| productId | 구성 | 기대 등급 |
+| --- | --- | --- |
+| 9003 | 판테놀(INSUFFICIENT)만 | 409 `CHECK_PROFILE_NOT_READY` |
+| 9004 | 9001과 같은 성분 + INSUFFICIENT 다수 | 9001과 동일 등급(BR 3 회귀) |
+| 9005 | 성분 행 없음 | 409 `CHECK_INGREDIENT_DATA_INSUFFICIENT` |
+| 9006 | SUITABLE 3종만 | `LOW` |
+| 9007 | SUITABLE 3 + CAUTION 1 (judged 4) | `MEDIUM` |
+| 9008 | SUITABLE 3 + CAUTION 2 (judged 5, ratio 0.40) | `HIGH` (비중 축) |
+| 9009 | SUITABLE 17 + CAUTION 3 (judged 20, ratio 0.15) | `HIGH` (개수 축) |
+
+로컬 MySQL로 위 표 전체를 확인했습니다(2026-08-12, `docs/STATUS.md` 2.14절).
+
 ## 구현된 API
+
+`docs/STATUS.md` 2.3절이 담당·선행 조건까지 포함한 정본입니다. 아래는 실행 확인용 요약입니다.
 
 | API | 상태 |
 | --- | --- |
 | `GET /api/v1/health` | ✅ |
 | `POST /api/v1/skin-records` (SKIN-01) | ✅ 목업 분석 · 로컬 스토리지 |
+| `GET /api/v1/skin-records/today` (SKIN-02) | 🟡 단위 테스트만 |
+| `GET /api/v1/skin-records/{id}` (SKIN-03) | 🟡 단위 테스트만 |
+| `POST /api/v1/product-records` (PRODUCT-05) | ✅ 실서버 확인(2026-08-12) |
+| `GET /api/v1/reports` (REPORT-01) | ✅ 실서버 확인 |
+| `GET /api/v1/reports/insights/{id}` (REPORT-02) | ✅ 실서버 확인 |
+| `GET /api/v1/reports/daily` (REPORT-03) | ✅ 실서버 확인 |
+| `GET /api/v1/users/me/ingredient-profile` (USER-02) | ✅ 실서버 확인 |
+| `POST /api/v1/checks` (CHECK-02) | ✅ 실서버 확인 |
+| `GET /api/v1/checks/{id}` (CHECK-03) | ✅ 실서버 확인 |
 
 ## 아직 만들지 않은 것
 
@@ -294,12 +447,12 @@ docker exec -i ildangbaek-mysql mysql --default-character-set=utf8mb4 \
 - SKIN-02 · SKIN-03 조회 API — 응답 구조는 SKIN-01과 같아 DTO를 재사용할 수 있습니다.
 - 프로파일 완성도 계산(F-ANALYSIS-05) — 성분 프로파일 갱신(F-ANALYSIS-04)은 구현되어
   `ingredient_profiles`를 채우지만, 완성도 퍼센트를 내는 단계는 별도 기능이라 하지 않았습니다.
-- `ingredient_profiles`를 읽는 API(USER-02 · F-CHECK) — 표는 채워지지만 아직 읽는 쪽이 없습니다.
+- CHECK-01(쇼핑 홈) — 제품 목록(A 담당)이 없어 미착수입니다. USER-02·CHECK-02·03은 구현됐습니다.
   그래서 F-ANALYSIS-04는 DB 행까지만 확인했고 응답 경로로는 검증하지 못했습니다.
 - `skin_types` 마스터 데이터 적재 — 표가 비어 있어 민감성 완화(F-ANALYSIS-04 BR 3)가 실사용
   경로에서 켜지지 않습니다. 온보딩(F-ONBOARD-02) 구현과 함께 운영 시드가 필요합니다.
-- F-ANALYSIS-01의 실입력 — 로직은 완성됐지만 제품 기록 저장 API(A 담당 PRODUCT-05)가 없어
-  실사용 경로에서는 결과가 비어 있습니다. 검증은 위 목업 시드로 했습니다.
+- ~~F-ANALYSIS-01의 실입력~~ → PRODUCT-05가 구현되어 실입력 경로로 검증을 마쳤습니다
+  (2026-08-12 · `docs/STATUS.md` 2.7절). 회귀 검증에는 여전히 목업 시드가 편합니다.
 - 그 외 도메인 컨트롤러/서비스/DTO — `api.skin`을 예시로 추가해나가면 됩니다.
 - `Idempotency-Key` 처리 로직 — 저장 API 4개가 공유할 공통 인프라라 단독 구현을 피했습니다.
   SKIN-01은 슬롯 유니크 제약이 중복 저장을 막고 있습니다.

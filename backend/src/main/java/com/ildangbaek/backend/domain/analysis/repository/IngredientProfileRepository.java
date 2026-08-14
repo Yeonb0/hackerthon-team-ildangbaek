@@ -20,4 +20,13 @@ public interface IngredientProfileRepository extends JpaRepository<IngredientPro
     Optional<IngredientProfile> findByUserIdAndIngredientId(Long userId, Long ingredientId);
 
     long countByUserIdAndReactionTypeIn(Long userId, Collection<ReactionType> reactionTypes);
+
+    /**
+     * CHECK-02는 이 제품이 가진 성분에 대해서만 판정 여부를 알면 된다. 사용자 전체 프로파일을
+     * 읽으면 확정 성분 수와 무관하게 읽는 양이 커진다.
+     */
+    @Query("select p from IngredientProfile p join fetch p.ingredient "
+            + "where p.user.id = :userId and p.ingredient.id in :ingredientIds")
+    List<IngredientProfile> findAllByUserIdAndIngredientIdIn(
+            @Param("userId") Long userId, @Param("ingredientIds") Collection<Long> ingredientIds);
 }
