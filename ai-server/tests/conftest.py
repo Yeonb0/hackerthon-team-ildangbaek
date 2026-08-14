@@ -17,6 +17,10 @@ def draw_face(
     size: int = 512,
     skin_bgr: tuple[int, int, int] = (185, 205, 232),
     blemishes: int = 0,
+    blemish_radius: float = 5.0,
+    dark_spots: int = 0,
+    dark_spot_radius: float = 10.0,
+    dark_spot_bgr: tuple[int, int, int] = (140, 155, 175),
     blur: int = 0,
     brightness: int = 0,
     noise: float = 0.0,
@@ -26,7 +30,13 @@ def draw_face(
     """합성 얼굴을 그린다.
 
     :param skin_bgr: 피부색. 홍조 테스트에서 붉은 쪽으로 밀어 쓴다.
-    :param blemishes: 볼에 찍을 트러블 반점 개수
+    :param blemishes: 볼에 찍을 트러블 반점 개수. 색이 붉어(a* 상승) TROUBLE·REDNESS 신호를 준다.
+    :param blemish_radius: 반점 하나의 반지름(512 기준 px). 여드름 크기가 다양한 상황을
+        재현하는 데 쓴다 — 기본값(5)은 좁쌀 여드름, 20 정도는 크고 붉은 뾰루지에 해당한다.
+    :param dark_spots: 얼굴 전체에 찍을 색소침착(잡티) 반점 개수. `blemishes`와 달리 붉지 않고
+        순수하게 어둡기만 하다 — a*를 거의 건드리지 않아 PIGMENTATION 신호만 준다.
+    :param dark_spot_radius: 색소 반점 하나의 반지름(512 기준 px).
+    :param dark_spot_bgr: 색소 반점 색. 기본값은 `skin_bgr`을 어둡게만 한 무채색에 가까운 색.
     :param blur: 0보다 크면 가우시안 블러 커널 크기(홀수). 흐린 사진 재현용
     :param brightness: 전체 밝기 가감. 조명 강건성 테스트용
     :param noise: 가우시안 노이즈 표준편차. 같은 장면을 연속 촬영했을 때의 센서 노이즈 재현
@@ -66,7 +76,17 @@ def draw_face(
             cx = 205 if i % 2 == 0 else 307
             ox = int(rng.integers(-28, 28))
             oy = int(rng.integers(-20, 24))
-            cv2.circle(img, pt(cx + ox, 300 + oy), rad(5), (95, 105, 190), -1)
+            cv2.circle(img, pt(cx + ox, 300 + oy), rad(blemish_radius), (95, 105, 190), -1)
+
+    if dark_spots:
+        # 얼굴 전체(이마·볼·턱)에 흩뿌린다 — 색소침착은 트러블과 달리 볼에만 몰리지 않는다.
+        rng = np.random.default_rng(7)
+        centers = [(220, 190), (300, 195), (180, 290), (330, 290), (256, 340), (220, 340), (300, 330)]
+        for i in range(dark_spots):
+            cx, cy = centers[i % len(centers)]
+            ox = int(rng.integers(-15, 15))
+            oy = int(rng.integers(-15, 15))
+            cv2.circle(img, pt(cx + ox, cy + oy), rad(dark_spot_radius), dark_spot_bgr, -1)
 
     if rotate:
         center = (size / 2, size / 2)
@@ -86,6 +106,18 @@ def draw_face(
         noisy = img.astype(np.float32) + rng.normal(0, noise, img.shape)
         img = np.clip(noisy, 0, 255).astype(np.uint8)
 
+    return img
+
+
+def draw_localized_flush(*, radius: int = 25, flush_bgr: tuple[int, int, int] = (120, 140, 235)) -> np.ndarray:
+    """볼 중심 일부만 붉은 얼굴을 그린다.
+
+    홍조는 볼 전체에 고르게 퍼지기보다 뺨 중심에 몰려 나타나는 경우가 많다. 이 상황을 재현해야
+    "국소 홍조가 평균에 희석되는" 문제(REDNESS가 평균 대신 백분위를 쓰는 이유)를 검증할 수 있다.
+    """
+    img = draw_face()
+    for cx in (170, 342):
+        cv2.circle(img, (cx, 300), radius, flush_bgr, -1)
     return img
 
 

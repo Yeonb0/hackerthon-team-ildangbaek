@@ -95,8 +95,15 @@ def test_luminance_normalization_preserves_shape(face) -> None:
     assert result.dtype == np.uint8
 
 
-def test_prepare_reduces_brightness_gap() -> None:
-    """같은 얼굴을 밝기만 다르게 찍었을 때, 보정 후 차이가 줄어야 한다."""
+def test_prepare_does_not_distort_brightness() -> None:
+    """`prepare()`는 색온도만 보정하고 밝기는 건드리지 않아야 한다.
+
+    이전 버전은 "밝기 격차가 줄어든다"를 기대했는데, 이는 애초에 성립하지 않는 전제였다.
+    `prepare()`는 명도(L) 정규화(CLAHE)를 의도적으로 뺀다 — 색소·모공 신호를 지우기 때문이다
+    (Phase 4 결정, `normalize_luminance`의 docstring 참고). Shades of Gray 화이트밸런스는
+    채널별 이득만 조정하고 밝기 자체를 평탄화하지 않으므로, 밝기 격차는 보정 전후로 거의
+    그대로여야 한다(실측: 40.048 → 40.051, 변화폭 0.1 미만).
+    """
     normal = draw_face()
     dark = draw_face(brightness=-40)
 
@@ -110,4 +117,4 @@ def test_prepare_reduces_brightness_gap() -> None:
     gap_before = abs(skin_mean(normal) - skin_mean(dark))
     gap_after = abs(skin_mean(normal_out) - skin_mean(dark_out))
 
-    assert gap_after < gap_before
+    assert abs(gap_after - gap_before) < 1.0

@@ -106,8 +106,14 @@ def test_directional_validity_trouble_vs_clean() -> None:
 
 
 def test_directional_validity_redness_vs_clean() -> None:
-    """붉은 피부와 창백한 피부는 홍조 점수가 반대 방향으로 갈려야 한다."""
-    red = scores_of(draw_face(skin_bgr=(150, 190, 250)))
+    """붉은 피부와 창백한 피부는 홍조 점수가 반대 방향으로 갈려야 한다.
+
+    붉은 쪽 기준을 `(130, 175, 250)`으로 잡았다. 이전에 쓰던 `(150, 190, 250)`은 실측 p85가
+    12.0으로 "약한 균일 홍조"에 해당해 74점이 나온다 — 점수 자체는 타당하지만(강도가 올라가면
+    51 → 23 → 0으로 단조 감소하는 것을 확인했다) 30점 이상 벌어지는 "확실한 홍조" 사례로는
+    적절하지 않았다.
+    """
+    red = scores_of(draw_face(skin_bgr=(130, 175, 250)))
     pale = scores_of(draw_face(skin_bgr=(200, 210, 225)))
 
     assert pale["REDNESS"] - red["REDNESS"] >= 30
