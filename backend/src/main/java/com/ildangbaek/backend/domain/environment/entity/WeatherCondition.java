@@ -3,7 +3,9 @@ package com.ildangbaek.backend.domain.environment.entity;
 public enum WeatherCondition {
     SUNNY,
     CLOUDY,
+    OVERCAST,
     RAIN,
     SNOW,
-    FOG
+    YELLOW_DUST,
+    THUNDERSTORM
 }
