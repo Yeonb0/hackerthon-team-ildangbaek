@@ -51,6 +51,13 @@ def skin_mask(landmarks: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
 
     눈·눈썹·입술은 팽창(dilate)해서 넉넉히 제외한다. 경계에 딱 맞춰 빼면 속눈썹이나 입술 외곽의
     어두운 픽셀이 남아 트러블·색소 지표를 오염시킨다.
+
+    <strong>윤곽 경계는 10px 침식한다(5px이었던 것을 늘림).</strong> PIGMENTATION 튜닝 중
+    5px로는 부족하다는 게 실측으로 드러났다 — 마스크 경계 근처에 남는 국소 명암(주로 조명이
+    치우칠 때 두드러짐)이 배경-전경 차분(`_pigmentation`의 `dark_p*`)의 상위 백분위를 오염시켜,
+    조명만 바뀐 정상 얼굴이 실제 색소 반점보다 높은 값을 내는 경우가 있었다. cheeks 등 ROI는
+    이미 skin 안쪽으로 들어와 있어 추가 침식으로 잃는 픽셀이 2% 미만이라 다른 지표에 미치는
+    영향은 작다.
     """
     mask = _polygon_mask(shape, landmarks[FACE_OVAL])
 
@@ -60,8 +67,7 @@ def skin_mask(landmarks: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
         part = _polygon_mask(shape, landmarks[indices])
         mask = cv2.bitwise_and(mask, cv2.bitwise_not(cv2.dilate(part, kernel)))
 
-    # 윤곽 경계의 배경 픽셀을 물지 않도록 안쪽으로 한 겹 줄인다.
-    return cv2.erode(mask, np.ones((5, 5), np.uint8))
+    return cv2.erode(mask, np.ones((10, 10), np.uint8))
 
 
 def _disc_mask(shape: tuple[int, int], center: np.ndarray, radius: float) -> np.ndarray:

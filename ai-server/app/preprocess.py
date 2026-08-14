@@ -21,7 +21,13 @@ log = logging.getLogger(__name__)
 
 # 품질 게이트 임계값. 근거 있는 데이터가 없어 합성 이미지와 육안 확인으로 잡은 초기값이다.
 # 실사용 로그가 쌓이면 재조정해야 한다.
-MIN_SHARPNESS = 12.0
+#
+# MIN_SHARPNESS는 face_regions.skin_mask의 경계 침식을 5px→10px로 늘리면서 재실측했다(색소침착
+# 오탐 방지 목적, app/metrics.py 참고). 침식이 늘면 라플라시안 분산이 큰 윤곽 근처 픽셀이
+# 빠져 정상 사진의 sharpness 자체가 낮아진다 — 작은 이미지(확대 보간이 많이 들어가는 경우)에서
+# 27.0(size=512)이 10.5(size=384)까지 떨어지는 것을 실측했다. 블러 사진은 k=5에서도 1.57로
+# 훨씬 낮아 6배 이상 마진을 두고 12.0 → 8.0으로 낮췄다.
+MIN_SHARPNESS = 8.0
 MAX_OVEREXPOSED_RATIO = 0.25
 MAX_UNDEREXPOSED_RATIO = 0.25
 MIN_SKIN_PIXELS = 500
