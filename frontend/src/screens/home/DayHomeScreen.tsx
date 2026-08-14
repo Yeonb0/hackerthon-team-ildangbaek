@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/base/Button';
 import { EnvironmentCard } from '@/components/domain/EnvironmentCard';
 import { EnvironmentTipCard } from '@/components/domain/EnvironmentTipCard';
 import { RoutineRecommendationList } from '@/components/domain/RoutineRecommendationList';
@@ -65,13 +66,13 @@ export function DayHomeScreen({ data, toggle, onPressRecordCta }: DayHomeScreenP
         })}
         scrollEventThrottle={16}
       >
-        {/* greeting은 관리자 메모: 추후 기획에서 빠질 수도 있어서 조건부 렌더링으로 방어 */}
-        {data.greeting ? <Text style={styles.greeting}>{data.greeting}</Text> : null}
-
         <View style={styles.headerRow}>
           <Text style={styles.location}>{data.environment?.location ?? ''}</Text>
           {toggle}
         </View>
+
+        {/* greeting은 관리자 메모: 추후 기획에서 빠질 수도 있어서 조건부 렌더링으로 방어 */}
+        {data.greeting ? <Text style={styles.greeting}>{data.greeting}</Text> : null}
 
         <Animated.View
           style={[styles.section, styles.environmentClip, { height: environmentHeight }]}
@@ -96,15 +97,15 @@ export function DayHomeScreen({ data, toggle, onPressRecordCta }: DayHomeScreenP
           style={styles.section}
         />
 
-        <View style={styles.divider} />
-
-        {/* Figma HOME-01 기준 — 큼직한 버튼이 아니라 미니멀한 텍스트 링크입니다
-            (Phase 12, 관리자님 확인 2026-08-13). 완료 여부에 따른 라벨 전환은 그대로 유지합니다. */}
-        <Pressable onPress={onPressRecordCta} style={styles.recordLink}>
-          <Text style={styles.recordLinkText}>
-            {morningCompleted ? '오늘 모닝루틴 완료!' : '오늘 기록하러 가기'} ›
-          </Text>
-        </Pressable>
+        {/* Figma HOME-01은 미니멀 텍스트 링크였지만, 관리자님이 기존 그라데이션 버튼 느낌으로
+            되돌려달라고 하셔서(2026-08-14) 원래 스타일로 복원했습니다. 완료 여부에 따른
+            라벨 전환은 그대로 유지합니다. */}
+        <Button
+          label={morningCompleted ? '오늘 모닝루틴 완료!' : '모닝루틴 기록하러 가기'}
+          onPress={onPressRecordCta}
+          variant="gradient"
+          style={styles.cta}
+        />
       </Animated.ScrollView>
     </LinearGradient>
   );
@@ -158,17 +159,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: color.ink300,
   },
-  divider: {
-    height: 1,
-    width: '100%',
-    backgroundColor: color.ink300,
-  },
-  recordLink: {
-    width: '100%',
-    paddingVertical: space[2],
-  },
-  recordLinkText: {
-    ...typography.body,
-    color: color.ink600,
+  cta: {
+    marginTop: space[2],
   },
 });

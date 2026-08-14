@@ -23,7 +23,11 @@ type EnvironmentCardProps = {
  * 같은 전일 대비 문구가 있는데, `HomeEnvironment` 타입에 그 값이 아직 없어서(백엔드 미제공)
  * 지금은 넣지 않았습니다 — 값이 추가되면 `weatherLine`에 이어붙이면 됩니다.
  *
- * 날씨 아이콘은 디자인 에셋이 아직 없어서(체크포인트 A 시점 관리자 결정) 텍스트 라벨만 씁니다.
+ * 날씨 아이콘은 디자인 에셋이 아직 없어서(체크포인트 A 시점 관리자 결정) 자리(점선 박스,
+ * 40x40)만 온도 옆에 마련해뒀습니다 — Figma HOME-01엔 이 자리 자체가 없지만, lib/weather.ts에
+ * "아이콘 오면 getWeatherIcon() 추가" 계획이 이미 있어서 관리자님 요청으로 미리 확보했습니다
+ * (Phase 12, 2026-08-14). 실제 아이콘이 오면 weatherIconPlaceholder View를 이미지/SVG로
+ * 바꾸면 됩니다.
  * UV·습도는 Checkpoint 9-D에서 텍스트 나열 대신 목업처럼 알약 배지로 바꿨습니다.
  */
 export function EnvironmentCard({ environment, hasFailed = false, style }: EnvironmentCardProps) {
@@ -37,7 +41,14 @@ export function EnvironmentCard({ environment, hasFailed = false, style }: Envir
 
   return (
     <View style={[styles.card, style]}>
-      <Text style={styles.temperature}>{environment.temperature}°C</Text>
+      <View style={styles.temperatureRow}>
+        {/* 날씨 아이콘 자리 — lib/weather.ts 상단 주석에 이미 예고돼 있던 자리입니다.
+            아이콘 세트가 오면 getWeatherIcon(environment.weather) 같은 함수를 weather.ts에
+            추가해서 이 View 하나만 실제 아이콘(Image/SVG)으로 바꾸면 됩니다. 화면 레이아웃은
+            이미 이 자리를 잡아두고 있어서 그때 가서 다른 곳을 안 건드려도 됩니다. */}
+        <View style={styles.weatherIconPlaceholder} />
+        <Text style={styles.temperature}>{environment.temperature}°C</Text>
+      </View>
       <Text style={styles.weather}>{getWeatherLabel(environment.weather)}</Text>
       <View style={styles.badgeRow}>
         <View style={[styles.badge, styles.uvBadge]}>
@@ -58,6 +69,19 @@ export function EnvironmentCard({ environment, hasFailed = false, style }: Envir
 const styles = StyleSheet.create({
   card: {
     gap: space[2],
+  },
+  temperatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  weatherIconPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: color.ink300,
   },
   temperature: {
     fontSize: 40,

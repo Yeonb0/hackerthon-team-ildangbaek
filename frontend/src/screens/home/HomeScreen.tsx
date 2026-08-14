@@ -9,7 +9,7 @@ import { useHome } from '@/api/queries/home';
 import { useDayNightStore } from '@/store/dayNightStore';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
-import { SegmentToggle } from '@/components/base/SegmentToggle';
+import { DayNightToggle } from '@/components/domain/DayNightToggle';
 import { MainTabRoutes, MainTabParamList } from '@/app/routes';
 import { space } from '@/theme/tokens';
 import type { HomeType } from '@/types/home';
@@ -22,9 +22,11 @@ import type { HomeType } from '@/types/home';
  *   그 값을 그대로 강제합니다 — 명세서 HOME-01 "토글이 자동 판정을 덮어씀" 규칙과 동일합니다.
  * - 낮/밤 토글(F-HOME-02)은 여기서 만들어서 자식 화면에 내려줍니다. Phase 12(Figma HOME-01/02
  *   구조 대조) 결과 낮 화면은 위치 텍스트와 같은 줄에 인라인으로 넣었고, 밤 화면은 아직 기존
- *   방식(화면 상단 중앙 절대 위치)입니다 — "S-07·S-08이 공유하는 유일한 요소" 규칙(BR2)은
- *   두 화면 모두 헤더 최상단 행에 위치한다는 점에서 유지되지만, 정확히 같은 좌표는 아닙니다.
- *   S-08 구조 대조를 마치면 밤 화면도 인라인 방식으로 통일할 예정입니다.
+ *   방식(화면 상단 절대 위치, 오른쪽 정렬)입니다 — "S-07·S-08이 공유하는 유일한 요소"
+ *   규칙(BR2)은 두 화면 모두 헤더 최상단 행 오른쪽에 위치한다는 점에서 유지되지만, 정확히
+ *   같은 좌표는 아닙니다. 절대 위치가 처음엔 가운데 정렬이었는데, 낮 화면과 위치가 안 맞아서
+ *   오른쪽 정렬로 고쳤습니다(관리자님 확인, 2026-08-14). S-08 구조 대조를 마치면 밤 화면도
+ *   인라인 방식으로 완전히 통일할 예정입니다.
  * - 자동 모드일 때만 앱이 포그라운드로 복귀하면 재조회합니다(로드맵 4-3 확정 결정). 수동
  *   모드면 포그라운드 복귀 시에도 재판정을 건너뜁니다 — 그래서 리스너 안에서 mode를 체크합니다.
  */
@@ -56,11 +58,7 @@ export function HomeScreen() {
   }
 
   const toggleElement = (
-    <SegmentToggle
-      options={[
-        { value: 'DAY', label: '낮' },
-        { value: 'NIGHT', label: '밤' },
-      ]}
+    <DayNightToggle
       value={data.homeType}
       onChange={(value) => setManual(value === 'DAY' ? 'day' : 'night')}
     />
@@ -80,7 +78,7 @@ export function HomeScreen() {
         />
       ) : (
         <>
-          {/* 밤 화면은 아직 기존 방식(화면 상단 중앙 절대위치)을 유지합니다 — S-08 구조 대조
+          {/* 밤 화면은 아직 기존 방식(화면 상단 절대 위치, 오른쪽 정렬)을 유지합니다 — S-08 구조 대조
               때 HOME-02 기준으로 같이 정리할 예정입니다. */}
           <View style={[styles.toggleWrap, { top: insets.top + space[3] }]}>
             {toggleElement}
@@ -106,7 +104,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    paddingRight: space[5],
     zIndex: 10,
   },
 });

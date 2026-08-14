@@ -36,12 +36,20 @@ export function PhotoGuideScreen() {
     <ScrollView
       contentContainerStyle={[styles.container, { paddingTop: insets.top + space[5] }]}
     >
-      <Text style={styles.title}>촬영 전 확인해 주세요</Text>
+      <View style={styles.titleGroup}>
+        <Text style={styles.title}>이렇게 찍어주세요</Text>
+        <Text style={styles.subtitle}>같은 조건일수록 분석이 정확해져요</Text>
+      </View>
 
-      {/* 예시 이미지 — 실제 이미지 에셋은 디자인 확정 후 교체 (BR1) */}
+      {/* 예시 이미지 — 실제 이미지 에셋은 디자인 확정 후 교체 (BR1). Figma 구조 그대로
+          (관리자님 요청, 2026-08-14) — 연한 배경 박스 안에 얼굴 모양 점선 타원 + 라벨
+          두 줄. 사진 자체가 아직 없어서 얼굴 아이콘으로 자리를 대신합니다. */}
       <View style={styles.exampleBox}>
-        <IconPersonCircle size={72} color={color.ink300} />
-        <Text style={styles.exampleLabel}>예시 이미지 (디자인 확정 전)</Text>
+        <View style={styles.exampleOval}>
+          <IconPersonCircle size={56} color={color.ink300} />
+          <Text style={styles.exampleOvalLabel}>예시 얼굴</Text>
+        </View>
+        <Text style={styles.exampleLabel}>예시 이미지</Text>
       </View>
 
       <Card style={styles.tipsCard}>
@@ -74,24 +82,44 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
     flexGrow: 1,
   },
+  titleGroup: {
+    gap: space[1],
+  },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: color.ink900,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: color.ink600,
   },
   exampleBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[2],
-    paddingVertical: space[8],
+    gap: space[3],
+    minHeight: 260,
     borderRadius: 16,
-    borderWidth: 1,
+    backgroundColor: color.brand50,
+  },
+  exampleOval: {
+    width: 130,
+    height: 172,
+    borderRadius: 999,
+    borderWidth: 2,
     borderColor: color.ink300,
     borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[1],
+  },
+  exampleOvalLabel: {
+    fontSize: 11,
+    color: color.ink300,
   },
   exampleLabel: {
-    fontSize: 12,
-    color: color.ink600,
+    fontSize: 11,
+    color: color.ink300,
   },
   tipsCard: {
     gap: space[4],

@@ -28,6 +28,7 @@ import { useProductSearch } from '@/api/queries/product';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
+import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import type { ScanMode } from '@/types/product';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
@@ -236,7 +237,7 @@ function SearchArea({
               key={product.productId}
               brand={product.brand}
               name={product.name}
-              category={product.category}
+              category={PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
               onPress={() => onSelect(product.productId)}
             />
           ))}
