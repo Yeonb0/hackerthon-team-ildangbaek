@@ -18,9 +18,18 @@
 > - `ProductRepository`: 양쪽 조회 메서드 모두 유지(순수 추가 충돌).
 > - PRODUCT-05 저장 API 중복 구현(`api/product.ProductRecordController` vs
 >   `api/productrecord.ProductRecordController`): main 쪽(`GET /home` 포함)을 정본으로 채택,
->   yunjin 쪽 구현·테스트 3개 삭제.
+>   yunjin 쪽 구현·테스트 3개 삭제. **프론트 계약으로 확인함** —
+>   `frontend/src/api/queries/product.ts`가 `GET /product-records/home?timeSlot=`을 호출하는데
+>   이 엔드포인트는 main 쪽 구현에만 있었다(yunjin 쪽엔 `POST` 저장만 있고 홈 조회가 없었음).
+>   `POST /product-records` 응답 필드(`recordId`·`timeSlot`·`recordedAt`·`productCount`·
+>   `skinRecordSuggested`, `frontend/src/types/product.ts` `SaveProductRecordResult`)는 양쪽
+>   구현이 동일해 이 필드만으로는 판별되지 않았다.
 > - PRODUCT-09 매칭 API 중복 구현(`ProductMatchController` vs `ProductController.match`): main의
 >   통합 `ProductController`로 일원화, yunjin의 `ProductMatchController`/`ProductMatchService` 삭제.
+>   **프론트 계약으로는 확인 불가** — `GET /products/match`를 호출하는 프론트 코드가 없다(제품
+>   수동 등록 화면의 매칭 자동완성이 아직 연동 전). 이 판단은 명세서(PRODUCT-09) 필드 일치 여부와
+>   main 쪽 매칭 조건(대소문자 무시·부분일치)이 더 실사용에 적합하다는 점에만 근거했다 — 프론트가
+>   연동되면 재검증이 필요하다.
 > - `ProductCategory` enum: main의 확장 값 목록(`CLEANSING`/`SUNCREAM` 등)을 채택, `CheckHomeService`·
 >   `CheckServiceTest`의 구값(`CLEANSER`/`SUNSCREEN`) 참조를 갱신. 로컬 MySQL `products` 및 FK
 >   종속 테이블은 구 ENUM 스키마가 남아 있어 DROP 후 Hibernate 재생성으로 해소(로컬 개발 데이터 초기화).
