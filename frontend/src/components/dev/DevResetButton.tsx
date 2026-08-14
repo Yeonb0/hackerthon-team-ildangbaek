@@ -34,6 +34,7 @@ import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export function DevResetButton() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: color.bg,
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('semibold'),
   },
   menu: {
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
   },
   menuItemLabel: {
     color: color.bg,
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('semibold'),
   },
 });

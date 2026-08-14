@@ -3,6 +3,7 @@ import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type StepperProps = {
   value: number;
@@ -65,14 +66,14 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   buttonLabel: {
-    fontSize: 20,
+    fontSize: adjustFontSize(20),
     ...weightFamily('bold'),
     color: color.brand700,
   },
   value: {
     minWidth: 48,
     textAlign: 'center',
-    fontSize: 22,
+    fontSize: adjustFontSize(22),
     ...weightFamily('bold'),
     color: color.ink900,
   },

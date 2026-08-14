@@ -35,6 +35,7 @@ import { color, radius, space, typography } from '@/theme';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import type { ProductCategory } from '@/types/product';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -471,7 +472,7 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('semibold'),
     color: color.ink600,
   },
@@ -482,7 +483,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: space[4],
     paddingVertical: space[3],
-    fontSize: 15,
+    fontSize: adjustFontSize(15),
     ...weightFamily('regular'),
     color: color.ink900,
     backgroundColor: color.bg,

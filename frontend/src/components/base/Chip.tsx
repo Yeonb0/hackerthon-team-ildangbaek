@@ -3,6 +3,7 @@ import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type ChipProps = {
   label: string;
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.brand50,
   },
   label: {
-    fontSize: 14,
+    fontSize: adjustFontSize(14),
     ...weightFamily('semibold'),
     color: color.ink600,
   },

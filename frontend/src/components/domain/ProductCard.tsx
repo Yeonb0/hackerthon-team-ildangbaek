@@ -3,6 +3,7 @@ import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-n
 import { IconImagePlaceholder, IconList } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type ProductCardProps = {
   brand: string;
@@ -126,12 +127,12 @@ const styles = StyleSheet.create({
     gap: space[1],
   },
   brand: {
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('regular'),
     color: color.ink600,
   },
   name: {
-    fontSize: 14,
+    fontSize: adjustFontSize(14),
     ...weightFamily('semibold'),
     color: color.ink900,
   },
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   category: {
-    fontSize: 11,
+    fontSize: adjustFontSize(11),
     color: color.brand700,
     ...weightFamily('semibold'),
   },
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.brand50,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: adjustFontSize(11),
     ...weightFamily('semibold'),
     color: color.brand700,
   },
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   ingredientButtonText: {
-    fontSize: 11,
+    fontSize: adjustFontSize(11),
     ...weightFamily('semibold'),
     color: color.brand700,
   },

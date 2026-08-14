@@ -2,12 +2,10 @@
 //
 // 2026-08-15 — 글꼴 토큰 일괄 적용 코드모드.
 //
-// 하는 일 세 가지:
+// 하는 일 두 가지:
 //  A) `fontWeight: '600'` → `...weightFamily('semibold')` 치환
 //     (굵기별 폰트 파일 위에 fontWeight를 얹으면 안드로이드가 합성 볼드를 겹쳐 얹습니다)
-//  B) `fontSize: 18` → `fontSize: adjustFontSize(18)` 래핑
-//     (글꼴별 크기 보정 — 나눔스퀘어네오 -1pt)
-//  C) `fontSize:`가 있는데 글꼴 지정이 하나도 없는 스타일 객체에
+//  B) `fontSize:`가 있는데 글꼴 지정이 하나도 없는 스타일 객체에
 //     `...weightFamily('regular')` 삽입
 //     (fontFamily를 명시하지 않은 Text/TextInput은 OS 기본 글꼴로 남습니다)
 //
@@ -17,8 +15,6 @@
 //
 // ⚠️ 반드시 커밋이 깨끗한 상태에서 돌리고 `git diff`로 검토하세요.
 // ⚠️ src/theme/** 는 대상에서 제외합니다(토큰 정의 자체라 건드리면 안 됨).
-// ⚠️ pinDisplayFont가 들어 있는 스타일 객체는 B·C 모두 건너뜁니다
-//    (주아체처럼 사용자 글꼴과 무관하게 고정한 자리).
 // ⚠️ 차트 파일(RadarChart/TrendGraph/SkinDiamondChart)은 react-native-svg의 Text라
 //    렌더 결과를 눈으로 한 번 더 확인해주세요.
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -76,10 +72,10 @@ function replaceFontWeight(lines) {
 }
 
 /**
- * B + C) fontSize가 있는 스타일 객체를 훑습니다.
+ * B) fontSize가 있는 스타일 객체 중 글꼴 지정이 없는 곳에 regular 삽입.
  * 중괄호를 세어 fontSize를 감싸는 가장 가까운 객체의 범위를 찾습니다.
  */
-function processStyleObjects(text) {
+function insertRegular(text) {
   let changed = false;
   const lines = text.split('\n');
 
@@ -125,55 +121,38 @@ function processStyleObjects(text) {
     if (end === -1) continue;
 
     const objectText = lines.slice(start, end + 1).join('\n');
-    // 고정 글꼴 자리는 크기 보정도 글꼴 주입도 하지 않습니다.
-    if (/pinDisplayFont\(/.test(objectText)) continue;
+    if (HAS_FONT.test(objectText)) continue;
 
-    // B) 숫자 리터럴만 래핑합니다. s(20)·변수·이미 래핑된 것은 건드리지 않습니다.
-    const wrapped = lines[i].replace(
-      /fontSize:\s*(\d+)(?![\d\w.(])/,
-      (full, n) => `fontSize: adjustFontSize(${n})`,
-    );
-    if (wrapped !== lines[i]) {
-      lines[i] = wrapped;
-      changed = true;
+    const indent = lines[i].match(/^\s*/)[0];
+    if (lines[i].trim().startsWith('fontSize:')) {
+      // 여러 줄 객체 — fontSize 줄 다음에 새 줄로 삽입
+      lines.splice(i + 1, 0, `${indent}...weightFamily('regular'),`);
+      i++;
+    } else {
+      // 한 줄 객체 — fontSize 뒤에 이어붙임
+      lines[i] = lines[i].replace(/fontSize:\s*([^,}]+)/, `fontSize: $1, ...weightFamily('regular')`);
     }
-
-    // C) 글꼴 지정이 전혀 없으면 regular를 넣습니다.
-    if (!HAS_FONT.test(objectText)) {
-      const indent = lines[i].match(/^\s*/)[0];
-      if (lines[i].trim().startsWith('fontSize:')) {
-        lines.splice(i + 1, 0, `${indent}...weightFamily('regular'),`);
-        i++;
-      } else {
-        lines[i] = lines[i].replace(
-          /(fontSize:\s*(?:adjustFontSize\(\d+\)|[^,}]+))/,
-          `$1, ...weightFamily('regular')`,
-        );
-      }
-      changed = true;
-    }
+    changed = true;
   }
 
   return { text: lines.join('\n'), changed };
 }
 
-/** 쓰이는데 import되지 않은 헬퍼를 마지막 import 줄 뒤에 추가 */
-function ensureImports(text) {
-  const needed = ['weightFamily', 'adjustFontSize'].filter((name) => {
-    if (!new RegExp(`\\b${name}\\(`).test(text)) return false;
-    return !new RegExp(`import\\s*\\{[^}]*\\b${name}\\b[^}]*\\}`).test(text);
-  });
-  if (needed.length === 0) return text;
+/** weightFamily import가 없으면 마지막 import 줄 뒤에 추가 */
+function ensureImport(text) {
+  if (/\bweightFamily\b/.test(text) === false) return text;
+  if (/import\s*\{[^}]*\bweightFamily\b[^}]*\}/.test(text)) return text;
 
   const lines = text.split('\n');
   let lastImport = -1;
   for (let i = 0; i < lines.length; i++) {
     if (/^import\s/.test(lines[i])) lastImport = i;
+    // import 문이 여러 줄인 경우 닫는 줄까지 포함
     if (lastImport !== -1 && /^\}\s*from\s/.test(lines[i])) lastImport = i;
   }
   if (lastImport === -1) return text;
 
-  lines.splice(lastImport + 1, 0, `import { ${needed.sort().join(', ')} } from '@/theme/typography';`);
+  lines.splice(lastImport + 1, 0, `import { weightFamily } from '@/theme/typography';`);
   return lines.join('\n');
 }
 
@@ -184,10 +163,10 @@ for (const file of files) {
   const original = readFileSync(file, 'utf8');
 
   const a = replaceFontWeight(original.split('\n'));
-  const b = processStyleObjects(a.lines.join('\n'));
+  const b = insertRegular(a.lines.join('\n'));
   if (!a.changed && !b.changed) continue;
 
-  const result = ensureImports(b.text);
+  const result = ensureImport(b.text);
   touched.push(relative(process.cwd(), file));
   if (!DRY) writeFileSync(file, result, 'utf8');
 }

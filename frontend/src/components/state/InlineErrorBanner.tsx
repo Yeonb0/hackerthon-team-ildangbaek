@@ -4,6 +4,7 @@ import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Button } from '@/components/base/Button';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type InlineErrorBannerProps = {
   message: string;
@@ -40,7 +41,7 @@ const styles = StyleSheet.create({
   },
   message: {
     flex: 1,
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
     color: color.ink900,
   },

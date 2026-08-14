@@ -21,6 +21,7 @@ import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { HormoneStatus } from '@/types/onboarding';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 // 주사(HORMONE_INJECTION)는 관리자 결정으로 일단 숨김 처리 — 추후 기능으로 보류.
 // 타입(types/onboarding.ts)에는 그대로 남겨뒀으니 나중에 이 배열에 한 줄만 추가하면 됩니다.
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
     marginBottom: space[1],
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
     color: color.ink600,
     marginBottom: space[6],
@@ -248,7 +249,7 @@ const styles = StyleSheet.create({
     gap: space[4],
   },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('semibold'),
     color: color.ink600,
     marginBottom: space[2],
@@ -258,7 +259,7 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     marginTop: space[1],
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('regular'),
     color: color.statusCaution,
   },

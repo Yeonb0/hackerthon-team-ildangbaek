@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type ProgressBarProps = {
   /** 0~1 채움 비율. 분모를 몰라도 대략치를 넘겨서 항상 지정합니다. */
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
   },
   label: {
     marginLeft: space[2],
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('regular'),
     color: color.ink600,
   },

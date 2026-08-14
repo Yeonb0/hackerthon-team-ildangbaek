@@ -13,6 +13,7 @@ import { isValidVerificationCode } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export function EmailVerificationScreen() {
   const navigation =
@@ -147,13 +148,13 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
   },
   title: {
-    fontSize: 20,
+    fontSize: adjustFontSize(20),
     ...weightFamily('bold'),
     color: color.ink900,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resendText: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
     color: color.ink600,
   },

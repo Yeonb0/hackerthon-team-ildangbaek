@@ -18,6 +18,7 @@ import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { SkinTypeCode } from '@/types/onboarding';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 const SKIN_TYPE_OPTIONS: { value: SkinTypeCode; title: string; description: string }[] = [
   { value: 'OILY', title: '지성', description: 'T존이 번들거리거나 메이크업이 잘 들뜨는 편이에요' },
@@ -187,7 +188,7 @@ const styles = StyleSheet.create({
     marginBottom: space[1],
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
     color: color.ink600,
     marginBottom: space[6],
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     marginTop: space[3],
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('regular'),
     color: color.statusCaution,
   },

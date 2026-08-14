@@ -14,6 +14,7 @@ import { prepareSkinPhoto } from '@/lib/image';
 import { DetailRoutes, DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
   },
   guideText: {
     color: color.white,
-    fontSize: 14,
+    fontSize: adjustFontSize(14),
     ...weightFamily('semibold'),
     textShadowColor: color.scrim40,
     textShadowRadius: 4,
@@ -283,7 +284,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: color.white,
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
     textAlign: 'center',
   },

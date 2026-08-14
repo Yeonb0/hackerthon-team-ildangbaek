@@ -11,6 +11,7 @@ import { IconBack, IconChevronRight } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 import { formatDateString, getTodayDateString } from '@/lib/date';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type CalendarProps = {
   /** 선택된 날짜 'YYYY-MM-DD'. 없으면 미선택 */
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
     marginBottom: space[3],
   },
   headerLabel: {
-    fontSize: 16,
+    fontSize: adjustFontSize(16),
     ...weightFamily('bold'),
     color: color.ink900,
   },
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
   weekdayLabel: {
     width: CELL_SIZE,
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('semibold'),
     color: color.ink600,
     marginBottom: space[1],
@@ -226,7 +227,7 @@ const styles = StyleSheet.create({
     borderColor: color.brand500,
   },
   dayText: {
-    fontSize: 14,
+    fontSize: adjustFontSize(14),
     ...weightFamily('regular'),
     color: color.ink900,
   },

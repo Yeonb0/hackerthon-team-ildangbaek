@@ -11,6 +11,7 @@ import {
   weightFamily,
 } from '@/theme';
 import type { HomeEnvironment } from '@/types/home';
+import { adjustFontSize } from '@/theme/typography';
 
 type EnvironmentCardProps = {
   environment: HomeEnvironment | null;
@@ -117,7 +118,7 @@ const styles = StyleSheet.create({
   },
   temperatureUnit: {
     // 주아체에 도(°) 글리프가 비어 있어서 이 조각만 본문 글꼴로 그립니다(위 주석 참고).
-    fontSize: 26,
+    fontSize: adjustFontSize(26),
     color: color.ink900,
     ...weightFamily('bold'),
   },

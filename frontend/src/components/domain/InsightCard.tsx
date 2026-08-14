@@ -6,6 +6,7 @@ import { Card } from '@/components/base/Card';
 import { color, space, typography } from '@/theme';
 import type { InsightSummary } from '@/types/report';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type InsightCardProps = {
   insight: InsightSummary;
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
     gap: space[1],
   },
   typeLabel: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('semibold'),
     color: color.brand700,
   },
@@ -72,7 +73,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink300,
   },
   observingText: {
-    fontSize: 11,
+    fontSize: adjustFontSize(11),
     ...weightFamily('semibold'),
     color: color.ink900,
   },
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
     marginTop: space[1],
   },
   link: {
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('semibold'),
     color: color.brand700,
     marginTop: space[2],

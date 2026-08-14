@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type InputProps = Omit<TextInputProps, 'style'> & {
   label?: string;
@@ -40,7 +41,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('semibold'),
     color: color.ink600,
     marginBottom: space[2],
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
     borderColor: color.ink300,
     borderRadius: radius.md,
     paddingHorizontal: space[4],
-    fontSize: 16,
+    fontSize: adjustFontSize(16),
     ...weightFamily('regular'),
     color: color.ink900,
     backgroundColor: color.bg,
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     marginTop: space[1],
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
     ...weightFamily('regular'),
     color: color.statusCaution,
   },

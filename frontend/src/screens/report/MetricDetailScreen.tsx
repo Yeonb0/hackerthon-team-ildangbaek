@@ -15,6 +15,7 @@ import { useReportInsight } from '@/api/queries/report';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   eyebrow: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('semibold'),
     color: color.brand700,
   },
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink300,
   },
   observingText: {
-    fontSize: 11,
+    fontSize: adjustFontSize(11),
     ...weightFamily('semibold'),
     color: color.ink900,
   },

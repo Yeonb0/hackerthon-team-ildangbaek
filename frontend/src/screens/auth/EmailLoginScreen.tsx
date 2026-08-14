@@ -13,6 +13,7 @@ import { isValidEmail } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export function EmailLoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'EmailLogin'>>();
@@ -132,7 +133,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
   },
   title: {
-    fontSize: 20,
+    fontSize: adjustFontSize(20),
     ...weightFamily('bold'),
     color: color.ink900,
     marginBottom: space[6],
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
     gap: space[4],
   },
   forgotPassword: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
     color: color.ink300,
     textAlign: 'right',
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: color.statusCaution,
     marginTop: space[4],
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
   },
   submitButton: {
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   signupLinkText: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
     ...weightFamily('regular'),
     color: color.ink600,
     textDecorationLine: 'underline',
