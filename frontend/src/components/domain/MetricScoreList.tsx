@@ -35,7 +35,7 @@ export function MetricScoreList({ items, style }: MetricScoreListProps) {
   );
 }
 
-function DeltaBadge({ delta }: { delta: number | null }) {
+export function DeltaBadge({ delta }: { delta: number | null }) {
   if (delta === null) {
     // 첫 기록 — 로드맵 Phase 5 명시 요구사항: 증감 문구 대신 "첫 기록입니다" 대체 문구
     return <Text style={styles.deltaNeutral}>첫 기록입니다</Text>;

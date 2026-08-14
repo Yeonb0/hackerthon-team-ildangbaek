@@ -66,9 +66,11 @@ export function ProductCard({
         <Text style={styles.name} numberOfLines={2}>
           {name}
         </Text>
-        <Text style={styles.category} numberOfLines={1}>
-          {category}
-        </Text>
+        <View style={styles.categoryTag}>
+          <Text style={styles.category} numberOfLines={1}>
+            {category}
+          </Text>
+        </View>
       </View>
       {badgeLabel || onViewIngredients ? (
         <View style={styles.rightArea}>
@@ -131,9 +133,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: color.ink900,
   },
+  categoryTag: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: color.brand100,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[2],
+    paddingVertical: 1,
+    marginTop: 2,
+  },
   category: {
-    fontSize: 12,
-    color: color.ink600,
+    fontSize: 11,
+    color: color.brand700,
+    fontWeight: '600',
   },
   badge: {
     alignSelf: 'flex-start',

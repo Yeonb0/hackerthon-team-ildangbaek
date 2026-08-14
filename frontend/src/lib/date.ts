@@ -43,6 +43,29 @@ export function formatYearMonthString(year: number, month: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}`;
 }
 
+/**
+ * 오늘이 속한 주의 7일치 날짜를 고정으로 반환합니다 (기본 월~일).
+ * F-HOME-06(밤 홈 주간 현황) 개선안 — 관리자님 결정(2026-08-14)으로 "이번 주(월~오늘만,
+ * 요일 수 가변)"도 "최근 7일 롤링"도 아닌 "월~일 고정 7칸"으로 다시 바꿨습니다. 요일과
+ * 무관하게 항상 7개가 나오고, 오늘 이후 날짜는 호출하는 쪽에서 "아직 안 지난 날"로
+ * 구분해 처리합니다(RecordCalendar.tsx의 isFutureDateString 사용 패턴과 동일).
+ */
+export function getCurrentWeekDates(weekStart: WeekStart = 'MONDAY'): string[] {
+  const today = new Date();
+  const rawDayOfWeek = today.getDay(); // 0(일)~6(토)
+  const offsetFromStart =
+    weekStart === 'MONDAY' ? (rawDayOfWeek === 0 ? 6 : rawDayOfWeek - 1) : rawDayOfWeek;
+
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offsetFromStart);
+
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    dates.push(formatDateString(d.getFullYear(), d.getMonth(), d.getDate()));
+  }
+  return dates;
+}
+
 export interface MonthGridCell {
   date: string; // 'YYYY-MM-DD'
   day: number;

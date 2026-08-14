@@ -18,12 +18,13 @@
 // 기억하는" 클로저가 그대로 실행돼 중복 촬영으로 이어집니다. ref는 객체 하나를 계속
 // 재사용해서 .current를 읽고 쓰는 시점이 항상 "지금 값"이라 이 문제가 없습니다.
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
+import { IconBack } from '@/components/icons';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
 import { LoadingState } from '@/components/state/LoadingState';
 import { SegmentToggle } from '@/components/base/SegmentToggle';
@@ -154,11 +155,34 @@ export function ProductScanScreen() {
 
       {scanMode === 'BARCODE' ? (
         <View style={styles.overlayContainer} pointerEvents="none">
-          <View style={styles.viewfinder} />
+          {/* Figma PROD-04 기준 — 모서리 브래킷 4개 + 가로 스캔라인으로 교체
+              (관리자님 요청, 2026-08-14). 실제 카메라 화면 위라 밝기가 계속 바뀌어서
+              Figma의 연한 회색 대신 흰색으로 뒀습니다 — 구조(브래킷+라인)만 맞추고
+              색은 가시성 우선으로 조정했습니다. */}
+          <View style={styles.viewfinder}>
+            <View style={[styles.corner, styles.cornerTopLeft]} />
+            <View style={[styles.corner, styles.cornerTopRight]} />
+            <View style={[styles.corner, styles.cornerBottomLeft]} />
+            <View style={[styles.corner, styles.cornerBottomRight]} />
+            <View style={styles.scanLine} />
+          </View>
         </View>
       ) : null}
 
-      <View style={[styles.topBar, { paddingTop: insets.top + space[3] }]}>
+      <Pressable
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="뒤로가기"
+        hitSlop={8}
+        style={[styles.backButton, { top: insets.top + space[3] }]}
+      >
+        <IconBack size={22} color={color.brand700} />
+      </Pressable>
+
+      <View
+        style={[styles.topBar, { paddingTop: insets.top + space[3] }]}
+        pointerEvents="box-none"
+      >
         <Text style={styles.guideText}>{GUIDE_TEXT[scanMode]}</Text>
         <SegmentToggle
           options={MODE_OPTIONS}
@@ -226,11 +250,62 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   viewfinder: {
-    width: 260,
-    height: 160,
-    borderRadius: 16,
-    borderWidth: 2,
+    width: 220,
+    height: 120,
+  },
+  corner: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
     borderColor: color.white,
+  },
+  cornerTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 2.5,
+    borderLeftWidth: 2.5,
+  },
+  cornerTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 2.5,
+    borderRightWidth: 2.5,
+  },
+  cornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 2.5,
+    borderLeftWidth: 2.5,
+  },
+  cornerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 2.5,
+    borderRightWidth: 2.5,
+  },
+  scanLine: {
+    position: 'absolute',
+    top: '50%',
+    left: 4,
+    right: 4,
+    height: 1.5,
+    backgroundColor: color.white,
+    opacity: 0.7,
+  },
+  backButton: {
+    position: 'absolute',
+    left: space[5],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.bg,
+    shadowColor: color.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   topBar: {
     position: 'absolute',

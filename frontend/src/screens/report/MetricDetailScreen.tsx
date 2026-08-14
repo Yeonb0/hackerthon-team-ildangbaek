@@ -82,7 +82,11 @@ export function MetricDetailScreen() {
       />
 
       <Card padding={4} style={styles.graphCard}>
-        <TrendGraph points={displayedGraph} variant="line" />
+        <TrendGraph
+          points={displayedGraph}
+          variant="line"
+          eventDates={visibleEvents.map((event) => event.date)}
+        />
       </Card>
 
       <Text style={styles.sectionTitle}>주요 이벤트</Text>

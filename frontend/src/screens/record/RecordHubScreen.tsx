@@ -92,6 +92,16 @@ export function RecordHubScreen() {
 
   return (
     <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space[5] }]}>
+      {/* Figma HUB-01/02 기준 페이지 제목 — RecordCalendar 자체 헤더(월 이동 화살표 포함)와는
+          별개로, 상단에 화면 제목 "기록"을 추가했습니다(관리자님 요청, 2026-08-14). 월 표시가
+          아래 캘린더 헤더와 중복되긴 하는데, Figma도 그렇게 두 군데 다 보여줘서 그대로 맞췄습니다. */}
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>기록</Text>
+        <Text style={styles.pageMonth}>
+          {calendarYear}년 {calendarMonth + 1}월
+        </Text>
+      </View>
+
       <Card style={styles.calendarCard}>
         <RecordCalendar
           year={calendarYear}
@@ -100,6 +110,10 @@ export function RecordHubScreen() {
           onPrevMonth={goPrevMonth}
           onNextMonth={goNextMonth}
         />
+        {/* 관리자님 요청(2026-08-14)으로 화면 맨 아래에서 다시 캘린더 카드 안으로
+            이동했습니다 — 내용은 그대로입니다.
+            ⚠️ TODO: 이 문구는 나중에 프로세스 바(progress bar) 느낌으로 다시 디자인할
+            예정이라고 관리자님이 메모해두라고 하셨습니다(2026-08-14). 지금은 텍스트만. */}
         <Text style={styles.summary}>
           이번 달 제품 기록 {calendar.data.monthlySummary.productRecordCount}회 · 피부 기록{' '}
           {calendar.data.monthlySummary.skinRecordCount}회
@@ -148,6 +162,19 @@ const styles = StyleSheet.create({
     gap: space[5],
     backgroundColor: color.bg,
   },
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  pageTitle: {
+    ...typography.display,
+    color: color.ink900,
+  },
+  pageMonth: {
+    ...typography.caption,
+    color: color.ink300,
+  },
   slots: {
     gap: space[3],
   },
@@ -157,6 +184,5 @@ const styles = StyleSheet.create({
   summary: {
     ...typography.caption,
     color: color.ink600,
-    textAlign: 'center',
   },
 });

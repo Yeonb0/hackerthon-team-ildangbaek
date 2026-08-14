@@ -21,9 +21,11 @@ import { Card } from '@/components/base/Card';
 import { Tag, TagVariant } from '@/components/base/Tag';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { Popup } from '@/components/base/Popup';
+import { SegmentToggle } from '@/components/base/SegmentToggle';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { useMyPage, useUpdateNotificationSetting, useLogout } from '@/api/queries/user';
+import { useFontStore, FontChoice } from '@/store/fontStore';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { IngredientStatus } from '@/types/user';
@@ -42,8 +44,19 @@ export function MyPageScreen() {
   const { data, isLoading, isError, refetch } = useMyPage();
   const updateNotification = useUpdateNotificationSetting();
   const logoutMutation = useLogout();
+  const fontChoice = useFontStore((s) => s.fontChoice);
+  const setFontChoice = useFontStore((s) => s.setFontChoice);
 
   const [logoutPopupVisible, setLogoutPopupVisible] = useState(false);
+  const [restartPopupVisible, setRestartPopupVisible] = useState(false);
+
+  const handleSelectFont = async (choice: FontChoice) => {
+    if (choice === fontChoice) return;
+    await setFontChoice(choice);
+    // fontFamily는 StyleSheet.create 스냅샷이라 지금 떠 있는 화면엔 즉시 반영되지
+    // 않습니다(typography.ts 주석 참고) — 재시작이 필요하다는 걸 바로 안내합니다.
+    setRestartPopupVisible(true);
+  };
 
   if (isLoading) {
     return (
@@ -153,6 +166,22 @@ export function MyPageScreen() {
             />
           </View>
 
+          {/* Phase 12(2026-08-13) 부가 요청 — 글꼴 선택. 42종 아이콘 세트에 딱 맞는
+              폰트/텍스트 아이콘이 없어서 이 행만 아이콘 없이 라벨만 둡니다(체크포인트 9-B와
+              같은 원칙 — 대응 아이콘 없으면 무리해서 넣지 않음). */}
+          <View style={[styles.menuRow, styles.fontRow]}>
+            <Text style={styles.menuLabel}>글꼴</Text>
+            <SegmentToggle
+              options={[
+                { value: 'pretendard' as FontChoice, label: 'Pretendard' },
+                { value: 'nanumSquareNeo' as FontChoice, label: '나눔스퀘어네오' },
+              ]}
+              value={fontChoice}
+              onChange={handleSelectFont}
+              style={styles.fontToggle}
+            />
+          </View>
+
           <Pressable
             style={styles.menuRow}
             onPress={() => setLogoutPopupVisible(true)}
@@ -176,6 +205,18 @@ export function MyPageScreen() {
         secondaryLabel="취소"
         onSecondaryPress={() => setLogoutPopupVisible(false)}
         onRequestClose={() => setLogoutPopupVisible(false)}
+      />
+
+      <Popup
+        visible={restartPopupVisible}
+        title="글꼴 설정을 저장했어요"
+        description={
+          '지금 버전에서는 선택하신 글꼴이 화면에 바로 적용되지 않아요.\n' +
+          '이 부분은 다음 업데이트에서 마저 반영할 예정이에요.'
+        }
+        primaryLabel="확인"
+        onPrimaryPress={() => setRestartPopupVisible(false)}
+        onRequestClose={() => setRestartPopupVisible(false)}
       />
     </View>
   );
@@ -263,6 +304,12 @@ const styles = StyleSheet.create({
     gap: space[3],
     paddingVertical: space[3],
     paddingHorizontal: space[3],
+  },
+  fontRow: {
+    justifyContent: 'space-between',
+  },
+  fontToggle: {
+    width: 220,
   },
   menuLabel: {
     ...typography.body,

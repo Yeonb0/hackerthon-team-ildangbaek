@@ -76,9 +76,9 @@ export function OnboardingCompleteScreen() {
     <View style={styles.container}>
       <IconCheck size={64} color={color.brand500} style={styles.icon} />
 
-      <Text style={styles.title}>프로파일이 완성되었어요</Text>
+      <Text style={styles.title}>프로파일 완성!</Text>
       <Text style={styles.description}>
-        입력해주신 정보를 바탕으로{'\n'}피부 변화와 성분 반응을 분석해드릴게요.
+        이제부터 매일 기록하면{'\n'}내 피부에 맞는 성분을 찾아드려요
       </Text>
 
       <Card style={styles.summaryCard}>

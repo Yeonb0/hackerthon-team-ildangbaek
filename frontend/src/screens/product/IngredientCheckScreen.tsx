@@ -1,27 +1,30 @@
-// IngredientCheckScreen.tsx — S-14 성분 확인 및 기록 저장
+// IngredientCheckScreen.tsx — S-14 성분 확인 후 루틴에 추가
 //
-// F-PRODUCT-04 BR1: "이 화면의 기록 완료 버튼이 제품 기록의 저장 시점이다." 이전 화면
-// (검색/저장 제품 목록·스캔)에서는 절대 저장하지 않습니다. 저장 성공 후에는 F-PRODUCT-07
-// 조건(skinRecordSuggested)에 따라 피부 기록 유도 카드를 같은 화면 하단에 보여줍니다.
+// ⚠️ 명세서 불일치 기록 (2026-08-14, 관리자님 확정 결정): 원래 F-PRODUCT-04 BR1은
+// "이 화면의 기록 완료 버튼이 제품 기록의 저장 시점이다"였는데, 관리자님이 이 화면의
+// 목적 자체를 "오늘 기록 저장"에서 "루틴에 추가"로 완전히 바꾸기로 하셨습니다.
+// 그래서 이 화면은 더 이상 오늘의 기록(useSaveProductRecord)을 저장하지 않고,
+// 선택한 루틴(들)에 이 제품을 추가(useAddProductToRoutine, ProductManualRegisterScreen과
+// 같은 패턴)하는 것으로 끝납니다. 명세서 문서 자체는 아직 옛 버전이라 실제 구현과
+// 다릅니다 — 다음에 명세서를 갱신하실 때 이 파일 주석을 참고해주세요.
 import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconCheck, IconImagePlaceholder } from '@/components/icons';
+import { IconBack, IconImagePlaceholder } from '@/components/icons';
 import { Button } from '@/components/base/Button';
-import { Popup } from '@/components/base/Popup';
 import { Tag, TagVariant } from '@/components/base/Tag';
-import { SkinRecordSuggestionCard } from '@/components/domain/SkinRecordSuggestionCard';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
-import { useProductDetail, useSaveProductRecord } from '@/api/queries/product';
+import { useAddProductToRoutine, useProductDetail, useRoutines } from '@/api/queries/product';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
-import { DetailRoutes, DetailStackParamList, MainTabRoutes } from '@/app/routes';
-import { color, space, typography } from '@/theme';
-import type { IngredientStatus, SaveProductRecordResult } from '@/types/product';
+import { DetailRoutes, DetailStackParamList } from '@/app/routes';
+import { color, radius, space, typography } from '@/theme';
+import type { IngredientStatus } from '@/types/product';
+import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -38,63 +41,67 @@ export function IngredientCheckScreen() {
   const { productId, timeSlot } = route.params;
 
   const detailQuery = useProductDetail(productId);
-  const saveMutation = useSaveProductRecord();
+  const routinesQuery = useRoutines();
+  const addToRoutineMutation = useAddProductToRoutine();
 
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [confirmDuplicate, setConfirmDuplicate] = useState<string | null>(null);
-  const [saved, setSaved] = useState<SaveProductRecordResult | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [selectedRoutineIds, setSelectedRoutineIds] = useState<Set<number>>(new Set());
 
-  const handleSave = (force = false) => {
-    setSaveError(null);
-    saveMutation.mutate(
-      { timeSlot, productIds: [productId], force },
-      {
-        onSuccess: (result) => {
-          setConfirmDuplicate(null);
-          setSaved(result);
-        },
-        onError: (error) => {
-          if (error instanceof ApiError && error.code === ErrorCode.PRODUCT_ALREADY_RECORDED_IN_SLOT) {
-            setConfirmDuplicate(error.message);
-            return;
-          }
-          setSaveError(
-            error instanceof ApiError ? error.message : '기록 저장에 실패했어요. 다시 시도해 주세요.'
-          );
-        },
+  const toggleRoutine = (routineId: number) => {
+    setSelectedRoutineIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(routineId)) {
+        next.delete(routineId);
+      } else {
+        next.add(routineId);
       }
-    );
-  };
-
-  const handleGoToSkinRecord = () => {
-    navigation.navigate(DetailRoutes.PhotoGuide, { timeSlot });
-  };
-
-  const handleScanAnother = () => {
-    // replace를 씁니다 — ProductScanScreen과 같은 이유로, 저장이 끝난 이 화면으로
-    // 뒤로가기 할 이유가 없어서 스택에서 빼고 새 스캔 화면으로 바로 넘어갑니다.
-    // (관리자님 요청, 2026-08-10 — 기록 완료 후 바로 다음 제품을 스캔할 수 있게)
-    navigation.replace(DetailRoutes.ProductScan, { timeSlot });
-  };
-
-  const handleBackToRecordHub = () => {
-    // FaceCaptureScreen의 handleConfirm과 같은 이유 — 이미 끝난 저장 플로우(검색/스캔→성분
-    // 확인)로 뒤로가기 할 이유가 없어서, 기록 허브까지 스택을 정리합니다.
-    navigation.reset({
-      index: 0,
-      routes: [
-        {
-          name: 'Tabs',
-          state: { routes: [{ name: MainTabRoutes.RecordHub, params: { timeSlot } }] },
-        },
-      ],
+      return next;
     });
   };
 
+  const handleAddToRoutine = async () => {
+    if (selectedRoutineIds.size === 0) return;
+    setAddError(null);
+    try {
+      // ProductManualRegisterScreen과 같은 이유로 순서대로 하나씩 추가합니다(모닝·나이트
+      // 둘 다 고를 수 있어서).
+      for (const routineId of selectedRoutineIds) {
+        await addToRoutineMutation.mutateAsync({ routineId, productId });
+      }
+      // 루틴 구성만 바꾸는 거라 성분확인 화면에 남아있을 이유가 없어서, 방금 추가한 제품이
+      // 바로 보이는 제품 기록(S-11) 화면으로 돌아갑니다(ProductManualRegisterScreen과 동일 패턴).
+      navigation.replace(DetailRoutes.ProductRecord, { timeSlot });
+    } catch {
+      setAddError('루틴에 추가하지 못했어요. 다시 시도해주세요.');
+    }
+  };
+
+  const handleGoBack = () => {
+    navigation.goBack();
+  };
+
+  const navBar = (
+    <View style={[styles.nav, { paddingTop: insets.top }]}>
+      <Pressable
+        onPress={handleGoBack}
+        accessibilityRole="button"
+        accessibilityLabel="뒤로가기"
+        hitSlop={8}
+        style={styles.navBackButton}
+      >
+        <IconBack size={22} color={color.ink900} />
+      </Pressable>
+      <Text style={styles.navTitle}>성분 확인</Text>
+    </View>
+  );
+
   if (detailQuery.isLoading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
-        <LoadingState variant="skeleton" skeletonLines={6} />
+      <View style={styles.container}>
+        {navBar}
+        <View style={styles.content}>
+          <LoadingState variant="skeleton" skeletonLines={6} />
+        </View>
       </View>
     );
   }
@@ -103,55 +110,26 @@ export function IngredientCheckScreen() {
     const isNotFound =
       detailQuery.error instanceof ApiError && detailQuery.error.code === ErrorCode.PRODUCT_NOT_FOUND;
     return (
-      <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
-        <ErrorState
-          variant={isNotFound ? 'notFound' : 'network'}
-          onRetry={isNotFound ? undefined : () => detailQuery.refetch()}
-        />
+      <View style={styles.container}>
+        {navBar}
+        <View style={styles.content}>
+          <ErrorState
+            variant={isNotFound ? 'notFound' : 'network'}
+            onRetry={isNotFound ? undefined : () => detailQuery.refetch()}
+          />
+        </View>
       </View>
     );
   }
 
   const product = detailQuery.data;
+  const hasRoutines = !!routinesQuery.data && routinesQuery.data.length > 0;
 
-  // ── 저장 완료 상태 ─────────────────────────────────────────────
-  if (saved) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.successArea}>
-            <IconCheck size={40} color={color.statusGood} />
-            <Text style={styles.successTitle}>기록을 저장했어요</Text>
-            <Text style={styles.successSubtitle}>{product.name}</Text>
-          </View>
-
-          {saved.skinRecordSuggested ? (
-            <SkinRecordSuggestionCard onPress={handleGoToSkinRecord} style={styles.suggestionCard} />
-          ) : null}
-
-          <Button
-            label="다른 제품 스캔하기"
-            variant="primary"
-            onPress={handleScanAnother}
-            style={styles.scanAnotherButton}
-          />
-          <Button
-            label="기록 허브로 돌아가기"
-            variant="ghost"
-            onPress={handleBackToRecordHub}
-            style={styles.backButton}
-          />
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // ── 성분 확인 상태 (저장 전) ───────────────────────────────────
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + space[4] }]}
-      >
+      {navBar}
+
+      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           {/* 관리자님 요청(2026-08-10) — 제품 사진 자리. imageUrl은 백엔드에서 내려줄 예정이라
               지금은 항상 placeholder입니다(ProductCard와 같은 패턴). */}
@@ -164,14 +142,14 @@ export function IngredientCheckScreen() {
           </View>
           <Text style={styles.brand}>{product.brand}</Text>
           <Text style={styles.title}>{product.name}</Text>
-          <Text style={styles.category}>{product.category}</Text>
+          <Text style={styles.category}>{PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}</Text>
         </View>
 
         <Text style={styles.ingredientCount}>총 {product.ingredientCount}개 성분</Text>
 
         {product.ingredientCount === 0 ? (
           <Text style={styles.insufficientNote}>
-            성분 데이터가 부족해요. 기록은 그대로 저장할 수 있어요.
+            성분 데이터가 부족해요. 루틴에는 그대로 추가할 수 있어요.
           </Text>
         ) : (
           <>
@@ -198,30 +176,51 @@ export function IngredientCheckScreen() {
             </View>
           </>
         )}
+
+        {/* 2026-08-14 관리자님 확정 — 이 화면의 CTA가 "기록 완료"에서 "루틴에 추가"로
+            바뀌면서, ProductManualRegisterScreen과 같은 루틴 선택 칩이 필요해졌습니다. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>추가할 루틴</Text>
+          {hasRoutines ? (
+            <View style={styles.routineChipRow}>
+              {routinesQuery.data!.map((routine) => {
+                const active = selectedRoutineIds.has(routine.routineId);
+                return (
+                  <Pressable
+                    key={routine.routineId}
+                    accessibilityRole="button"
+                    accessibilityLabel={routine.name}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => toggleRoutine(routine.routineId)}
+                    style={[styles.routineChip, active && styles.routineChipActive]}
+                  >
+                    <Text style={[styles.routineChipText, active && styles.routineChipTextActive]}>
+                      {routine.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.insufficientNote}>
+              아직 만든 루틴이 없어요. 기록 허브에서 루틴을 먼저 만들어주세요.
+            </Text>
+          )}
+        </View>
       </ScrollView>
 
-      {saveError ? <InlineErrorBanner message={saveError} style={styles.inlineBanner} /> : null}
+      {addError ? <InlineErrorBanner message={addError} style={styles.inlineBanner} /> : null}
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[5] }]}>
         <Button
-          label="기록 완료"
+          label="루틴에 추가"
           variant="primary"
-          loading={saveMutation.isPending}
-          onPress={() => handleSave(false)}
+          disabled={selectedRoutineIds.size === 0}
+          loading={addToRoutineMutation.isPending}
+          onPress={handleAddToRoutine}
           style={styles.saveButton}
         />
       </View>
-
-      <Popup
-        visible={confirmDuplicate !== null}
-        title="이미 기록한 시간대예요"
-        description={confirmDuplicate ?? ''}
-        primaryLabel="그래도 기록"
-        onPrimaryPress={() => handleSave(true)}
-        secondaryLabel="취소"
-        onSecondaryPress={() => setConfirmDuplicate(null)}
-        onRequestClose={() => setConfirmDuplicate(null)}
-      />
     </View>
   );
 }
@@ -231,8 +230,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: color.bg,
   },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 75,
+    paddingHorizontal: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navTitle: {
+    ...typography.bodyStrong,
+    color: color.ink900,
+  },
   content: {
     paddingHorizontal: space[5],
+    paddingTop: space[6],
     paddingBottom: space[8],
     gap: space[5],
   },
@@ -304,31 +320,33 @@ const styles = StyleSheet.create({
   bottomBar: {
     paddingHorizontal: space[5],
     paddingTop: space[3],
+    gap: space[2],
   },
   saveButton: {
     width: '100%',
   },
-  successArea: {
-    alignItems: 'center',
+  routineChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: space[2],
-    paddingVertical: space[6],
   },
-  successTitle: {
-    ...typography.h1,
-    color: color.ink900,
+  routineChip: {
+    borderWidth: 1,
+    borderColor: color.ink300,
+    borderRadius: radius.pill,
+    paddingHorizontal: space[4],
+    paddingVertical: space[2],
   },
-  successSubtitle: {
+  routineChipActive: {
+    backgroundColor: color.brand500,
+    borderColor: color.brand500,
+  },
+  routineChipText: {
     ...typography.body,
     color: color.ink600,
   },
-  suggestionCard: {
-    marginBottom: space[3],
-  },
-  scanAnotherButton: {
-    width: '100%',
-    marginBottom: space[3],
-  },
-  backButton: {
-    width: '100%',
+  routineChipTextActive: {
+    color: color.bg,
+    fontWeight: '600',
   },
 });

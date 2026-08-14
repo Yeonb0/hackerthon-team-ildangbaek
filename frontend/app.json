@@ -8,16 +8,14 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ildangbaek.skinteller"
+      "bundleIdentifier": "com.ildangbaek.skinteller",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "2"
     },
     "android": {
       "package": "com.ildangbaek.skinteller",
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -27,6 +25,20 @@
       "expo-secure-store",
       "expo-status-bar",
       "expo-dev-client",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "카메라를 사용하여 피부 사진을 촬영합니다.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "날씨 정보를 제공하기 위해 위치 정보를 사용합니다."
+        }
+      ],
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
