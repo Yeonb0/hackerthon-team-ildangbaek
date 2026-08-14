@@ -33,11 +33,29 @@ def test_clean_face_scores_well(clean: dict[str, int]) -> None:
         assert value >= 70, f"{metric}이 깨끗한 얼굴에서 {value}점"
 
 
-def test_trouble_drops_as_blemishes_increase(clean: dict[str, int]) -> None:
-    few = scores_of(draw_face(blemishes=6))
-    many = scores_of(draw_face(blemishes=14))
+def test_trouble_detects_small_blemishes(clean: dict[str, int]) -> None:
+    """작은 여드름(반지름 2px급)도 놓치지 않아야 한다.
 
-    assert clean["TROUBLE"] > few["TROUBLE"] > many["TROUBLE"]
+    처음에는 백분위 99(p99)를 썼는데, radius=2 반점은 피부 전체 픽셀의 0.2%도 안 돼서
+    상위 1% 컷오프 안에 들어오지 못하고 완전히 사라졌다(clean과 동일하게 0으로 측정).
+    p99.9로 바꿔 해결했다 — 이 테스트가 그 회귀를 고정한다.
+    """
+    small_blemish = scores_of(draw_face(blemishes=6, blemish_radius=2))
+
+    assert clean["TROUBLE"] - small_blemish["TROUBLE"] >= 50
+
+
+def test_trouble_drops_when_blemishes_present(clean: dict[str, int]) -> None:
+    """트러블 유무는 확실히 갈려야 하지만, 개수별 세밀한 순위는 이 신호로 보장하지 않는다.
+
+    TROUBLE은 p99.9(상위 0.1% 픽셀)를 쓴다 — 반점 1개짜리 극값도 놓치지 않으려고 택한 값이라
+    (`app/metrics.py`의 `_trouble` 참고), 반점이 늘어도 이미 가장 튀는 지점의 값은 크게
+    안 변한다. 실측(JPEG 경유, 반점 1~14개)에서 점수가 1760~1955 사이를 순서 없이 오갔다 —
+    "6개가 14개보다 나쁘다" 같은 세밀한 순위는 설계상 보장 대상이 아니다.
+    """
+    for count in (1, 6, 14):
+        blemished = scores_of(draw_face(blemishes=count))
+        assert clean["TROUBLE"] - blemished["TROUBLE"] >= 50, f"blemishes={count}"
 
 
 def test_redness_drops_on_red_skin(clean: dict[str, int]) -> None:

@@ -25,10 +25,21 @@ log = logging.getLogger(__name__)
 # 측정값을 점수로 옮기는 구간. (좋은 상태의 측정값, 나쁜 상태의 측정값)
 # 아래 값들은 tests/conftest.py의 합성 얼굴 실측에서 잡았다.
 #   깨끗한 얼굴 / 트러블 14개 얼굴 기준:
-#   a*_cheek 5.0 / 8.1,  dark_p98 9.2 / 64.8,  hf_std 4.3 / 10.9,  trouble_p99 0 / 1700+
+#   a*_cheek 5.0 / 8.1,  dark_p98 9.2 / 64.8,  hf_std 4.3 / 10.9
 REDNESS_RANGE = (4.0, 16.0)
 PIGMENTATION_RANGE = (8.0, 45.0)
-TROUBLE_RANGE = (20.0, 1500.0)
+
+# clean 20장(약한 센서 노이즈만 다름) 실측 p99.9가 30.7~32.6으로 안정적이고, 반점 1개짜리
+# 미세한 트러블도 1917까지 뛴다(아래 _trouble 참고 — p99.9로 바꾼 이유). 자연 변동 상한(32.6)보다
+# 넉넉히 위인 35를 하한으로 잡았다.
+#
+# 상한은 반점 "심각도"가 아니라 "존재 여부"에 맞춰 잡는다. p99.9는 상위 0.1% 픽셀(사실상 가장
+# 튀는 반점 1~2개)만 반영하는 지표라, JPEG 압축까지 거친 전체 파이프라인으로 반점 1~14개를
+# 스윕하면 1760~1955 사이에서 순서 없이 흔들린다(실측) — 개수가 늘수록 단조 감소하지 않는다.
+# 상한을 이 스윕의 최댓값(1954.8)보다 넉넉히 위(2000)로 잡아야 "반점 있음" 케이스가 0점에
+# 포화되어 서로 역전되는 것을 막는다. 즉 이 신호로는 "있다/없다"의 굵은 경계만 신뢰할 수 있고,
+# 개수·중증도에 따른 세밀한 차등은 설계상 불가능하다 — 후속 과제(파일 하단 한계 참고).
+TROUBLE_RANGE = (35.0, 2000.0)
 
 # PORES는 파이프라인 전체(JPEG 압축 + 리사이즈)를 거친 clean 사진 20장의 hf_std가
 # 4.92~6.19로 자연 변동한다(실측). 구간 하한을 이 변동 상한보다 낮게 두면 촬영마다 점수가
@@ -109,13 +120,19 @@ def _trouble(lightness: np.ndarray, a_channel: np.ndarray, skin: np.ndarray) -> 
 
     a*는 중앙값을 빼서 개인 피부 톤을 기준선으로 삼는다. 원래 붉은 편인 사람이 그 이유만으로
     트러블 점수가 깎이지 않게 하기 위함이다.
+
+    <strong>백분위는 99가 아니라 99.9를 쓴다.</strong> 좁쌀만 한 여드름(반지름 2px급)은 피부
+    전체 픽셀의 0.2%도 안 돼서 상위 1%(p99) 컷오프 안에 아예 들어오지 못하고 0으로 사라진다
+    — 실측으로 확인했다(p99에서는 radius=2 반점이 clean과 구분 불가, p99.9에서는 명확히 분리).
+    큰 반점(radius 6 이상)은 전체 픽셀 수가 충분해 p99로도 잡히지만, 작은 것에 맞추면 큰 것도
+    함께 잡힌다 — 반대는 성립하지 않는다.
     """
     skin_pixels = skin > 0
     relative_redness = np.clip(a_channel - float(np.median(a_channel[skin_pixels])), 0, None)
     local_shadow = np.clip(cv2.GaussianBlur(lightness, (0, 0), 15) - lightness, 0, None)
 
     combined = (relative_redness * local_shadow)[skin_pixels]
-    return _to_score(float(np.percentile(combined, 99)), *TROUBLE_RANGE)
+    return _to_score(float(np.percentile(combined, 99.9)), *TROUBLE_RANGE)
 
 
 def compute(image_bgr: np.ndarray, masks: dict[str, np.ndarray]) -> AnalysisResult:

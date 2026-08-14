@@ -17,6 +17,7 @@ def draw_face(
     size: int = 512,
     skin_bgr: tuple[int, int, int] = (185, 205, 232),
     blemishes: int = 0,
+    blemish_radius: float = 5.0,
     blur: int = 0,
     brightness: int = 0,
     noise: float = 0.0,
@@ -27,6 +28,8 @@ def draw_face(
 
     :param skin_bgr: 피부색. 홍조 테스트에서 붉은 쪽으로 밀어 쓴다.
     :param blemishes: 볼에 찍을 트러블 반점 개수
+    :param blemish_radius: 반점 하나의 반지름(512 기준 px). 여드름 크기가 다양한 상황을
+        재현하는 데 쓴다 — 기본값(5)은 좁쌀 여드름, 20 정도는 크고 붉은 뾰루지에 해당한다.
     :param blur: 0보다 크면 가우시안 블러 커널 크기(홀수). 흐린 사진 재현용
     :param brightness: 전체 밝기 가감. 조명 강건성 테스트용
     :param noise: 가우시안 노이즈 표준편차. 같은 장면을 연속 촬영했을 때의 센서 노이즈 재현
@@ -66,7 +69,7 @@ def draw_face(
             cx = 205 if i % 2 == 0 else 307
             ox = int(rng.integers(-28, 28))
             oy = int(rng.integers(-20, 24))
-            cv2.circle(img, pt(cx + ox, 300 + oy), rad(5), (95, 105, 190), -1)
+            cv2.circle(img, pt(cx + ox, 300 + oy), rad(blemish_radius), (95, 105, 190), -1)
 
     if rotate:
         center = (size / 2, size / 2)
