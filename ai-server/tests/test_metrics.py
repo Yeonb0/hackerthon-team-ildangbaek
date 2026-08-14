@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from app import metrics, pipeline
-from tests.conftest import draw_face, encode_jpeg
+from tests.conftest import draw_face, draw_localized_flush, encode_jpeg
 
 
 def scores_of(image: np.ndarray) -> dict[str, int]:
@@ -63,6 +63,26 @@ def test_redness_drops_on_red_skin(clean: dict[str, int]) -> None:
     pale = scores_of(draw_face(skin_bgr=(200, 210, 225)))
 
     assert red["REDNESS"] < clean["REDNESS"] <= pale["REDNESS"]
+
+
+def test_redness_detects_localized_flush(clean: dict[str, int]) -> None:
+    """볼 일부에만 몰린 홍조도 잡아야 한다.
+
+    평균(mean)을 쓰던 초기 구현이 정확히 이걸 놓쳤다 — 실제 붉기가 a*=32(정상의 6배)인 국소
+    홍조가 평균으로는 9.4까지 희석돼 56점(양호)으로 나왔다. 백분위 85로 바꿔 해결했으며,
+    이 테스트가 그 회귀를 고정한다.
+    """
+    flushed = scores_of(draw_localized_flush(radius=15))
+
+    assert clean["REDNESS"] - flushed["REDNESS"] >= 50
+
+
+def test_redness_worsens_as_flush_spreads(clean: dict[str, int]) -> None:
+    """홍조 범위가 넓어질수록 점수가 낮아져야 한다."""
+    small = scores_of(draw_localized_flush(radius=15))
+    large = scores_of(draw_localized_flush(radius=35))
+
+    assert clean["REDNESS"] > small["REDNESS"] >= large["REDNESS"]
 
 
 def test_redness_is_not_confused_by_blemishes(clean: dict[str, int]) -> None:

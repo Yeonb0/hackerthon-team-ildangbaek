@@ -92,6 +92,18 @@ def draw_face(
     return img
 
 
+def draw_localized_flush(*, radius: int = 25, flush_bgr: tuple[int, int, int] = (120, 140, 235)) -> np.ndarray:
+    """볼 중심 일부만 붉은 얼굴을 그린다.
+
+    홍조는 볼 전체에 고르게 퍼지기보다 뺨 중심에 몰려 나타나는 경우가 많다. 이 상황을 재현해야
+    "국소 홍조가 평균에 희석되는" 문제(REDNESS가 평균 대신 백분위를 쓰는 이유)를 검증할 수 있다.
+    """
+    img = draw_face()
+    for cx in (170, 342):
+        cv2.circle(img, (cx, 300), radius, flush_bgr, -1)
+    return img
+
+
 def encode_jpeg(image: np.ndarray, quality: int = 95) -> bytes:
     ok, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, quality])
     assert ok, "테스트 이미지 인코딩 실패"

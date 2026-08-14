@@ -23,10 +23,13 @@ from app.schema import AnalysisResult, SkinScores
 log = logging.getLogger(__name__)
 
 # 측정값을 점수로 옮기는 구간. (좋은 상태의 측정값, 나쁜 상태의 측정값)
-# 아래 값들은 tests/conftest.py의 합성 얼굴 실측에서 잡았다.
-#   깨끗한 얼굴 / 트러블 14개 얼굴 기준:
-#   a*_cheek 5.0 / 8.1,  dark_p98 9.2 / 64.8,  hf_std 4.3 / 10.9
-REDNESS_RANGE = (4.0, 16.0)
+# 모든 값은 tests/conftest.py의 합성 얼굴을 전체 파이프라인에 태워 실측해 잡았다.
+#
+# REDNESS는 볼 a*의 상위 85 백분위를 쓴다(_redness 참고 — 평균은 국소 홍조를 희석시킨다).
+# 전체 파이프라인(JPEG+리사이즈) 실측: clean 15장 전부 5.0, 웜조명 6.0, 창백한 피부 2.0,
+# 국소 홍조 27~32, 얼굴 전체가 균일하게 붉은 경우 12.0. 정상 얼굴의 상한(웜조명 6.0)보다
+# 살짝 위인 6.5를 하한으로, 가장 약한 국소 홍조(27)를 확실히 낮은 점수로 보내는 28을 상한으로 잡았다.
+REDNESS_RANGE = (6.5, 28.0)
 PIGMENTATION_RANGE = (8.0, 45.0)
 
 # clean 20장(약한 센서 노이즈만 다름) 실측 p99.9가 30.7~32.6으로 안정적이고, 반점 1개짜리
@@ -67,12 +70,21 @@ def _channels(image_bgr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _redness(a_channel: np.ndarray, cheeks: np.ndarray) -> int:
-    """홍조 — 볼의 a*(붉은기) 평균.
+    """홍조 — 볼에서 가장 붉은 축에 속하는 영역의 a*(붉은기).
 
-    네 지표 중 가장 신뢰도가 높다. 홍조는 넓은 영역의 색 변화라 화질에 덜 민감하다.
-    볼만 보는 이유는 이마·코가 조명 반사로 색이 쉽게 왜곡되기 때문이다.
+    홍조는 넓은 영역의 색 변화라 화질에 덜 민감하다. 볼만 보는 이유는 이마·코가 조명 반사로
+    색이 쉽게 왜곡되기 때문이다.
+
+    <strong>평균이 아니라 상위 백분위(85%)를 쓴다.</strong> 홍조는 볼 전체에 고르게 퍼지기보다
+    뺨 중심 등 일부에 몰려 나타나는 경우가 많은데, 평균을 쓰면 그 국소 홍조가 주변 정상 피부에
+    희석된다 — 실측에서 실제 붉기가 a*=32(정상 피부의 6배)인 국소 홍조가 평균으로는 9.4까지
+    떨어져 정상(5.0)과 거의 구분되지 않았다. 백분위 85면 국소 홍조를 잡으면서도 정상 얼굴은
+    안정적으로 낮게 유지된다(clean 15장 실측 전부 5.0, 웜조명에서도 6.0).
+
+    TROUBLE(p99.9)·PIGMENTATION(p98)이 국소 이상치를 백분위로 잡는 것과 같은 접근이다.
+    다만 홍조는 여드름·잡티보다 넓게 퍼지므로 훨씬 낮은 백분위를 쓴다.
     """
-    return _to_score(float(a_channel[cheeks > 0].mean()), *REDNESS_RANGE)
+    return _to_score(float(np.percentile(a_channel[cheeks > 0], 85)), *REDNESS_RANGE)
 
 
 def _pigmentation(lightness: np.ndarray, skin: np.ndarray) -> int:
