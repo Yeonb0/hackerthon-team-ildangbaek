@@ -30,7 +30,12 @@ log = logging.getLogger(__name__)
 # 국소 홍조 27~32, 얼굴 전체가 균일하게 붉은 경우 12.0. 정상 얼굴의 상한(웜조명 6.0)보다
 # 살짝 위인 6.5를 하한으로, 가장 약한 국소 홍조(27)를 확실히 낮은 점수로 보내는 28을 상한으로 잡았다.
 REDNESS_RANGE = (6.5, 28.0)
-PIGMENTATION_RANGE = (8.0, 45.0)
+
+# PIGMENTATION은 p99.6을 쓴다(_pigmentation 참고 — 마스크 경계 아티팩트 때문에 p99.9는 못 씀).
+# 전체 파이프라인 실측: clean 자연 변동(다양한 노이즈 강도 + 웜조명) 11.2~14.9, 반점 1개짜리도
+# 15.6까지 뛴다. 자연 변동 상한(14.9)보다 위인 15.5를 하한으로, 반점 개수·크기가 커질 때의
+# 관찰 범위(최대 45.1)를 상한으로 잡았다.
+PIGMENTATION_RANGE = (15.5, 45.0)
 
 # clean 20장(약한 센서 노이즈만 다름) 실측 p99.9가 30.7~32.6으로 안정적이고, 반점 1개짜리
 # 미세한 트러블도 1917까지 뛴다(아래 _trouble 참고 — p99.9로 바꾼 이유). 자연 변동 상한(32.6)보다
@@ -93,12 +98,18 @@ def _pigmentation(lightness: np.ndarray, skin: np.ndarray) -> int:
     큰 스케일로 흐린 영상과의 차분을 써서 "주변 대비 얼마나 어두운가"를 잰다. 절대 밝기가 아니라
     국소 편차라 사람마다 다른 피부 톤과 촬영 밝기에 영향을 덜 받는다.
 
-    평균이 아니라 상위 백분위(98%)를 쓴다. 색소침착은 얼굴 전체가 아니라 일부에 몰려 나타나므로
-    평균을 쓰면 넓은 정상 피부에 희석된다.
+    <strong>평균이 아니라 상위 백분위(99.6%)를 쓴다.</strong> 색소침착은 얼굴 전체가 아니라
+    일부에 몰려 나타나므로 평균을 쓰면 넓은 정상 피부에 희석된다. 처음엔 98%를 썼는데, 작은
+    반점(반경 5px급, 피부 전체의 0.5%대)이 상위 2% 컷오프에도 못 들어 clean 사진과 구분되지
+    않는 문제가 TROUBLE의 p99 문제와 같은 이유로 발생했다(실측). 다만 TROUBLE처럼 99.9까지
+    올리지는 못한다 — 그 지점에서는 마스크 경계 근처의 잔여 아티팩트(조명이 치우칠 때 두드러짐)가
+    반점 신호보다 커져 오탐이 난다. clean 자연 변동(다양한 노이즈·웜조명 실측 11.2~14.9)과
+    가장 약한 반점(15.6)이 갈리는 지점인 99.6을 택했다 — `face_regions.skin_mask`의 경계 침식을
+    10px로 늘린 것과 함께 이 마진을 확보했다.
     """
     background = cv2.GaussianBlur(lightness, (0, 0), 15)
     darker_than_surroundings = np.clip(background - lightness, 0, None)
-    return _to_score(float(np.percentile(darker_than_surroundings[skin > 0], 98)), *PIGMENTATION_RANGE)
+    return _to_score(float(np.percentile(darker_than_surroundings[skin > 0], 99.6)), *PIGMENTATION_RANGE)
 
 
 # clean 사진 20장(노이즈만 다름, JPEG+리사이즈 포함)의 hf_std 실측 범위. 측정값이 이 안에 있으면
