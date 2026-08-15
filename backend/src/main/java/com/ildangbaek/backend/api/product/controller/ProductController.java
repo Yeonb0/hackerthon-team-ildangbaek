@@ -1,10 +1,12 @@
 package com.ildangbaek.backend.api.product.controller;
 
 import com.ildangbaek.backend.api.auth.service.CurrentUserResolver;
+import com.ildangbaek.backend.api.product.dto.request.ProductRegisterRequest;
 import com.ildangbaek.backend.api.product.dto.request.ProductScanRequest;
 import com.ildangbaek.backend.api.product.dto.request.ScanMode;
 import com.ildangbaek.backend.api.product.dto.response.ProductDetailResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductMatchResponse;
+import com.ildangbaek.backend.api.product.dto.response.ProductRegisterResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSaveResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductScanResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSearchResponse;
@@ -16,12 +18,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,6 +44,19 @@ public class ProductController {
     ) {
         User user = currentUserResolver.resolve(authorization);
         return ApiResponse.success(productService.search(user, keyword));
+    }
+
+    /**
+     * F-PRODUCT-08 · 제품 직접 등록.
+     */
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<ProductRegisterResponse> register(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @Valid @ModelAttribute ProductRegisterRequest request
+    ) {
+        User user = currentUserResolver.resolve(authorization);
+        return ApiResponse.success(productService.registerProduct(user, request, image));
     }
 
     @GetMapping("/match")

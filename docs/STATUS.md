@@ -154,7 +154,7 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | RECORD-01~02 기록 허브 | 🟡 | `RecordController` — `GET /api/v1/records/calendar?yearMonth=`(RECORD-01) · `GET /api/v1/records/today`(RECORD-02). `RecordHubService`(138줄), `yearMonth` 파싱 실패 시 `RECORD_INVALID_MONTH` 예외 처리도 있음. 테스트 없음, 실서버 미검증 |
 | PRODUCT-01·02·03·04·05·07·08 | 🟡 | 코드 존재. `ProductController`(검색·상세·스캔·매칭·찜), `ProductRecordController`(`GET /product-records/home`=PRODUCT-01, `POST /product-records`=PRODUCT-05), `RoutineController`(`GET /routines`=PRODUCT-07, `POST /routines/{id}/records`=PRODUCT-08). PRODUCT-05만 B가 실서버 검증 완료(2.13절), 나머지는 코드 확인만(2026-08-15), 실서버 미검증. 테스트는 `ProductRecordWriterTest` 1개뿐, `productrecord`·`routine` 패키지 테스트 0개 |
 | PRODUCT-06 제품 기록 수정 | 🟡 | `ProductRecordController.update()` — `PATCH /api/v1/product-records/{recordId}`. `productIds` 전체 교체(기존 항목 삭제 후 요청 순서대로 `usageOrder` 재부여), 오늘 기록이 아니면 `PRODUCT_RECORD_NOT_EDITABLE`(403), 타인 기록/미존재는 `PRODUCT_RECORD_NOT_FOUND`(404). 수정 시각은 `BaseTimeEntity.updatedAt` 자동 갱신으로 처리. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
-| F-PRODUCT-08 제품 직접 등록 | ⬜ | 여전히 TBD-07 미정. 그 화면이 쓰는 매칭 조회(PRODUCT-09)만 2026-08-14에 B가 별도 구현 |
+| F-PRODUCT-08 제품 직접 등록 | 🟡 | **TBD-07 해소**([ADR 0023](decisions/0023-제품-직접-등록-화면-확정.md), 2026-08-15) — `ProductController.register()`, `POST /api/v1/products`(PRODUCT-10, multipart). `ProductService.registerProduct()`가 `dataSource=USER`로 즉시 전체 공개 저장, 자유 텍스트 성분은 카탈로그에 없으면 신규 `Ingredient` 생성. 이미지는 `SkinRecordController`와 동일하게 `LocalImageStorage` 재사용. 소유자별 비공개·서버측 중복 차단은 이번 범위 제외(ADR 0023 참고). 백엔드만 구현, 프론트 `registerProduct()`는 여전히 목업 — 실연동은 후속 작업. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
 
 > ⚠️ **AUTH·ONBOARD는 "코드가 있다"만 확인했다.** `saveSkinTypes`가 `skin_types` 마스터를
 > `orElseGet`으로 자동 생성하도록 짜여 있어 2.8절의 "민감성 완화가 온보딩 부재로 동작 안 함" 경고도
@@ -181,7 +181,7 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | PRODUCT-05 제품 기록 저장 | ✅ | 2.13절. 원래 A 담당이나 B가 대신 구현. 로컬 MySQL로 실서버 확인(2026-08-12) — 실서버에서만 드러난 버그 2건(`force` 생략 400 · `force: true` 500) 수정 |
 | REPORT-02 요인 상세 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.12절). ADR 0013 — 이벤트 조회 시점 도출 · 그래프 ADR 0012 적용 |
 | REPORT-03 일자별 리포트 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.11절). SKIN-01 응답 구조 재사용 · ADR 0012 원칙 유지 |
-| PRODUCT-09 제품 매칭 조회(신규) | ✅ | 2026-08-14 신규. `GET /products/match?name=&brand=` — 프론트 `ProductManualRegisterScreen`(boyeon, 완전 목업 상태) 지원용. `ProductMatchService`/`ProductMatchController`. F-PRODUCT-08(제품 직접 등록 저장) 자체는 여전히 TBD-07 미정, 이 API는 조회만 해소. 단위 테스트 없음(단순 위임 로직), 실서버 미검증 |
+| PRODUCT-09 제품 매칭 조회(신규) | ✅ | 2026-08-14 신규. `GET /products/match?name=&brand=` — 프론트 `ProductManualRegisterScreen`(boyeon, 등록 저장은 여전히 목업) 지원용. `ProductMatchService`/`ProductMatchController`. F-PRODUCT-08 저장 자체는 PRODUCT-10(2026-08-15 구현, 아래 156행)이 맡는다. 단위 테스트 없음(단순 위임 로직), 실서버 미검증 |
 
 ### 2.4 SKIN-01 검증 내역
 
@@ -945,7 +945,7 @@ failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태
 | 4 | ~~리포트 일자별 대표값 규칙 (TBD-12)~~ | ADR 0012로 해소 — 대표값을 쓰지 않고 모닝·나이트를 각각 반환 | — |
 | 5 | ~~리포트 요인 상세의 `metric` 전환 지원 여부 (TBD-11)~~ | ADR 0013으로 해소 — 지원하지 않고 인사이트의 지표를 그대로 반환 | — |
 | 6 | `MORNING` 슬롯 시각 불일치 요청 처리 | SKIN-01 · PRODUCT-05 | ADR 0005 미해결 항목 · **현재는 수용** |
-| 7 | 제품 직접 등록 (F-PRODUCT-08) | 우선순위 L | 명세 미정 |
+| 7 | ~~제품 직접 등록 (F-PRODUCT-08, TBD-07)~~ | ADR 0023으로 해소 — `ProductManualRegisterScreen` 정본 확정, `POST /products`(PRODUCT-10) 구현 | — |
 | 7b | ~~REPORT-03에 대응하는 기능 ID가 없다~~ | **F-REPORT-04 신설로 해소.** 다만 이 기능을 쓰는 **화면은 여전히 미정**이라 12장 매핑표에 항목이 없다 | 화면 확정 시 B |
 | 8 | `Idempotency-Key` 미구현 | 저장 API 5개 공통(SKIN-01·PRODUCT-05 등 + CHECK-02) | A·B 공통 인프라로 분리 |
 | 9 | `BackendApplicationTests`가 MySQL 없이 실패 | 로컬 테스트 | H2 또는 `application-test.yml` 필요 |

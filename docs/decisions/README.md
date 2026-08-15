@@ -41,3 +41,4 @@
 | [0017](0017-임시-인증-토큰-통합.md) | 임시 인증 통합 — `X-User-Id` → 목업 Bearer 토큰 ⚠️ 여전히 배포 전 교체 | 수락 | B | ADR 0006 · AUTH-01~03 · ONBOARD-01~05 |
 | [0020](0020-규칙-기반-로컬-비전-분석.md) | 규칙 기반 로컬 비전 분석 — OpenCV/MediaPipe 자체 서버 | **부분 대체됨**(0022) | B | ADR 0003 · ADR 0002 · ADR 0022 · F-SKIN-04 · SKIN-01 |
 | [0022](0022-openai-비전-2단계-점수-확정.md) | OpenAI Vision 2단계 점수 확정 — 규칙 기반 1차 산출 + OpenAI 최종 확정 | 수락 | B | ADR 0002 · ADR 0003 · ADR 0020 |
+| [0023](0023-제품-직접-등록-화면-확정.md) | 제품 직접 등록 — ProductManualRegisterScreen을 정식 화면으로 확정 | 수락 | B | TBD-07(해소) · F-PRODUCT-08 · PRODUCT-09 · PRODUCT-10 |

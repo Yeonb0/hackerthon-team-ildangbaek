@@ -1617,13 +1617,12 @@ json
 | Method | `GET` |
 | URI | `/api/v1/products/match` |
 | 인증 | 필요 |
-| 관련 화면 | 없음(F-PRODUCT-08 TBD-07과 연결 예정) |
-| 관련 기능 | F-PRODUCT-08(TBD) |
+| 관련 화면 | `ProductManualRegisterScreen` |
+| 관련 기능 | F-PRODUCT-08 |
 
-> **F-PRODUCT-08(제품 직접 등록) 자체는 여전히 미정 · TBD-07 상태입니다.** 이 API는 그 결정과
-> 무관하게, "제품명+브랜드명이 이미 카탈로그에 있으면 성분·카테고리를 자동으로 채워준다"는
-> 조회 기능만 먼저 제공합니다(관리자 결정, 2026-08-14). F-PRODUCT-08의 화면·저장 흐름이
-> 확정되면 이 API를 그 흐름에 연결합니다.
+> "제품명+브랜드명이 이미 카탈로그에 있으면 성분·카테고리를 자동으로 채워준다"는 조회 기능이다
+> (관리자 결정, 2026-08-14). F-PRODUCT-08의 저장 흐름은 PRODUCT-10(`POST /products`)이 맡는다 —
+> 이 API는 등록 전 중복 확인용 조회만 제공하며, 저장 자체를 막지는 않는다.
 
 **Query Parameter**
 
@@ -1931,16 +1930,57 @@ json
 
 ---
 
-## 정의 보류 · 제품 직접 등록
+## PRODUCT-10 · 제품 직접 등록
 
 | 항목 | 내용 |
 | --- | --- |
-| 예상 URI | `POST /api/v1/products` |
+| Method | `POST` |
+| URI | `/api/v1/products` |
+| 인증 | 필요 |
+| Content-Type | `multipart/form-data` |
+| 관련 화면 | `ProductManualRegisterScreen`(S-11 · S-12의 `제품 등록` / `직접 등록하기` 버튼 도착 화면) |
 | 관련 기능 | F-PRODUCT-08 |
-| 상태 | **TBD-07 결정 대기** |
 
-> S-11 · S-12의 `제품 등록` / `직접 등록하기` 버튼에 **이동할 화면이 없습니다.** 화면 추가 또는 버튼 제거가 결정되기 전까지 이 API는 정의하지 않습니다. 백엔드가 선제 구현하면 프론트가 붙일 화면이 없어 사장됩니다.
-> 
+**Request (multipart form fields)**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | String | O | 제품명, 1~200자 |
+| `brand` | String | X | 브랜드명, 100자 이하 |
+| `category` | Enum | O | `ProductCategory` 표준 12종 중 하나 |
+| `ingredientNames` | Array\<String\> | X | 자유 텍스트 성분명. 동일 파트를 여러 번 보내 배열로 전달 |
+| `image` | File | X | 제품 사진 |
+
+**Success Response — 200**
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "요청에 성공했습니다.",
+  "result": {
+    "productId": 9102,
+    "name": "홈메이드세럼",
+    "brand": "우리집",
+    "category": "SERUM",
+    "imageUrl": "/images/xxxx.jpg"
+  }
+}
+```
+
+**Business Rule**
+
+1. 등록된 제품은 `dataSource=USER`, `active=true`로 즉시 저장되며 다른 사용자에게도 검색·매칭·스캔에 동일하게 노출된다. 등록자 전용 비공개 상태는 없다.
+2. `ingredientNames`에 카탈로그에 없는 성분명이 있으면 새 `Ingredient`로 생성해 연결한다. 이미 있는 이름이면 기존 성분을 재사용한다. 농도·핵심 성분 여부는 입력받지 않는다(`keyIngredient=false`로 저장).
+3. 이름·브랜드 중복을 서버가 막지 않는다. 클라이언트가 등록 전 PRODUCT-09(`GET /products/match`)로 조회해 중복 여부를 사용자에게 안내한다.
+4. `image`를 생략하면 `imageUrl`은 `null`이다.
+
+**Error**
+
+| Status | Code |
+| --- | --- |
+| 422 | `COMMON_VALIDATION_FAILED` (`name` 공백/글자 수 초과, `category` 누락 등) |
+| 401 | `COMMON_UNAUTHORIZED` |
 
 ---
 
@@ -2669,7 +2709,7 @@ json
 | F-PRODUCT-05 | `GET /product-records/home` + `GET /routines` |
 | F-PRODUCT-06 | `POST /routines/{id}/records` |
 | F-PRODUCT-07 | `POST /product-records` (`skinRecordSuggested`) |
-| F-PRODUCT-08 | **정의 보류 · TBD-07** |
+| F-PRODUCT-08 | `POST /products` (PRODUCT-10) |
 | F-SKIN-01 | — (정적 화면) |
 | F-SKIN-02 ~ 04 | `POST /skin-records` |
 | F-SKIN-05 | `GET /skin-records/today` |
@@ -2950,7 +2990,7 @@ service/external/
 | TBD | 항목 | API 영향 | 영향도 |
 | --- | --- | --- | --- |
 | ~~TBD-10b~~ | ~~피부 기록 저장 시점~~ | **해소** — 분석 완료 시 저장 · API 1개 유지 ([ADR 0001](decisions/0001-피부-기록-저장-시점.md)) | — |
-| TBD-07 | 제품 직접 등록 | `POST /products` 신설 필요 | 높음 |
+| ~~TBD-07~~ | ~~제품 직접 등록~~ | **해소** — `POST /products`(PRODUCT-10) 신설 완료 ([ADR 0023](decisions/0023-제품-직접-등록-화면-확정.md)) | — |
 | TBD-05 | 스캔 인식 대상 | 성분표 OCR 추가 시 `POST /products/scan` **응답 구조 변경** | 높음 |
 | TBD-09 | 분석 지연 처리 | 백그라운드 방식 결정 시 `202 Accepted` + 폴링 API 추가 | 중간 |
 | TBD-03 | 낮/밤 토글 유지 범위 | 서버 저장 결정 시 `PATCH /users/me/home-preference` 추가 | 낮음 |

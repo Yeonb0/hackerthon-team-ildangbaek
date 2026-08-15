@@ -1,24 +1,30 @@
 package com.ildangbaek.backend.api.product.service;
 
+import com.ildangbaek.backend.api.product.dto.request.ProductRegisterRequest;
 import com.ildangbaek.backend.api.product.dto.request.ProductScanRequest;
 import com.ildangbaek.backend.api.product.dto.request.ScanMode;
 import com.ildangbaek.backend.api.product.dto.response.IngredientResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductDetailResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductMatchResponse;
+import com.ildangbaek.backend.api.product.dto.response.ProductRegisterResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSaveResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductScanResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSearchResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSummaryResponse;
+import com.ildangbaek.backend.domain.product.entity.Ingredient;
 import com.ildangbaek.backend.domain.product.entity.Product;
+import com.ildangbaek.backend.domain.product.entity.ProductDataSource;
 import com.ildangbaek.backend.domain.product.entity.ProductIngredient;
 import com.ildangbaek.backend.domain.product.entity.UsageStatus;
 import com.ildangbaek.backend.domain.product.entity.UserProduct;
+import com.ildangbaek.backend.domain.product.repository.IngredientRepository;
 import com.ildangbaek.backend.domain.product.repository.ProductIngredientRepository;
 import com.ildangbaek.backend.domain.product.repository.ProductRepository;
 import com.ildangbaek.backend.domain.product.repository.UserProductRepository;
 import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
+import com.ildangbaek.backend.global.storage.ImageStorage;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,7 +37,9 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductIngredientRepository productIngredientRepository;
+    private final IngredientRepository ingredientRepository;
     private final UserProductRepository userProductRepository;
+    private final ImageStorage imageStorage;
 
     @Transactional(readOnly = true)
     public ProductSearchResponse search(User user, String keyword) {
@@ -122,6 +130,48 @@ public class ProductService {
                 product.getCategory().name(),
                 product.getImageUrl(),
                 confidence
+        );
+    }
+
+    @Transactional
+    public ProductRegisterResponse registerProduct(User user, ProductRegisterRequest request, MultipartFile image) {
+        String imageUrl = image != null && !image.isEmpty() ? imageStorage.upload(image) : null;
+
+        Product product = productRepository.save(Product.builder()
+                .brandName(request.brand())
+                .productName(request.name())
+                .category(request.category())
+                .barcode(null)
+                .imageUrl(imageUrl)
+                .dataSource(ProductDataSource.USER)
+                .build());
+
+        List<String> ingredientNames = request.ingredientNames();
+        if (ingredientNames != null) {
+            int displayOrder = 1;
+            for (String ingredientName : ingredientNames) {
+                if (ingredientName == null || ingredientName.isBlank()) {
+                    continue;
+                }
+                Ingredient ingredient = ingredientRepository.findByKoreanName(ingredientName.trim())
+                        .orElseGet(() -> ingredientRepository.save(Ingredient.builder()
+                                .koreanName(ingredientName.trim())
+                                .build()));
+                productIngredientRepository.save(ProductIngredient.builder()
+                        .product(product)
+                        .ingredient(ingredient)
+                        .displayOrder(displayOrder++)
+                        .keyIngredient(false)
+                        .build());
+            }
+        }
+
+        return new ProductRegisterResponse(
+                product.getId(),
+                product.getProductName(),
+                product.getBrandName(),
+                product.getCategory().name(),
+                product.getImageUrl()
         );
     }
 
