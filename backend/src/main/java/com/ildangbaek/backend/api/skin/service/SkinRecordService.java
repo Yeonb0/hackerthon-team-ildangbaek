@@ -165,10 +165,13 @@ public class SkinRecordService {
         skinMetricRepository.findAllBySkinRecordId(previousRecord.getId())
                 .forEach(metric -> previousScores.put(metric.getMetricType(), metric.getMetricValue().intValue()));
 
+        // 분석이 부분 실패했거나 지표가 나중에 추가된 기록은 지표 4종이 다 차 있지 않다.
+        // 어느 한쪽이라도 없으면 증감을 단정할 근거가 없으므로 0으로 둔다.
         Map<SkinMetricType, Integer> changes = new EnumMap<>(SkinMetricType.class);
         for (SkinMetricType type : SkinMetricType.values()) {
             Integer before = previousScores.get(type);
-            changes.put(type, before == null ? 0 : scores.get(type) - before);
+            Integer current = scores.get(type);
+            changes.put(type, before == null || current == null ? 0 : current - before);
         }
 
         return new SkinComparisonResponse(
