@@ -1,6 +1,7 @@
 package com.ildangbaek.backend.api.productrecord.service;
 
 import com.ildangbaek.backend.api.productrecord.dto.request.SaveProductRecordRequest;
+import com.ildangbaek.backend.api.productrecord.dto.request.UpdateProductRecordRequest;
 import com.ildangbaek.backend.api.productrecord.dto.response.ProductRecordHomeResponse;
 import com.ildangbaek.backend.api.productrecord.dto.response.RoutineSummaryResponse;
 import com.ildangbaek.backend.api.productrecord.dto.response.SaveProductRecordResponse;
@@ -121,6 +122,50 @@ public class ProductRecordService {
                 record.getTimeSlot(),
                 record.getRecordedAt(),
                 productCount,
+                skinRecordSuggested
+        );
+    }
+
+    @Transactional
+    public SaveProductRecordResponse update(User user, Long recordId, UpdateProductRecordRequest request) {
+        List<Long> productIds = request.productIds();
+        if (productIds == null || productIds.isEmpty()) {
+            throw new BusinessException(ErrorCode.PRODUCT_RECORD_EMPTY);
+        }
+        if (productIds.size() > 30) {
+            throw new BusinessException(ErrorCode.PRODUCT_RECORD_LIMIT_EXCEEDED);
+        }
+
+        ProductRecord record = productRecordRepository.findById(recordId)
+                .filter(found -> found.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_RECORD_NOT_FOUND));
+        if (!record.getRecordDate().equals(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.PRODUCT_RECORD_NOT_EDITABLE);
+        }
+
+        List<Product> products = findActiveProducts(productIds);
+        productRecordItemRepository.deleteAllByProductRecordId(record.getId());
+
+        int usageOrder = 1;
+        LocalDateTime now = LocalDateTime.now();
+        for (Product product : products) {
+            saveUserProduct(user, product);
+            productRecordItemRepository.save(ProductRecordItem.builder()
+                    .productRecord(record)
+                    .product(product)
+                    .usageOrder(usageOrder++)
+                    .usedAt(now)
+                    .build());
+        }
+
+        boolean skinRecordSuggested = skinRecordRepository
+                .findByUserIdAndRecordDateAndTimeSlot(user.getId(), record.getRecordDate(), record.getTimeSlot())
+                .isEmpty();
+        return new SaveProductRecordResponse(
+                record.getId(),
+                record.getTimeSlot(),
+                record.getRecordedAt(),
+                products.size(),
                 skinRecordSuggested
         );
     }

@@ -27,9 +27,9 @@ import tools.jackson.databind.JsonNode;
 /**
  * 자체 규칙 기반 비전 서버(FastAPI)로 얼굴 이미지를 분석한다. (ADR 0003의 구현체 중 하나)
  *
- * <p>{@link OpenAiSkinAnalysisClient}가 외부 VLM에 이미지를 통째로 맡기는 것과 달리, 이 구현체는
- * 팀이 직접 운영하는 분석 서버에 이미지를 넘긴다. 얼굴 검출·피부 영역 분리·조명 정규화·지표 산출을
- * 그 서버가 담당하며, 산출 근거를 우리가 통제할 수 있다는 것이 채택 이유다.
+ * <p>팀이 직접 운영하는 분석 서버(ai-server)에 이미지를 넘긴다. 얼굴 검출·피부 영역 분리·조명
+ * 정규화·CIELAB 규칙 기반 1차 점수 산출을 그 서버가 담당하고, OpenAI Vision을 이용한 최종 점수
+ * 확정도 그 서버 내부에서 이루어진다(ADR 0022) — Spring은 OpenAI를 직접 호출하지 않는다.
  *
  * <p>이미지는 {@link com.ildangbaek.backend.global.storage.LocalImageStorage}가 저장한 로컬 파일을
  * 다시 읽어 multipart로 전송한다. 저장 URL(`/images/{file}`)은 상대 경로라 분석 서버가 직접 가져올 수

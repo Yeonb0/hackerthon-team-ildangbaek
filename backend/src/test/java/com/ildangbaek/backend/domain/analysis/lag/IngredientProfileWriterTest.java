@@ -326,7 +326,7 @@ class IngredientProfileWriterTest {
                                SkinMetricType metricType, int lagDays, int observations, int agreement,
                                double averageDelta, boolean confirmed) {
         return new LagPattern(ingredientId, name, metricType, lagDays, direction,
-                observations, agreement, averageDelta, confirmed, 0);
+                observations, agreement, averageDelta, confirmed, 0, 0);
     }
 
     private Ingredient ingredient(Long id, String koreanName) {

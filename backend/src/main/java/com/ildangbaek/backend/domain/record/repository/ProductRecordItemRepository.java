@@ -12,6 +12,8 @@ public interface ProductRecordItemRepository extends JpaRepository<ProductRecord
 
     boolean existsByProductRecordIdAndProductId(Long productRecordId, Long productId);
 
+    void deleteAllByProductRecordId(Long productRecordId);
+
     /**
      * 여러 제품 기록의 항목을 한 번에 읽는다. 기록마다 조회하면 30일 분석에서 쿼리가 수십 번 나간다.
      * {@code product}를 함께 가져오는 이유는 뒤이어 제품 ID를 꺼내야 하는데, 지연 로딩 프록시를

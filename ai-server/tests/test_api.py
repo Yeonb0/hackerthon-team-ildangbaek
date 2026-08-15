@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
+from app import config, product_comment
 from app.main import app
 from tests.conftest import draw_face, encode_jpeg
 
@@ -52,3 +56,80 @@ def test_garbage_returns_analysis_failed() -> None:
 
     assert response.status_code == 422
     assert response.json()["code"] == "ANALYSIS_FAILED"
+
+
+def test_product_comments_empty_list_returns_empty() -> None:
+    response = client.post("/product-comments", json={"products": []})
+
+    assert response.status_code == 200
+    assert response.json() == {"comments": []}
+
+
+def test_product_comments_returns_generated_comments(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    config.get_settings.cache_clear()
+    product_comment._client.cache_clear()
+
+    class _FakeMessage:
+        content = json.dumps({"comments": [{"product_id": 71, "comment": "판테놀이 잘 맞아요"}]})
+
+    class _FakeChoice:
+        message = _FakeMessage()
+
+    class _FakeResponse:
+        choices = [_FakeChoice()]
+
+    class _FakeCompletions:
+        def create(self, **_kwargs: object) -> _FakeResponse:
+            return _FakeResponse()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        chat = _FakeChat()
+
+    monkeypatch.setattr(product_comment, "_client", lambda: _FakeClient())
+
+    response = client.post(
+        "/product-comments",
+        json={
+            "products": [
+                {
+                    "product_id": 71,
+                    "name": "라로슈포제 시카플라스트",
+                    "brand": "라로슈포제",
+                    "matched_ingredients": ["판테놀"],
+                    "category": "SERUM",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"comments": [{"product_id": 71, "comment": "판테놀이 잘 맞아요"}]}
+    config.get_settings.cache_clear()
+
+
+def test_product_comments_falls_back_to_502_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    config.get_settings.cache_clear()
+
+    response = client.post(
+        "/product-comments",
+        json={
+            "products": [
+                {
+                    "product_id": 71,
+                    "name": "라로슈포제 시카플라스트",
+                    "brand": "라로슈포제",
+                    "matched_ingredients": ["판테놀"],
+                    "category": "SERUM",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["code"] == "COMMENT_UNAVAILABLE"
+    config.get_settings.cache_clear()

@@ -185,6 +185,40 @@ class LagCorrelationAnalyzerTest {
         assertThat(pick(patterns, SkinMetricType.TROUBLE, 2).confirmed()).isTrue();
     }
 
+    @DisplayName("관측 쌍의 절반 이상이 자외선 급변일에 걸치면 방향이 일치해도 확정하지 않는다")
+    @Test
+    void doesNotConfirmWhenMostlyEnvironmentAffected() {
+        // 67%(기본 임계값)는 넘지만 80%(환경 보정 임계값)는 못 넘는 4쌍 중 3쌍 일치.
+        MockupBuilder mockup = new MockupBuilder().baseline(SkinMetricType.TROUBLE, 50);
+        List.of(0, 6, 12, 18).forEach(day ->
+                mockup.use(RETINOL, "레티놀", day).bump(SkinMetricType.TROUBLE, day + 2, 15));
+        mockup.bump(SkinMetricType.TROUBLE, 20, -15); // 18일차 사용의 D+2(=20일차)만 반대 방향
+
+        java.util.Set<LocalDate> uvVolatileDates = java.util.Set.of(
+                DAY_ONE, DAY_ONE.plusDays(6), DAY_ONE.plusDays(12));
+
+        List<LagPattern> patterns = analyzer.analyze(
+                mockup.exposures(), mockup.observations(25), java.util.Set.of(), uvVolatileDates);
+
+        LagPattern found = pick(patterns, SkinMetricType.TROUBLE, 2);
+        assertThat(found.observationCount()).isEqualTo(4);
+        assertThat(found.agreementRate()).isEqualTo(0.75);
+        assertThat(found.environmentAffectedCount()).isEqualTo(3);
+        assertThat(found.confirmed()).isFalse();
+    }
+
+    @DisplayName("자외선 급변일 정보를 넘기지 않으면 기존 임계값만 적용된다")
+    @Test
+    void appliesBaseThresholdWhenNoUvVolatileDatesGiven() {
+        MockupBuilder mockup = new MockupBuilder().baseline(SkinMetricType.TROUBLE, 50);
+        List.of(0, 6, 12).forEach(day ->
+                mockup.use(RETINOL, "레티놀", day).bump(SkinMetricType.TROUBLE, day + 2, 15));
+
+        List<LagPattern> patterns = analyzer.analyze(mockup.exposures(), mockup.observations(20));
+
+        assertThat(pick(patterns, SkinMetricType.TROUBLE, 2).confirmed()).isTrue();
+    }
+
     @DisplayName("확정된 패턴이 확인 중인 패턴보다 앞에 온다")
     @Test
     void sortsConfirmedFirst() {

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app import pipeline
+from app import config, pipeline
 from app.errors import AnalysisFailedError, FaceNotDetectedError
 from tests.conftest import draw_face, encode_jpeg
 
@@ -53,3 +53,23 @@ def test_scale_normalization_makes_sizes_comparable() -> None:
 
     for metric, value in small_scores.items():
         assert abs(value - large_scores[metric]) <= 12, f"{metric}이 촬영 거리에 크게 흔들린다"
+
+
+def test_analyze_falls_back_to_rule_based_without_openai_key(
+    face_jpeg: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OPENAI_API_KEY가 없으면 OpenAI 확정을 건너뛰고 1차 규칙 기반 점수를 그대로 반환한다.
+
+    CI 환경에는 실 API 키가 없으므로, 이 폴백 경로가 스위트 전체의 기본 실행 경로가 된다.
+    이 테스트는 `analyze()`가 예외 없이 끝까지 돌고 유효한 점수를 낸다는 것만 확인한다 —
+    "왜" 폴백했는지(키 부재)는 `test_vision.py`의 `test_refine_raises_when_api_key_missing`이
+    이미 검증한다.
+    """
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    config.get_settings.cache_clear()
+
+    result = pipeline.analyze(face_jpeg)
+
+    for value in result.scores.model_dump().values():
+        assert 0 <= value <= 100
+    assert result.pores_reliability in ("LOW", "NORMAL")

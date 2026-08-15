@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -86,6 +87,7 @@ public class SkinRecordService {
      * (00:00~05:59)에 {@code NIGHT}를 조회하면 저장 시점과 같은 이유로 전날 날짜로 귀속된 기록을
      * 찾아야 한다 — {@code LocalDate.now()}를 그대로 쓰면 방금 저장한 기록이 404로 안 잡힌다.
      */
+    @Transactional(readOnly = true)
     public SkinRecordResponse getToday(Long userId, TimeSlot timeSlot) {
         SkinRecord record = (timeSlot == null
                 ? skinRecordRepository.findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(userId)
@@ -98,6 +100,7 @@ public class SkinRecordService {
     /**
      * SKIN-03 · 피부 기록 상세 조회. 다른 사용자의 기록은 존재 여부를 숨기기 위해 404로 응답한다.
      */
+    @Transactional(readOnly = true)
     public SkinRecordResponse getDetail(Long userId, Long skinRecordId) {
         SkinRecord record = skinRecordRepository.findByIdAndUserId(skinRecordId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SKIN_RECORD_NOT_FOUND));
@@ -162,10 +165,13 @@ public class SkinRecordService {
         skinMetricRepository.findAllBySkinRecordId(previousRecord.getId())
                 .forEach(metric -> previousScores.put(metric.getMetricType(), metric.getMetricValue().intValue()));
 
+        // 분석이 부분 실패했거나 지표가 나중에 추가된 기록은 지표 4종이 다 차 있지 않다.
+        // 어느 한쪽이라도 없으면 증감을 단정할 근거가 없으므로 0으로 둔다.
         Map<SkinMetricType, Integer> changes = new EnumMap<>(SkinMetricType.class);
         for (SkinMetricType type : SkinMetricType.values()) {
             Integer before = previousScores.get(type);
-            changes.put(type, before == null ? 0 : scores.get(type) - before);
+            Integer current = scores.get(type);
+            changes.put(type, before == null || current == null ? 0 : current - before);
         }
 
         return new SkinComparisonResponse(

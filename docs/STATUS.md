@@ -3,10 +3,19 @@
 > 이 문서는 **실제 구현·검증·배포 상태**를 기록한다. 계획이나 목표가 아니라 **지금 저장소에 있는 것**을 적는다.
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
-- 최종 갱신: 2026-08-14
-- 기준 커밋: `7b2c730` (CHECK-03 N+1 수정) — F-ANALYSIS-03 호르몬 요인 보정(ADR 0019) 반영 +
-  BACKEND_B_IMPLEMENTATION_VERIFICATION.md 재검증 세션에서 P1(시드 `user_profiles` 확인)·
-  P2(CHECK-03 쿼리 수 3→2) 해소, SKIN-01·PRODUCT-05·REPORT-02/03 재현 검증 완료
+- 최종 갱신: 2026-08-15
+
+> **2026-08-15 코드리뷰 및 수정 세션.** 백엔드 전체를 심각도 순으로 리뷰해 버그 4건과 인증 구조
+> 1건을 수정했다. 커밋 단위: 테스트 DB 격리(H2, MySQL 없이도 빌드 통과) → USER-04 스킨타입 교체
+> 유니크 제약 위반 → ReportService/SkinRecordService `@Transactional` 누락 → 지표 결측 조회 NPE
+> → USER-04 성별 500 응답·호르몬 갱신 조건 → 인증 리졸버 단일화(ADR 0024). 상세는 아래 각 항목과
+> ADR 0024 참고. 전체 테스트 210개 → **222개**(H2 인메모리 DB, 로컬 MySQL 불필요).
+
+- 기준 커밋: `d4cacdd` (환경 요인 보정) — **`origin/main` 재확인 세션**: A 담당이 `main`에 반영한
+  `home`·`location`·`record` 패키지(커밋 `1bf5f09 feat(home): add service flow APIs` 등)가 이미
+  이 브랜치 HEAD에 병합돼 있음을 코드 대조로 확인. 아래 2.3절 A 담당 표를 "미착수" 위주에서
+  "구현됨(대부분)"으로 갱신. **이번 세션은 코드 존재·명세 대조까지만 했고 실서버 동작 확인은
+  하지 않았다** — 항목별로 아래 표에 명시
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 > **2026-08-14 `origin/main` 병합.** A 담당 브랜치가 `main`에 반영한 AUTH(이메일)·PRODUCT-01~04
@@ -37,6 +46,9 @@
 >   맞춰 구 테스트 호출부 갱신.
 > - 인증 방식 이원화 우려 없음: `CurrentUserResolver`(main)와 `CurrentUserIdArgumentResolver`(yunjin)
 >   모두 `MockAccessToken.parseUserId`에 위임하도록 이미 통합되어 있다(ADR 0017).
+>   **2026-08-15 갱신**: `CurrentUserResolver` 자체를 제거하고 `CurrentUserIdArgumentResolver`
+>   하나로 합쳤다(ADR 0024). 리졸버가 `Long`뿐 아니라 `User` 엔티티 파라미터도 해석해, 컨트롤러가
+>   더 이상 메서드 본문에서 인증을 직접 호출하지 않는다.
 > - 백엔드 전체 테스트(210개) 통과 확인. main이 새로 들여온 AUTH(이메일)·PRODUCT-01~04·ROUTINE 도메인의
 >   실제 기능 완성도·실서버 검증 상태는 이 세션에서 재조사하지 않았다 — 별도 검증 필요.
 
@@ -57,7 +69,7 @@
 | --- | --- | --- |
 | 백엔드 — 공통 인프라 | 🟡 | 응답/예외 envelope 완비. 스토리지·날짜 유틸 추가. **인증은 임시 방편** |
 | 백엔드 — 엔티티 · 리포지토리 | ✅ | 전 도메인 정의 완료 |
-| 백엔드 — service / controller / dto | 🟡 | **skin · report · user · product · check · onboard · auth 7개 도메인.** 제품/루틴 조회(PRODUCT-01~04·06) 등 나머지 미착수 |
+| 백엔드 — service / controller / dto | 🟡 | **skin · report · user · product · productrecord · routine · check · onboard · auth · home · location · record 12개 도메인 코드 존재.** 2026-08-15 재확인 — 이전 판에서 "미착수"로 적었던 HOME-01·RECORD-01/02·PRODUCT-01~05·07·08·USER-05~07은 실제로는 코드가 이미 있다(아래 2.3절). USER-03·04(프로필 조회/수정)와 PRODUCT-06(제품 기록 수정)도 2026-08-15에 구현 완료(실서버 미검증). AUTH-03(로그아웃)은 컨트롤러만 있고 토큰 폐기 로직 없는 빈 구현 |
 | 프론트엔드 | 🟡 | 전 화면(S-00~S-24, S-03 결번) 구현 완료. 백엔드 실연동은 미착수 — `EXPO_PUBLIC_USE_MOCK=true`로 전부 목업 모드 동작 |
 | 배포 | ⬜ | 미착수. 로컬 실행만 |
 
@@ -65,6 +77,15 @@
 `POST /api/v1/skin-records` · `GET /api/v1/reports` · `GET /api/v1/reports/daily` ·
 `GET /api/v1/reports/insights/{insightId}` · `GET /api/v1/users/me/ingredient-profile` ·
 `POST /api/v1/checks` · `GET /api/v1/checks/{checkId}`.
+**2026-08-15에 코드로 추가 확인된(실서버 미검증) 엔드포인트**: `GET /api/v1/home` ·
+`GET /api/v1/locations` · `GET /api/v1/records/calendar` · `GET /api/v1/records/today` ·
+`GET /api/v1/product-records/home` · `GET /api/v1/products` · `POST /api/v1/products/scan` ·
+`GET /api/v1/products/{id}` · `GET /api/v1/products/match` · `POST/DELETE /api/v1/products/{id}/save` ·
+`GET /api/v1/routines` · `POST /api/v1/routines/{routineId}/records` ·
+`PATCH /api/v1/users/me/notification` · `PATCH /api/v1/users/me/location` ·
+`GET /api/v1/users/me/products` · `GET /api/v1/users/me/account` ·
+`POST /api/v1/auth/refresh` · `PATCH /api/v1/onboarding/hormone` · `POST /api/v1/onboarding/complete`.
+컴파일되는 완성된 코드로는 보이나(TODO/스텁 아님) curl/실DB로 동작을 재현한 적은 없다 — 다음 세션 과제.
 
 > ⚠️ **인증 방식 이원화는 해소됐다(2026-08-13, [ADR 0017](decisions/0017-임시-인증-토큰-통합.md)).**
 > skin·report·check·product·user 도메인의 `CurrentUserIdArgumentResolver`가 `X-User-Id` 헤더
@@ -76,6 +97,14 @@
 >
 > **여전히 인증이 아니다.** 토큰은 서명 검증이 없어 형식만 맞추면 위조할 수 있다. `X-User-Id`
 > 위조 위험과 동일 수준이며 **배포 전 반드시 실제 인증(JWT 서명 검증 등)으로 교체해야 한다.**
+>
+> **2026-08-15 갱신 — 리졸버 단일화([ADR 0024](decisions/0024-current-user-id-리졸버-단일화.md)).**
+> `CurrentUserResolver`를 제거했다. 코드리뷰 중 `ProductController`의 세 핸들러가
+> `currentUserResolver.resolve(authorization)`의 반환값을 버리고 인증 부수효과만 노리는
+> 코드였음을 발견했다 — 인가 검사가 메서드 본문 한 줄에 의존하는 형태라 그 줄을 빠뜨리면
+> 인증 없이 뚫린다. `CurrentUserIdArgumentResolver`가 `User` 엔티티 파라미터도 해석하도록 넓혀
+> 21개 호출부를 전부 옮겼다. 토큰 검증 자체는 여전히 서명 없는 임시 방편이라 위 경고는 그대로
+> 유효하다.
 
 ---
 
@@ -92,11 +121,11 @@
 | JPA Auditing | ✅ | `global/config/JpaAuditingConfig` · `BaseTimeEntity` |
 | CORS | 🟡 | `WebConfig` — 개발용 전체 허용. **배포 전 축소 필요** |
 | 헬스체크 | ✅ | `GET /api/v1/health` |
-| **인증 (JWT · Security)** | 🟡 | **임시 방편만 있음.** `X-User-Id` 헤더 → `@CurrentUserId` (ADR 0006). 위조 가능 · 배포 전 교체 필수 |
+| **인증 (JWT · Security)** | 🟡 | **임시 방편만 있음.** 목업 Bearer 토큰 → `@CurrentUserId`(`Long`·`User` 모두 해석, ADR 0006 · 0017 · 0024). 위조 가능 · 배포 전 교체 필수 |
 | 이미지 업로드 · 스토리지 | 🟡 | `ImageStorage` + `LocalImageStorage` (ADR 0007). multipart 10MB. **로컬 저장이라 다중 인스턴스·재배포 시 유실** |
 | 날짜 귀속 유틸 | ✅ | `global/util/RecordDateResolver` · 경계값 테스트 13종 (ADR 0005 — **확정**) |
-| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능), 실제 OpenAI Vision(`gpt-4o`) 연동(`OpenAiSkinAnalysisClient`), 규칙 기반 자체 서버 연동(`LocalVisionSkinAnalysisClient`, ADR 0020) 3종. `app.skin.analysis.provider`(`mock`/`openai`/`local-vision`)로 전환. 단위 테스트만 검증했고 **OpenAI 실 API 키·자체 서버 모두 실제 얼굴 사진으로의 E2E 호출은 아직 안 함** — 실사용 전 필요 |
-| 규칙 기반 분석 서버 (`ai-server/`) | 🟡 | FastAPI. MediaPipe 얼굴 검출·피부 영역 분리 → Shades of Gray 화이트밸런스·품질 게이트 → CIELAB 기반 지표 4종 산출(딥러닝 모델 아님, ADR 0020). 파이썬 테스트 44개, 합성 이미지로만 검증 — **실제 얼굴 사진 검증 안 함**. 모공 지표는 실측상 신뢰도 낮음(`ai-server/README.md` 신뢰도 표) |
+| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능), 규칙 기반 자체 서버 연동(`LocalVisionSkinAnalysisClient`, ADR 0020) 2종. `app.skin.analysis.provider`(`mock`/`local-vision`)로 전환. Spring이 직접 호출하는 OpenAI 클라이언트는 폐기했다(ADR 0022) — OpenAI Vision은 이제 ai-server 내부의 2차 확정 단계로만 쓰인다. 단위 테스트만 검증했고 **자체 서버 경로의 실제 얼굴 사진 E2E 호출은 아직 안 함** — 실사용 전 필요 |
+| 규칙 기반 분석 서버 (`ai-server/`) | 🟡 | FastAPI. MediaPipe 얼굴 검출·피부 영역 분리 → Shades of Gray 화이트밸런스·품질 게이트 → CIELAB 기반 1차 지표 4종 산출(딥러닝 모델 아님, ADR 0020) → OpenAI Vision(`gpt-4o`)이 1차 점수를 근거로 최종 점수 확정, 클램핑 없음(ADR 0022). `OPENAI_API_KEY` 미설정 시 1차 점수로 자동 폴백. **`POST /product-comments`로 제품 추천 AI 코멘트도 배치 생성(ADR 0025)** — 추천 판단은 여전히 Spring의 규칙 기반, AI는 문구만 생성. 파이썬 테스트 66개(OpenAI는 fake 클라이언트로 검증), 합성 이미지로만 검증 — **실제 얼굴 사진 검증 안 함**, **OpenAI 확정·코멘트 생성 모두 실 API 키 E2E 검증 안 함**. 모공 지표는 실측상 신뢰도 낮음(`ai-server/README.md` 신뢰도 표), OpenAI에 재위임하지 않고 규칙 기반 판정 유지 |
 
 > ⚠️ **인증은 임시 방편으로 우회한 상태다.** 실제 인증(AUTH-01~03, A 담당)이 들어오기 전까지
 > 프로덕션 배포는 불가능하다.
@@ -117,22 +146,33 @@
 
 ### 2.3 API 구현 현황
 
-담당은 A / B 분담을 따른다. **아래 A 담당 표는 2026-08-13에 코드 대조로 갱신했다** — AUTH·ONBOARD가
-`origin/jiwoo` 브랜치 작업(`bfb075b feat(auth): add mock auth and onboarding flow` ·
-`fd6c336 feat(onboard): add hormone onboarding endpoint`)으로 이미 구현되어 이 브랜치 HEAD에
-병합돼 있었는데, 이전 판이 이를 반영하지 못하고 있었다.
+담당은 A / B 분담을 따른다. **아래 A 담당 표는 2026-08-15에 코드 대조로 재갱신했다.** `origin/main`을
+fetch해 확인한 결과, 2026-08-14 판까지 "미착수"로 적었던 HOME-01·RECORD-01/02·PRODUCT 대부분·
+USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)으로 이미 구현되어
+이 브랜치 HEAD(`d4cacdd`)에 들어와 있었다 — 이전 판이 이를 반영하지 못한 stale 상태였다.
+**이번 재갱신은 코드 존재·명세 대조(파일 읽기)로만 판단했고, 실서버 기동·curl 검증은 하지
+않았다** — 상태 기호 🟡는 "코드는 있으나 실서버 미검증"을 뜻하며 이전 판의 🟡(부분 구현)와
+의미가 다를 수 있으니 비고를 함께 봐야 한다.
 
 #### A 담당 — 서비스 기본 흐름 
 
 | API | 상태 | 비고 |
 | --- | --- | --- |
-| AUTH-01~03 로그인 · 재발급 · 로그아웃 | 🟡 | 코드 존재. `POST /login`은 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인. `/refresh`·`/logout`은 미검증. 테스트 파일 0개 |
-| ONBOARD-01~05 온보딩 | 🟡 | 코드 존재. 상태조회 · `basic-info` · `skin-types`는 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인 — `SENSITIVE` 자동 생성 경로 포함. `hormone`·`complete`는 미검증. 테스트 파일 0개 |
+| AUTH-01~02 로그인 · 재발급 | 🟡 | 코드 존재. `POST /login`은 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인. `/refresh`는 코드 확인만(2026-08-15), 실서버 미검증. 테스트 파일 0개 |
+| AUTH-03 로그아웃 | 🟡 | **컨트롤러가 `AuthService` 호출 없이 바로 200을 반환**(`AuthController.java:35-38`) — 토큰 폐기 로직이 없다. 인증 자체가 mock 토큰(서명 없음, 서버 저장 안 함)이라 "폐기할 대상"이 애초에 없는 구조적 결과로 보이나, 명세 BR 1("서버에 저장된 Refresh Token을 폐기한다")과는 형식상 어긋난다. 실제 인증 도입 시 재구현 필요 |
+| ONBOARD-01~05 온보딩 | 🟡 | 코드 존재(상태조회·`basic-info`·`skin-types`·`hormone`·`complete` 5단계 모두 컨트롤러/서비스 메서드 있음). `basic-info`·`skin-types`는 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인. **`hormone`·`complete`는 2026-08-15 기준 코드 확인만, 실서버 미검증** — 5절 블로커 #10("호르몬 저장 API 없음")은 코드상 해소된 것으로 보이나 실서버 검증 전이라 완전히 닫지 않음. 테스트 파일 0개 |
 | USER-01 마이페이지 조회 | ✅ | 원래 A 담당이나 F-ANALYSIS-05 BR 4(값 일치) 검증을 위해 B가 구현. `MyPageService` |
-| USER-03~07 프로필 · 위치 · 알림 | ⬜ | 코드 없음 확인(`UserController`에 `GET /`·`GET /ingredient-profile`뿐) |
-| HOME-01 홈 조회 | ⬜ | 코드 없음 확인(`api/` 아래 `home` 디렉토리 없음) |
-| RECORD-01~02 기록 허브 | ⬜ | 코드 없음 확인(`api/` 아래 `record` 디렉토리 없음. `skin-records`·`product-records`는 개별 도메인으로 존재하나 통합 허브는 없음) |
-| PRODUCT-01~08 제품 검색 · 상세 · 기록 · 루틴 | 🟡 | PRODUCT-05(제품 기록 저장)만 B가 구현·검증 완료(2.13절). 01~04·06~08(검색·상세·루틴)은 코드 없음 확인. F-PRODUCT-08(직접 등록 저장)은 여전히 TBD-07 미정 — 다만 그 화면이 쓰는 매칭 조회(PRODUCT-09, 신규)만 2026-08-14에 B가 별도로 구현 |
+| USER-02 성분 프로파일 조회 | ✅ | B 구현(2.10절) |
+| USER-03 프로필 조회 | 🟡 | `UserController.getProfile()` — `GET /api/v1/users/me/profile`. `UserService.getProfile()`이 프로필·피부타입·알림설정을 조합해 반환. 엔티티의 `menstrualStatus`+`oralContraceptive`+`progesteroneInjection` 조합을 API `hormoneStatus` 4종으로 역매핑한다. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
+| USER-04 프로필 수정 | 🟡 | `UserController.updateProfile()` — `PATCH /api/v1/users/me/profile`. 전달된 필드만 수정(BR 2), `gender`를 FEMALE 외 값으로 바꾸면 `UserProfile.clearHormoneInfo()`로 호르몬 필드 초기화(BR 3), `skinTypes`는 전체 교체(BR 4). 응답은 USER-03과 동일한 전체 프로필. 구현 2026-08-15, 실서버 미검증. **2026-08-15 코드리뷰로 버그 3건 수정**: (1) `skinTypes` 교체가 `deleteAllByUserId`(select 후 개별 remove) 뒤 바로 `save`(IDENTITY 즉시 INSERT)해 기존과 겹치는 값에서 유니크 제약 위반 → flush로 순서 고정, (2) `gender`를 String으로 받아 `Gender.valueOf`가 잘못된 값에 500을 내던 것 → `GenderRequest` enum으로 Jackson이 400을 내게 함, (3) 호르몬 갱신 조건이 이미 갱신된 엔티티 값을 else-if로 읽어 `gender`만 보낸 요청에서 아무 일도 안 하던 것 → "수정 후 성별" 기준으로 재작성. H2 실DB·MockMvc로 재현·검증하는 테스트 추가(`UserProfileUpdateTest`, `ProfileUpdateValidationTest`) |
+| USER-05 지역 목록 조회 | 🟡 | `LocationController.searchLocations()` — `GET /api/v1/locations?keyword=`. 코드 존재, 실서버 미검증. 지역 데이터가 하드코딩된 시/도 6개(`LocationSeed`) 샘플 수준 — 명세가 요구하는 시/구 단위 전국 목록에는 못 미침(명세 자체도 "전국 시/구 목록 확보 필요"로 미정 표시) |
+| USER-06 위치 설정 | 🟡 | `UserController.updateLocation()` — `PATCH /api/v1/users/me/location`. 코드 존재, 실서버 미검증 |
+| USER-07 알림 설정 | 🟡 | `UserController.updateNotification()` — `PATCH /api/v1/users/me/notification`. 코드 존재, 실서버 미검증 |
+| HOME-01 홈 조회 | 🟡 | `HomeController.getHome()` — `GET /api/v1/home?homeType=&weekStart=`. `HomeService`가 낮/밤 판정·environment·routineRecommendation·todayRecord·weeklyCalendar·todayReport를 명세 필드 구조대로 채움. `weekStart`(`SUNDAY`/`MONDAY`, 기본 `MONDAY`, 그 외 값은 `MONDAY`로 처리)로 `weeklyCalendar`의 "이번 주" 시작일 계산 기준을 지정 가능(2026-08-15 추가, 프론트 요청). **다만 `environment`는 실제 날씨 API 연동 없이 단순화된 값으로 보이고, `failedSections`는 항상 빈 배열 고정 반환** — 부분 실패 처리가 명세만큼 정교하지 않을 수 있다. 테스트 없음, 실서버 미검증 |
+| RECORD-01~02 기록 허브 | 🟡 | `RecordController` — `GET /api/v1/records/calendar?yearMonth=`(RECORD-01) · `GET /api/v1/records/today`(RECORD-02). `RecordHubService`(138줄), `yearMonth` 파싱 실패 시 `RECORD_INVALID_MONTH` 예외 처리도 있음. 테스트 없음, 실서버 미검증 |
+| PRODUCT-01·02·03·04·05·07·08 | 🟡 | 코드 존재. `ProductController`(검색·상세·스캔·매칭·찜), `ProductRecordController`(`GET /product-records/home`=PRODUCT-01, `POST /product-records`=PRODUCT-05), `RoutineController`(`GET /routines`=PRODUCT-07, `POST /routines/{id}/records`=PRODUCT-08). PRODUCT-05만 B가 실서버 검증 완료(2.13절), 나머지는 코드 확인만(2026-08-15), 실서버 미검증. 테스트는 `ProductRecordWriterTest` 1개뿐, `productrecord`·`routine` 패키지 테스트 0개 |
+| PRODUCT-06 제품 기록 수정 | 🟡 | `ProductRecordController.update()` — `PATCH /api/v1/product-records/{recordId}`. `productIds` 전체 교체(기존 항목 삭제 후 요청 순서대로 `usageOrder` 재부여), 오늘 기록이 아니면 `PRODUCT_RECORD_NOT_EDITABLE`(403), 타인 기록/미존재는 `PRODUCT_RECORD_NOT_FOUND`(404). 수정 시각은 `BaseTimeEntity.updatedAt` 자동 갱신으로 처리. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
+| F-PRODUCT-08 제품 직접 등록 | 🟡 | **TBD-07 해소**([ADR 0023](decisions/0023-제품-직접-등록-화면-확정.md), 2026-08-15) — `ProductController.register()`, `POST /api/v1/products`(PRODUCT-10, multipart). `ProductService.registerProduct()`가 `dataSource=USER`로 즉시 전체 공개 저장, 자유 텍스트 성분은 카탈로그에 없으면 신규 `Ingredient` 생성. 이미지는 `LocalImageStorage` 재사용, 형식(jpg/jpeg/png)·크기(10MB) 검증은 `SkinRecordService`와 같은 규칙으로 `ProductService.validateImage()`에서 수행. 같은 성분명이 중복 입력되면 첫 번째만 연결한다 — `product_ingredients`의 `(product_id, ingredient_id)` 유니크 제약 때문에 그대로 INSERT하면 500이 났다(2026-08-15 리뷰에서 발견·수정). 소유자별 비공개·서버측 중복 차단은 이번 범위 제외(ADR 0023 참고). 백엔드만 구현, 프론트 `registerProduct()`는 여전히 목업 — 실연동은 후속 작업. 구현 2026-08-15, 실서버 미검증, 단위 테스트 `ProductRegisterTest`(성분 중복 제거·displayOrder·이미지 형식 거절·사진 생략) |
 
 > ⚠️ **AUTH·ONBOARD는 "코드가 있다"만 확인했다.** `saveSkinTypes`가 `skin_types` 마스터를
 > `orElseGet`으로 자동 생성하도록 짜여 있어 2.8절의 "민감성 완화가 온보딩 부재로 동작 안 함" 경고도
@@ -144,22 +184,22 @@
 | API | 상태 | 선행 조건 |
 | --- | --- | --- |
 | SKIN-01 피부 기록 생성 및 분석 | ✅ | 임시 인증(ADR 0006) · 로컬 스토리지(ADR 0007)로 해소 |
-| SKIN-02 오늘 피부 결과 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13) — 실서버에서만 드러난 버그 1건(NIGHT 자정 경계 404) 수정 |
-| SKIN-03 피부 기록 상세 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13). 소유권 격리(404) 확인 |
+| SKIN-02 오늘 피부 결과 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13) — 실서버에서만 드러난 버그 1건(NIGHT 자정 경계 404) 수정. **2026-08-15**: 지표 4종 중 일부가 없는 기록(분석 부분 실패 등) 조회 시 언박싱 NPE로 500 나던 버그 수정(`SkinRecordService.buildComparison`, `SkinScoresResponse.from`). 조회 메서드에 누락됐던 `@Transactional(readOnly = true)`도 함께 추가 |
+| SKIN-03 피부 기록 상세 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13). 소유권 격리(404) 확인. **2026-08-15**: `@Transactional(readOnly = true)` 누락 수정 |
 | F-ANALYSIS-01 성분-피부 시차 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.7절). ADR 0014 기준 재검증 완료 — 회귀 기준선 · 슬롯 분리 전용 시드 · PRODUCT-05 실입력 경로 3축 |
-| F-ANALYSIS-02 환경 요인 보정 | ⬜ | `DailyEnvironment` 적재(A · HOME-01) |
+| F-ANALYSIS-02 환경 요인 보정 | ✅ | 자외선 급변일 계산(`IngredientLagAnalysisService.loadUvVolatileDates`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동, 호르몬 보정과 곱셈 합성(ADR 0021). 로직·단위 테스트는 완료. **단, `daily_environments`에 실제로 쓰는 프로덕션 코드(F-HOME-03, A 담당)가 아직 없어 실사용 데이터에서는 급변일 집합이 항상 비어 보정이 미적용 경로로만 흐름 — BR 3이 요구하는 정상 동작이며, F-HOME-03 적재가 붙는 즉시 코드 변경 없이 동작. 검증은 목업 데이터로 함** |
 | F-ANALYSIS-03 호르몬 요인 반영 | ✅ | 주기 구간 계산(`MenstrualCycleCalculator`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동(ADR 0019). 로컬 MySQL로 실서버 확인(2026-08-14) — `user_profiles`에 호르몬 정보를 직접 넣고 SKIN-01 재분석 시 신뢰도 100→80(20% 감쇄) 및 확정→확인중 전환을 API 응답(`GET /reports`)에서 재현. **단, 호르몬 정보를 입력하는 API(F-ONBOARD-03 `hormone` 단계)가 아직 없어 DB 직접 수정으로 우회 검증함 — A 담당 온보딩 API 미구현이 후속 이슈** |
 | F-ANALYSIS-04 성분 프로파일 갱신 | ✅ | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11). PRODUCT-05 실입력 경로 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 제품 기록이 `CAUTION` 행까지 만든다 |
 | F-ANALYSIS-05 프로파일 완성도 계산 | ✅ | 산출식 구현 완료(ADR 0011). **소비처 3곳(USER-01 · USER-02 · CHECK-01) 모두 연결 완료.** 단위 테스트로 세 서비스가 `ProfileCompletionCalculator` 값을 그대로 위임하는지 확인(BR 4) — 실서버 3자 대조는 아직 |
-| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천. **2026-08-14: `category`·`todayContext` 추가(ADR 0018)** — 프론트 SHOP-01 3분류 요청 대응, 백엔드 API만 준비(프론트 화면은 미구현, `boyeon` 브랜치 `ShoppingScreen.tsx`는 아직 단일 섹션). 단위 테스트로 확인, 실서버 미검증 |
+| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천. **2026-08-14: `category`·`todayContext` 추가(ADR 0018)** — 프론트 SHOP-01 3분류 요청 대응, 백엔드 API만 준비(프론트 화면은 미구현, `boyeon` 브랜치 `ShoppingScreen.tsx`는 아직 단일 섹션). **2026-08-16: `aiComment` 추가(ADR 0025)** — ai-server가 배치로 생성한 AI 코멘트, 실패 시 `null`. 단위 테스트로 확인, 실서버 미검증 |
 | CHECK-02 위험도 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). ADR 0015 — 등급 산출 기준 신설 |
 | CHECK-03 확인 결과 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). CHECK-02와 같은 DTO·조립 로직 |
 | USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
-| REPORT-01 리포트 조회 | ✅ | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다. PRODUCT-05 실입력 경로로도 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 기록이 `insights`까지 나온다 |
+| REPORT-01 리포트 조회 | ✅ | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다. PRODUCT-05 실입력 경로로도 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 기록이 `insights`까지 나온다. **2026-08-15**: `ReportService`의 조회 메서드 3개(REPORT-01~03) 모두에 `@Transactional(readOnly = true)`가 빠져 있던 것을 수정 — `open-in-view: false`라 지연 로딩 프록시를 건드리면 `LazyInitializationException`이 날 수 있었다 |
 | PRODUCT-05 제품 기록 저장 | ✅ | 2.13절. 원래 A 담당이나 B가 대신 구현. 로컬 MySQL로 실서버 확인(2026-08-12) — 실서버에서만 드러난 버그 2건(`force` 생략 400 · `force: true` 500) 수정 |
 | REPORT-02 요인 상세 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.12절). ADR 0013 — 이벤트 조회 시점 도출 · 그래프 ADR 0012 적용 |
 | REPORT-03 일자별 리포트 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.11절). SKIN-01 응답 구조 재사용 · ADR 0012 원칙 유지 |
-| PRODUCT-09 제품 매칭 조회(신규) | ✅ | 2026-08-14 신규. `GET /products/match?name=&brand=` — 프론트 `ProductManualRegisterScreen`(boyeon, 완전 목업 상태) 지원용. `ProductMatchService`/`ProductMatchController`. F-PRODUCT-08(제품 직접 등록 저장) 자체는 여전히 TBD-07 미정, 이 API는 조회만 해소. 단위 테스트 없음(단순 위임 로직), 실서버 미검증 |
+| PRODUCT-09 제품 매칭 조회(신규) | ✅ | 2026-08-14 신규. `GET /products/match?name=&brand=` — 프론트 `ProductManualRegisterScreen`(boyeon, 등록 저장은 여전히 목업) 지원용. `ProductMatchService`/`ProductMatchController`. F-PRODUCT-08 저장 자체는 PRODUCT-10(2026-08-15 구현, 아래 156행)이 맡는다. 단위 테스트 없음(단순 위임 로직), 실서버 미검증 |
 
 ### 2.4 SKIN-01 검증 내역
 
@@ -356,8 +396,8 @@ REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로 확인했다(
 **분석이 완료된 피부 기록만 관측으로 쓴다.** `analysisStatus != COMPLETED`인 기록은 지표를 믿을 수
 없는데, 그 값이 기준선이 되면 있지도 않은 변화를 패턴으로 잡는다.
 
-**아직 하지 않은 것** — F-ANALYSIS-02 환경 보정이 없어 자외선 영향과 성분 영향이 섞여 있다.
-`IngredientProfile` 갱신은 F-ANALYSIS-04에서 이어서 구현했다(아래 2.8).
+F-ANALYSIS-02 환경 보정(B-16, ADR 0021)이 자외선 급변일에 걸친 관측 쌍을 구분해 확정 임계값·
+신뢰도에 반영한다(2.16절). `IngredientProfile` 갱신은 F-ANALYSIS-04에서 이어서 구현했다(아래 2.8).
 
 ### 2.8 F-ANALYSIS-04 구현 내역
 
@@ -418,7 +458,8 @@ REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로 확인했다(
 > 로컬 확인용 시드: `seed/f-analysis-04-sensitive.sql`
 
 **아직 하지 않은 것** — F-ANALYSIS-05(프로파일 완성도)는 이번 범위 밖이다. 완화 임계값 2점은
-ADR 0009의 3점과 마찬가지로 근거 없는 초기값이며, F-ANALYSIS-02 구현 시 함께 재검토해야 한다.
+ADR 0009의 3점과 마찬가지로 근거 없는 초기값이다. F-ANALYSIS-02가 이제 구현됐으므로(2.16절,
+ADR 0021) 재검토 대상이지만 아직 하지 않았다 — 실사용 데이터가 쌓인 뒤로 미룬다.
 `skin_types` 마스터 데이터 적재(운영 시드)도 아직 없다 — 온보딩 구현과 함께 필요하다.
 
 ### 2.9 F-ANALYSIS-05 구현 내역
@@ -668,7 +709,7 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 **중복 판정은 항목 존재 여부만 본다.** 같은 날짜 + 슬롯에 기존 `ProductRecord`가 있고 요청에 겹치는
 `productId`가 있으면 `force`가 아닌 한 `409 PRODUCT_ALREADY_RECORDED_IN_SLOT`을 던지며, 겹친
 `productId` 목록을 `result.duplicatedProductIds`에 싣는다. `force: true`면 기존 기록에 항목을
-이어붙인다 — 전체 교체는 PRODUCT-06(미구현) 몫이라 이 API에서는 다루지 않는다.
+이어붙인다 — 전체 교체는 PRODUCT-06(`PATCH /product-records/{recordId}`) 몫이라 이 API에서는 다루지 않는다.
 
 **`skinRecordSuggested`는 저장 직후 같은 슬롯의 `SkinRecord` 존재 여부로 판정한다.** (F-PRODUCT-07)
 
@@ -846,8 +887,10 @@ USER-02만 붙어 있던 상태(2.9·2.10절)를 마저 채워 BR 4("세 API가 
 없는 초기값으로 기록했다 — 실사용 데이터가 쌓이면 재검토 대상이다.
 
 **`failedSections`는 항상 빈 배열이다.** 1.8절 정의상 이 필드는 BFF가 **외부 API** 부분 실패를
-알리는 공용 봉투(HOME-01의 날씨 API 사례)인데, CHECK-01의 추천 로직은 전부 내부 DB 조회라 실패할
-섹션이 구조적으로 없다.
+알리는 공용 봉투(HOME-01의 날씨 API 사례)인데, CHECK-01의 추천 판단(무엇을 추천할지·순서)은
+전부 내부 DB 조회라 실패할 섹션이 구조적으로 없다. 2026-08-16에 추가된 `aiComment`(ADR 0025)는
+ai-server 호출이라는 외부 의존이 생겼지만, 실패해도 추천 자체를 막지 않는 부가 정보라
+`failedSections`에는 반영하지 않기로 했다 — 자세한 내용은 2.17절.
 
 자동 테스트 12개 추가 — `MyPageServiceTest` 8개(completionRate 위임 1 · topIngredients 8건
 제한·정렬 2 · 상태별 카운트 1 · totalRecordCount 1 · notificationEnabled 분기 2 · skinTypes 1),
@@ -855,6 +898,59 @@ USER-02만 붙어 있던 상태(2.9·2.10절)를 마저 채워 BR 4("세 API가 
 failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태, 2026-08-13). 로컬 MySQL로
 세 API를 동일 사용자로 직접 호출해 값을 대조하는 실서버 검증은 아직 하지 않았다 — 다음 작업으로
 남긴다.
+
+### 2.16 F-ANALYSIS-02 환경 요인 보정 구현 내역 (B-16, ADR 0021)
+
+호르몬 요인 보정(F-ANALYSIS-03, ADR 0019)과 정확히 같은 개입 지점에 자외선 급변일 보정을 추가했다.
+전일 대비 `uv_index_max` 변화폭이 3 이상인 날을 급변일로 본다.
+
+| 클래스 | 역할 |
+| --- | --- |
+| `IngredientLagAnalysisService.loadUvVolatileDates` | 분석 기간의 `DailyEnvironment`를 조회해 급변일 집합을 만든다. `loadMenstrualDates`와 대칭 구조 |
+| `LagCorrelationAnalyzer` | 관측 쌍의 급변일 걸침 비율이 50% 이상이면 확정 임계값을 67%→80%로 상향(`COVARIATE_AFFECTED_*`, 호르몬 보정과 상수 공유) |
+| `LagInsightWriter` | 같은 조건에서 신뢰도를 20% 감쇄. 호르몬 보정과 동시에 걸리면 곱셈으로 합성(0.8 × 0.8 = 36% 감쇄) |
+
+**`daily_environments`에 쓰는 프로덕션 코드가 아직 없다.** `DailyEnvironment` 엔티티·저장소는
+이미 존재하지만, F-HOME-03의 `HomeService`는 현재 환경 응답을 고정값(`SUNNY, 24, 5, MODERATE, 55`)
+으로 내려줄 뿐 DB에 쓰지 않는다. 따라서 실사용 데이터에서는 `loadUvVolatileDates`가 항상 빈
+집합을 내고 보정은 미적용 경로로만 흐른다 — BR 3이 요구하는 정상 동작이며, F-HOME-03이 실제로
+적재를 시작하면 이 코드는 변경 없이 동작한다. 검증은 목업 데이터로 했다(단위 테스트).
+
+자동 테스트 6개 추가 — `LagCorrelationAnalyzerTest` 2개(급변일 걸침 50% 이상 시 미확정 ·
+정보 없으면 기존 임계값), `LagInsightWriterTest` 2개(환경 단독 감쇄 · 호르몬과 곱셈 합성),
+`IngredientLagAnalysisServiceTest` 1개(급변일 조회 연동), `IngredientProfileWriterTest`는
+생성자 시그니처만 갱신. 백엔드 전체 테스트 통과 확인(2026-08-14).
+
+---
+
+### 2.17 CHECK-01 제품 추천 AI 코멘트 구현 내역 (ADR 0025)
+
+추천 여부·순서·`reason`은 그대로 ADR 0016의 규칙 기반 로직으로 정하고, 그 결과에 AI가 생성한
+자연스러운 한 줄 코멘트(`aiComment`)를 덧붙였다. AI는 판단에 관여하지 않고 문구만 다듬는다.
+
+| 컴포넌트 | 역할 |
+| --- | --- |
+| `ai-server/app/product_comment.py` | `vision.py`와 같은 패턴으로 OpenAI 클라이언트 재사용. 추천 목록 전체를 한 번의 배치 프롬프트로 보내 제품별 코멘트를 받음 |
+| `ai-server` `POST /product-comments` | 신규 엔드포인트. 성공 시 코멘트 목록, OpenAI 실패 시 502 + `{"code":"COMMENT_UNAVAILABLE"}` |
+| `backend` `ProductCommentClient`(`domain/product/client`) | 기존 `LOCAL_VISION_BASE_URL`을 그대로 재사용해 ai-server를 호출. 실패는 예외로 전파하지 않고 빈 맵으로 흡수 |
+| `CheckHomeService.buildRecommendations` | 추천 목록 조립 후 배치로 `ProductCommentClient`를 호출해 `productId`별 `aiComment`를 매핑 |
+
+**실패 폴백이 핵심 설계다.** `LocalVisionSkinAnalysisClient`(피부 분석)와 달리 AI 코멘트 생성
+실패는 추천 응답 자체를 막지 않는다 — 추천은 AI 없이도 성립하는 핵심 기능이기 때문이다.
+ai-server가 502를 반환하거나 타임아웃되면 `ProductCommentClient`가 빈 맵을 반환하고, 모든
+`aiComment`가 `null`인 채로 200 응답이 그대로 나간다. 이 실패는 `failedSections`에도 반영하지
+않는다(BR 5는 "추천 여부를 좌우하는 내부 DB 조회"만 대상으로 하고, AI 코멘트는 그 밖의 부가
+정보이기 때문).
+
+**호출 횟수를 1회로 고정했다.** 제품 수만큼 개별 호출하면 지연·비용이 배로 늘어나므로, 추천
+목록 전체를 한 번의 OpenAI 호출(`response_format: json_object`)로 묶어 보낸다.
+
+자동 테스트 추가 — 백엔드는 `CheckHomeServiceTest`에 `ProductCommentClient` mock을 추가(4개
+기존 테스트 모두 통과, Mockito 기본 응답값인 빈 `Map`으로 `aiComment=null` 경로 자동 검증).
+ai-server는 `tests/test_product_comment.py` 4개(정상 생성·키 미설정·JSON 파싱 실패·타임아웃)와
+`tests/test_api.py`에 `/product-comments` 3개(빈 목록·정상 생성·502 폴백) 추가. 백엔드
+전체·ai-server 전체(66개) 테스트 통과 확인(2026-08-16). **실 OpenAI API 키로 코멘트 품질을
+확인하는 E2E 검증은 아직 하지 않았다** — 다음 작업으로 남긴다.
 
 ---
 
@@ -900,11 +996,11 @@ failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태
 | 4 | ~~리포트 일자별 대표값 규칙 (TBD-12)~~ | ADR 0012로 해소 — 대표값을 쓰지 않고 모닝·나이트를 각각 반환 | — |
 | 5 | ~~리포트 요인 상세의 `metric` 전환 지원 여부 (TBD-11)~~ | ADR 0013으로 해소 — 지원하지 않고 인사이트의 지표를 그대로 반환 | — |
 | 6 | `MORNING` 슬롯 시각 불일치 요청 처리 | SKIN-01 · PRODUCT-05 | ADR 0005 미해결 항목 · **현재는 수용** |
-| 7 | 제품 직접 등록 (F-PRODUCT-08) | 우선순위 L | 명세 미정 |
+| 7 | ~~제품 직접 등록 (F-PRODUCT-08, TBD-07)~~ | ADR 0023으로 해소 — `ProductManualRegisterScreen` 정본 확정, `POST /products`(PRODUCT-10) 구현 | — |
 | 7b | ~~REPORT-03에 대응하는 기능 ID가 없다~~ | **F-REPORT-04 신설로 해소.** 다만 이 기능을 쓰는 **화면은 여전히 미정**이라 12장 매핑표에 항목이 없다 | 화면 확정 시 B |
 | 8 | `Idempotency-Key` 미구현 | 저장 API 5개 공통(SKIN-01·PRODUCT-05 등 + CHECK-02) | A·B 공통 인프라로 분리 |
-| 9 | `BackendApplicationTests`가 MySQL 없이 실패 | 로컬 테스트 | H2 또는 `application-test.yml` 필요 |
-| 10 | F-ONBOARD-03(생리·호르몬 정보 입력) 저장 API 없음 | F-ANALYSIS-03(B-17)이 참조하는 `user_profiles` 호르몬 필드를 채울 API 경로가 없다. 온보딩 상태 조회는 `hormone` 단계를 인지하지만(`OnboardingController`) 저장 엔드포인트가 없어 현재는 DB 직접 수정으로만 값을 넣을 수 있다 | A |
+| 9 | ~~`BackendApplicationTests`가 MySQL 없이 실패~~ | **2026-08-15 해소** — `src/test/resources/application.yml`에서 H2로 테스트 프로파일 분리 | — |
+| 10 | ~~F-ONBOARD-03(생리·호르몬 정보 입력) 저장 API 없음~~ | **코드상 해소로 보임(2026-08-15 재확인)** — `OnboardingController.saveHormone()`(`PATCH /api/v1/onboarding/hormone`)이 존재한다. 다만 이 세션은 코드 확인만 했고 DB 직접 수정 우회 없이 이 API로 실제 F-ANALYSIS-03 경로가 동작하는지 실서버 재검증은 아직이다 | A(구현) → B(재검증 필요) |
 
 ---
 

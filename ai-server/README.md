@@ -1,7 +1,15 @@
-# AI 분석 서버 (규칙 기반 비전)
+# AI 분석 서버 (규칙 기반 1차 산출 + OpenAI Vision 확정)
 
 얼굴 사진에서 피부 지표 4종(트러블 · 홍조 · 모공 · 색소잡티)을 산출하는 FastAPI 서버다.
 Spring Boot의 `LocalVisionSkinAnalysisClient`가 이 서버를 호출한다.
+
+제품 추천 AI 코멘트 생성(`/product-comments`, ADR 0025)도 이 서버가 맡는다. 추천 여부·순서는
+Spring이 규칙 기반으로 정하고, 이 서버는 그 결과에 자연스러운 한 줄 코멘트만 덧붙인다.
+
+MediaPipe·OpenCV로 CIELAB 규칙 기반 1차 점수를 낸 뒤(`app/metrics.py`), 그 점수를 근거로
+OpenAI Vision에 최종 확정을 요청한다(`app/vision.py`, ADR 0022). OpenAI 호출이
+실패·타임아웃·비신뢰 응답이면 1차 규칙 기반 점수를 그대로 반환한다 — 외부 API 장애가 분석
+전체를 실패시키지 않는다.
 
 ## 신뢰도 (실측)
 
@@ -56,12 +64,17 @@ REDNESS와 TROUBLE은 서로 다른 신호를 쓴다(REDNESS는 볼의 붉기, T
 
 ## 무엇이 아닌가
 
-**딥러닝 모델이 아니다.** MediaPipe(얼굴 검출)와 OpenCV(영상처리)를 쓴 **규칙 기반 근사치**다.
-학습 데이터가 없어 모델 학습이 불가능한 상태에서 선택한 방식이며, 한계는 다음과 같다.
+**직접 학습한 딥러닝 모델이 아니다.** 1차 산출은 MediaPipe(얼굴 검출)와 OpenCV(영상처리)를 쓴
+**규칙 기반 근사치**이고, 최종 확정만 OpenAI Vision(gpt-4o)에 맡긴다. 학습 데이터가 없어 자체
+모델 학습이 불가능한 상태에서 선택한 방식이며, 한계는 다음과 같다.
 
 - 의학적 정확도를 보장하지 않는다. 검증할 정답 데이터가 없다.
 - 조명 · 화질 · 각도에 민감하다. 전처리로 억제하지만 제거하지는 못한다.
 - 목표는 절대 점수가 아니라 **같은 사람의 변화 방향**을 일관되게 잡아내는 것이다.
+- 최종 점수는 OpenAI 판단을 **클램핑 없이** 그대로 신뢰한다. 1차 점수와 동떨어진 값이 나올 수
+  있고, 이는 반복 촬영 시 점수 변동성을 키울 위험이 있다(ADR 0022의 알려진 한계).
+- PORES의 신뢰도(`pores_reliability`)는 OpenAI가 아니라 항상 규칙 기반 판정을 따른다 — 이
+  임계값은 촬영 조건별 실측 통계로 정의된 것이라 LLM에 재위임할 근거가 없다.
 
 ## 실행
 
@@ -70,6 +83,7 @@ cd ai-server
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ./scripts/download_model.sh          # 얼굴 랜드마크 모델(3.7MB) 내려받기
+cp .env.example .env                 # OPENAI_API_KEY 등을 채운다
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -78,6 +92,18 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 
 모델 파일은 저장소에 넣지 않는다(`models/`는 gitignore). 경로를 바꾸려면
 `LANDMARKER_MODEL_PATH` 환경변수를 쓴다.
+
+`.env`(gitignore 대상)에 다음을 설정한다. `OPENAI_API_KEY`는 피부 분석 2차 확정(`/analyze`)과
+제품 AI 코멘트(`/product-comments`) 양쪽에 쓰인다. 비어 있으면 `/analyze`는 1차 규칙 기반
+점수만 반환하고, `/product-comments`는 502로 응답한다 — 로컬 개발 시 키 없이도 두 엔드포인트
+모두 정상 동작(폴백)한다.
+
+| 환경변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | (빈 값) | 비어 있으면 OpenAI 확정을 건너뛰고 1차 점수로 폴백 |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | |
+| `OPENAI_MODEL` | `gpt-4o` | |
+| `OPENAI_TIMEOUT_SECONDS` | `15` | |
 
 ## 테스트
 
@@ -96,6 +122,7 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 | --- | --- | --- |
 | GET | `/health` | 헬스 체크 |
 | POST | `/analyze` | `image` multipart 파일을 받아 지표 4종 점수 반환 |
+| POST | `/product-comments` | 추천 제품 목록을 받아 제품별 AI 코멘트를 배치로 반환(ADR 0025) |
 
 ```bash
 curl -X POST http://127.0.0.1:8000/analyze -F "image=@face.jpg"
@@ -109,6 +136,18 @@ curl -X POST http://127.0.0.1:8000/analyze -F "image=@face.jpg"
 | `FACE_NOT_DETECTED` | 얼굴을 찾지 못함 | `SKIN_FACE_NOT_DETECTED` |
 | `IMAGE_QUALITY_TOO_LOW` | 흐림 · 과노출 등 품질 미달 | `SKIN_FACE_NOT_DETECTED` |
 | `ANALYSIS_FAILED` | 그 외 분석 실패 | `SKIN_ANALYSIS_FAILED` |
+
+```bash
+curl -X POST http://127.0.0.1:8000/product-comments \
+  -H "Content-Type: application/json" \
+  -d '{"products":[{"product_id":71,"name":"라로슈포제 시카플라스트","brand":"라로슈포제","matched_ingredients":["판테놀"],"category":"SERUM"}]}'
+# {"comments":[{"product_id":71,"comment":"판테놀이 진정에 도움을 줘요"}]}
+```
+
+제품 목록 전체를 한 번의 OpenAI 호출로 묶어 보낸다(배치 프롬프트) — 제품 수만큼 개별 호출하면
+지연·비용이 배로 늘기 때문이다. OpenAI 호출이 실패·타임아웃·비신뢰 응답이면 502와
+`{"code": "COMMENT_UNAVAILABLE"}`를 반환한다. Spring(`ProductCommentClient`)은 이를 예외로
+전파하지 않고 빈 맵으로 흡수해, AI 코멘트 없이도 추천 자체는 정상 응답한다(ADR 0025).
 
 ## Spring 연동
 
@@ -128,3 +167,4 @@ export LOCAL_VISION_BASE_URL=http://localhost:8000   # 기본값
 - [x] Phase 3 — 조명 · 화질 정규화
 - [x] Phase 4 — 지표별 점수 산출
 - [x] Phase 5 — 일관성 검증
+- [x] Phase 6 — OpenAI Vision 2차 확정 (ADR 0022)

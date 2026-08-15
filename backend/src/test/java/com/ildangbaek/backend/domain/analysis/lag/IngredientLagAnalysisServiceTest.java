@@ -27,6 +27,10 @@ import com.ildangbaek.backend.domain.record.repository.ProductRecordRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinMetricRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import com.ildangbaek.backend.domain.analysis.hormone.MenstrualCycleCalculator;
+import com.ildangbaek.backend.domain.environment.entity.DailyEnvironment;
+import com.ildangbaek.backend.domain.environment.entity.EnvironmentDataSource;
+import com.ildangbaek.backend.domain.environment.entity.WeatherCondition;
+import com.ildangbaek.backend.domain.environment.repository.DailyEnvironmentRepository;
 import com.ildangbaek.backend.domain.user.entity.AuthProvider;
 import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.domain.user.repository.UserProfileRepository;
@@ -70,6 +74,8 @@ class IngredientLagAnalysisServiceTest {
     @Mock
     private UserProfileRepository userProfileRepository;
     @Mock
+    private DailyEnvironmentRepository dailyEnvironmentRepository;
+    @Mock
     private LagInsightWriter insightWriter;
     @Mock
     private IngredientProfileWriter profileWriter;
@@ -82,9 +88,12 @@ class IngredientLagAnalysisServiceTest {
     @BeforeEach
     void setUp() {
         when(userProfileRepository.findByUserId(anyLong())).thenReturn(java.util.Optional.empty());
+        when(dailyEnvironmentRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of());
         service = new IngredientLagAnalysisService(productRecordRepository, productRecordItemRepository,
                 productIngredientRepository, skinRecordRepository, skinMetricRepository, userProfileRepository,
-                new LagCorrelationAnalyzer(), new MenstrualCycleCalculator(), insightWriter, profileWriter);
+                dailyEnvironmentRepository, new LagCorrelationAnalyzer(), new MenstrualCycleCalculator(),
+                insightWriter, profileWriter);
 
         user = User.builder().provider(AuthProvider.KAKAO).providerUserId("u1").build();
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -197,6 +206,68 @@ class IngredientLagAnalysisServiceTest {
                 .filter(pattern -> pattern.metricType() == SkinMetricType.TROUBLE && pattern.lagDays() == 2)
                 .findFirst().orElseThrow();
         assertThat(found.menstrualAffectedCount()).isEqualTo(4);
+        assertThat(found.confirmed()).isFalse();
+    }
+
+    @DisplayName("자외선이 급변한 날짜에 관측이 절반 이상 걸치면 방향이 일치해도 확정하지 않는다")
+    @SuppressWarnings("unchecked")
+    @Test
+    void appliesEnvironmentCorrectionWhenLoadingObservations() {
+        // 0, 6, 12, 18일차 사용이 각각 D+2 관측일(-2, 4, 10, 16일차)에 자외선 급변(전일 대비 +5)을
+        // 겪게 한다(ADR 0021의 급변 정의는 전일 대비 변화폭 3 이상). 기준선(사용일) 트러블을 50,
+        // D+2를 65로 둬 세 쌍은 +15(악화)로, 마지막 사용(18일차)의 D+2(16일차)만 -15(개선)로 반대
+        // 방향을 심는다. 방향 일치율은 75%(3/4)로 기본 임계값(67%)은 넘지만 환경 보정 임계값(80%)은
+        // 못 넘는다.
+        List<SkinRecord> records = new ArrayList<>();
+        List<SkinMetric> metrics = new ArrayList<>();
+        List<Integer> useDays = List.of(0, 6, 12, 18);
+        List<Integer> afterDays = List.of(-2, 4, 10, 16);
+        for (int day = -2; day < 20; day++) {
+            int value = 50;
+            if (afterDays.contains(day)) {
+                value = day == 16 ? 35 : 65;
+            }
+            SkinRecord record = skinRecord((long) day + 100, TODAY.minusDays(day), true);
+            records.add(record);
+            metrics.add(metric(record, value));
+        }
+
+        List<ProductRecord> productRecords = new ArrayList<>();
+        List<ProductRecordItem> items = new ArrayList<>();
+        for (int day : useDays) {
+            ProductRecord productRecord = productRecord((long) day + 1, TODAY.minusDays(day));
+            productRecords.add(productRecord);
+            items.add(productRecordItem(productRecord, serum));
+        }
+
+        List<DailyEnvironment> environments = new ArrayList<>();
+        for (int day = -2; day < 20; day++) {
+            boolean spike = afterDays.contains(day);
+            environments.add(environment(TODAY.minusDays(day), spike ? BigDecimal.valueOf(8) : BigDecimal.valueOf(3)));
+        }
+        // 조회 순서(과거 → 최근)로 정렬해 서비스가 전일 대비 변화를 올바르게 계산하게 한다.
+        environments.sort(java.util.Comparator.comparing(DailyEnvironment::getRecordDate));
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(records);
+        when(skinMetricRepository.findAllBySkinRecordIdIn(anyList())).thenReturn(metrics);
+        when(productRecordRepository.findAllByUserIdAndRecordDateBetween(anyLong(), any(), any()))
+                .thenReturn(productRecords);
+        when(productRecordItemRepository.findAllWithProductByProductRecordIdIn(anyList())).thenReturn(items);
+        when(productIngredientRepository.findAllWithIngredientByProductIdIn(anyList()))
+                .thenReturn(List.of(productIngredient(serum, retinol)));
+        when(dailyEnvironmentRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(environments);
+        when(insightWriter.write(any(), anyList(), any(), any())).thenReturn(List.of());
+
+        service.analyzeAndStore(user, TODAY);
+
+        ArgumentCaptor<List<LagPattern>> captor = ArgumentCaptor.forClass(List.class);
+        verify(insightWriter).write(any(), captor.capture(), any(), any());
+        LagPattern found = captor.getValue().stream()
+                .filter(pattern -> pattern.metricType() == SkinMetricType.TROUBLE && pattern.lagDays() == 2)
+                .findFirst().orElseThrow();
+        assertThat(found.environmentAffectedCount()).isEqualTo(4);
         assertThat(found.confirmed()).isFalse();
     }
 
@@ -398,6 +469,20 @@ class IngredientLagAnalysisServiceTest {
                 .skinRecord(record)
                 .metricType(SkinMetricType.TROUBLE)
                 .metricValue(BigDecimal.valueOf(value))
+                .build();
+    }
+
+    private DailyEnvironment environment(LocalDate date, BigDecimal uvIndexMax) {
+        return DailyEnvironment.builder()
+                .user(user)
+                .recordDate(date)
+                .regionName("서울")
+                .weatherCondition(WeatherCondition.SUNNY)
+                .temperature(BigDecimal.valueOf(24))
+                .humidity(BigDecimal.valueOf(55))
+                .uvIndexCurrent(uvIndexMax)
+                .uvIndexMax(uvIndexMax)
+                .dataSource(EnvironmentDataSource.MOCK)
                 .build();
     }
 

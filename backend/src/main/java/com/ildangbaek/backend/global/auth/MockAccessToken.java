@@ -7,7 +7,7 @@ import java.util.Optional;
  *
  * <p><strong>임시 방편이다.</strong> 서명 검증이 없어 위조할 수 있으므로
  * <strong>배포 전에 반드시 실제 인증(JWT 등)으로 교체해야 한다.</strong>
- * {@link CurrentUserIdArgumentResolver}와 {@code CurrentUserResolver}가 이 로직을 공유한다.
+ * {@link CurrentUserIdArgumentResolver}가 이 로직을 쓴다.
  */
 public final class MockAccessToken {
 

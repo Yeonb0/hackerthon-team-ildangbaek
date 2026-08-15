@@ -54,7 +54,7 @@ def test_region_masks_are_subsets_of_skin(face_image, points) -> None:
     masks = face_regions.region_masks(points, face_image.shape[:2])
     skin = masks["skin"]
 
-    for name in ("cheeks", "forehead", "nose", "tzone"):
+    for name in ("cheeks", "forehead", "nose", "tzone", "pigmentation"):
         outside = cv2.bitwise_and(masks[name], cv2.bitwise_not(skin))
         assert (outside > 0).sum() == 0, f"{name} 마스크가 피부 영역을 벗어났다"
         assert (masks[name] > 0).sum() > 0, f"{name} 마스크가 비어 있다"

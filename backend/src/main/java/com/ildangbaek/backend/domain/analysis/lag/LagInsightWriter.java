@@ -31,6 +31,12 @@ public class LagInsightWriter {
     /** 위 기준을 넘겼을 때 신뢰도 점수를 낮추는 비율. 근거 없는 초기값이며 재검토 대상이다. */
     private static final double MENSTRUAL_CONFIDENCE_PENALTY_RATIO = 0.2;
 
+    /**
+     * 자외선 급변일 보정의 신뢰도 감쇄 비율. (F-ANALYSIS-02 BR 2) 호르몬 보정과 같은 값이며,
+     * 둘 다 걸리면 곱셈으로 합성해 0.8 × 0.8 = 36% 감쇄된다. (ADR 0021)
+     */
+    private static final double ENVIRONMENT_CONFIDENCE_PENALTY_RATIO = 0.2;
+
     private final AnalysisInsightRepository analysisInsightRepository;
 
     @Transactional
@@ -109,13 +115,20 @@ public class LagInsightWriter {
      * <p>관측 쌍의 절반 이상이 생리 기간에 걸치면 호르몬 변화와 성분 반응을 구분할 수 없으므로
      * 신뢰도를 {@value #MENSTRUAL_CONFIDENCE_PENALTY_RATIO}만큼 낮춘다. 생리 정보가 없는 사용자는
      * {@code menstrualAffectedCount}가 항상 0이라 이 보정이 적용되지 않는다. (F-ANALYSIS-03 BR 1, 3)
+     *
+     * <p>자외선 급변일도 같은 방식으로 {@value #ENVIRONMENT_CONFIDENCE_PENALTY_RATIO}만큼 낮춘다.
+     * 두 보정이 동시에 적용되면 곱셈으로 합성한다 — 두 교란 요인이 겹친 관측은 실제로 더 믿을 수
+     * 없는 것이 맞다. (F-ANALYSIS-02 BR 2, 3 / ADR 0021)
      */
     private BigDecimal confidenceScore(LagPattern pattern) {
         double rate = pattern.confirmed()
                 ? pattern.agreementRate()
                 : Math.min(pattern.agreementRate(), LagCorrelationAnalyzer.MIN_AGREEMENT_RATE - 0.01);
-        if (pattern.menstrualAffectedRate() >= LagCorrelationAnalyzer.MENSTRUAL_AFFECTED_THRESHOLD) {
+        if (pattern.menstrualAffectedRate() >= LagCorrelationAnalyzer.COVARIATE_AFFECTED_THRESHOLD) {
             rate *= (1 - MENSTRUAL_CONFIDENCE_PENALTY_RATIO);
+        }
+        if (pattern.environmentAffectedRate() >= LagCorrelationAnalyzer.COVARIATE_AFFECTED_THRESHOLD) {
+            rate *= (1 - ENVIRONMENT_CONFIDENCE_PENALTY_RATIO);
         }
         return BigDecimal.valueOf(rate * 100).setScale(2, RoundingMode.HALF_UP);
     }

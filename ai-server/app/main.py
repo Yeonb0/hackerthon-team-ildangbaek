@@ -9,9 +9,15 @@ import logging
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 
-from app import pipeline
+from app import pipeline, product_comment
 from app.errors import AnalysisError
-from app.schema import AnalyzeErrorResponse, AnalyzeResponse
+from app.product_comment import ProductCommentUnavailableError
+from app.schema import (
+    AnalyzeErrorResponse,
+    AnalyzeResponse,
+    ProductCommentBatchRequest,
+    ProductCommentBatchResponse,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -43,3 +49,23 @@ async def analyze(image: UploadFile = File(...)) -> AnalyzeResponse:
     log.info("분석 요청: filename=%s bytes=%d", image.filename, len(image_bytes))
     result = pipeline.analyze(image_bytes)
     return AnalyzeResponse(scores=result.scores, pores_reliability=result.pores_reliability)
+
+
+@app.post("/product-comments", response_model=ProductCommentBatchResponse)
+async def product_comments(request: ProductCommentBatchRequest) -> ProductCommentBatchResponse:
+    """추천 제품 목록에 대한 한 줄 코멘트를 배치로 생성한다.
+
+    추천 여부·순서는 Spring이 이미 규칙 기반으로 정한 상태다. 이 엔드포인트는 그 결과를
+    받아 코멘트만 덧붙인다. OpenAI 실패는 502로 응답한다 — Spring이 이를 잡아 코멘트
+    없이(aiComment=null) 추천 자체는 정상 반환하도록 폴백한다(ADR 0022와 동일한 패턴).
+    """
+    if not request.products:
+        return ProductCommentBatchResponse(comments=[])
+
+    try:
+        comments = product_comment.generate(request.products)
+    except ProductCommentUnavailableError as e:
+        log.warning("제품 코멘트 생성 실패, 폴백: %s", e)
+        return JSONResponse(status_code=502, content={"code": "COMMENT_UNAVAILABLE"})
+
+    return ProductCommentBatchResponse(comments=comments)

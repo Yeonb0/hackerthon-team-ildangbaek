@@ -1036,6 +1036,7 @@ json
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `homeType` | Enum | X | `DAY` / `NIGHT` · 사용자가 토글로 강제 지정한 경우 |
+| `weekStart` | Enum | X | `SUNDAY` / `MONDAY` · `weeklyCalendar` 계산 시 주 시작 요일. 기본값 `MONDAY`. `SUNDAY`/`MONDAY` 외 값(누락 포함)은 `MONDAY`로 처리. 밤(`NIGHT`) 응답에만 영향, 낮 응답은 무시 |
 
 **Business Rule — 낮/밤 판정** `변경`
 
@@ -1158,7 +1159,7 @@ json
 | `environment` | **낮에만** 조회한다. 밤에는 `null`. S-08에 날씨 영역이 없기 때문 |
 | `routineRecommendation` | 낮은 `MORNING`, 밤은 `NIGHT` 루틴 대상. 각 항목에 `reason` 필수 |
 | `todayRecord` | 4개 슬롯 전체 상태. 낮/밤 무관하게 항상 반환 |
-| `weeklyCalendar` | **밤에만** 반환. 오늘 포함 최근 7일(오늘부터 6일 전까지) 롤링 범위. 이번 달 전체는 RECORD-01 담당 |
+| `weeklyCalendar` | **밤에만** 반환. `weekStart` 기준으로 계산한 이번 주 시작일부터 오늘까지의 범위(최대 7일). 이번 달 전체는 RECORD-01 담당 |
 | `todayReport` | **밤 + 오늘 피부 기록 존재** 시에만. 조건 미충족 시 `null` |
 
 **`environment.weather` 값** `확정`
@@ -1617,13 +1618,12 @@ json
 | Method | `GET` |
 | URI | `/api/v1/products/match` |
 | 인증 | 필요 |
-| 관련 화면 | 없음(F-PRODUCT-08 TBD-07과 연결 예정) |
-| 관련 기능 | F-PRODUCT-08(TBD) |
+| 관련 화면 | `ProductManualRegisterScreen` |
+| 관련 기능 | F-PRODUCT-08 |
 
-> **F-PRODUCT-08(제품 직접 등록) 자체는 여전히 미정 · TBD-07 상태입니다.** 이 API는 그 결정과
-> 무관하게, "제품명+브랜드명이 이미 카탈로그에 있으면 성분·카테고리를 자동으로 채워준다"는
-> 조회 기능만 먼저 제공합니다(관리자 결정, 2026-08-14). F-PRODUCT-08의 화면·저장 흐름이
-> 확정되면 이 API를 그 흐름에 연결합니다.
+> "제품명+브랜드명이 이미 카탈로그에 있으면 성분·카테고리를 자동으로 채워준다"는 조회 기능이다
+> (관리자 결정, 2026-08-14). F-PRODUCT-08의 저장 흐름은 PRODUCT-10(`POST /products`)이 맡는다 —
+> 이 API는 등록 전 중복 확인용 조회만 제공하며, 저장 자체를 막지는 않는다.
 
 **Query Parameter**
 
@@ -1931,16 +1931,60 @@ json
 
 ---
 
-## 정의 보류 · 제품 직접 등록
+## PRODUCT-10 · 제품 직접 등록
 
 | 항목 | 내용 |
 | --- | --- |
-| 예상 URI | `POST /api/v1/products` |
+| Method | `POST` |
+| URI | `/api/v1/products` |
+| 인증 | 필요 |
+| Content-Type | `multipart/form-data` |
+| 관련 화면 | `ProductManualRegisterScreen`(S-11 · S-12의 `제품 등록` / `직접 등록하기` 버튼 도착 화면) |
 | 관련 기능 | F-PRODUCT-08 |
-| 상태 | **TBD-07 결정 대기** |
 
-> S-11 · S-12의 `제품 등록` / `직접 등록하기` 버튼에 **이동할 화면이 없습니다.** 화면 추가 또는 버튼 제거가 결정되기 전까지 이 API는 정의하지 않습니다. 백엔드가 선제 구현하면 프론트가 붙일 화면이 없어 사장됩니다.
-> 
+**Request (multipart form fields)**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | String | O | 제품명, 1~200자 |
+| `brand` | String | X | 브랜드명, 100자 이하 |
+| `category` | Enum | O | `ProductCategory` 표준 12종 중 하나 |
+| `ingredientNames` | Array\<String\> | X | 자유 텍스트 성분명. 동일 파트를 여러 번 보내 배열로 전달 |
+| `image` | File | X | 제품 사진 |
+
+**Success Response — 200**
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "요청에 성공했습니다.",
+  "result": {
+    "productId": 9102,
+    "name": "홈메이드세럼",
+    "brand": "우리집",
+    "category": "SERUM",
+    "imageUrl": "/images/xxxx.jpg"
+  }
+}
+```
+
+**Business Rule**
+
+1. 등록된 제품은 `dataSource=USER`, `active=true`로 즉시 저장되며 다른 사용자에게도 검색·매칭·스캔에 동일하게 노출된다. 등록자 전용 비공개 상태는 없다.
+2. `ingredientNames`에 카탈로그에 없는 성분명이 있으면 새 `Ingredient`로 생성해 연결한다. 이미 있는 이름이면 기존 성분을 재사용한다. 농도·핵심 성분 여부는 입력받지 않는다(`keyIngredient=false`로 저장).
+3. 이름·브랜드 중복을 서버가 막지 않는다. 클라이언트가 등록 전 PRODUCT-09(`GET /products/match`)로 조회해 중복 여부를 사용자에게 안내한다.
+4. `image`를 생략하면 `imageUrl`은 `null`이다. 보내는 경우 형식·크기 규칙은 공통 이미지 규칙(9.3)과 같다.
+5. 같은 성분명이 여러 번 들어오면(앞뒤 공백 차이 포함) 첫 번째 것만 연결한다. 오류가 아니라 무시이며, `displayOrder`는 중복을 걸러낸 뒤의 순서로 1부터 매긴다.
+
+**Error**
+
+| Status | Code |
+| --- | --- |
+| 422 | `COMMON_VALIDATION_FAILED` (`name` 공백/글자 수 초과, `category` 누락 등) |
+| 422 | `SKIN_IMAGE_INVALID_FORMAT` (`image`가 jpg/jpeg/png가 아님) |
+| 422 | `SKIN_IMAGE_TOO_LARGE` (`image`가 10MB 초과) |
+| 401 | `COMMON_UNAUTHORIZED` |
 
 ---
 
@@ -2171,14 +2215,16 @@ json
         "name": "라로슈포제 시카플라스트",
         "brand": "라로슈포제",
         "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요",
-        "category": "MATCHED_INGREDIENT"
+        "category": "MATCHED_INGREDIENT",
+        "aiComment": "판테놀이 진정에 도움을 줘요"
       },
       {
         "productId": 82,
         "name": "마누카 히알루론산 토너",
         "brand": "마누카",
         "reason": "히알루론산 반응이 좋았어요",
-        "category": "TODAY_NEEDED"
+        "category": "TODAY_NEEDED",
+        "aiComment": null
       }
     ],
     "todayContext": {
@@ -2202,13 +2248,19 @@ json
    `reason`은 매칭된 성분명을 모두 모아 `"{성분명1}·{성분명2}이 잘 맞는 성분이에요"` 형태로 조립한다.
 4. `profileCompletion`은 F-ANALYSIS-05 값을 그대로 쓰며, USER-01·USER-02와 동일한 값이어야 한다
    (`ProfileCompletionCalculator` 단독 계산, ADR 0011 BR 4).
-5. `failedSections`는 이 응답이 전부 내부 DB 조회이므로 현재는 항상 빈 배열이다. 1.8절의 외부 API
-   부분 실패 알림 용도이며, 이 화면에 외부 API가 붙기 전까지는 값이 채워지지 않는다.
+5. `failedSections`는 추천 여부·순서를 좌우하는 조회가 전부 내부 DB 조회이므로 현재는 항상 빈
+   배열이다. 1.8절의 외부 API 부분 실패 알림 용도다. ai-server AI 코멘트 호출(BR 7)은 실패해도
+   추천 자체를 막지 않는 부가 기능이라 `failedSections`에 반영하지 않는다.
 6. **3분류 · 오늘 컨텍스트(ADR 0018)**: `recommendations[].category`는
    `TODAY_NEEDED`/`HUMIDITY_CARE`/`MATCHED_INGREDIENT` 중 하나이며, 제품 카테고리 기준 추정
    매칭이다(임계값·매핑은 잠정치, 재검토 대상). `todayContext`는 오늘(가장 최근) 피부 기록의
    트러블·홍조 점수와 오늘 환경 데이터의 습도·습도 등급을 담으며, 해당 데이터가 없으면 각 필드가
    개별적으로 `null`이다.
+7. **AI 코멘트(ADR 0025)**: `recommendations[].aiComment`는 ai-server가 `reason`을 근거로 생성한
+   자연스러운 한 줄 코멘트다. 추천 여부·순서·`reason`은 전부 내부 DB 규칙으로 결정되고, AI는
+   여기에 문구만 덧붙인다. ai-server 호출이 실패·타임아웃되면 `aiComment`는 `null`이고, 이 실패는
+   `failedSections`에 반영되지 않는다(BR 5) — AI 코멘트는 추천의 전제 조건이 아니므로 200 응답을
+   그대로 유지한다.
 
 ---
 
@@ -2669,7 +2721,7 @@ json
 | F-PRODUCT-05 | `GET /product-records/home` + `GET /routines` |
 | F-PRODUCT-06 | `POST /routines/{id}/records` |
 | F-PRODUCT-07 | `POST /product-records` (`skinRecordSuggested`) |
-| F-PRODUCT-08 | **정의 보류 · TBD-07** |
+| F-PRODUCT-08 | `POST /products` (PRODUCT-10) |
 | F-SKIN-01 | — (정적 화면) |
 | F-SKIN-02 ~ 04 | `POST /skin-records` |
 | F-SKIN-05 | `GET /skin-records/today` |
@@ -2775,12 +2827,14 @@ json
 > **결정적인** 점수를 만들며, 목업으로 생성된 기록은 `analysis_method = MOCK`으로 식별된다.
 > 실연동 시 변경 범위는 구현체 1개와 설정값이다. ([ADR 0003](decisions/0003-AI-분석-목업-우선.md))
 >
-> **실연동 후보가 두 갈래로 준비돼 있다.** ① 외부 VLM(OpenAI gpt-4o Vision, `provider=openai`) —
-> 구현은 완료됐으나 실 API 키로 E2E 검증은 아직이다. ② 팀이 직접 운영하는 규칙 기반 영상처리
-> 서버(`provider=local-vision`) — MediaPipe로 얼굴을 검출하고 CIELAB 색공간 통계로 지표를
-> 산출한다(`ai-server/`, 딥러닝 모델 아님). 라벨링된 학습 데이터가 없어 모델 학습 대신 채택했으며,
-> 절대 정확도가 아니라 개인의 상대적 변화 추적용이다. 모공 지표는 카메라 노이즈와 신호가 겹쳐
-> 신뢰도가 낮다. ([ADR 0020](decisions/0020-규칙-기반-로컬-비전-분석.md))
+> **실연동 후보는 팀이 직접 운영하는 규칙 기반 영상처리 서버(`provider=local-vision`) 하나다.**
+> MediaPipe로 얼굴을 검출하고 CIELAB 색공간 통계로 1차 점수를 산출한 뒤(`ai-server/`, 딥러닝
+> 모델 아님), OpenAI Vision(gpt-4o)이 그 1차 점수를 근거로 최종 점수를 확정한다 — OpenAI 호출은
+> ai-server 내부에서만 일어나며 Spring이 직접 호출하지 않는다. 라벨링된 학습 데이터가 없어 자체
+> 모델 학습 대신 채택했으며, 절대 정확도가 아니라 개인의 상대적 변화 추적용이다. 모공 지표는
+> 카메라 노이즈와 신호가 겹쳐 신뢰도가 낮다(규칙 기반 판정을 그대로 유지, OpenAI가 재판단하지
+> 않음). ([ADR 0020](decisions/0020-규칙-기반-로컬-비전-분석.md) ·
+> [ADR 0022](decisions/0022-openai-비전-2단계-점수-확정.md))
 >
 > **이미지 스토리지도 같은 방식이다.** `ImageStorage` 인터페이스 뒤에 로컬 디렉터리 구현이 있고,
 > 배포 시 외부 스토리지로 교체한다. ([ADR 0007](decisions/0007-이미지-스토리지.md))
@@ -2863,13 +2917,17 @@ S-22 결과 표시
 | Field | Rule | 실패 코드 |
 | --- | --- | --- |
 | `name` | 1~10자 · 공백만 불가 | `COMMON_VALIDATION_FAILED` |
-| `gender` | `FEMALE` / `MALE` / `UNSPECIFIED` | `COMMON_VALIDATION_FAILED` |
+| `gender` | `FEMALE` / `MALE` / `UNSPECIFIED` | `COMMON_BAD_REQUEST` |
 | `age` | 10~100 | `COMMON_VALIDATION_FAILED` |
 | `skinTypes` | 1개 이상 | `ONBOARD_SKIN_TYPE_REQUIRED` |
 | `skinTypes` | `UNKNOWN` 단독만 | `ONBOARD_SKIN_TYPE_CONFLICT` |
 | `hormoneStatus` | 4종 Enum · 여성만 | `ONBOARD_HORMONE_NOT_APPLICABLE` |
 | `lastPeriodStartDate` | 오늘 이후 불가 | `COMMON_VALIDATION_FAILED` |
 | `averageCycleDays` | 20~45 | `COMMON_VALIDATION_FAILED` |
+
+> `gender` · `hormoneStatus` · `skinTypes`처럼 Enum에 없는 값이 오는 경우는 파싱 단계 실패라
+> 400 `COMMON_BAD_REQUEST`다(2장 "400 vs 422 구분 기준"). 422는 타입은 맞고 값의 범위만
+> 어긋난 경우(`age=150` 등)에 쓴다.
 
 ## Product · Record
 
@@ -2948,7 +3006,7 @@ service/external/
 | TBD | 항목 | API 영향 | 영향도 |
 | --- | --- | --- | --- |
 | ~~TBD-10b~~ | ~~피부 기록 저장 시점~~ | **해소** — 분석 완료 시 저장 · API 1개 유지 ([ADR 0001](decisions/0001-피부-기록-저장-시점.md)) | — |
-| TBD-07 | 제품 직접 등록 | `POST /products` 신설 필요 | 높음 |
+| ~~TBD-07~~ | ~~제품 직접 등록~~ | **해소** — `POST /products`(PRODUCT-10) 신설 완료 ([ADR 0023](decisions/0023-제품-직접-등록-화면-확정.md)) | — |
 | TBD-05 | 스캔 인식 대상 | 성분표 OCR 추가 시 `POST /products/scan` **응답 구조 변경** | 높음 |
 | TBD-09 | 분석 지연 처리 | 백그라운드 방식 결정 시 `202 Accepted` + 폴링 API 추가 | 중간 |
 | TBD-03 | 낮/밤 토글 유지 범위 | 서버 저장 결정 시 `PATCH /users/me/home-preference` 추가 | 낮음 |

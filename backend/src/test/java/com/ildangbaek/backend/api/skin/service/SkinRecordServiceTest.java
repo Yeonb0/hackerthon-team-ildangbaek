@@ -227,6 +227,35 @@ class SkinRecordServiceTest {
         verify(ingredientProfileUpdater).update(any(SkinRecord.class));
     }
 
+    @DisplayName("현재 기록에 지표가 일부 없어도 비교가 NPE로 죽지 않는다")
+    @Test
+    void comparisonToleratesMissingCurrentMetric() {
+        // 분석이 부분 실패했거나 지표가 나중에 추가된 기록은 skin_metrics 행이 4종보다 적다.
+        // 이때 현재 값을 언박싱하면 NPE로 500이 난다 — 조회만으로 터지는 경로다.
+        LocalDate today = LocalDate.now();
+        SkinRecord record = savedRecord(11L, today, TimeSlot.MORNING, 60);
+        SkinRecord previous = savedRecord(12L, today.minusDays(1), TimeSlot.MORNING, 70);
+
+        when(skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(1L, today, TimeSlot.MORNING))
+                .thenReturn(Optional.of(record));
+        when(skinMetricRepository.findAllBySkinRecordId(11L))
+                .thenReturn(List.of(SkinMetric.builder()
+                        .skinRecord(record)
+                        .metricType(SkinMetricType.TROUBLE)
+                        .metricValue(BigDecimal.valueOf(40))
+                        .build()));
+        when(skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(1L, today.minusDays(1), TimeSlot.MORNING))
+                .thenReturn(Optional.of(previous));
+        when(skinMetricRepository.findAllBySkinRecordId(12L)).thenReturn(previousMetrics(previous, 50));
+
+        SkinRecordResponse response = service.getToday(1L, TimeSlot.MORNING);
+
+        assertThat(response.comparison()).isNotNull();
+        assertThat(response.comparison().changes().trouble()).isEqualTo(40 - 50);
+        // 값이 없는 지표는 변화량을 0으로 둔다 — 단정할 근거가 없다.
+        assertThat(response.comparison().changes().redness()).isZero();
+    }
+
     private List<SkinMetric> previousMetrics(SkinRecord record, int value) {
         Map<SkinMetricType, Integer> scores = new EnumMap<>(SkinMetricType.class);
         for (SkinMetricType type : SkinMetricType.values()) {

@@ -10,6 +10,8 @@ import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileReposi
 import com.ildangbaek.backend.domain.environment.entity.DailyEnvironment;
 import com.ildangbaek.backend.domain.environment.entity.HumidityGrade;
 import com.ildangbaek.backend.domain.environment.repository.DailyEnvironmentRepository;
+import com.ildangbaek.backend.domain.product.client.ProductCommentClient;
+import com.ildangbaek.backend.domain.product.client.ProductCommentClient.ProductCommentRequest;
 import com.ildangbaek.backend.domain.product.entity.Product;
 import com.ildangbaek.backend.domain.product.entity.ProductCategory;
 import com.ildangbaek.backend.domain.product.entity.ProductIngredient;
@@ -20,6 +22,7 @@ import com.ildangbaek.backend.domain.record.entity.SkinRecord;
 import com.ildangbaek.backend.domain.record.repository.SkinMetricRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +63,7 @@ public class CheckHomeService {
     private final SkinRecordRepository skinRecordRepository;
     private final SkinMetricRepository skinMetricRepository;
     private final DailyEnvironmentRepository dailyEnvironmentRepository;
+    private final ProductCommentClient productCommentClient;
 
     @Transactional(readOnly = true)
     public CheckHomeResponse getHome(Long userId) {
@@ -113,6 +117,9 @@ public class CheckHomeService {
      * 제품 ID로 묶어 중복을 없애고, 묶인 그룹의 성분명을 모아 {@code reason}을 조립한다.
      * {@code Product}는 {@code equals}/{@code hashCode}를 재정의하지 않으므로 ID로 그룹핑한다.
      * 순서 보존을 위해 {@link LinkedHashMap}을 쓴다 — 쿼리 반환 순서가 그대로 추천 순서가 된다.
+     *
+     * <p>{@code reason}까지 조립한 뒤 ai-server에 배치로 {@code aiComment}를 요청한다(ADR 0025).
+     * 제품 수만큼 개별 호출하면 지연·비용이 배로 늘어나 한 번의 호출로 묶는다.
      */
     private List<CheckRecommendationResponse> buildRecommendations(
             List<Long> goodIngredientIds, TodayContextResponse todayContext) {
@@ -123,21 +130,41 @@ public class CheckHomeService {
                 .collect(Collectors.groupingBy(
                         pi -> pi.getProduct().getId(), LinkedHashMap::new, Collectors.toList()));
 
-        return matchesByProductId.values().stream()
-                .map(productMatches -> toRecommendation(productMatches, todayContext))
+        List<CheckRecommendationResponse> recommendations = new ArrayList<>();
+        List<ProductCommentRequest> commentRequests = new ArrayList<>();
+        for (List<ProductIngredient> productMatches : matchesByProductId.values()) {
+            List<String> ingredientNames = productMatches.stream()
+                    .map(pi -> pi.getIngredient().getKoreanName())
+                    .toList();
+            CheckRecommendationResponse recommendation =
+                    toRecommendation(productMatches.get(0).getProduct(), ingredientNames, todayContext);
+            recommendations.add(recommendation);
+            commentRequests.add(new ProductCommentRequest(
+                    recommendation.productId(),
+                    recommendation.name(),
+                    recommendation.brand(),
+                    ingredientNames,
+                    recommendation.category().name()));
+        }
+
+        Map<Long, String> aiComments = productCommentClient.generateComments(commentRequests);
+
+        return recommendations.stream()
+                .map(r -> withAiComment(r, aiComments.get(r.productId())))
                 .toList();
     }
 
     private CheckRecommendationResponse toRecommendation(
-            List<ProductIngredient> productMatches, TodayContextResponse todayContext) {
-        Product product = productMatches.get(0).getProduct();
-        String ingredientNames = productMatches.stream()
-                .map(pi -> pi.getIngredient().getKoreanName())
-                .collect(Collectors.joining("·"));
-        String reason = ingredientNames + "이 잘 맞는 성분이에요";
+            Product product, List<String> ingredientNames, TodayContextResponse todayContext) {
+        String reason = String.join("·", ingredientNames) + "이 잘 맞는 성분이에요";
         RecommendationCategory category = classify(product.getCategory(), todayContext);
         return new CheckRecommendationResponse(
-                product.getId(), product.getProductName(), product.getBrandName(), reason, category);
+                product.getId(), product.getProductName(), product.getBrandName(), reason, category, null);
+    }
+
+    private CheckRecommendationResponse withAiComment(CheckRecommendationResponse r, String aiComment) {
+        return new CheckRecommendationResponse(
+                r.productId(), r.name(), r.brand(), r.reason(), r.category(), aiComment);
     }
 
     /**

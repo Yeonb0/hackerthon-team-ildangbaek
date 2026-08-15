@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +48,7 @@ public class OnboardingService {
 
     @Transactional
     public OnboardingStatusResponse saveBasicInfo(User user, BasicInfoRequest request) {
-        Gender gender = parseGender(request.gender());
+        Gender gender = request.gender().toGender();
         Short birthYear = (short) (Year.now().getValue() - request.age() + 1);
 
         UserProfile profile = userProfileRepository.findByUserId(user.getId())
@@ -66,9 +67,13 @@ public class OnboardingService {
     @Transactional
     public OnboardingStatusResponse saveSkinTypes(User user, SkinTypesRequest request) {
         validateSkinTypes(request.skinTypes());
-        userSkinTypeRepository.deleteAllByUserId(user.getId());
 
-        for (SkinTypeCode code : request.skinTypes()) {
+        // 삭제는 커밋까지 미뤄지지만 아래 save는 IDENTITY라 즉시 INSERT된다. flush로 순서를
+        // 고정하지 않으면 (user_id, skin_type_id) 유니크 제약에 걸린다. 요청 안의 중복도 걸러낸다.
+        userSkinTypeRepository.deleteAllByUserId(user.getId());
+        userSkinTypeRepository.flush();
+
+        for (SkinTypeCode code : List.copyOf(new LinkedHashSet<>(request.skinTypes()))) {
             SkinType skinType = skinTypeRepository.findByCode(code)
                     .orElseGet(() -> skinTypeRepository.save(SkinType.builder()
                             .code(code)
@@ -199,13 +204,6 @@ public class OnboardingService {
         return userProfileRepository.findByUserId(user.getId())
                 .map(UserProfile::getMenstrualStatus)
                 .isPresent();
-    }
-
-    private Gender parseGender(String gender) {
-        if ("UNSPECIFIED".equals(gender)) {
-            return Gender.NOT_SELECTED;
-        }
-        return Gender.valueOf(gender);
     }
 
     private void validateSkinTypes(List<SkinTypeCode> skinTypes) {
