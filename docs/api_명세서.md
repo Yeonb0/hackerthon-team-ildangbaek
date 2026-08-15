@@ -2215,14 +2215,16 @@ json
         "name": "라로슈포제 시카플라스트",
         "brand": "라로슈포제",
         "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요",
-        "category": "MATCHED_INGREDIENT"
+        "category": "MATCHED_INGREDIENT",
+        "aiComment": "판테놀이 진정에 도움을 줘요"
       },
       {
         "productId": 82,
         "name": "마누카 히알루론산 토너",
         "brand": "마누카",
         "reason": "히알루론산 반응이 좋았어요",
-        "category": "TODAY_NEEDED"
+        "category": "TODAY_NEEDED",
+        "aiComment": null
       }
     ],
     "todayContext": {
@@ -2246,13 +2248,19 @@ json
    `reason`은 매칭된 성분명을 모두 모아 `"{성분명1}·{성분명2}이 잘 맞는 성분이에요"` 형태로 조립한다.
 4. `profileCompletion`은 F-ANALYSIS-05 값을 그대로 쓰며, USER-01·USER-02와 동일한 값이어야 한다
    (`ProfileCompletionCalculator` 단독 계산, ADR 0011 BR 4).
-5. `failedSections`는 이 응답이 전부 내부 DB 조회이므로 현재는 항상 빈 배열이다. 1.8절의 외부 API
-   부분 실패 알림 용도이며, 이 화면에 외부 API가 붙기 전까지는 값이 채워지지 않는다.
+5. `failedSections`는 추천 여부·순서를 좌우하는 조회가 전부 내부 DB 조회이므로 현재는 항상 빈
+   배열이다. 1.8절의 외부 API 부분 실패 알림 용도다. ai-server AI 코멘트 호출(BR 7)은 실패해도
+   추천 자체를 막지 않는 부가 기능이라 `failedSections`에 반영하지 않는다.
 6. **3분류 · 오늘 컨텍스트(ADR 0018)**: `recommendations[].category`는
    `TODAY_NEEDED`/`HUMIDITY_CARE`/`MATCHED_INGREDIENT` 중 하나이며, 제품 카테고리 기준 추정
    매칭이다(임계값·매핑은 잠정치, 재검토 대상). `todayContext`는 오늘(가장 최근) 피부 기록의
    트러블·홍조 점수와 오늘 환경 데이터의 습도·습도 등급을 담으며, 해당 데이터가 없으면 각 필드가
    개별적으로 `null`이다.
+7. **AI 코멘트(ADR 0025)**: `recommendations[].aiComment`는 ai-server가 `reason`을 근거로 생성한
+   자연스러운 한 줄 코멘트다. 추천 여부·순서·`reason`은 전부 내부 DB 규칙으로 결정되고, AI는
+   여기에 문구만 덧붙인다. ai-server 호출이 실패·타임아웃되면 `aiComment`는 `null`이고, 이 실패는
+   `failedSections`에 반영되지 않는다(BR 5) — AI 코멘트는 추천의 전제 조건이 아니므로 200 응답을
+   그대로 유지한다.
 
 ---
 

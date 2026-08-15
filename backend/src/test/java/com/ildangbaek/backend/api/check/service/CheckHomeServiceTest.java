@@ -13,6 +13,7 @@ import com.ildangbaek.backend.domain.analysis.entity.ReactionType;
 import com.ildangbaek.backend.domain.analysis.profile.ProfileCompletionCalculator;
 import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileRepository;
 import com.ildangbaek.backend.domain.environment.repository.DailyEnvironmentRepository;
+import com.ildangbaek.backend.domain.product.client.ProductCommentClient;
 import com.ildangbaek.backend.domain.product.entity.Ingredient;
 import com.ildangbaek.backend.domain.product.entity.Product;
 import com.ildangbaek.backend.domain.product.entity.ProductCategory;
@@ -55,6 +56,8 @@ class CheckHomeServiceTest {
     private SkinMetricRepository skinMetricRepository;
     @Mock
     private DailyEnvironmentRepository dailyEnvironmentRepository;
+    @Mock
+    private ProductCommentClient productCommentClient;
 
     private CheckHomeService service;
     private User user;
@@ -62,7 +65,8 @@ class CheckHomeServiceTest {
     @BeforeEach
     void setUp() {
         service = new CheckHomeService(ingredientProfileRepository, productIngredientRepository,
-                profileCompletionCalculator, skinRecordRepository, skinMetricRepository, dailyEnvironmentRepository);
+                profileCompletionCalculator, skinRecordRepository, skinMetricRepository, dailyEnvironmentRepository,
+                productCommentClient);
         user = User.builder().provider(AuthProvider.KAKAO).providerUserId("u1").build();
         ReflectionTestUtils.setField(user, "id", USER_ID);
         when(profileCompletionCalculator.calculate(USER_ID)).thenReturn(65);

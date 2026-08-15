@@ -51,7 +51,7 @@ DB 설정은 `application-local.yml`에 있습니다.
 | `STORAGE_LOCAL_DIR` | `./uploads/images` | 이미지 저장 경로 ([ADR 0007](../docs/decisions/0007-이미지-스토리지.md)) |
 | `STORAGE_LOCAL_URL_PREFIX` | `/images/` | 반환 URL 접두사 |
 | `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택. `mock` · `local-vision` ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md) · [ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md) · [ADR 0022](../docs/decisions/0022-openai-비전-2단계-점수-확정.md)) |
-| `LOCAL_VISION_BASE_URL` | `http://localhost:8000` | `SKIN_ANALYSIS_PROVIDER=local-vision`일 때 사용할 `ai-server/` 주소 |
+| `LOCAL_VISION_BASE_URL` | `http://localhost:8000` | `ai-server/` 주소. `SKIN_ANALYSIS_PROVIDER=local-vision`일 때 피부 분석에 쓰이고, `ProductCommentClient`(CHECK-01 AI 코멘트, [ADR 0025](../docs/decisions/0025-제품-추천-AI-코멘트.md))도 항상 이 주소를 재사용한다 |
 
 업로드 상한은 `spring.servlet.multipart.max-file-size=10MB`다. Spring 기본값(파일 1MB)이면
 정상 사진도 튕기므로 올려 두었다.

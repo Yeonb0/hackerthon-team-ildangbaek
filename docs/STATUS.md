@@ -125,7 +125,7 @@
 | 이미지 업로드 · 스토리지 | 🟡 | `ImageStorage` + `LocalImageStorage` (ADR 0007). multipart 10MB. **로컬 저장이라 다중 인스턴스·재배포 시 유실** |
 | 날짜 귀속 유틸 | ✅ | `global/util/RecordDateResolver` · 경계값 테스트 13종 (ADR 0005 — **확정**) |
 | 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능), 규칙 기반 자체 서버 연동(`LocalVisionSkinAnalysisClient`, ADR 0020) 2종. `app.skin.analysis.provider`(`mock`/`local-vision`)로 전환. Spring이 직접 호출하는 OpenAI 클라이언트는 폐기했다(ADR 0022) — OpenAI Vision은 이제 ai-server 내부의 2차 확정 단계로만 쓰인다. 단위 테스트만 검증했고 **자체 서버 경로의 실제 얼굴 사진 E2E 호출은 아직 안 함** — 실사용 전 필요 |
-| 규칙 기반 분석 서버 (`ai-server/`) | 🟡 | FastAPI. MediaPipe 얼굴 검출·피부 영역 분리 → Shades of Gray 화이트밸런스·품질 게이트 → CIELAB 기반 1차 지표 4종 산출(딥러닝 모델 아님, ADR 0020) → OpenAI Vision(`gpt-4o`)이 1차 점수를 근거로 최종 점수 확정, 클램핑 없음(ADR 0022). `OPENAI_API_KEY` 미설정 시 1차 점수로 자동 폴백. 파이썬 테스트 59개(OpenAI는 fake 클라이언트로 검증), 합성 이미지로만 검증 — **실제 얼굴 사진 검증 안 함**, **OpenAI 확정 단계 실 API 키 E2E 검증 안 함**. 모공 지표는 실측상 신뢰도 낮음(`ai-server/README.md` 신뢰도 표), OpenAI에 재위임하지 않고 규칙 기반 판정 유지 |
+| 규칙 기반 분석 서버 (`ai-server/`) | 🟡 | FastAPI. MediaPipe 얼굴 검출·피부 영역 분리 → Shades of Gray 화이트밸런스·품질 게이트 → CIELAB 기반 1차 지표 4종 산출(딥러닝 모델 아님, ADR 0020) → OpenAI Vision(`gpt-4o`)이 1차 점수를 근거로 최종 점수 확정, 클램핑 없음(ADR 0022). `OPENAI_API_KEY` 미설정 시 1차 점수로 자동 폴백. **`POST /product-comments`로 제품 추천 AI 코멘트도 배치 생성(ADR 0025)** — 추천 판단은 여전히 Spring의 규칙 기반, AI는 문구만 생성. 파이썬 테스트 66개(OpenAI는 fake 클라이언트로 검증), 합성 이미지로만 검증 — **실제 얼굴 사진 검증 안 함**, **OpenAI 확정·코멘트 생성 모두 실 API 키 E2E 검증 안 함**. 모공 지표는 실측상 신뢰도 낮음(`ai-server/README.md` 신뢰도 표), OpenAI에 재위임하지 않고 규칙 기반 판정 유지 |
 
 > ⚠️ **인증은 임시 방편으로 우회한 상태다.** 실제 인증(AUTH-01~03, A 담당)이 들어오기 전까지
 > 프로덕션 배포는 불가능하다.
@@ -191,7 +191,7 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | F-ANALYSIS-03 호르몬 요인 반영 | ✅ | 주기 구간 계산(`MenstrualCycleCalculator`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동(ADR 0019). 로컬 MySQL로 실서버 확인(2026-08-14) — `user_profiles`에 호르몬 정보를 직접 넣고 SKIN-01 재분석 시 신뢰도 100→80(20% 감쇄) 및 확정→확인중 전환을 API 응답(`GET /reports`)에서 재현. **단, 호르몬 정보를 입력하는 API(F-ONBOARD-03 `hormone` 단계)가 아직 없어 DB 직접 수정으로 우회 검증함 — A 담당 온보딩 API 미구현이 후속 이슈** |
 | F-ANALYSIS-04 성분 프로파일 갱신 | ✅ | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11). PRODUCT-05 실입력 경로 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 제품 기록이 `CAUTION` 행까지 만든다 |
 | F-ANALYSIS-05 프로파일 완성도 계산 | ✅ | 산출식 구현 완료(ADR 0011). **소비처 3곳(USER-01 · USER-02 · CHECK-01) 모두 연결 완료.** 단위 테스트로 세 서비스가 `ProfileCompletionCalculator` 값을 그대로 위임하는지 확인(BR 4) — 실서버 3자 대조는 아직 |
-| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천. **2026-08-14: `category`·`todayContext` 추가(ADR 0018)** — 프론트 SHOP-01 3분류 요청 대응, 백엔드 API만 준비(프론트 화면은 미구현, `boyeon` 브랜치 `ShoppingScreen.tsx`는 아직 단일 섹션). 단위 테스트로 확인, 실서버 미검증 |
+| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천. **2026-08-14: `category`·`todayContext` 추가(ADR 0018)** — 프론트 SHOP-01 3분류 요청 대응, 백엔드 API만 준비(프론트 화면은 미구현, `boyeon` 브랜치 `ShoppingScreen.tsx`는 아직 단일 섹션). **2026-08-16: `aiComment` 추가(ADR 0025)** — ai-server가 배치로 생성한 AI 코멘트, 실패 시 `null`. 단위 테스트로 확인, 실서버 미검증 |
 | CHECK-02 위험도 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). ADR 0015 — 등급 산출 기준 신설 |
 | CHECK-03 확인 결과 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). CHECK-02와 같은 DTO·조립 로직 |
 | USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
@@ -887,8 +887,10 @@ USER-02만 붙어 있던 상태(2.9·2.10절)를 마저 채워 BR 4("세 API가 
 없는 초기값으로 기록했다 — 실사용 데이터가 쌓이면 재검토 대상이다.
 
 **`failedSections`는 항상 빈 배열이다.** 1.8절 정의상 이 필드는 BFF가 **외부 API** 부분 실패를
-알리는 공용 봉투(HOME-01의 날씨 API 사례)인데, CHECK-01의 추천 로직은 전부 내부 DB 조회라 실패할
-섹션이 구조적으로 없다.
+알리는 공용 봉투(HOME-01의 날씨 API 사례)인데, CHECK-01의 추천 판단(무엇을 추천할지·순서)은
+전부 내부 DB 조회라 실패할 섹션이 구조적으로 없다. 2026-08-16에 추가된 `aiComment`(ADR 0025)는
+ai-server 호출이라는 외부 의존이 생겼지만, 실패해도 추천 자체를 막지 않는 부가 정보라
+`failedSections`에는 반영하지 않기로 했다 — 자세한 내용은 2.17절.
 
 자동 테스트 12개 추가 — `MyPageServiceTest` 8개(completionRate 위임 1 · topIngredients 8건
 제한·정렬 2 · 상태별 카운트 1 · totalRecordCount 1 · notificationEnabled 분기 2 · skinTypes 1),
@@ -918,6 +920,37 @@ failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태
 정보 없으면 기존 임계값), `LagInsightWriterTest` 2개(환경 단독 감쇄 · 호르몬과 곱셈 합성),
 `IngredientLagAnalysisServiceTest` 1개(급변일 조회 연동), `IngredientProfileWriterTest`는
 생성자 시그니처만 갱신. 백엔드 전체 테스트 통과 확인(2026-08-14).
+
+---
+
+### 2.17 CHECK-01 제품 추천 AI 코멘트 구현 내역 (ADR 0025)
+
+추천 여부·순서·`reason`은 그대로 ADR 0016의 규칙 기반 로직으로 정하고, 그 결과에 AI가 생성한
+자연스러운 한 줄 코멘트(`aiComment`)를 덧붙였다. AI는 판단에 관여하지 않고 문구만 다듬는다.
+
+| 컴포넌트 | 역할 |
+| --- | --- |
+| `ai-server/app/product_comment.py` | `vision.py`와 같은 패턴으로 OpenAI 클라이언트 재사용. 추천 목록 전체를 한 번의 배치 프롬프트로 보내 제품별 코멘트를 받음 |
+| `ai-server` `POST /product-comments` | 신규 엔드포인트. 성공 시 코멘트 목록, OpenAI 실패 시 502 + `{"code":"COMMENT_UNAVAILABLE"}` |
+| `backend` `ProductCommentClient`(`domain/product/client`) | 기존 `LOCAL_VISION_BASE_URL`을 그대로 재사용해 ai-server를 호출. 실패는 예외로 전파하지 않고 빈 맵으로 흡수 |
+| `CheckHomeService.buildRecommendations` | 추천 목록 조립 후 배치로 `ProductCommentClient`를 호출해 `productId`별 `aiComment`를 매핑 |
+
+**실패 폴백이 핵심 설계다.** `LocalVisionSkinAnalysisClient`(피부 분석)와 달리 AI 코멘트 생성
+실패는 추천 응답 자체를 막지 않는다 — 추천은 AI 없이도 성립하는 핵심 기능이기 때문이다.
+ai-server가 502를 반환하거나 타임아웃되면 `ProductCommentClient`가 빈 맵을 반환하고, 모든
+`aiComment`가 `null`인 채로 200 응답이 그대로 나간다. 이 실패는 `failedSections`에도 반영하지
+않는다(BR 5는 "추천 여부를 좌우하는 내부 DB 조회"만 대상으로 하고, AI 코멘트는 그 밖의 부가
+정보이기 때문).
+
+**호출 횟수를 1회로 고정했다.** 제품 수만큼 개별 호출하면 지연·비용이 배로 늘어나므로, 추천
+목록 전체를 한 번의 OpenAI 호출(`response_format: json_object`)로 묶어 보낸다.
+
+자동 테스트 추가 — 백엔드는 `CheckHomeServiceTest`에 `ProductCommentClient` mock을 추가(4개
+기존 테스트 모두 통과, Mockito 기본 응답값인 빈 `Map`으로 `aiComment=null` 경로 자동 검증).
+ai-server는 `tests/test_product_comment.py` 4개(정상 생성·키 미설정·JSON 파싱 실패·타임아웃)와
+`tests/test_api.py`에 `/product-comments` 3개(빈 목록·정상 생성·502 폴백) 추가. 백엔드
+전체·ai-server 전체(66개) 테스트 통과 확인(2026-08-16). **실 OpenAI API 키로 코멘트 품질을
+확인하는 E2E 검증은 아직 하지 않았다** — 다음 작업으로 남긴다.
 
 ---
 

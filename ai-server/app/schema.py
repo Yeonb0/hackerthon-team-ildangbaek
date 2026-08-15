@@ -51,3 +51,26 @@ class AnalyzeResponse(AnalysisResult):
 class AnalyzeErrorResponse(BaseModel):
     code: AnalysisErrorCode
     message: str
+
+
+class ProductCommentRequest(BaseModel):
+    """코멘트를 생성할 제품 한 건. Spring의 `CheckRecommendationResponse` 조립 시점 정보다."""
+
+    product_id: int
+    name: str
+    brand: str
+    matched_ingredients: list[str]
+    category: str
+
+
+class ProductCommentBatchRequest(BaseModel):
+    products: list[ProductCommentRequest]
+
+
+class ProductComment(BaseModel):
+    product_id: int
+    comment: str
+
+
+class ProductCommentBatchResponse(BaseModel):
+    comments: list[ProductComment]
