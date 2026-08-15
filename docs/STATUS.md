@@ -168,7 +168,7 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | USER-05 지역 목록 조회 | 🟡 | `LocationController.searchLocations()` — `GET /api/v1/locations?keyword=`. 코드 존재, 실서버 미검증. 지역 데이터가 하드코딩된 시/도 6개(`LocationSeed`) 샘플 수준 — 명세가 요구하는 시/구 단위 전국 목록에는 못 미침(명세 자체도 "전국 시/구 목록 확보 필요"로 미정 표시) |
 | USER-06 위치 설정 | 🟡 | `UserController.updateLocation()` — `PATCH /api/v1/users/me/location`. 코드 존재, 실서버 미검증 |
 | USER-07 알림 설정 | 🟡 | `UserController.updateNotification()` — `PATCH /api/v1/users/me/notification`. 코드 존재, 실서버 미검증 |
-| HOME-01 홈 조회 | 🟡 | `HomeController.getHome()` — `GET /api/v1/home?homeType=`. `HomeService`(147줄)가 낮/밤 판정·environment·routineRecommendation·todayRecord·weeklyCalendar·todayReport를 명세 필드 구조대로 채움. **다만 `environment`는 실제 날씨 API 연동 없이 단순화된 값으로 보이고, `failedSections`는 항상 빈 배열 고정 반환** — 부분 실패 처리가 명세만큼 정교하지 않을 수 있다. 테스트 없음, 실서버 미검증 |
+| HOME-01 홈 조회 | 🟡 | `HomeController.getHome()` — `GET /api/v1/home?homeType=&weekStart=`. `HomeService`가 낮/밤 판정·environment·routineRecommendation·todayRecord·weeklyCalendar·todayReport를 명세 필드 구조대로 채움. `weekStart`(`SUNDAY`/`MONDAY`, 기본 `MONDAY`, 그 외 값은 `MONDAY`로 처리)로 `weeklyCalendar`의 "이번 주" 시작일 계산 기준을 지정 가능(2026-08-15 추가, 프론트 요청). **다만 `environment`는 실제 날씨 API 연동 없이 단순화된 값으로 보이고, `failedSections`는 항상 빈 배열 고정 반환** — 부분 실패 처리가 명세만큼 정교하지 않을 수 있다. 테스트 없음, 실서버 미검증 |
 | RECORD-01~02 기록 허브 | 🟡 | `RecordController` — `GET /api/v1/records/calendar?yearMonth=`(RECORD-01) · `GET /api/v1/records/today`(RECORD-02). `RecordHubService`(138줄), `yearMonth` 파싱 실패 시 `RECORD_INVALID_MONTH` 예외 처리도 있음. 테스트 없음, 실서버 미검증 |
 | PRODUCT-01·02·03·04·05·07·08 | 🟡 | 코드 존재. `ProductController`(검색·상세·스캔·매칭·찜), `ProductRecordController`(`GET /product-records/home`=PRODUCT-01, `POST /product-records`=PRODUCT-05), `RoutineController`(`GET /routines`=PRODUCT-07, `POST /routines/{id}/records`=PRODUCT-08). PRODUCT-05만 B가 실서버 검증 완료(2.13절), 나머지는 코드 확인만(2026-08-15), 실서버 미검증. 테스트는 `ProductRecordWriterTest` 1개뿐, `productrecord`·`routine` 패키지 테스트 0개 |
 | PRODUCT-06 제품 기록 수정 | 🟡 | `ProductRecordController.update()` — `PATCH /api/v1/product-records/{recordId}`. `productIds` 전체 교체(기존 항목 삭제 후 요청 순서대로 `usageOrder` 재부여), 오늘 기록이 아니면 `PRODUCT_RECORD_NOT_EDITABLE`(403), 타인 기록/미존재는 `PRODUCT_RECORD_NOT_FOUND`(404). 수정 시각은 `BaseTimeEntity.updatedAt` 자동 갱신으로 처리. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
@@ -966,7 +966,7 @@ failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태
 | 7 | ~~제품 직접 등록 (F-PRODUCT-08, TBD-07)~~ | ADR 0023으로 해소 — `ProductManualRegisterScreen` 정본 확정, `POST /products`(PRODUCT-10) 구현 | — |
 | 7b | ~~REPORT-03에 대응하는 기능 ID가 없다~~ | **F-REPORT-04 신설로 해소.** 다만 이 기능을 쓰는 **화면은 여전히 미정**이라 12장 매핑표에 항목이 없다 | 화면 확정 시 B |
 | 8 | `Idempotency-Key` 미구현 | 저장 API 5개 공통(SKIN-01·PRODUCT-05 등 + CHECK-02) | A·B 공통 인프라로 분리 |
-| 9 | `BackendApplicationTests`가 MySQL 없이 실패 | 로컬 테스트 | H2 또는 `application-test.yml` 필요 |
+| 9 | ~~`BackendApplicationTests`가 MySQL 없이 실패~~ | **2026-08-15 해소** — `src/test/resources/application.yml`에서 H2로 테스트 프로파일 분리 | — |
 | 10 | ~~F-ONBOARD-03(생리·호르몬 정보 입력) 저장 API 없음~~ | **코드상 해소로 보임(2026-08-15 재확인)** — `OnboardingController.saveHormone()`(`PATCH /api/v1/onboarding/hormone`)이 존재한다. 다만 이 세션은 코드 확인만 했고 DB 직접 수정 우회 없이 이 API로 실제 F-ANALYSIS-03 경로가 동작하는지 실서버 재검증은 아직이다 | A(구현) → B(재검증 필요) |
 
 ---

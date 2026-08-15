@@ -1036,6 +1036,7 @@ json
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `homeType` | Enum | X | `DAY` / `NIGHT` · 사용자가 토글로 강제 지정한 경우 |
+| `weekStart` | Enum | X | `SUNDAY` / `MONDAY` · `weeklyCalendar` 계산 시 주 시작 요일. 기본값 `MONDAY`. `SUNDAY`/`MONDAY` 외 값(누락 포함)은 `MONDAY`로 처리. 밤(`NIGHT`) 응답에만 영향, 낮 응답은 무시 |
 
 **Business Rule — 낮/밤 판정** `변경`
 
@@ -1158,7 +1159,7 @@ json
 | `environment` | **낮에만** 조회한다. 밤에는 `null`. S-08에 날씨 영역이 없기 때문 |
 | `routineRecommendation` | 낮은 `MORNING`, 밤은 `NIGHT` 루틴 대상. 각 항목에 `reason` 필수 |
 | `todayRecord` | 4개 슬롯 전체 상태. 낮/밤 무관하게 항상 반환 |
-| `weeklyCalendar` | **밤에만** 반환. 오늘 포함 최근 7일(오늘부터 6일 전까지) 롤링 범위. 이번 달 전체는 RECORD-01 담당 |
+| `weeklyCalendar` | **밤에만** 반환. `weekStart` 기준으로 계산한 이번 주 시작일부터 오늘까지의 범위(최대 7일). 이번 달 전체는 RECORD-01 담당 |
 | `todayReport` | **밤 + 오늘 피부 기록 존재** 시에만. 조건 미충족 시 `null` |
 
 **`environment.weather` 값** `확정`

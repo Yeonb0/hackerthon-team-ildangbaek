@@ -47,7 +47,7 @@ public class HomeService {
     private final RecordHubService recordHubService;
 
     @Transactional(readOnly = true)
-    public HomeResponse getHome(Long userId, HomeType requestedHomeType) {
+    public HomeResponse getHome(Long userId, HomeType requestedHomeType, DayOfWeek weekStart) {
         HomeType homeType = requestedHomeType == null ? defaultHomeType() : requestedHomeType;
         UserProfile profile = userProfileRepository.findByUserId(userId).orElse(null);
         RecordTodayResponse today = recordHubService.getToday(userId);
@@ -59,7 +59,7 @@ public class HomeService {
                 homeType == HomeType.DAY ? environment(profile) : null,
                 routineRecommendation(userId, homeType == HomeType.DAY ? TimeSlot.MORNING : TimeSlot.NIGHT),
                 todayRecord(today),
-                homeType == HomeType.NIGHT ? weeklyCalendar(userId) : null,
+                homeType == HomeType.NIGHT ? weeklyCalendar(userId, weekStart) : null,
                 homeType == HomeType.NIGHT ? todayReport(userId) : null,
                 List.of());
     }
@@ -118,12 +118,12 @@ public class HomeService {
                 state.skin().completed());
     }
 
-    private List<WeeklyCalendarDayResponse> weeklyCalendar(Long userId) {
+    private List<WeeklyCalendarDayResponse> weeklyCalendar(Long userId, DayOfWeek weekStart) {
         LocalDate today = LocalDate.now();
-        LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStartDate = today.with(TemporalAdjusters.previousOrSame(weekStart));
         RecordCalendarResponse month = recordHubService.getCalendar(userId, YearMonth.from(today));
         return month.days().stream()
-                .filter(day -> !day.date().isBefore(monday) && !day.date().isAfter(today))
+                .filter(day -> !day.date().isBefore(weekStartDate) && !day.date().isAfter(today))
                 .map(day -> new WeeklyCalendarDayResponse(day.date(), day.morning(), day.night()))
                 .toList();
     }
