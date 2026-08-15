@@ -4,6 +4,13 @@
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
 - 최종 갱신: 2026-08-15
+
+> **2026-08-15 코드리뷰 및 수정 세션.** 백엔드 전체를 심각도 순으로 리뷰해 버그 4건과 인증 구조
+> 1건을 수정했다. 커밋 단위: 테스트 DB 격리(H2, MySQL 없이도 빌드 통과) → USER-04 스킨타입 교체
+> 유니크 제약 위반 → ReportService/SkinRecordService `@Transactional` 누락 → 지표 결측 조회 NPE
+> → USER-04 성별 500 응답·호르몬 갱신 조건 → 인증 리졸버 단일화(ADR 0024). 상세는 아래 각 항목과
+> ADR 0024 참고. 전체 테스트 210개 → **222개**(H2 인메모리 DB, 로컬 MySQL 불필요).
+
 - 기준 커밋: `d4cacdd` (환경 요인 보정) — **`origin/main` 재확인 세션**: A 담당이 `main`에 반영한
   `home`·`location`·`record` 패키지(커밋 `1bf5f09 feat(home): add service flow APIs` 등)가 이미
   이 브랜치 HEAD에 병합돼 있음을 코드 대조로 확인. 아래 2.3절 A 담당 표를 "미착수" 위주에서
@@ -39,6 +46,9 @@
 >   맞춰 구 테스트 호출부 갱신.
 > - 인증 방식 이원화 우려 없음: `CurrentUserResolver`(main)와 `CurrentUserIdArgumentResolver`(yunjin)
 >   모두 `MockAccessToken.parseUserId`에 위임하도록 이미 통합되어 있다(ADR 0017).
+>   **2026-08-15 갱신**: `CurrentUserResolver` 자체를 제거하고 `CurrentUserIdArgumentResolver`
+>   하나로 합쳤다(ADR 0024). 리졸버가 `Long`뿐 아니라 `User` 엔티티 파라미터도 해석해, 컨트롤러가
+>   더 이상 메서드 본문에서 인증을 직접 호출하지 않는다.
 > - 백엔드 전체 테스트(210개) 통과 확인. main이 새로 들여온 AUTH(이메일)·PRODUCT-01~04·ROUTINE 도메인의
 >   실제 기능 완성도·실서버 검증 상태는 이 세션에서 재조사하지 않았다 — 별도 검증 필요.
 
@@ -87,6 +97,14 @@
 >
 > **여전히 인증이 아니다.** 토큰은 서명 검증이 없어 형식만 맞추면 위조할 수 있다. `X-User-Id`
 > 위조 위험과 동일 수준이며 **배포 전 반드시 실제 인증(JWT 서명 검증 등)으로 교체해야 한다.**
+>
+> **2026-08-15 갱신 — 리졸버 단일화([ADR 0024](decisions/0024-current-user-id-리졸버-단일화.md)).**
+> `CurrentUserResolver`를 제거했다. 코드리뷰 중 `ProductController`의 세 핸들러가
+> `currentUserResolver.resolve(authorization)`의 반환값을 버리고 인증 부수효과만 노리는
+> 코드였음을 발견했다 — 인가 검사가 메서드 본문 한 줄에 의존하는 형태라 그 줄을 빠뜨리면
+> 인증 없이 뚫린다. `CurrentUserIdArgumentResolver`가 `User` 엔티티 파라미터도 해석하도록 넓혀
+> 21개 호출부를 전부 옮겼다. 토큰 검증 자체는 여전히 서명 없는 임시 방편이라 위 경고는 그대로
+> 유효하다.
 
 ---
 
@@ -103,7 +121,7 @@
 | JPA Auditing | ✅ | `global/config/JpaAuditingConfig` · `BaseTimeEntity` |
 | CORS | 🟡 | `WebConfig` — 개발용 전체 허용. **배포 전 축소 필요** |
 | 헬스체크 | ✅ | `GET /api/v1/health` |
-| **인증 (JWT · Security)** | 🟡 | **임시 방편만 있음.** `X-User-Id` 헤더 → `@CurrentUserId` (ADR 0006). 위조 가능 · 배포 전 교체 필수 |
+| **인증 (JWT · Security)** | 🟡 | **임시 방편만 있음.** 목업 Bearer 토큰 → `@CurrentUserId`(`Long`·`User` 모두 해석, ADR 0006 · 0017 · 0024). 위조 가능 · 배포 전 교체 필수 |
 | 이미지 업로드 · 스토리지 | 🟡 | `ImageStorage` + `LocalImageStorage` (ADR 0007). multipart 10MB. **로컬 저장이라 다중 인스턴스·재배포 시 유실** |
 | 날짜 귀속 유틸 | ✅ | `global/util/RecordDateResolver` · 경계값 테스트 13종 (ADR 0005 — **확정**) |
 | 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능), 규칙 기반 자체 서버 연동(`LocalVisionSkinAnalysisClient`, ADR 0020) 2종. `app.skin.analysis.provider`(`mock`/`local-vision`)로 전환. Spring이 직접 호출하는 OpenAI 클라이언트는 폐기했다(ADR 0022) — OpenAI Vision은 이제 ai-server 내부의 2차 확정 단계로만 쓰인다. 단위 테스트만 검증했고 **자체 서버 경로의 실제 얼굴 사진 E2E 호출은 아직 안 함** — 실사용 전 필요 |
@@ -146,7 +164,7 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | USER-01 마이페이지 조회 | ✅ | 원래 A 담당이나 F-ANALYSIS-05 BR 4(값 일치) 검증을 위해 B가 구현. `MyPageService` |
 | USER-02 성분 프로파일 조회 | ✅ | B 구현(2.10절) |
 | USER-03 프로필 조회 | 🟡 | `UserController.getProfile()` — `GET /api/v1/users/me/profile`. `UserService.getProfile()`이 프로필·피부타입·알림설정을 조합해 반환. 엔티티의 `menstrualStatus`+`oralContraceptive`+`progesteroneInjection` 조합을 API `hormoneStatus` 4종으로 역매핑한다. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
-| USER-04 프로필 수정 | 🟡 | `UserController.updateProfile()` — `PATCH /api/v1/users/me/profile`. 전달된 필드만 수정(BR 2), `gender`를 FEMALE 외 값으로 바꾸면 `UserProfile.clearHormoneInfo()`로 호르몬 필드 초기화(BR 3), `skinTypes`는 전체 교체(BR 4). 응답은 USER-03과 동일한 전체 프로필. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
+| USER-04 프로필 수정 | 🟡 | `UserController.updateProfile()` — `PATCH /api/v1/users/me/profile`. 전달된 필드만 수정(BR 2), `gender`를 FEMALE 외 값으로 바꾸면 `UserProfile.clearHormoneInfo()`로 호르몬 필드 초기화(BR 3), `skinTypes`는 전체 교체(BR 4). 응답은 USER-03과 동일한 전체 프로필. 구현 2026-08-15, 실서버 미검증. **2026-08-15 코드리뷰로 버그 3건 수정**: (1) `skinTypes` 교체가 `deleteAllByUserId`(select 후 개별 remove) 뒤 바로 `save`(IDENTITY 즉시 INSERT)해 기존과 겹치는 값에서 유니크 제약 위반 → flush로 순서 고정, (2) `gender`를 String으로 받아 `Gender.valueOf`가 잘못된 값에 500을 내던 것 → `GenderRequest` enum으로 Jackson이 400을 내게 함, (3) 호르몬 갱신 조건이 이미 갱신된 엔티티 값을 else-if로 읽어 `gender`만 보낸 요청에서 아무 일도 안 하던 것 → "수정 후 성별" 기준으로 재작성. H2 실DB·MockMvc로 재현·검증하는 테스트 추가(`UserProfileUpdateTest`, `ProfileUpdateValidationTest`) |
 | USER-05 지역 목록 조회 | 🟡 | `LocationController.searchLocations()` — `GET /api/v1/locations?keyword=`. 코드 존재, 실서버 미검증. 지역 데이터가 하드코딩된 시/도 6개(`LocationSeed`) 샘플 수준 — 명세가 요구하는 시/구 단위 전국 목록에는 못 미침(명세 자체도 "전국 시/구 목록 확보 필요"로 미정 표시) |
 | USER-06 위치 설정 | 🟡 | `UserController.updateLocation()` — `PATCH /api/v1/users/me/location`. 코드 존재, 실서버 미검증 |
 | USER-07 알림 설정 | 🟡 | `UserController.updateNotification()` — `PATCH /api/v1/users/me/notification`. 코드 존재, 실서버 미검증 |
@@ -166,8 +184,8 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | API | 상태 | 선행 조건 |
 | --- | --- | --- |
 | SKIN-01 피부 기록 생성 및 분석 | ✅ | 임시 인증(ADR 0006) · 로컬 스토리지(ADR 0007)로 해소 |
-| SKIN-02 오늘 피부 결과 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13) — 실서버에서만 드러난 버그 1건(NIGHT 자정 경계 404) 수정 |
-| SKIN-03 피부 기록 상세 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13). 소유권 격리(404) 확인 |
+| SKIN-02 오늘 피부 결과 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13) — 실서버에서만 드러난 버그 1건(NIGHT 자정 경계 404) 수정. **2026-08-15**: 지표 4종 중 일부가 없는 기록(분석 부분 실패 등) 조회 시 언박싱 NPE로 500 나던 버그 수정(`SkinRecordService.buildComparison`, `SkinScoresResponse.from`). 조회 메서드에 누락됐던 `@Transactional(readOnly = true)`도 함께 추가 |
+| SKIN-03 피부 기록 상세 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13). 소유권 격리(404) 확인. **2026-08-15**: `@Transactional(readOnly = true)` 누락 수정 |
 | F-ANALYSIS-01 성분-피부 시차 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.7절). ADR 0014 기준 재검증 완료 — 회귀 기준선 · 슬롯 분리 전용 시드 · PRODUCT-05 실입력 경로 3축 |
 | F-ANALYSIS-02 환경 요인 보정 | ✅ | 자외선 급변일 계산(`IngredientLagAnalysisService.loadUvVolatileDates`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동, 호르몬 보정과 곱셈 합성(ADR 0021). 로직·단위 테스트는 완료. **단, `daily_environments`에 실제로 쓰는 프로덕션 코드(F-HOME-03, A 담당)가 아직 없어 실사용 데이터에서는 급변일 집합이 항상 비어 보정이 미적용 경로로만 흐름 — BR 3이 요구하는 정상 동작이며, F-HOME-03 적재가 붙는 즉시 코드 변경 없이 동작. 검증은 목업 데이터로 함** |
 | F-ANALYSIS-03 호르몬 요인 반영 | ✅ | 주기 구간 계산(`MenstrualCycleCalculator`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동(ADR 0019). 로컬 MySQL로 실서버 확인(2026-08-14) — `user_profiles`에 호르몬 정보를 직접 넣고 SKIN-01 재분석 시 신뢰도 100→80(20% 감쇄) 및 확정→확인중 전환을 API 응답(`GET /reports`)에서 재현. **단, 호르몬 정보를 입력하는 API(F-ONBOARD-03 `hormone` 단계)가 아직 없어 DB 직접 수정으로 우회 검증함 — A 담당 온보딩 API 미구현이 후속 이슈** |
@@ -177,7 +195,7 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | CHECK-02 위험도 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). ADR 0015 — 등급 산출 기준 신설 |
 | CHECK-03 확인 결과 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). CHECK-02와 같은 DTO·조립 로직 |
 | USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
-| REPORT-01 리포트 조회 | ✅ | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다. PRODUCT-05 실입력 경로로도 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 기록이 `insights`까지 나온다 |
+| REPORT-01 리포트 조회 | ✅ | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다. PRODUCT-05 실입력 경로로도 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 기록이 `insights`까지 나온다. **2026-08-15**: `ReportService`의 조회 메서드 3개(REPORT-01~03) 모두에 `@Transactional(readOnly = true)`가 빠져 있던 것을 수정 — `open-in-view: false`라 지연 로딩 프록시를 건드리면 `LazyInitializationException`이 날 수 있었다 |
 | PRODUCT-05 제품 기록 저장 | ✅ | 2.13절. 원래 A 담당이나 B가 대신 구현. 로컬 MySQL로 실서버 확인(2026-08-12) — 실서버에서만 드러난 버그 2건(`force` 생략 400 · `force: true` 500) 수정 |
 | REPORT-02 요인 상세 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.12절). ADR 0013 — 이벤트 조회 시점 도출 · 그래프 ADR 0012 적용 |
 | REPORT-03 일자별 리포트 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.11절). SKIN-01 응답 구조 재사용 · ADR 0012 원칙 유지 |

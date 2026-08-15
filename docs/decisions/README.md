@@ -38,7 +38,8 @@
 | [0014](0014-시차-분석-모닝나이트-슬롯-분리.md) | 시차 분석 — 모닝·나이트를 평균 대신 슬롯별로 비교 | 수락 | B | ADR 0009(해당 부분 대체) · F-ANALYSIS-01 |
 | [0015](0015-위험도-등급-산출-기준.md) | 위험도 등급 산출 기준 — 판정 성분 분모 · 개수/비중 중 심각한 쪽 | **제안** | B | F-CHECK-03 · CHECK-02 · CHECK-03 |
 | [0016](0016-쇼핑-홈-추천-매칭-기준.md) | 쇼핑 홈 추천 매칭 기준 — GOOD 성분 · key_ingredient · 제품 단위 dedup | **제안** | B | F-CHECK-01 · CHECK-01 |
-| [0017](0017-임시-인증-토큰-통합.md) | 임시 인증 통합 — `X-User-Id` → 목업 Bearer 토큰 ⚠️ 여전히 배포 전 교체 | 수락 | B | ADR 0006 · AUTH-01~03 · ONBOARD-01~05 |
+| [0017](0017-임시-인증-토큰-통합.md) | 임시 인증 통합 — `X-User-Id` → 목업 Bearer 토큰 ⚠️ 여전히 배포 전 교체 | **부분 대체됨**(0024, 리졸버 단일화) | B | ADR 0006 · AUTH-01~03 · ONBOARD-01~05 |
 | [0020](0020-규칙-기반-로컬-비전-분석.md) | 규칙 기반 로컬 비전 분석 — OpenCV/MediaPipe 자체 서버 | **부분 대체됨**(0022) | B | ADR 0003 · ADR 0002 · ADR 0022 · F-SKIN-04 · SKIN-01 |
 | [0022](0022-openai-비전-2단계-점수-확정.md) | OpenAI Vision 2단계 점수 확정 — 규칙 기반 1차 산출 + OpenAI 최종 확정 | 수락 | B | ADR 0002 · ADR 0003 · ADR 0020 |
 | [0023](0023-제품-직접-등록-화면-확정.md) | 제품 직접 등록 — ProductManualRegisterScreen을 정식 화면으로 확정 | 수락 | B | TBD-07(해소) · F-PRODUCT-08 · PRODUCT-09 · PRODUCT-10 |
+| [0024](0024-current-user-id-리졸버-단일화.md) | `CurrentUserResolver` 제거 — `CurrentUserIdArgumentResolver` 단일화(Long·User 둘 다 해석) | 수락 | B | ADR 0006 · ADR 0017 |

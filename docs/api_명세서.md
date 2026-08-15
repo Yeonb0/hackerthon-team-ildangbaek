@@ -2908,13 +2908,17 @@ S-22 결과 표시
 | Field | Rule | 실패 코드 |
 | --- | --- | --- |
 | `name` | 1~10자 · 공백만 불가 | `COMMON_VALIDATION_FAILED` |
-| `gender` | `FEMALE` / `MALE` / `UNSPECIFIED` | `COMMON_VALIDATION_FAILED` |
+| `gender` | `FEMALE` / `MALE` / `UNSPECIFIED` | `COMMON_BAD_REQUEST` |
 | `age` | 10~100 | `COMMON_VALIDATION_FAILED` |
 | `skinTypes` | 1개 이상 | `ONBOARD_SKIN_TYPE_REQUIRED` |
 | `skinTypes` | `UNKNOWN` 단독만 | `ONBOARD_SKIN_TYPE_CONFLICT` |
 | `hormoneStatus` | 4종 Enum · 여성만 | `ONBOARD_HORMONE_NOT_APPLICABLE` |
 | `lastPeriodStartDate` | 오늘 이후 불가 | `COMMON_VALIDATION_FAILED` |
 | `averageCycleDays` | 20~45 | `COMMON_VALIDATION_FAILED` |
+
+> `gender` · `hormoneStatus` · `skinTypes`처럼 Enum에 없는 값이 오는 경우는 파싱 단계 실패라
+> 400 `COMMON_BAD_REQUEST`다(2장 "400 vs 422 구분 기준"). 422는 타입은 맞고 값의 범위만
+> 어긋난 경우(`age=150` 등)에 쓴다.
 
 ## Product · Record
 

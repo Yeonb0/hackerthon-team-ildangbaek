@@ -33,7 +33,7 @@ curl http://localhost:8080/api/v1/health
 | --- | --- |
 | `./gradlew bootRun` | 애플리케이션 실행 (프로필 `local`) |
 | `./gradlew build` | 컴파일 + 테스트 + jar 빌드 |
-| `./gradlew test` | 테스트만 실행 |
+| `./gradlew test` | 테스트만 실행 — H2 인메모리 DB로 돈다(`src/test/resources/application.yml`). 로컬 MySQL을 안 띄워도 통과한다 |
 | `docker compose down` | 로컬 MySQL 종료 (`-v`를 붙이면 데이터까지 삭제) |
 
 ## 환경 설정
