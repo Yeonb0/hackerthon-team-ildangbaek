@@ -1,0 +1,37 @@
+spring:
+  # 테스트는 인메모리 H2로 돈다. 로컬 MySQL이 떠 있지 않아도 빌드가 통과해야 CI가 의미를 갖는다.
+  # main의 application.yml이 local 프로파일을 활성화하므로 여기서 test로 덮어쓴다.
+  profiles:
+    active: test
+
+  datasource:
+    url: jdbc:h2:mem:ildangbaek;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      # 테스트마다 스키마를 새로 만든다. 운영의 update와 달리 드리프트가 남지 않는다.
+      ddl-auto: create-drop
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        default_batch_fetch_size: 100
+
+app:
+  storage:
+    local:
+      directory: ./build/test-uploads/images
+      url-prefix: /images/
+  skin:
+    analysis:
+      provider: mock
+      local-vision:
+        base-url: http://localhost:8000
+
+logging:
+  level:
+    org.hibernate.SQL: warn
