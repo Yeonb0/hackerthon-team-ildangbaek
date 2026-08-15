@@ -17,7 +17,7 @@
 // 4) 알림 거부/미설정이 핵심 기능 이용을 막으면 안 된다.
 // 5) 온보딩 완료 플래그(authStore)는 이 화면의 두 버튼에서 최종적으로 바뀝니다.
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { IconBell } from '@/components/icons';
 import { Button } from '@/components/base/Button';
@@ -25,7 +25,6 @@ import { Card } from '@/components/base/Card';
 import { saveNotificationSetting } from '@/api/notification';
 import { useAuthStore } from '@/store/authStore';
 import { color, radius, space } from '@/theme/tokens';
-import { s } from '@/lib/scale';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
 
@@ -71,38 +70,51 @@ export function NotificationPermissionScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.iconCircle}>
-        <IconBell size={32} color={color.brand500} />
+      <View style={styles.content}>
+        <View style={styles.iconCircle}>
+          <IconBell size={36} color={color.brand500} />
+        </View>
+
+        <Text style={styles.title}>기록 알림을 받을까요?</Text>
+        <Text style={styles.description}>
+          기록을 깜빡했을 때 알려드려요.{'\n'}언제든 마이페이지에서 바꿀 수 있어요.
+        </Text>
+
+        <Card style={styles.previewCard}>
+          <View style={styles.previewIcon}>
+            <Image
+              source={require('../../../assets/skinteller-logo-icon-source.png')}
+              style={styles.previewIconImage}
+              resizeMode="cover"
+            />
+          </View>
+          <View style={styles.previewTextGroup}>
+            <View style={styles.previewHeaderRow}>
+              <Text style={styles.previewTitle}>스킨텔러</Text>
+              <Text style={styles.previewTime}>오전 8시</Text>
+            </View>
+            <Text style={styles.previewBody}>
+              오늘 아침 기록 아직 안 하셨어요!{'\n'}지금 바로 기록하고 피부 변화를 추적해보세요 ✨
+            </Text>
+          </View>
+        </Card>
       </View>
 
-      <Text style={styles.title}>알림을 받을까요?</Text>
-      <Text style={styles.description}>
-        기록을 깜빡했을 때 알려드려요.{'\n'}언제든 마이페이지에서 바꿀 수 있어요.
-      </Text>
-
-      <Card style={styles.previewCard}>
-        <View style={styles.previewIcon}>
-          <IconBell size={16} color={color.bg} />
-        </View>
-        <View style={styles.previewTextGroup}>
-          <Text style={styles.previewTitle}>skinteller</Text>
-          <Text style={styles.previewBody}>오늘 나이트 루틴 기록을 잊지 않으셨나요?</Text>
-        </View>
-      </Card>
-
-      <Button
-        label="알림 허용하기"
-        variant="primary"
-        loading={isSaving}
-        onPress={handleAllow}
-        style={styles.allowButton}
-      />
-      <Button
-        label="괜찮아요, 나중에"
-        variant="ghost"
-        onPress={handleSkip}
-        style={styles.skipButton}
-      />
+      <View style={styles.footer}>
+        <Button
+          label="알림 허용하기"
+          variant="primary"
+          loading={isSaving}
+          onPress={handleAllow}
+          style={styles.allowButton}
+        />
+        <Button
+          label="괜찮아요, 나중에"
+          variant="ghost"
+          onPress={handleSkip}
+          style={styles.skipButton}
+        />
+      </View>
     </View>
   );
 }
@@ -110,24 +122,27 @@ export function NotificationPermissionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: color.surfaceLavenderPale,
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: space[6],
-    backgroundColor: color.bg,
+    paddingHorizontal: space[6],
   },
   iconCircle: {
-    width: 64,
-    height: 64,
+    width: 80,
+    height: 80,
     borderRadius: radius.pill,
-    backgroundColor: color.brand50,
+    backgroundColor: color.surfaceLavenderSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: space[4],
   },
   title: {
-    fontSize: s(22),
+    fontSize: adjustFontSize(22),
     ...weightFamily('bold'),
-    color: color.ink900,
+    color: color.textInk,
     marginBottom: space[2],
     textAlign: 'center',
   },
@@ -141,34 +156,50 @@ const styles = StyleSheet.create({
   previewCard: {
     width: '100%',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: space[3],
   },
   previewIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: color.brand500,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  previewIconImage: {
+    width: '100%',
+    height: '100%',
   },
   previewTextGroup: {
     flex: 1,
   },
+  previewHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   previewTitle: {
     fontSize: adjustFontSize(13),
     ...weightFamily('bold'),
-    color: color.ink900,
+    color: color.textInk,
+  },
+  previewTime: {
+    fontSize: adjustFontSize(11),
+    ...weightFamily('medium'),
+    color: color.textMuted,
   },
   previewBody: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('regular'),
-    color: color.ink600,
+    fontSize: adjustFontSize(12.5),
+    ...weightFamily('medium'),
+    color: color.textSub,
     marginTop: space[1],
+  },
+  footer: {
+    paddingHorizontal: space[6],
+    paddingTop: space[3],
+    paddingBottom: space[8],
   },
   allowButton: {
     width: '100%',
-    marginTop: space[8],
   },
   skipButton: {
     width: '100%',

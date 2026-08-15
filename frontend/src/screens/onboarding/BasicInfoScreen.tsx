@@ -9,9 +9,15 @@
 //   순차 노출(F-ONBOARD-01 BR 1~4)은 이 화면에 그대로 둡니다.
 //
 // 바뀐 점:
-//   · 상단 back 헤더 추가 (스택 최상단이면 자리만 차지, 아이콘 미노출)
-//   · ProgressBar 제거 → ⚠️ F-ONBOARD-04(S-01/02/04 진행바)와 충돌. 되돌리려면
-//     아래 PROGRESS 주석 블록만 복구하면 됩니다.
+//   · 상단 back 헤더 추가 (2026-08-15 수정: 항상 노출. Auth↔Onboarding은
+//     RootNavigator가 accessToken 유무로 화면을 통째로 스위칭하는 구조라
+//     Onboarding 스택 안에서는 navigation.canGoBack()이 늘 false입니다.
+//     그래서 "뒤로가기"를 로그인 화면(S-00, 카카오/구글/이메일)으로 보내려면
+//     화면 이동이 아니라 clearAuth()로 세션을 지워 RootNavigator가 Auth
+//     스택을 다시 그리게 만드는 방식으로 구현했습니다 — 즉 이 버튼을 누르면
+//     로그아웃되고 지금까지 입력한 이름/성별/나이는 저장 없이 사라집니다.)
+//   · ProgressBar는 관리자 확인 전까지 유지합니다(2026-08-15 복원). Figma엔 안
+//     보이지만 F-ONBOARD-04 재검토 결과가 나올 때까지 그대로 둡니다.
 //   · 타이틀 "기본 정보를 알려주세요" → "이름을 알려주세요" + 서브텍스트 추가
 //   · 다음 버튼: 조건부 노출 → 하단 고정 + 항상 노출(미완료 시 disabled)
 import { useState } from 'react';
@@ -29,6 +35,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
 import { Chip } from '@/components/base/Chip';
+import { ProgressBar } from '@/components/base/ProgressBar';
 import { WheelPicker } from '@/components/base/WheelPicker';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
 import { IconBack } from '@/components/icons';
@@ -36,6 +43,7 @@ import { saveBasicInfo } from '@/api/onboarding';
 import { ApiError, getFieldErrors } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { useOnboardingStore, calcTotalStepCount } from '@/store/onboardingStore';
+import { useAuthStore } from '@/store/authStore';
 import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import type { Gender } from '@/types/onboarding';
@@ -57,6 +65,7 @@ export function BasicInfoScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'BasicInfo'>>();
 
+  const totalStepCount = useOnboardingStore((state) => state.totalStepCount);
   const setTotalStepCount = useOnboardingStore((state) => state.setTotalStepCount);
 
   const [name, setName] = useState('');
@@ -75,7 +84,14 @@ export function BasicInfoScreen() {
   const showAgeSection = showGenderSection && gender !== null;
   const canSubmit = showAgeSection;
 
-  const canGoBack = navigation.canGoBack();
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  // 로그인 화면(S-00)으로 돌아갑니다. Onboarding은 Auth와 별도 스택이라
+  // navigation.goBack()으로는 못 넘어가서, 세션을 지워 RootNavigator가
+  // Auth 스택을 다시 그리게 합니다 (= 로그아웃 처리).
+  const handleBackToLogin = () => {
+    clearAuth();
+  };
 
   const handleSelectGender = (value: Gender) => {
     setGender(value);
@@ -115,22 +131,22 @@ export function BasicInfoScreen() {
           진입 경로에 따라 흔들리지 않게 합니다. */}
       <View style={styles.header}>
         <View style={styles.backSlot}>
-          {canGoBack && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="뒤로 가기"
-              hitSlop={12}
-              onPress={() => navigation.goBack()}
-            >
-              <IconBack size={24} color={color.textInk} />
-            </Pressable>
-          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+            hitSlop={12}
+            onPress={handleBackToLogin}
+          >
+            <IconBack size={24} color={color.textInk} />
+          </Pressable>
         </View>
 
-        {/* PROGRESS — F-ONBOARD-04 진행바를 되살리려면 아래 두 줄의 주석을 풀고
-            useOnboardingStore에서 totalStepCount를 다시 구독하세요.
-            <ProgressBar progress={totalStepCount ? 1 / totalStepCount : 0.12}
-              current={totalStepCount ? 1 : undefined} total={totalStepCount ?? undefined} /> */}
+        <ProgressBar
+          progress={totalStepCount ? 1 / totalStepCount : 0.12}
+          current={totalStepCount ? 1 : undefined}
+          total={totalStepCount ?? undefined}
+          style={styles.progressBar}
+        />
 
         <Text style={styles.title}>이름을 알려주세요</Text>
         <Text style={styles.subtitle}>닉네임이나 이름을 입력하세요</Text>
@@ -220,7 +236,7 @@ const styles = StyleSheet.create({
     paddingBottom: space[2],
   },
   backSlot: {
-    height: 50, // Figma 49.99
+    height: 30, // 관리자 지정값 (2026-08-15) — 뒤로가기 버튼 표준 스타일로 기억
     justifyContent: 'flex-start',
   },
   title: {
@@ -233,6 +249,10 @@ const styles = StyleSheet.create({
     fontSize: adjustFontSize(13),
     ...weightFamily('medium'),
     color: color.textSub,
+  },
+  progressBar: {
+    marginTop: space[3],
+    marginBottom: space[4],
   },
   container: {
     flexGrow: 1,

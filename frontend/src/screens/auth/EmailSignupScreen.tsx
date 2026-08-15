@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   },
   navBackButton: {
     width: 40,
-    height: 40,
+    height: 68,
     alignItems: 'center',
     justifyContent: 'center',
   },

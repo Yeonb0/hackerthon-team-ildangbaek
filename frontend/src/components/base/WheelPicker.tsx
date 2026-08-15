@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     height: ITEM_SIZE,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: color.ink300,
+    borderColor: color.brand500,
   },
   selectionIndicatorHorizontal: {
     position: 'absolute',
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     marginLeft: -ITEM_SIZE / 2,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: color.ink300,
+    borderColor: color.brand500,
   },
   itemVertical: {
     height: ITEM_SIZE,

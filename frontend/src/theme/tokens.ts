@@ -37,6 +37,15 @@ export const color = {
   // 소셜 로그인(카카오/구글) 버튼처럼 흰 배경 위에 아주 옅은 경계선만 필요한 곳.
   // Figma Button - 구글로 시작하기(72:9)의 --ds-border-divider-strong 실측값.
   borderDivider: '#E3DDF5',
+  // Figma --ds-border-divider(strong 아님) — S-04/S-05 리스트 행 사이 아주 옅은
+  // 구분선 전용. borderDivider(strong)보다 더 연합니다.
+  borderDividerFaint: '#F0EAFB',
+
+  // Figma --ds-surface-lavender-soft. 선택된 옵션 카드 배경 등 brand50과는
+  // 별개 값입니다 (S-02 피부타입 Card/Selectable 실측값).
+  surfaceLavenderSoft: '#EFE9FF',
+  // Figma S-05(ProfileComplete) 페이지 배경 — surfaceLavenderSoft보다 더 옅은 별도 실측값.
+  surfaceLavenderPale: '#F5F2FF',
 
   // S-16 얼굴 촬영처럼 카메라 화면을 풀블리드로 덮는 화면 전용.
   black: '#000000',
@@ -64,6 +73,11 @@ export const gradient = {
 // 긴 버튼일수록 오히려 자연스럽게 좌(보라)→우(핑크)로 고르게 읽힙니다.
 export const gradientDirection = {
   cta: { start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+  // S-05 체크 배지(80×80, 정사각형에 가까움) 전용. CSS 150deg를 좌표로 변환한 값 —
+  // CTA 버튼(가로로 아주 긴 342×54)용 좌표를 그대로 재사용하면 착시가 생긴다고
+  // 위에서 이미 겪었으므로, 정사각형 요소는 매번 따로 계산합니다.
+  // 변환식: x2=0.5+0.5·sin(θ), y2=0.5-0.5·cos(θ), start=(1-x2,1-y2), end=(x2,y2)
+  badge: { start: { x: 0.25, y: 0.07 }, end: { x: 0.75, y: 0.93 } },
 } as const;
 
 // CTA 전용 그림자 (Figma shadow/cta: #9B8CF559, offset 0/8, blur 20).
@@ -74,6 +88,14 @@ export const shadow = {
     shadowOpacity: 0.35,
     shadowRadius: 20,
     elevation: 6,
+  },
+  // S-05 체크 배지 전용 (Figma opacity 0.4 — cta의 0.35와 별개 실측값).
+  badge: {
+    shadowColor: '#9B8CF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 8,
   },
 } as const;
 

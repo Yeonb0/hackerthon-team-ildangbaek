@@ -10,6 +10,7 @@
 // "이동"만 하고, 실제 완료 플래그는 S-06의 버튼에서 바꿉니다.
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { IconCheck } from '@/components/icons';
@@ -22,8 +23,7 @@ import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { useAuthStore } from '@/store/authStore';
 import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
-import { color, space } from '@/theme/tokens';
-import { s } from '@/lib/scale';
+import { color, space, gradient, gradientDirection, shadow } from '@/theme/tokens';
 import type { OnboardingSummaryRow } from '@/types/onboarding';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
@@ -76,31 +76,42 @@ export function OnboardingCompleteScreen() {
 
   return (
     <View style={styles.container}>
-      <IconCheck size={64} color={color.brand500} style={styles.icon} />
+      <View style={styles.content}>
+        <LinearGradient
+          colors={gradient.brand}
+          start={gradientDirection.badge.start}
+          end={gradientDirection.badge.end}
+          style={[styles.iconBadge, shadow.badge]}
+        >
+          <IconCheck size={36} color={color.white} />
+        </LinearGradient>
 
-      <Text style={styles.title}>프로파일 완성!</Text>
-      <Text style={styles.description}>
-        이제부터 매일 기록하면{'\n'}내 피부에 맞는 성분을 찾아드려요
-      </Text>
+        <Text style={styles.title}>계정 생성 완료!</Text>
+        <Text style={styles.description}>
+          이제부터 피부 기록을 시작하고{'\n'}성분 프로파일을 완성해나가요
+        </Text>
 
-      <Card style={styles.summaryCard}>
-        {summary.map((row, index) => (
-          <View
-            key={row.label}
-            style={[styles.summaryRow, index === summary.length - 1 && styles.summaryRowLast]}
-          >
-            <Text style={styles.summaryLabel}>{row.label}</Text>
-            <Text style={styles.summaryValue}>{row.value}</Text>
-          </View>
-        ))}
-      </Card>
+        <Card style={styles.summaryCard}>
+          {summary.map((row, index) => (
+            <View
+              key={row.label}
+              style={[styles.summaryRow, index === summary.length - 1 && styles.summaryRowLast]}
+            >
+              <Text style={styles.summaryLabel}>{row.label}</Text>
+              <Text style={styles.summaryValue}>{row.value}</Text>
+            </View>
+          ))}
+        </Card>
+      </View>
 
-      <Button
-        label="기록 시작하기"
-        variant="primary"
-        onPress={handleStart}
-        style={styles.startButton}
-      />
+      <View style={styles.footer}>
+        <Button
+          label="기록 시작하기"
+          variant="primary"
+          onPress={handleStart}
+          style={styles.startButton}
+        />
+      </View>
     </View>
   );
 }
@@ -108,53 +119,71 @@ export function OnboardingCompleteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: color.surfaceLavenderPale,
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: space[6],
-    backgroundColor: color.bg,
+    paddingHorizontal: space[6],
   },
-  icon: {
-    marginBottom: space[4],
+  iconBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: space[8],
   },
   title: {
-    fontSize: s(22),
+    // Figma는 Pretendard Black(900)인데, 프로젝트에 등록된 굵기 파일이
+    // regular/medium/semibold/bold 4종뿐이라 900 파일이 없습니다. 가장 굵은
+    // bold로 근사 처리했습니다 — fontWeight를 얹어 합성 볼드로 흉내내는 건
+    // 안드로이드에서 더 두꺼워지는 부작용이 있어서 하지 않았습니다.
+    fontSize: adjustFontSize(26),
     ...weightFamily('bold'),
-    color: color.ink900,
+    color: color.textInk,
     marginBottom: space[2],
     textAlign: 'center',
   },
   description: {
-    fontSize: adjustFontSize(14),
-    ...weightFamily('regular'),
-    color: color.ink600,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('medium'),
+    color: color.textSub,
     textAlign: 'center',
     marginBottom: space[6],
   },
   summaryCard: {
     width: '100%',
+    padding: 0,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: color.ink300,
+    paddingVertical: space[4],
+    paddingHorizontal: space[6],
+    borderBottomWidth: 0.76,
+    borderBottomColor: color.borderDividerFaint,
   },
   summaryRowLast: {
     borderBottomWidth: 0,
   },
   summaryLabel: {
-    fontSize: adjustFontSize(14),
-    ...weightFamily('regular'),
-    color: color.ink600,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('medium'),
+    color: color.textSub,
   },
   summaryValue: {
     fontSize: adjustFontSize(14),
-    ...weightFamily('semibold'),
-    color: color.ink900,
+    ...weightFamily('bold'),
+    color: color.textInk,
+  },
+  footer: {
+    paddingHorizontal: space[6],
+    paddingTop: space[3],
+    paddingBottom: space[8],
   },
   startButton: {
     width: '100%',
-    marginTop: space[8],
   },
 });
