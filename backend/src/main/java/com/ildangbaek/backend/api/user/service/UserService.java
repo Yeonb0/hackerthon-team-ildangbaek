@@ -28,6 +28,7 @@ import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.Year;
+import java.util.LinkedHashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -175,8 +176,16 @@ public class UserService {
         }
 
         User user = userRepository.getReferenceById(userId);
+
+        // deleteAllByUserId는 bulk delete가 아니라 select 후 개별 remove라 삭제가 커밋까지 미뤄진다.
+        // 반면 아래 save는 IDENTITY 전략이라 즉시 INSERT를 날린다. flush로 삭제를 먼저 반영하지 않으면
+        // 실행 순서가 INSERT → DELETE가 되어, 기존과 겹치는 스킨타입에서 (user_id, skin_type_id)
+        // 유니크 제약에 걸린다.
         userSkinTypeRepository.deleteAllByUserId(userId);
-        for (SkinTypeCode code : skinTypes) {
+        userSkinTypeRepository.flush();
+
+        // 같은 코드를 두 번 받으면 같은 제약에 걸리므로 요청 안의 중복도 걸러낸다.
+        for (SkinTypeCode code : List.copyOf(new LinkedHashSet<>(skinTypes))) {
             SkinType skinType = skinTypeRepository.findByCode(code)
                     .orElseGet(() -> skinTypeRepository.save(SkinType.builder()
                             .code(code)
