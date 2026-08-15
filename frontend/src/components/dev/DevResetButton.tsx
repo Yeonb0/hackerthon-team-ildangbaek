@@ -33,6 +33,8 @@ import { setMockCheckScenario } from '@/api/mock/check';
 import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export function DevResetButton() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
@@ -211,8 +213,8 @@ const styles = StyleSheet.create({
   },
   label: {
     color: color.bg,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: adjustFontSize(12),
+    ...weightFamily('semibold'),
   },
   menu: {
     marginBottom: space[2],
@@ -232,7 +234,7 @@ const styles = StyleSheet.create({
   },
   menuItemLabel: {
     color: color.bg,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: adjustFontSize(12),
+    ...weightFamily('semibold'),
   },
 });

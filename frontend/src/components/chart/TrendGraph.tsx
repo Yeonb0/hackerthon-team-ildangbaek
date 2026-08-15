@@ -1,15 +1,21 @@
 // src/components/chart/TrendGraph.tsx
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Svg, { Circle, Line, Polyline, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
 import type { GraphPoint } from '@/types/report';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type TrendGraphProps = {
   points: GraphPoint[];
   /** S-19(REPORT-01)는 명세 기본값인 막대, S-20(REPORT-02)은 선으로 씁니다. */
   variant?: 'bar' | 'line';
+  /** 이 날짜와 일치하는 점을 더 크고 다른 색(statusCaution)으로 강조합니다 — Figma
+   * RPT-02는 그래프 위에 점선+텍스트 주석까지 있었는데, 관리자님 요청으로 점 강조만
+   * 하고 텍스트 주석은 넣지 않았습니다(2026-08-14). line variant에서만 동작합니다. */
+  eventDates?: string[];
   /** 라벨 포맷터. 기본은 'M/D'만 보여줍니다. */
   formatLabel?: (date: string) => string;
   /**
@@ -30,6 +36,31 @@ const PADDING_X = 8;
 const PADDING_Y = 12;
 
 /**
+ * 점들을 캣멀롬(Catmull-Rom) 스플라인 → 3차 베지어로 변환해서 부드러운 곡선 path를
+ * 만듭니다 — Figma RPT-02의 곡선 그래프처럼 보이게 (관리자님 요청, 2026-08-14).
+ * 이전엔 Polyline로 점 사이를 직선으로만 이었습니다.
+ */
+function buildSmoothPath(pts: { x: number; y: number }[]): string {
+  if (pts.length < 2) return '';
+  if (pts.length === 2) {
+    return `M ${pts[0].x},${pts[0].y} L ${pts[1].x},${pts[1].y}`;
+  }
+  let d = `M ${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
+
+/**
  * 기간별 추이 그래프. REPORT-01/02 공용입니다.
  *
  * - 서버는 모닝·나이트를 각각 내려줍니다 (ADR 0012·0013). 이 그래프는 선 하나만
@@ -46,11 +77,13 @@ const PADDING_Y = 12;
 export function TrendGraph({
   points,
   variant = 'bar',
+  eventDates,
   formatLabel,
   width = s(320),
   height = s(160),
   style,
 }: TrendGraphProps) {
+  const eventDateSet = eventDates ? new Set(eventDates) : null;
   const chartW = width - PADDING_X * 2;
   const chartH = height - PADDING_Y * 2;
   const n = points.length;
@@ -94,8 +127,8 @@ export function TrendGraph({
           })}
 
         {variant === 'line' && validPoints.length >= 2 && (
-          <Polyline
-            points={validPoints.map((point) => `${xAt(point.i)},${yAt(point.score)}`).join(' ')}
+          <Path
+            d={buildSmoothPath(validPoints.map((point) => ({ x: xAt(point.i), y: yAt(point.score) })))}
             fill="none"
             stroke={color.brand500}
             strokeWidth={2.5}
@@ -104,15 +137,30 @@ export function TrendGraph({
           />
         )}
 
+        {/* 이벤트 날짜 강조. 관리자님 요청(2026-08-14)으로 텍스트 주석은 안 넣고, 이제는
+            일반 점(매 포인트마다 찍던 작은 원)도 없앴습니다 — 이벤트 점만 남아서 곡선
+            위에 도드라져 보입니다. 처음엔 statusCaution(주황)→blush500(핑크)→최종
+            brand700(선/점보다 진한 보라, 명도 대비)로 정착했습니다. */}
         {variant === 'line' &&
           validPoints.length >= 2 &&
-          validPoints.map((point) => (
-            <Circle key={point.date} cx={xAt(point.i)} cy={yAt(point.score)} r={3} fill={color.brand700} />
-          ))}
+          eventDateSet &&
+          validPoints
+            .filter((point) => eventDateSet.has(point.date))
+            .map((point) => (
+              <Circle
+                key={`event-${point.date}`}
+                cx={xAt(point.i)}
+                cy={yAt(point.score)}
+                r={5}
+                fill={color.brand700}
+                stroke={color.bg}
+                strokeWidth={2}
+              />
+            ))}
 
-        {/* 유효한 점이 정확히 1개면 선 대신 점 하나만 (Polyline은 점 1개로는 그릴 수 없음) */}
+        {/* 유효한 점이 정확히 1개면 선 대신 점 하나만 (곡선을 그릴 수 없음) */}
         {variant === 'line' && validPoints.length === 1 && (
-          <Circle cx={xAt(validPoints[0].i)} cy={yAt(validPoints[0].score)} r={5} fill={color.brand700} />
+          <Circle cx={xAt(validPoints[0].i)} cy={yAt(validPoints[0].score)} r={5} fill={color.brand500} />
         )}
       </Svg>
 
@@ -145,11 +193,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   labelText: {
-    fontSize: 11,
+    fontSize: adjustFontSize(11),
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
   },

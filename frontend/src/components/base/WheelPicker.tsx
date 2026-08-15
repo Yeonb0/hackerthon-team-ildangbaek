@@ -12,6 +12,8 @@
 import React, { useEffect, useRef } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { color } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 const ITEM_SIZE = 48;
 const VISIBLE_ITEMS = 5; // 홀수 — 가운데 1개가 선택 항목
@@ -148,7 +150,7 @@ const styles = StyleSheet.create({
     height: ITEM_SIZE,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: color.ink300,
+    borderColor: color.brand500,
   },
   selectionIndicatorHorizontal: {
     position: 'absolute',
@@ -159,7 +161,7 @@ const styles = StyleSheet.create({
     marginLeft: -ITEM_SIZE / 2,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: color.ink300,
+    borderColor: color.brand500,
   },
   itemVertical: {
     height: ITEM_SIZE,
@@ -173,12 +175,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemText: {
-    fontSize: 16,
+    fontSize: adjustFontSize(16),
+    ...weightFamily('regular'),
     color: color.ink300,
   },
   itemTextSelected: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: adjustFontSize(20),
+    ...weightFamily('bold'),
     color: color.ink900,
   },
 });

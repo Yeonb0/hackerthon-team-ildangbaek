@@ -42,6 +42,8 @@ import { getTodayDateString } from '@/lib/date';
 import { color, navIcon, space } from '@/theme/tokens';
 import type { GraphPoint } from '@/types/report';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 /**
  * 개발용 컴포넌트 카탈로그.
@@ -466,12 +468,21 @@ export default function CatalogScreen() {
 
       <Section title="RecordSlotCard">
         <RecordSlotCard
+          variant="product"
+          timeSlot="morning"
           label="제품 기록"
           completed
           summary="라운드랩 토너 외 2개"
           onPress={() => {}}
         />
-        <RecordSlotCard label="피부 기록" completed={false} summary={null} onPress={() => {}} />
+        <RecordSlotCard
+          variant="skin"
+          timeSlot="night"
+          label="피부 기록"
+          completed={false}
+          summary={null}
+          onPress={() => {}}
+        />
       </Section>
 
       <Section title="RecordCalendar">
@@ -722,12 +733,13 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: adjustFontSize(16),
+    ...weightFamily('bold'),
     color: color.ink900,
   },
   hint: {
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   row: {
@@ -758,7 +770,8 @@ const styles = StyleSheet.create({
     width: 64,
   },
   iconLabel: {
-    fontSize: 10,
+    fontSize: adjustFontSize(10),
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
   },

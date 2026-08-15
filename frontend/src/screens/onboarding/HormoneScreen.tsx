@@ -1,6 +1,6 @@
 // src/screens/onboarding/HormoneScreen.tsx
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '@/components/base/Button';
@@ -9,6 +9,7 @@ import { DateField } from '@/components/base/DateField';
 import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
+import { IconBack } from '@/components/icons';
 import { saveHormoneInfo } from '@/api/onboarding';
 import { ApiError, getFieldErrors } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
@@ -16,8 +17,9 @@ import { getTodayDateString } from '@/lib/date';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
-import { s } from '@/lib/scale';
 import type { HormoneStatus } from '@/types/onboarding';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 // 주사(HORMONE_INJECTION)는 관리자 결정으로 일단 숨김 처리 — 추후 기능으로 보류.
 // 타입(types/onboarding.ts)에는 그대로 남겨뒀으니 나중에 이 배열에 한 줄만 추가하면 됩니다.
@@ -100,7 +102,19 @@ export function HormoneScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      {/* 헤더 — BasicInfoScreen(S-01)과 동일한 구조·스타일로 통일 (관리자 지시, 2026-08-15) */}
+      <View style={styles.header}>
+        <View style={styles.backSlot}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="뒤로가기"
+            hitSlop={12}
+          >
+            <IconBack size={24} color={color.textInk} />
+          </Pressable>
+        </View>
+
         <ProgressBar
           progress={progress}
           current={totalStepCount ? CURRENT_STEP_INDEX : undefined}
@@ -112,7 +126,9 @@ export function HormoneScreen() {
         <Text style={styles.subtitle}>
           피부 변화 분석에 활용돼요. 지금 넘어가도 괜찮아요.
         </Text>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.chipRow}>
           {HORMONE_OPTIONS.map((option) => (
             <Chip
@@ -161,7 +177,9 @@ export function HormoneScreen() {
             style={styles.errorBanner}
           />
         )}
+      </ScrollView>
 
+      <View style={styles.footer}>
         <Button
           label="저장하고 계속하기"
           variant="primary"
@@ -176,33 +194,45 @@ export function HormoneScreen() {
           onPress={handleSkip}
           style={styles.skipButton}
         />
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  header: {
+    paddingTop: 56,
+    paddingHorizontal: space[6],
+    paddingBottom: space[2],
+  },
+  backSlot: {
+    height: 30, // 관리자 지정값 (2026-08-15) — 뒤로가기 버튼 표준 스타일
+    justifyContent: 'flex-start',
+  },
   flex: {
     flex: 1,
     backgroundColor: color.bg,
   },
   container: {
     flexGrow: 1,
-    padding: space[6],
+    paddingTop: space[8],
+    paddingHorizontal: space[6],
+    paddingBottom: space[6],
   },
   progressBar: {
-    marginBottom: space[6],
+    marginTop: space[3],
+    marginBottom: space[4],
   },
   title: {
-    fontSize: s(22),
-    fontWeight: '700',
-    color: color.ink900,
-    marginBottom: space[1],
+    fontSize: adjustFontSize(22),
+    ...weightFamily('bold'),
+    color: color.textInk,
   },
   subtitle: {
-    fontSize: 13,
-    color: color.ink600,
-    marginBottom: space[6],
+    marginTop: space[1],
+    fontSize: adjustFontSize(13),
+    ...weightFamily('medium'),
+    color: color.textSub,
   },
   chipRow: {
     flexDirection: 'row',
@@ -214,8 +244,8 @@ const styles = StyleSheet.create({
     gap: space[4],
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: adjustFontSize(13),
+    ...weightFamily('semibold'),
     color: color.ink600,
     marginBottom: space[2],
   },
@@ -224,16 +254,23 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     marginTop: space[1],
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.statusCaution,
   },
   errorBanner: {
     marginTop: space[6],
   },
+  footer: {
+    paddingHorizontal: space[6],
+    paddingTop: space[3],
+    paddingBottom: space[8],
+  },
   submitButton: {
-    marginTop: space[8],
+    width: '100%',
   },
   skipButton: {
+    width: '100%',
     marginTop: space[2],
   },
 });

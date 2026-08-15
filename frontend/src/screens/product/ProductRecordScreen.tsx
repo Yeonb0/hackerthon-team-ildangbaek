@@ -15,13 +15,14 @@
 // ⚠️ 트레이드오프: 저장된 제품을 탭해서 성분을 다시 들여다볼 방법이 이제 없습니다(바로
 // 체크됩니다). 필요하시면 별도 "성분 보기" 진입점을 다시 추가할 수 있습니다.
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
 import { Toast } from '@/components/base/Toast';
+import { IconBack, IconClose } from '@/components/icons';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { ProductSearchBar } from '@/components/domain/ProductSearchBar';
@@ -41,9 +42,10 @@ import {
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
-import { color, space, typography } from '@/theme';
+import { color, radius, space, typography } from '@/theme';
 import type { RoutineSummaryItem, SavedProductSummary } from '@/types/product';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -236,11 +238,46 @@ export function ProductRecordScreen() {
     });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
-      <View style={styles.headerArea}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.nav}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
         <Text style={styles.title}>{TIME_SLOT_TITLE[timeSlot]}</Text>
-        <ProductSearchBar value={keyword} onChangeText={setKeyword} onScanPress={handleScanPress} />
       </View>
+
+      {/* Figma PROD-01 기준 — 선택한 제품을 칩으로 보여주고 ×로 바로 해제할 수 있게 합니다
+          (관리자님 요청, 2026-08-14). 검색 모드에선 숨깁니다 — 이 칩이 가리키는 선택 상태(체크)는
+          "저장된 제품" 목록 전용이라, 검색 결과 상태에서 보이면 혼란을 줄 수 있어서
+          기존 하단 바 노출 조건(!isSearchMode)과 맞췄습니다. */}
+      {!isSearchMode && selectedProductIds.size > 0 ? (
+        <View style={styles.chipStrip}>
+          {Array.from(selectedProductIds).map((id) => {
+            const product = homeQuery.data?.savedProducts.find((p) => p.productId === id);
+            if (!product) return null;
+            return (
+              <Pressable
+                key={id}
+                onPress={() => handleToggleProduct(id)}
+                style={styles.chip}
+                accessibilityRole="button"
+                accessibilityLabel={`${product.name} 선택 해제`}
+              >
+                <Text style={styles.chipText} numberOfLines={1}>
+                  {product.name}
+                </Text>
+                <IconClose size={12} color={color.brand700} />
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {isSearchMode ? (
@@ -252,6 +289,8 @@ export function ProductRecordScreen() {
             onRetry={() => searchQuery.refetch()}
             onScan={handleScanPress}
             onDirectRegister={() => handleGoToManualRegister(keyword)}
+            searchKeyword={keyword}
+            onSearchKeywordChange={setKeyword}
           />
         ) : (
           <HomeSection
@@ -267,6 +306,9 @@ export function ProductRecordScreen() {
             onToggleProduct={handleToggleProduct}
             onViewIngredients={handleGoToIngredientCheck}
             onDirectRegister={() => handleGoToManualRegister()}
+            searchKeyword={keyword}
+            onSearchKeywordChange={setKeyword}
+            onScanPress={handleScanPress}
           />
         )}
       </ScrollView>
@@ -329,6 +371,9 @@ function HomeSection({
   onToggleProduct,
   onViewIngredients,
   onDirectRegister,
+  searchKeyword,
+  onSearchKeywordChange,
+  onScanPress,
 }: {
   homeQuery: ReturnType<typeof useProductRecordHome>;
   routinesQuery: ReturnType<typeof useRoutines>;
@@ -340,6 +385,9 @@ function HomeSection({
   onToggleProduct: (productId: number) => void;
   onViewIngredients: (productId: number) => void;
   onDirectRegister: () => void;
+  searchKeyword: string;
+  onSearchKeywordChange: (text: string) => void;
+  onScanPress: () => void;
 }) {
   // "저장된 제품" 전용 카테고리 필터(관리자님 요청, 2026-08-10) — 검색 결과나 루틴에는
   // 적용하지 않습니다. 검색 모드로 전환하면(HomeSection이 통째로 언마운트) 자연히
@@ -397,7 +445,12 @@ function HomeSection({
 
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>저장된 제품</Text>
+          <View style={styles.sectionTitleLine}>
+            <Text style={styles.sectionTitle}>저장된 제품</Text>
+            {savedProducts.length > 0 ? (
+              <Text style={styles.sectionCount}>{savedProducts.length}개</Text>
+            ) : null}
+          </View>
           {savedProducts.length > 0 ? (
             <Text style={styles.sectionHint}>탭해서 오늘 쓴 제품을 체크하세요</Text>
           ) : null}
@@ -429,7 +482,7 @@ function HomeSection({
                     key={product.productId}
                     brand={product.brand}
                     name={product.name}
-                    category={product.category}
+                    category={getCategoryLabel(product.category)}
                     selected={selectedProductIds.has(product.productId)}
                     onPress={() => onToggleProduct(product.productId)}
                     onViewIngredients={() => onViewIngredients(product.productId)}
@@ -440,6 +493,18 @@ function HomeSection({
           </>
         )}
       </View>
+
+      {/* 관리자님 요청(2026-08-14) — 검색창을 상단 헤더에서 "저장된 제품" 섹션 아래로 이동.
+          명세서 F-PRODUCT-01 BR2("검색창은 기본 상태와 검색 결과 상태 모두에서 상시 노출")는
+          "화면 어딘가에 항상 있어야 한다"는 뜻이라, 위치를 옮기는 것 자체는 이 규칙과
+          충돌하지 않습니다 — 그래서 검색 결과 상태(SearchResultsSection)에도 동일하게
+          검색창을 넣어서 계속 보이게 했습니다. */}
+      <ProductSearchBar
+        value={searchKeyword}
+        onChangeText={onSearchKeywordChange}
+        onScanPress={onScanPress}
+        placeholder="추가할 상품을 검색해보세요"
+      />
 
       <DirectRegisterButton onPress={onDirectRegister} />
     </View>
@@ -457,6 +522,8 @@ function SearchResultsSection({
   onRetry,
   onScan,
   onDirectRegister,
+  searchKeyword,
+  onSearchKeywordChange,
 }: {
   query: ReturnType<typeof useProductSearch>;
   keyword: string;
@@ -465,12 +532,36 @@ function SearchResultsSection({
   onRetry: () => void;
   onScan: () => void;
   onDirectRegister: () => void;
+  searchKeyword: string;
+  onSearchKeywordChange: (text: string) => void;
 }) {
+  // 명세서 F-PRODUCT-01 BR2 — 검색 결과 상태에서도 검색창은 계속 보여야 합니다.
+  // HomeSection에서는 "저장된 제품" 아래 있지만, 이 상태는 그 섹션 자체가 없어서
+  // 화면 맨 위에 둡니다(검색어를 바로 고쳐 쓸 수 있어야 하니 접근성 우선).
+  const searchBar = (
+    <ProductSearchBar
+      value={searchKeyword}
+      onChangeText={onSearchKeywordChange}
+      onScanPress={onScan}
+      placeholder="추가할 상품을 검색해보세요"
+    />
+  );
+
   if (query.isLoading) {
-    return <LoadingState variant="skeleton" skeletonLines={4} />;
+    return (
+      <View style={styles.sections}>
+        {searchBar}
+        <LoadingState variant="skeleton" skeletonLines={4} />
+      </View>
+    );
   }
   if (query.isError || !query.data) {
-    return <ErrorState variant="network" onRetry={onRetry} />;
+    return (
+      <View style={styles.sections}>
+        {searchBar}
+        <ErrorState variant="network" onRetry={onRetry} />
+      </View>
+    );
   }
 
   const { totalCount, products } = query.data;
@@ -480,6 +571,7 @@ function SearchResultsSection({
     // "직접 등록하기" 2버튼을 나란히 보여줍니다(관리자 결정, 2026-08-13).
     return (
       <View style={styles.sections}>
+        {searchBar}
         <View style={styles.notFoundArea}>
           <Text style={styles.notFoundTitle}>&apos;{keyword}&apos;을 찾지 못했어요</Text>
           <Text style={styles.notFoundDescription}>아직 등록된 제품이 없어요</Text>
@@ -499,6 +591,7 @@ function SearchResultsSection({
 
   return (
     <View style={styles.sections}>
+      {searchBar}
       <Text style={styles.resultCount}>검색 결과 {totalCount}개</Text>
       <View style={styles.list}>
         {products.map((product) => (
@@ -506,7 +599,7 @@ function SearchResultsSection({
             key={product.productId}
             brand={product.brand}
             name={product.name}
-            category={product.category}
+            category={getCategoryLabel(product.category)}
             badgeLabel={product.saved ? '저장됨' : undefined}
             onViewIngredients={product.saved ? () => onSelectNew(product.productId) : undefined}
             onPress={() =>
@@ -521,12 +614,13 @@ function SearchResultsSection({
   );
 }
 
-/** Phase 11-C(관리자 결정, 2026-08-13) — TBD-07 해소. 이전엔 목적지가 없어 disabled였음. */
+/** Phase 11-C(관리자 결정, 2026-08-13) — TBD-07 해소. 이전엔 목적지가 없어 disabled였음.
+ * Phase 12(2026-08-14) — Figma PROD-01 기준 버튼 대신 텍스트 링크 스타일로 변경(보라색 톤 유지). */
 function DirectRegisterButton({ onPress }: { onPress: () => void }) {
   return (
-    <View style={styles.directRegister}>
-      <Button label="제품 직접 등록" variant="secondary" onPress={onPress} />
-    </View>
+    <Pressable onPress={onPress} style={styles.directRegister} accessibilityRole="button">
+      <Text style={styles.directRegisterText}>+ 제품 직접 등록하기</Text>
+    </Pressable>
   );
 }
 
@@ -535,14 +629,46 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: color.bg,
   },
-  headerArea: {
-    paddingHorizontal: space[5],
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: space[3],
-    paddingBottom: space[3],
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     ...typography.h1,
     color: color.ink900,
+  },
+  chipStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
+    paddingHorizontal: space[5],
+    paddingBottom: space[3],
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    backgroundColor: color.brand50,
+    borderWidth: 1,
+    borderColor: color.brand100,
+    borderRadius: radius.pill,
+    paddingHorizontal: space[3],
+    paddingVertical: space[1],
+    maxWidth: 200,
+  },
+  chipText: {
+    ...typography.caption,
+    color: color.brand700,
+    ...weightFamily('semibold'),
   },
   content: {
     paddingHorizontal: space[5],
@@ -557,9 +683,18 @@ const styles = StyleSheet.create({
   sectionTitleRow: {
     gap: 2,
   },
+  sectionTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space[2],
+  },
   sectionTitle: {
     ...typography.h2,
     color: color.ink900,
+  },
+  sectionCount: {
+    ...typography.caption,
+    color: color.brand700,
   },
   sectionHint: {
     ...typography.caption,
@@ -578,8 +713,13 @@ const styles = StyleSheet.create({
   },
   directRegister: {
     alignItems: 'center',
-    gap: space[1],
     paddingTop: space[2],
+    paddingVertical: space[2],
+  },
+  directRegisterText: {
+    ...typography.caption,
+    color: color.brand700,
+    ...weightFamily('semibold'),
   },
   notFoundArea: {
     alignItems: 'center',

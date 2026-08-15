@@ -3,6 +3,8 @@ import { Linking, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-nat
 import { AppIcon, AppIconName } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export type PermissionType = 'camera' | 'location' | 'notification';
 
@@ -63,13 +65,14 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   title: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: adjustFontSize(15),
+    ...weightFamily('semibold'),
     color: color.ink900,
     textAlign: 'center',
   },
   description: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
   },

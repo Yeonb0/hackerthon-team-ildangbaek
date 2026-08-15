@@ -53,6 +53,9 @@ export const DetailRoutes = {
   // Phase 11-C — PROD-05 제품 직접 등록(F-PRODUCT-08, TBD-07). 백엔드 API 없이 프론트 목업
   // 전용(관리자 결정, 2026-08-13). ProductRecord(S-11/12)의 "제품 직접 등록" 버튼에서 옴.
   ProductManualRegister: 'ProductManualRegister',
+  // Phase 11-D(2번 체크포인트) — F-RECORD-02 월간 기록(Frame 10, 210:835). RecordHub의
+  // 캘린더 아이콘 버튼에서 진입, 날짜 탭하면 그 날 기록 바텀시트가 뜹니다.
+  RecordCalendar: 'RecordCalendar',
 } as const;
 
 export type TimeSlot = 'MORNING' | 'NIGHT';
@@ -109,6 +112,8 @@ export type DetailStackParamList = {
   [DetailRoutes.RoutineEdit]: { routineId: number };
   // initialKeyword: 검색결과없음(PROD-03) 경로로 들어왔을 때만 있음 — 검색어를 제품명에 prefill
   [DetailRoutes.ProductManualRegister]: { timeSlot: TimeSlot; initialKeyword?: string };
+  // Phase 11-D(2번 체크포인트) — F-RECORD-02 월간 기록. RecordHub 캘린더 아이콘에서 진입.
+  [DetailRoutes.RecordCalendar]: undefined;
 };
 
 // Root: Auth ↔ Onboarding ↔ Main 전체 교체 (뒤로가기로 못 돌아감)

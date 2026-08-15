@@ -2,6 +2,8 @@ import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { IconImagePlaceholder, IconList } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 type ProductCardProps = {
   brand: string;
@@ -66,9 +68,11 @@ export function ProductCard({
         <Text style={styles.name} numberOfLines={2}>
           {name}
         </Text>
-        <Text style={styles.category} numberOfLines={1}>
-          {category}
-        </Text>
+        <View style={styles.categoryTag}>
+          <Text style={styles.category} numberOfLines={1}>
+            {category}
+          </Text>
+        </View>
       </View>
       {badgeLabel || onViewIngredients ? (
         <View style={styles.rightArea}>
@@ -123,17 +127,28 @@ const styles = StyleSheet.create({
     gap: space[1],
   },
   brand: {
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   name: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: adjustFontSize(14),
+    ...weightFamily('semibold'),
     color: color.ink900,
   },
+  categoryTag: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: color.brand100,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[2],
+    paddingVertical: 1,
+    marginTop: 2,
+  },
   category: {
-    fontSize: 12,
-    color: color.ink600,
+    fontSize: adjustFontSize(11),
+    color: color.brand700,
+    ...weightFamily('semibold'),
   },
   badge: {
     alignSelf: 'flex-start',
@@ -143,8 +158,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.brand50,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: adjustFontSize(11),
+    ...weightFamily('semibold'),
     color: color.brand700,
   },
   rightArea: {
@@ -158,8 +173,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   ingredientButtonText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: adjustFontSize(11),
+    ...weightFamily('semibold'),
     color: color.brand700,
   },
 });
