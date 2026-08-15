@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ildangbaek.backend.domain.user.entity.AuthProvider;
 import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.domain.user.repository.UserRepository;
+import com.ildangbaek.backend.global.auth.MockAccessToken;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,7 @@ class ProductControllerAuthTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
+    @Autowired private MockAccessToken mockAccessToken;
 
     @DisplayName("토큰이 없으면 401 COMMON_UNAUTHORIZED")
     @Test
@@ -40,7 +42,7 @@ class ProductControllerAuthTest {
                 .provider(AuthProvider.KAKAO).providerUserId("kakao-search").email("s@x.local").build());
 
         mockMvc.perform(get("/api/v1/products").param("keyword", "세럼")
-                        .header("Authorization", "Bearer mock-access-" + user.getId() + "-uuid"))
+                        .header("Authorization", "Bearer " + mockAccessToken.issueAccessToken(user.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true));
     }

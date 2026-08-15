@@ -48,6 +48,7 @@ DB 설정은 `application-local.yml`에 있습니다.
 | `DB_NAME` | `ildangbaek` | |
 | `DB_USERNAME` | `ildangbaek` | |
 | `DB_PASSWORD` | `ildangbaek1234` | |
+| `MOCK_TOKEN_SECRET` | (로컬 전용 값) | 목업 토큰(`mock-access-*`, `mock-refresh-*`) HMAC 서명 비밀키. 실제 배포 환경에서는 반드시 별도 값으로 설정해야 한다 |
 | `STORAGE_LOCAL_DIR` | `./uploads/images` | 이미지 저장 경로 ([ADR 0007](../docs/decisions/0007-이미지-스토리지.md)) |
 | `STORAGE_LOCAL_URL_PREFIX` | `/images/` | 반환 URL 접두사 |
 | `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택. `mock` · `local-vision` ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md) · [ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md) · [ADR 0022](../docs/decisions/0022-openai-비전-2단계-점수-확정.md)) |

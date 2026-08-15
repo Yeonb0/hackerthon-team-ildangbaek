@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,11 +30,16 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @WebMvcTest(controllers = CurrentUserIdArgumentResolverTest.TestController.class)
 @Import({CurrentUserIdArgumentResolverTest.TestController.class, WebConfig.class,
-        CurrentUserIdArgumentResolver.class, GlobalExceptionHandler.class})
+        CurrentUserIdArgumentResolver.class, MockAccessToken.class, MockTokenSigner.class,
+        GlobalExceptionHandler.class})
+@TestPropertySource(properties = "app.auth.mock-token-secret=test-secret")
 class CurrentUserIdArgumentResolverTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private MockAccessToken mockAccessToken;
 
     @MockitoBean
     private UserRepository userRepository;
@@ -60,7 +66,7 @@ class CurrentUserIdArgumentResolverTest {
         given(userRepository.findById(42L)).willReturn(Optional.of(user));
 
         mockMvc.perform(get("/api/v1/test/current-user-entity")
-                        .header("Authorization", "Bearer mock-access-42-abcd1234"))
+                        .header("Authorization", "Bearer " + mockAccessToken.issueAccessToken(42L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result").value(42));
     }
@@ -71,7 +77,7 @@ class CurrentUserIdArgumentResolverTest {
         given(userRepository.findById(42L)).willReturn(Optional.empty());
 
         mockMvc.perform(get("/api/v1/test/current-user-entity")
-                        .header("Authorization", "Bearer mock-access-42-abcd1234"))
+                        .header("Authorization", "Bearer " + mockAccessToken.issueAccessToken(42L)))
                 .andExpect(jsonPath("$.code").value("AUTH_USER_NOT_FOUND"));
     }
 
@@ -87,7 +93,7 @@ class CurrentUserIdArgumentResolverTest {
     @Test
     void resolvesHeader() throws Exception {
         mockMvc.perform(get("/api/v1/test/current-user")
-                        .header("Authorization", "Bearer mock-access-42-abcd1234"))
+                        .header("Authorization", "Bearer " + mockAccessToken.issueAccessToken(42L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result").value(42));
     }
@@ -123,6 +129,28 @@ class CurrentUserIdArgumentResolverTest {
     void rejectsNonNumericUserId() throws Exception {
         mockMvc.perform(get("/api/v1/test/current-user")
                         .header("Authorization", "Bearer mock-access-abc-1234"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @DisplayName("서버가 발급하지 않은(서명 없는) 위조 토큰은 401 COMMON_UNAUTHORIZED — 다른 사용자로 위장 불가")
+    @Test
+    void rejectsForgedTokenWithoutSignature() throws Exception {
+        mockMvc.perform(get("/api/v1/test/current-user")
+                        .header("Authorization", "Bearer mock-access-999-forged-uuid"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @DisplayName("서명이 다른 비밀키로 만들어졌으면 401 COMMON_UNAUTHORIZED")
+    @Test
+    void rejectsTokenSignedWithWrongSecret() throws Exception {
+        MockTokenSigner otherSigner = new MockTokenSigner("different-secret");
+        String payload = "mock-access-999-forged-uuid";
+        String forgedToken = payload + "." + otherSigner.sign(payload);
+
+        mockMvc.perform(get("/api/v1/test/current-user")
+                        .header("Authorization", "Bearer " + forgedToken))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
