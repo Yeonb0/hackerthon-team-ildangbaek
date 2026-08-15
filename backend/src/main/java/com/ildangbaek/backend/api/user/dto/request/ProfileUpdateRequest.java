@@ -10,7 +10,7 @@ import java.util.List;
 
 public record ProfileUpdateRequest(
         @Size(min = 1, max = 10) String name,
-        String gender,
+        GenderRequest gender,
         @Min(10) @Max(100) Integer age,
         List<SkinTypeCode> skinTypes,
         HormoneStatus hormoneStatus,

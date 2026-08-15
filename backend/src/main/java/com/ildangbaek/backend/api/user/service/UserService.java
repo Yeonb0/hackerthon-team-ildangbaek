@@ -1,6 +1,7 @@
 package com.ildangbaek.backend.api.user.service;
 
 import com.ildangbaek.backend.api.onboard.dto.request.HormoneStatus;
+import com.ildangbaek.backend.api.user.dto.request.GenderRequest;
 import com.ildangbaek.backend.api.user.dto.request.LocationUpdateRequest;
 import com.ildangbaek.backend.api.user.dto.request.NotificationSettingRequest;
 import com.ildangbaek.backend.api.user.dto.request.ProfileUpdateRequest;
@@ -109,21 +110,22 @@ public class UserService {
         UserProfile profile = userProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        // 수정 후 성별. 요청에 없으면 기존 값이 유지된다.
+        Gender gender = request.gender() != null ? request.gender().toGender() : profile.getGender();
+
         if (request.name() != null || request.gender() != null || request.age() != null) {
             String nickname = request.name() != null ? request.name() : profile.getNickname();
-            Gender gender = request.gender() != null ? parseGender(request.gender()) : profile.getGender();
             Short birthYear = request.age() != null
                     ? (short) (Year.now().getValue() - request.age() + 1)
                     : profile.getBirthYear();
             profile.updateBasicInfo(nickname, birthYear, gender);
         }
 
-        if (request.gender() != null && profile.getGender() != Gender.FEMALE) {
+        // 호르몬 정보는 FEMALE에게만 의미가 있다(F-ONBOARD-03). 여성이 아니게 되면 지우고,
+        // 여성이면서 호르몬 필드가 하나라도 온 경우에만 갱신한다.
+        if (gender != Gender.FEMALE) {
             profile.clearHormoneInfo();
-        } else if (profile.getGender() == Gender.FEMALE
-                && (request.hormoneStatus() != null
-                    || request.lastPeriodStartDate() != null
-                    || request.averageCycleDays() != null)) {
+        } else if (hasHormoneField(request)) {
             updateHormoneFields(profile, request);
         }
 
@@ -133,6 +135,12 @@ public class UserService {
 
         NotificationSetting notificationSetting = notificationSettingRepository.findByUserId(userId).orElse(null);
         return toProfileResponse(profile, notificationSetting);
+    }
+
+    private boolean hasHormoneField(ProfileUpdateRequest request) {
+        return request.hormoneStatus() != null
+                || request.lastPeriodStartDate() != null
+                || request.averageCycleDays() != null;
     }
 
     private void updateHormoneFields(UserProfile profile, ProfileUpdateRequest request) {
@@ -240,12 +248,6 @@ public class UserService {
         };
     }
 
-    private Gender parseGender(String gender) {
-        if ("UNSPECIFIED".equals(gender)) {
-            return Gender.NOT_SELECTED;
-        }
-        return Gender.valueOf(gender);
-    }
 
     private record HormoneMapping(
             MenstrualStatus menstrualStatus,
@@ -275,14 +277,10 @@ public class UserService {
                 .toList();
     }
 
+    /** 응답 필드가 String이라 이름만 꺼낸다. 저장 표기 ↔ API 표기 대응은 GenderRequest 한 곳에 둔다. */
     private String toApiGender(Gender gender) {
-        if (gender == null) {
-            return null;
-        }
-        if (gender == Gender.NOT_SELECTED) {
-            return "UNSPECIFIED";
-        }
-        return gender.name();
+        GenderRequest apiGender = GenderRequest.from(gender);
+        return apiGender == null ? null : apiGender.name();
     }
 
     private Integer toAge(Short birthYear) {
