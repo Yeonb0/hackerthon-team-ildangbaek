@@ -11,10 +11,14 @@
 // 섞이고 유지됩니다.
 //
 // 배경은 옅은 라벤더(surfaceLavenderPale)로 바꿨고(관리자님 지시), 제품 행은
-// DraggableRoutineRow가 카드 스타일(번호 뱃지 + 원형 X)로 그립니다. "+ 제품 추가하기"는
-// 이번에 새로 추가한 자리 표시자 버튼입니다 — 실제로 제품을 추가하는 API/흐름이 아직
-// 없어서(백엔드에 루틴 제품 추가 엔드포인트가 없음) 탭해도 아무 동작이 없습니다. 목적지가
-// 정해지면(예: 검색 화면으로 이동 후 이 루틴에 담기) 연결하겠습니다.
+// DraggableRoutineRow가 카드 스타일(번호 뱃지 + 원형 X)로 그립니다.
+//
+// 2026-08-15(세션5) — "+ 제품 추가하기" 목적지를 검색창 연결에서 전용 화면으로 변경
+// (관리자님 지시). RoutineAddProductScreen(체크박스 다중 선택, 저장된 제품 한정)으로
+// 이동해 여러 개를 한 번에 루틴에 담습니다. 그 화면에서 돌아오면(useFocusEffect) 서버
+// 쪽 루틴 구성이 이미 바뀌어 있으니 routinesQuery를 다시 불러와서 새로 추가된 제품만
+// 로컬 편집 상태(ordersByRoutineId)에 병합합니다 — 사용자가 그사이 다른 탭에서 만든
+// 순서 변경·삭제는 그대로 유지합니다.
 //
 // ⚠️ 순서 변경·삭제는 여전히 화면 전용 데모입니다. 루틴 구성을 바꾸는 API(PATCH/DELETE류)가
 // api_명세서.md에 없어서(PRODUCT-07은 조회만 가능) 로컬 상태로만 동작하고, 화면을 나가면
@@ -23,9 +27,9 @@
 //
 // ⚠️ Development Build 전용 화면입니다 (react-native-reanimated 네이티브 모듈 필요).
 // Expo Go에서 이 화면에 진입하면 크래시납니다.
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,7 +40,7 @@ import { ErrorState } from '@/components/state/ErrorState';
 import { IconAdd, IconBack } from '@/components/icons';
 import { DraggableRoutineRow, ROW_HEIGHT } from '@/components/domain/DraggableRoutineRow';
 import { useRoutines } from '@/api/queries/product';
-import { DetailStackParamList } from '@/app/routes';
+import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, space, typography } from '@/theme';
 import { weightFamily } from '@/theme/typography';
 import type { RoutineProductItem } from '@/types/product';
@@ -56,14 +60,44 @@ export function RoutineEditScreen() {
 
   // 루틴별 편집 사본(데모 전용) — 탭을 오가도 서로 다른 루틴의 편집 내용이 섞이지 않게
   // routineId를 키로 따로 보관합니다. 렌더링 중 조정 패턴(useEffect 대신)은
-  // RoutineQuickRecordCard.tsx와 같은 이유로 여기서도 씁니다.
+  // RoutineQuickRecordCard.tsx와 같은 이유로 여기서도 씁니다(React 19 lint 규칙 —
+  // set-state-in-effect 금지, 렌더 중 조건부 setState는 허용되는 "bail-out" 패턴).
   const [ordersByRoutineId, setOrdersByRoutineId] = useState<Record<number, RoutineProductItem[]>>(
     {}
   );
-  if (activeRoutine && ordersByRoutineId[activeRoutine.routineId] === undefined) {
-    setOrdersByRoutineId((prev) => ({ ...prev, [activeRoutine.routineId]: activeRoutine.products }));
+  if (activeRoutine) {
+    const current = ordersByRoutineId[activeRoutine.routineId];
+    if (current === undefined) {
+      // 처음 이 루틴을 여는 경우 — 서버 데이터 그대로 초기화.
+      setOrdersByRoutineId((prev) => ({ ...prev, [activeRoutine.routineId]: activeRoutine.products }));
+    } else {
+      // 2026-08-15(세션5) 버그 수정(관리자님 실기기 확인) — RoutineAddProductScreen에서
+      // 돌아오면(포커스 재획득 → routinesQuery 재조회) 새로 추가된 제품만 병합합니다.
+      // 사용자가 로컬에서 이미 바꿔둔 순서·삭제는 그대로 둡니다. useEffect 안에서
+      // refetch().then(...)으로 처리했던 첫 버전은 addProductToRoutine 뮤테이션의 onSuccess가
+      // 이미 걸어둔 자동 무효화-재조회와 타이밍이 겹치면서 병합이 반영 전 데이터로 덮어써지는
+      // 경우가 있어서(루틴이 업데이트 안 되는 것처럼 보였던 원인), react-query가 최종적으로
+      // 들고 있는 routinesQuery.data를 렌더마다 그대로 비교하는 방식으로 바꿨습니다.
+      const currentIds = new Set(current.map((p) => p.productId));
+      const newlyAdded = activeRoutine.products.filter((p) => !currentIds.has(p.productId));
+      if (newlyAdded.length > 0) {
+        setOrdersByRoutineId((prev) => ({
+          ...prev,
+          [activeRoutine.routineId]: [...(prev[activeRoutine.routineId] ?? current), ...newlyAdded],
+        }));
+      }
+    }
   }
   const order = activeRoutine ? ordersByRoutineId[activeRoutine.routineId] : undefined;
+
+  // RoutineAddProductScreen 등에서 돌아왔을 때 서버 쪽 최신 루틴 구성을 다시 불러옵니다.
+  // 실제 병합은 위 렌더 중 조정 블록이 담당합니다 — 여기서는 refetch만 트리거합니다.
+  useFocusEffect(
+    useCallback(() => {
+      routinesQuery.refetch();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeRoutineId])
+  );
 
   const [toastVisible, setToastVisible] = useState(false);
 
@@ -89,6 +123,14 @@ export function RoutineEditScreen() {
       ...prev,
       [id]: (prev[id] ?? []).filter((p) => p.productId !== productId),
     }));
+  };
+
+  const handleAddProduct = () => {
+    if (!activeRoutine) return;
+    navigation.navigate(DetailRoutes.RoutineAddProduct, {
+      routineId: activeRoutine.routineId,
+      timeSlot: activeRoutine.timeSlot,
+    });
   };
 
   const handleSave = () => {
@@ -157,8 +199,14 @@ export function RoutineEditScreen() {
           </View>
         )}
 
-        {/* "+ 제품 추가하기" — 자리만 있고 아직 동작은 없습니다(파일 상단 주석 참고). */}
-        <Pressable accessibilityRole="button" accessibilityLabel="제품 추가하기" style={styles.addButton}>
+        {/* "+ 제품 추가하기" — RoutineAddProductScreen(체크박스 다중 선택)으로 이동합니다
+            (관리자님 지시, 2026-08-15 세션5). */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="제품 추가하기"
+          onPress={handleAddProduct}
+          style={styles.addButton}
+        >
           <IconAdd size={16} color={color.brand700} />
           <Text style={styles.addButtonText}>제품 추가하기</Text>
         </Pressable>

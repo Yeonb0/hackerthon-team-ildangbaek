@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { IconImagePlaceholder, IconList } from '@/components/icons';
+import { IconCheck, IconCircleEmpty, IconImagePlaceholder, IconList } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
@@ -27,6 +27,24 @@ type ProductCardProps = {
    */
   onViewIngredients?: () => void;
   onPress?: () => void;
+  /**
+   * 오른쪽에 원형 체크박스를 보여줍니다(관리자님 실기기 확인, 2026-08-15 — 배경색만으로는
+   * 선택 여부가 잘 안 보인다는 버그 리포트). RoutineAddProductScreen처럼 "여러 개 체크해서
+   * 한 번에 처리"하는 화면에서만 켭니다 — 기존 ProductRecordScreen "저장된 제품" 목록은
+   * 배경색 방식 그대로 유지(관리자님이 이미 확인한 동작이라 별도 지시 전까지 안 건드림).
+   *
+   * 2026-08-15(세션5) 추가 수정(관리자님 실기기 확인 — 체크박스 아이콘만으로는 여전히 선택
+   * 표시가 잘 안 보임) — showCheckbox가 true면 선택 시 카드 전체에 테두리(brand500)를
+   * 둘러서 훨씬 뚜렷하게 보이도록 했습니다. 체크 아이콘은 보조 표시로 계속 남겨둡니다.
+   */
+  showCheckbox?: boolean;
+  /**
+   * 'card'(기본) — 카드 하나마다 흰 배경 + 둥근 모서리(다른 화면 대부분 이 방식).
+   * 'plain' — 배경/모서리를 없애 부모가 만든 단일 흰 카드 컨테이너 안에 나란히 놓이는
+   * 방식(Figma 정합, 2026-08-15 — ProductRecordScreen "저장된 제품" 리스트 전용).
+   * 부모가 카드 사이 구분선을 그리므로 이 컴포넌트는 배경/라운딩을 그리지 않습니다.
+   */
+  variant?: 'card' | 'plain';
   style?: StyleProp<ViewStyle>;
 };
 
@@ -43,6 +61,8 @@ export function ProductCard({
   selected,
   onViewIngredients,
   onPress,
+  showCheckbox = false,
+  variant = 'card',
   style,
 }: ProductCardProps) {
   return (
@@ -51,8 +71,9 @@ export function ProductCard({
       accessibilityState={selected !== undefined ? { selected } : undefined}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.container,
-        selected && styles.containerSelected,
+        variant === 'card' ? styles.container : styles.containerPlain,
+        showCheckbox && variant === 'plain' && styles.checkboxRowBase,
+        selected && (showCheckbox ? styles.containerCheckboxSelected : styles.containerSelected),
         pressed && onPress && styles.pressed,
         style,
       ]}
@@ -95,6 +116,17 @@ export function ProductCard({
           ) : null}
         </View>
       ) : null}
+      {showCheckbox ? (
+        <View style={styles.checkbox}>
+          {selected ? (
+            <View style={styles.checkboxChecked}>
+              <IconCheck size={14} color={color.white} />
+            </View>
+          ) : (
+            <IconCircleEmpty size={22} color={color.ink300} />
+          )}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -111,12 +143,38 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
+  containerPlain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    paddingVertical: space[3],
+    gap: space[3],
+  },
+  // 2026-08-15(세션5) — showCheckbox 모드 전용 선택 표시(관리자님 지시 이력: 배경색/체크
+  // 아이콘만으로 잘 안 보여서 테두리로, 그다음 카드에 꽉 차게, 그다음 눌렀다 뗄 때 크기가
+  // 미묘하게 달라지는 문제까지). 마지막 버그 원인 — 테두리·margin·padding을 "선택됐을 때만"
+  // 추가했더니, 선택 여부에 따라 실제 박스 크기(테두리 두께만큼)가 달라져서 탭할 때마다
+  // 미세하게 커졌다 작아졌다 했습니다. 그래서 이 자리(margin/padding/border 두께)는
+  // showCheckbox면 선택 여부와 상관없이 항상 동일하게 잡아두고, 선택 시엔 오직 색상만
+  // (투명 → brand500 테두리 / brand50 배경) 바꿔서 크기가 절대 안 변하게 했습니다.
+  checkboxRowBase: {
+    marginHorizontal: -space[3],
+    paddingHorizontal: space[3],
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    borderColor: 'transparent',
+  },
   containerSelected: {
+    backgroundColor: color.brand50,
+  },
+  containerCheckboxSelected: {
+    borderColor: color.brand500,
     backgroundColor: color.brand50,
   },
   thumbnail: {
     width: 56,
     height: 56,
+    flexShrink: 0,
     borderRadius: radius.sm,
     backgroundColor: color.brand50,
     alignItems: 'center',
@@ -163,6 +221,7 @@ const styles = StyleSheet.create({
     color: color.brand700,
   },
   rightArea: {
+    flexShrink: 0,
     alignItems: 'flex-end',
     gap: space[1],
   },
@@ -176,5 +235,18 @@ const styles = StyleSheet.create({
     fontSize: adjustFontSize(11),
     ...weightFamily('semibold'),
     color: color.brand700,
+  },
+  checkbox: {
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: color.brand500,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

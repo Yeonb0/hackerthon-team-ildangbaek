@@ -2,10 +2,12 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Card } from '@/components/base/Card';
 import { Button } from '@/components/base/Button';
+import { AppIcon } from '@/components/icons/AppIcon';
 import { color, space, typography } from '@/theme';
 import type { TimeSlot } from '@/app/routes';
+import type { IconName } from '@/components/icons/registry';
 
-const TIME_SLOT_EMOJI: Record<TimeSlot, string> = { MORNING: '☀️', NIGHT: '🌙' };
+const TIME_SLOT_ICON: Record<TimeSlot, IconName> = { MORNING: 'sunny', NIGHT: 'moon' };
 
 type RoutineQuickRecordCardProps = {
   name: string;
@@ -22,10 +24,14 @@ type RoutineQuickRecordCardProps = {
  * 진입점입니다.
  *
  * Figma 정합(2026-08-15, RecordProduct-Library 59:8263) — 가로 한 줄 행에서 세로 카드로
- * 전면 재구성했습니다(관리자님 지시): 이모지(☀️/🌙) → 이름 → 요약 → 개수 → "바로 기록"
- * 버튼 순으로 세로 배치. 부모(ProductRecordScreen)가 두 카드를 2열 그리드로 나란히
- * 놓습니다. "바로 기록" 버튼은 primary(그라데이션) — 그라데이션은 "바로 기록"/"기록 완료"
- * 버튼에만 쓰기로 확정(관리자님 지시, 2026-08-15).
+ * 전면 재구성했습니다(관리자님 지시): 시간대 아이콘(sunny/moon) → 이름 → 요약 → 개수 →
+ * "바로 기록" 버튼 순으로 세로 배치. 부모(ProductRecordScreen)가 두 카드를 2열 그리드로
+ * 나란히 놓습니다. "바로 기록" 버튼은 primary(그라데이션) — 그라데이션은 "바로 기록"/
+ * "기록 완료" 버튼에만 쓰기로 확정(관리자님 지시, 2026-08-15).
+ *
+ * 2026-08-15(세션4) — 시간대 표시를 이모지(☀️/🌙)에서 커스텀 아이콘 세트(AppIcon
+ * 'sunny'/'moon')로 교체(관리자님 지시). 시간대 뱃지("모닝"/"나이트" 알약)는 여전히
+ * 안 씁니다(관리자님 확인) — 이 아이콘만으로 시간대를 구분합니다.
  *
  * 카드는 더 이상 펼쳐지지 않습니다(관리자님 지시, 2026-08-15) — 이전엔 탭하면 구성
  * 제품 미리보기 + "순서 수정" 링크가 펼쳐졌는데, Figma에 그 인터랙션이 없어서 통째로
@@ -45,7 +51,7 @@ export function RoutineQuickRecordCard({
   return (
     <Card padding={4} style={style}>
       <View style={styles.top}>
-        <Text style={styles.emoji}>{TIME_SLOT_EMOJI[timeSlot]}</Text>
+        <AppIcon name={TIME_SLOT_ICON[timeSlot]} size={20} color={color.brand700} style={styles.icon} />
         <Text style={styles.name} numberOfLines={1}>
           {name}
         </Text>
@@ -70,8 +76,7 @@ const styles = StyleSheet.create({
   top: {
     gap: 2,
   },
-  emoji: {
-    fontSize: 11,
+  icon: {
     marginBottom: space[1],
   },
   name: {
