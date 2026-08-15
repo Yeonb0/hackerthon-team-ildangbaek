@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * REPORT-01 · 리포트 조회, REPORT-02 · 요인 상세 조회, REPORT-03 · 일자별 리포트 조회.
@@ -89,6 +90,7 @@ public class ReportService {
     /** REPORT-02의 자외선 급증 이벤트. */
     private final DailyEnvironmentRepository dailyEnvironmentRepository;
 
+    @Transactional(readOnly = true)
     public ReportResponse getReport(Long userId, int period, SkinMetricType metric) {
         if (!ALLOWED_PERIODS.contains(period)) {
             throw new BusinessException(ErrorCode.REPORT_INVALID_PERIOD);
@@ -118,6 +120,7 @@ public class ReportService {
      *
      * @throws BusinessException 없거나 다른 사용자의 것이면 {@code REPORT_INSIGHT_NOT_FOUND}
      */
+    @Transactional(readOnly = true)
     public ReportInsightDetailResponse getInsightDetail(Long userId, Long insightId) {
         AnalysisInsight insight = analysisInsightRepository.findById(insightId)
                 .filter(found -> found.getUser().getId().equals(userId))
@@ -166,6 +169,7 @@ public class ReportService {
      *
      * @throws BusinessException 미래 날짜면 {@code RECORD_FUTURE_DATE_NOT_ALLOWED} (BR 2)
      */
+    @Transactional(readOnly = true)
     public ReportDailyResponse getDailyReport(Long userId, LocalDate date, TimeSlot timeSlot) {
         if (date.isAfter(LocalDate.now())) {
             throw new BusinessException(ErrorCode.RECORD_FUTURE_DATE_NOT_ALLOWED);
