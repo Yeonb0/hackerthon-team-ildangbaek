@@ -1973,13 +1973,16 @@ json
 1. 등록된 제품은 `dataSource=USER`, `active=true`로 즉시 저장되며 다른 사용자에게도 검색·매칭·스캔에 동일하게 노출된다. 등록자 전용 비공개 상태는 없다.
 2. `ingredientNames`에 카탈로그에 없는 성분명이 있으면 새 `Ingredient`로 생성해 연결한다. 이미 있는 이름이면 기존 성분을 재사용한다. 농도·핵심 성분 여부는 입력받지 않는다(`keyIngredient=false`로 저장).
 3. 이름·브랜드 중복을 서버가 막지 않는다. 클라이언트가 등록 전 PRODUCT-09(`GET /products/match`)로 조회해 중복 여부를 사용자에게 안내한다.
-4. `image`를 생략하면 `imageUrl`은 `null`이다.
+4. `image`를 생략하면 `imageUrl`은 `null`이다. 보내는 경우 형식·크기 규칙은 공통 이미지 규칙(9.3)과 같다.
+5. 같은 성분명이 여러 번 들어오면(앞뒤 공백 차이 포함) 첫 번째 것만 연결한다. 오류가 아니라 무시이며, `displayOrder`는 중복을 걸러낸 뒤의 순서로 1부터 매긴다.
 
 **Error**
 
 | Status | Code |
 | --- | --- |
 | 422 | `COMMON_VALIDATION_FAILED` (`name` 공백/글자 수 초과, `category` 누락 등) |
+| 422 | `SKIN_IMAGE_INVALID_FORMAT` (`image`가 jpg/jpeg/png가 아님) |
+| 422 | `SKIN_IMAGE_TOO_LARGE` (`image`가 10MB 초과) |
 | 401 | `COMMON_UNAUTHORIZED` |
 
 ---
