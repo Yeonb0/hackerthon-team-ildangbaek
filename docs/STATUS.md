@@ -3,10 +3,12 @@
 > 이 문서는 **실제 구현·검증·배포 상태**를 기록한다. 계획이나 목표가 아니라 **지금 저장소에 있는 것**을 적는다.
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
-- 최종 갱신: 2026-08-14
-- 기준 커밋: `7b2c730` (CHECK-03 N+1 수정) — F-ANALYSIS-03 호르몬 요인 보정(ADR 0019) 반영 +
-  BACKEND_B_IMPLEMENTATION_VERIFICATION.md 재검증 세션에서 P1(시드 `user_profiles` 확인)·
-  P2(CHECK-03 쿼리 수 3→2) 해소, SKIN-01·PRODUCT-05·REPORT-02/03 재현 검증 완료
+- 최종 갱신: 2026-08-15
+- 기준 커밋: `d4cacdd` (환경 요인 보정) — **`origin/main` 재확인 세션**: A 담당이 `main`에 반영한
+  `home`·`location`·`record` 패키지(커밋 `1bf5f09 feat(home): add service flow APIs` 등)가 이미
+  이 브랜치 HEAD에 병합돼 있음을 코드 대조로 확인. 아래 2.3절 A 담당 표를 "미착수" 위주에서
+  "구현됨(대부분)"으로 갱신. **이번 세션은 코드 존재·명세 대조까지만 했고 실서버 동작 확인은
+  하지 않았다** — 항목별로 아래 표에 명시
 - 기준 브랜치: `yunjin` · 기본 브랜치: `boyeon`
 
 > **2026-08-14 `origin/main` 병합.** A 담당 브랜치가 `main`에 반영한 AUTH(이메일)·PRODUCT-01~04
@@ -57,7 +59,7 @@
 | --- | --- | --- |
 | 백엔드 — 공통 인프라 | 🟡 | 응답/예외 envelope 완비. 스토리지·날짜 유틸 추가. **인증은 임시 방편** |
 | 백엔드 — 엔티티 · 리포지토리 | ✅ | 전 도메인 정의 완료 |
-| 백엔드 — service / controller / dto | 🟡 | **skin · report · user · product · check · onboard · auth 7개 도메인.** 제품/루틴 조회(PRODUCT-01~04·06) 등 나머지 미착수 |
+| 백엔드 — service / controller / dto | 🟡 | **skin · report · user · product · productrecord · routine · check · onboard · auth · home · location · record 12개 도메인 코드 존재.** 2026-08-15 재확인 — 이전 판에서 "미착수"로 적었던 HOME-01·RECORD-01/02·PRODUCT-01~05·07·08·USER-05~07은 실제로는 코드가 이미 있다(아래 2.3절). **USER-03·04(프로필 조회/수정)와 PRODUCT-06(제품 기록 수정)만 진짜 코드 없음.** AUTH-03(로그아웃)은 컨트롤러만 있고 토큰 폐기 로직 없는 빈 구현 |
 | 프론트엔드 | 🟡 | 전 화면(S-00~S-24, S-03 결번) 구현 완료. 백엔드 실연동은 미착수 — `EXPO_PUBLIC_USE_MOCK=true`로 전부 목업 모드 동작 |
 | 배포 | ⬜ | 미착수. 로컬 실행만 |
 
@@ -65,6 +67,15 @@
 `POST /api/v1/skin-records` · `GET /api/v1/reports` · `GET /api/v1/reports/daily` ·
 `GET /api/v1/reports/insights/{insightId}` · `GET /api/v1/users/me/ingredient-profile` ·
 `POST /api/v1/checks` · `GET /api/v1/checks/{checkId}`.
+**2026-08-15에 코드로 추가 확인된(실서버 미검증) 엔드포인트**: `GET /api/v1/home` ·
+`GET /api/v1/locations` · `GET /api/v1/records/calendar` · `GET /api/v1/records/today` ·
+`GET /api/v1/product-records/home` · `GET /api/v1/products` · `POST /api/v1/products/scan` ·
+`GET /api/v1/products/{id}` · `GET /api/v1/products/match` · `POST/DELETE /api/v1/products/{id}/save` ·
+`GET /api/v1/routines` · `POST /api/v1/routines/{routineId}/records` ·
+`PATCH /api/v1/users/me/notification` · `PATCH /api/v1/users/me/location` ·
+`GET /api/v1/users/me/products` · `GET /api/v1/users/me/account` ·
+`POST /api/v1/auth/refresh` · `PATCH /api/v1/onboarding/hormone` · `POST /api/v1/onboarding/complete`.
+컴파일되는 완성된 코드로는 보이나(TODO/스텁 아님) curl/실DB로 동작을 재현한 적은 없다 — 다음 세션 과제.
 
 > ⚠️ **인증 방식 이원화는 해소됐다(2026-08-13, [ADR 0017](decisions/0017-임시-인증-토큰-통합.md)).**
 > skin·report·check·product·user 도메인의 `CurrentUserIdArgumentResolver`가 `X-User-Id` 헤더
@@ -117,22 +128,33 @@
 
 ### 2.3 API 구현 현황
 
-담당은 A / B 분담을 따른다. **아래 A 담당 표는 2026-08-13에 코드 대조로 갱신했다** — AUTH·ONBOARD가
-`origin/jiwoo` 브랜치 작업(`bfb075b feat(auth): add mock auth and onboarding flow` ·
-`fd6c336 feat(onboard): add hormone onboarding endpoint`)으로 이미 구현되어 이 브랜치 HEAD에
-병합돼 있었는데, 이전 판이 이를 반영하지 못하고 있었다.
+담당은 A / B 분담을 따른다. **아래 A 담당 표는 2026-08-15에 코드 대조로 재갱신했다.** `origin/main`을
+fetch해 확인한 결과, 2026-08-14 판까지 "미착수"로 적었던 HOME-01·RECORD-01/02·PRODUCT 대부분·
+USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)으로 이미 구현되어
+이 브랜치 HEAD(`d4cacdd`)에 들어와 있었다 — 이전 판이 이를 반영하지 못한 stale 상태였다.
+**이번 재갱신은 코드 존재·명세 대조(파일 읽기)로만 판단했고, 실서버 기동·curl 검증은 하지
+않았다** — 상태 기호 🟡는 "코드는 있으나 실서버 미검증"을 뜻하며 이전 판의 🟡(부분 구현)와
+의미가 다를 수 있으니 비고를 함께 봐야 한다.
 
 #### A 담당 — 서비스 기본 흐름 
 
 | API | 상태 | 비고 |
 | --- | --- | --- |
-| AUTH-01~03 로그인 · 재발급 · 로그아웃 | 🟡 | 코드 존재. `POST /login`은 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인. `/refresh`·`/logout`은 미검증. 테스트 파일 0개 |
-| ONBOARD-01~05 온보딩 | 🟡 | 코드 존재. 상태조회 · `basic-info` · `skin-types`는 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인 — `SENSITIVE` 자동 생성 경로 포함. `hormone`·`complete`는 미검증. 테스트 파일 0개 |
+| AUTH-01~02 로그인 · 재발급 | 🟡 | 코드 존재. `POST /login`은 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인. `/refresh`는 코드 확인만(2026-08-15), 실서버 미검증. 테스트 파일 0개 |
+| AUTH-03 로그아웃 | 🟡 | **컨트롤러가 `AuthService` 호출 없이 바로 200을 반환**(`AuthController.java:35-38`) — 토큰 폐기 로직이 없다. 인증 자체가 mock 토큰(서명 없음, 서버 저장 안 함)이라 "폐기할 대상"이 애초에 없는 구조적 결과로 보이나, 명세 BR 1("서버에 저장된 Refresh Token을 폐기한다")과는 형식상 어긋난다. 실제 인증 도입 시 재구현 필요 |
+| ONBOARD-01~05 온보딩 | 🟡 | 코드 존재(상태조회·`basic-info`·`skin-types`·`hormone`·`complete` 5단계 모두 컨트롤러/서비스 메서드 있음). `basic-info`·`skin-types`는 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인. **`hormone`·`complete`는 2026-08-15 기준 코드 확인만, 실서버 미검증** — 5절 블로커 #10("호르몬 저장 API 없음")은 코드상 해소된 것으로 보이나 실서버 검증 전이라 완전히 닫지 않음. 테스트 파일 0개 |
 | USER-01 마이페이지 조회 | ✅ | 원래 A 담당이나 F-ANALYSIS-05 BR 4(값 일치) 검증을 위해 B가 구현. `MyPageService` |
-| USER-03~07 프로필 · 위치 · 알림 | ⬜ | 코드 없음 확인(`UserController`에 `GET /`·`GET /ingredient-profile`뿐) |
-| HOME-01 홈 조회 | ⬜ | 코드 없음 확인(`api/` 아래 `home` 디렉토리 없음) |
-| RECORD-01~02 기록 허브 | ⬜ | 코드 없음 확인(`api/` 아래 `record` 디렉토리 없음. `skin-records`·`product-records`는 개별 도메인으로 존재하나 통합 허브는 없음) |
-| PRODUCT-01~08 제품 검색 · 상세 · 기록 · 루틴 | 🟡 | PRODUCT-05(제품 기록 저장)만 B가 구현·검증 완료(2.13절). 01~04·06~08(검색·상세·루틴)은 코드 없음 확인. F-PRODUCT-08(직접 등록 저장)은 여전히 TBD-07 미정 — 다만 그 화면이 쓰는 매칭 조회(PRODUCT-09, 신규)만 2026-08-14에 B가 별도로 구현 |
+| USER-02 성분 프로파일 조회 | ✅ | B 구현(2.10절) |
+| USER-03 프로필 조회 | ⬜ | **코드 없음 확인**(2026-08-15). `UserController`에 대응 메서드 없음 |
+| USER-04 프로필 수정 | ⬜ | **코드 없음 확인**(2026-08-15). `UserController`에 대응 메서드 없음 |
+| USER-05 지역 목록 조회 | 🟡 | `LocationController.searchLocations()` — `GET /api/v1/locations?keyword=`. 코드 존재, 실서버 미검증. 지역 데이터가 하드코딩된 시/도 6개(`LocationSeed`) 샘플 수준 — 명세가 요구하는 시/구 단위 전국 목록에는 못 미침(명세 자체도 "전국 시/구 목록 확보 필요"로 미정 표시) |
+| USER-06 위치 설정 | 🟡 | `UserController.updateLocation()` — `PATCH /api/v1/users/me/location`. 코드 존재, 실서버 미검증 |
+| USER-07 알림 설정 | 🟡 | `UserController.updateNotification()` — `PATCH /api/v1/users/me/notification`. 코드 존재, 실서버 미검증 |
+| HOME-01 홈 조회 | 🟡 | `HomeController.getHome()` — `GET /api/v1/home?homeType=`. `HomeService`(147줄)가 낮/밤 판정·environment·routineRecommendation·todayRecord·weeklyCalendar·todayReport를 명세 필드 구조대로 채움. **다만 `environment`는 실제 날씨 API 연동 없이 단순화된 값으로 보이고, `failedSections`는 항상 빈 배열 고정 반환** — 부분 실패 처리가 명세만큼 정교하지 않을 수 있다. 테스트 없음, 실서버 미검증 |
+| RECORD-01~02 기록 허브 | 🟡 | `RecordController` — `GET /api/v1/records/calendar?yearMonth=`(RECORD-01) · `GET /api/v1/records/today`(RECORD-02). `RecordHubService`(138줄), `yearMonth` 파싱 실패 시 `RECORD_INVALID_MONTH` 예외 처리도 있음. 테스트 없음, 실서버 미검증 |
+| PRODUCT-01·02·03·04·05·07·08 | 🟡 | 코드 존재. `ProductController`(검색·상세·스캔·매칭·찜), `ProductRecordController`(`GET /product-records/home`=PRODUCT-01, `POST /product-records`=PRODUCT-05), `RoutineController`(`GET /routines`=PRODUCT-07, `POST /routines/{id}/records`=PRODUCT-08). PRODUCT-05만 B가 실서버 검증 완료(2.13절), 나머지는 코드 확인만(2026-08-15), 실서버 미검증. 테스트는 `ProductRecordWriterTest` 1개뿐, `productrecord`·`routine` 패키지 테스트 0개 |
+| PRODUCT-06 제품 기록 수정 | ⬜ | **코드 없음 확인**(2026-08-15). `ProductRecordController`에 `PATCH /product-records/{recordId}` 없음 |
+| F-PRODUCT-08 제품 직접 등록 | ⬜ | 여전히 TBD-07 미정. 그 화면이 쓰는 매칭 조회(PRODUCT-09)만 2026-08-14에 B가 별도 구현 |
 
 > ⚠️ **AUTH·ONBOARD는 "코드가 있다"만 확인했다.** `saveSkinTypes`가 `skin_types` 마스터를
 > `orElseGet`으로 자동 생성하도록 짜여 있어 2.8절의 "민감성 완화가 온보딩 부재로 동작 안 함" 경고도
@@ -927,7 +949,7 @@ failedSections 1). 백엔드 전체 **191개 통과**(로컬 MySQL 기동 상태
 | 7b | ~~REPORT-03에 대응하는 기능 ID가 없다~~ | **F-REPORT-04 신설로 해소.** 다만 이 기능을 쓰는 **화면은 여전히 미정**이라 12장 매핑표에 항목이 없다 | 화면 확정 시 B |
 | 8 | `Idempotency-Key` 미구현 | 저장 API 5개 공통(SKIN-01·PRODUCT-05 등 + CHECK-02) | A·B 공통 인프라로 분리 |
 | 9 | `BackendApplicationTests`가 MySQL 없이 실패 | 로컬 테스트 | H2 또는 `application-test.yml` 필요 |
-| 10 | F-ONBOARD-03(생리·호르몬 정보 입력) 저장 API 없음 | F-ANALYSIS-03(B-17)이 참조하는 `user_profiles` 호르몬 필드를 채울 API 경로가 없다. 온보딩 상태 조회는 `hormone` 단계를 인지하지만(`OnboardingController`) 저장 엔드포인트가 없어 현재는 DB 직접 수정으로만 값을 넣을 수 있다 | A |
+| 10 | ~~F-ONBOARD-03(생리·호르몬 정보 입력) 저장 API 없음~~ | **코드상 해소로 보임(2026-08-15 재확인)** — `OnboardingController.saveHormone()`(`PATCH /api/v1/onboarding/hormone`)이 존재한다. 다만 이 세션은 코드 확인만 했고 DB 직접 수정 우회 없이 이 API로 실제 F-ANALYSIS-03 경로가 동작하는지 실서버 재검증은 아직이다 | A(구현) → B(재검증 필요) |
 
 ---
 
