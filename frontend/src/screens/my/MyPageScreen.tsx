@@ -16,16 +16,20 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconBell, IconChevronRight, IconLocationPin, IconLogout } from '@/components/icons';
+import { IconBell, IconCalendar, IconChevronRight, IconLocationPin, IconLogout } from '@/components/icons';
 import { Card } from '@/components/base/Card';
 import { Tag, TagVariant } from '@/components/base/Tag';
 import { ProgressBar } from '@/components/base/ProgressBar';
 import { Popup } from '@/components/base/Popup';
+import { SegmentToggle } from '@/components/base/SegmentToggle';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { useMyPage, useUpdateNotificationSetting, useLogout } from '@/api/queries/user';
+import { useFontStore, FontChoice } from '@/store/fontStore';
+import { useWeekStartStore } from '@/store/weekStartStore';
+import type { WeekStart } from '@/lib/date';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
-import { color, space, typography } from '@/theme';
+import { color, space, typography, weightFamily } from '@/theme';
 import type { IngredientStatus } from '@/types/user';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
@@ -42,8 +46,33 @@ export function MyPageScreen() {
   const { data, isLoading, isError, refetch } = useMyPage();
   const updateNotification = useUpdateNotificationSetting();
   const logoutMutation = useLogout();
+  const fontChoice = useFontStore((s) => s.fontChoice);
+  const setFontChoice = useFontStore((s) => s.setFontChoice);
+  const weekStart = useWeekStartStore((s) => s.weekStart);
+  const setWeekStart = useWeekStartStore((s) => s.setWeekStart);
 
   const [logoutPopupVisible, setLogoutPopupVisible] = useState(false);
+  const [restartPopupVisible, setRestartPopupVisible] = useState(false);
+  /** 확인 팝업 대기 중인 선택값. null이면 팝업이 닫힌 상태입니다. */
+  const [pendingFontChoice, setPendingFontChoice] = useState<FontChoice | null>(null);
+
+  // 글꼴을 바꾸면 앱이 재시작됩니다(번들을 다시 평가해야 화면 글꼴이 바뀜 — typography.ts
+  // 주석 참고). 사용자 입장에선 갑자기 앱이 튕긴 것처럼 보이므로 먼저 확인을 받습니다.
+  // 여기서 바로 저장하지 않기 때문에, "아니오"를 누르면 토글 선택 표시도 원래대로 남습니다.
+  const handleSelectFont = (choice: FontChoice) => {
+    if (choice === fontChoice) return;
+    setPendingFontChoice(choice);
+  };
+
+  const handleConfirmFontChange = async () => {
+    const choice = pendingFontChoice;
+    setPendingFontChoice(null);
+    if (!choice) return;
+    // 리로드가 걸리면 이 아래는 실행되지 않습니다. false면 수동 재시작 안내로 넘어갑니다
+    // (프로덕션 빌드 — expo-updates를 붙이기 전까지의 폴백).
+    const reloaded = await setFontChoice(choice);
+    if (!reloaded) setRestartPopupVisible(true);
+  };
 
   if (isLoading) {
     return (
@@ -146,10 +175,50 @@ export function MyPageScreen() {
           <View style={styles.menuRow}>
             <IconBell size={20} color={color.ink600} />
             <Text style={styles.menuLabel}>알림 설정</Text>
+            {/* thumbColor를 안 주면 안드로이드가 OS 기본 accent(초록)를 씁니다 —
+                trackColor만 브랜드 색으로 바꿔도 동그라미가 초록으로 남던 원인입니다.
+                흰 동그라미 + 보라 트랙 조합으로 고정합니다.
+                ios_backgroundColor는 iOS 꺼짐 상태 트랙 색입니다. */}
             <Switch
               value={data.notificationEnabled}
               onValueChange={(enabled) => updateNotification.mutate({ enabled })}
               trackColor={{ false: color.ink300, true: color.brand500 }}
+              thumbColor={color.bg}
+              ios_backgroundColor={color.ink300}
+            />
+          </View>
+
+          {/* Phase 12(2026-08-13) 부가 요청 — 글꼴 선택. 42종 아이콘 세트에 딱 맞는
+              폰트/텍스트 아이콘이 없어서 이 행만 아이콘 없이 라벨만 둡니다(체크포인트 9-B와
+              같은 원칙 — 대응 아이콘 없으면 무리해서 넣지 않음). */}
+          <View style={[styles.menuRow, styles.fontRow]}>
+            <Text style={styles.menuLabel}>글꼴</Text>
+            <SegmentToggle
+              options={[
+                { value: 'pretendard' as FontChoice, label: 'Pretendard' },
+                { value: 'nanumSquareNeo' as FontChoice, label: '나눔스퀘어네오' },
+              ]}
+              value={fontChoice}
+              onChange={handleSelectFont}
+              style={styles.fontToggle}
+            />
+          </View>
+
+          {/* 주 시작 요일 설정(2026-08-15, 관리자님 요청). 글꼴 행과 같은 패턴 —
+              dayNightStore·fontStore처럼 서버 전송 없이 클라이언트 메모리에만 저장합니다
+              (weekStartStore). 기록 홈 주간 스트립·월간 기록 캘린더에 바로 반영되고,
+              밤 홈 주간 스트립은 USE_MOCK에서는 반영되지만 실서버는 백엔드가 weekStart
+              파라미터를 지원해야 정확해집니다(요청서 전달 예정). */}
+          <View style={[styles.menuRow, styles.fontRow]}>
+            <Text style={styles.menuLabel}>주 시작</Text>
+            <SegmentToggle
+              options={[
+                { value: 'SUNDAY' as WeekStart, label: '일요일' },
+                { value: 'MONDAY' as WeekStart, label: '월요일' },
+              ]}
+              value={weekStart}
+              onChange={setWeekStart}
+              style={styles.fontToggle}
             />
           </View>
 
@@ -176,6 +245,28 @@ export function MyPageScreen() {
         secondaryLabel="취소"
         onSecondaryPress={() => setLogoutPopupVisible(false)}
         onRequestClose={() => setLogoutPopupVisible(false)}
+      />
+
+      <Popup
+        visible={pendingFontChoice !== null}
+        title="앱이 다시 시작돼요"
+        description={'글꼴을 바꾸려면 앱을 한 번 다시 시작해야 해요.\n지금 바꿀까요?'}
+        primaryLabel="예"
+        onPrimaryPress={handleConfirmFontChange}
+        secondaryLabel="아니오"
+        onSecondaryPress={() => setPendingFontChoice(null)}
+        onRequestClose={() => setPendingFontChoice(null)}
+      />
+
+      {/* 리로드가 불가능한 환경(프로덕션 빌드)에서만 뜹니다 — expo-updates를 붙이면
+          이 폴백은 필요 없어집니다. */}
+      <Popup
+        visible={restartPopupVisible}
+        title="글꼴 설정을 저장했어요"
+        description={'앱을 완전히 종료했다가 다시 열면 선택하신 글꼴이 적용돼요.'}
+        primaryLabel="확인"
+        onPrimaryPress={() => setRestartPopupVisible(false)}
+        onRequestClose={() => setRestartPopupVisible(false)}
       />
     </View>
   );
@@ -220,8 +311,10 @@ const styles = StyleSheet.create({
   },
   completionText: {
     ...typography.caption,
+    // fontWeight: '600' → weightFamily (굵기별 폰트 파일 위에 fontWeight를 얹으면
+    // 안드로이드가 합성 볼드를 겹쳐 얹습니다).
+    ...weightFamily('semibold'),
     color: color.brand700,
-    fontWeight: '600',
   },
   gauge: {
     marginTop: space[1],
@@ -263,6 +356,12 @@ const styles = StyleSheet.create({
     gap: space[3],
     paddingVertical: space[3],
     paddingHorizontal: space[3],
+  },
+  fontRow: {
+    justifyContent: 'space-between',
+  },
+  fontToggle: {
+    width: 220,
   },
   menuLabel: {
     ...typography.body,

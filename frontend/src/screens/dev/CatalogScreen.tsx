@@ -42,6 +42,8 @@ import { getTodayDateString } from '@/lib/date';
 import { color, navIcon, space } from '@/theme/tokens';
 import type { GraphPoint } from '@/types/report';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 /**
  * 개발용 컴포넌트 카탈로그.
@@ -299,20 +301,25 @@ export default function CatalogScreen() {
         <ProductSearchBar value="토너" onChangeText={() => {}} onScanPress={() => {}} style={{ marginTop: space[2] }} />
       </Section>
 
-      <Section title="RoutineQuickRecordCard (Phase 7 — 탭하면 펼쳐짐)">
-        <RoutineQuickRecordCard
-          routineId={1}
-          name="모닝루틴"
-          timeSlot="MORNING"
-          productCount={3}
-          productSummary="토너 · 세럼 · 선크림"
-          onQuickRecord={() => {}}
-          products={[
-            { productId: 11, name: '라운드랩 자작나무 수분 토너' },
-            { productId: 15, name: '이니스프리 어성초 세럼' },
-            { productId: 21, name: '닥터지 선베이스' },
-          ]}
-        />
+      <Section title="RoutineQuickRecordCard (Figma RecordProduct-Library, 2026-08-15)">
+        <View style={{ flexDirection: 'row', gap: space[3] }}>
+          <RoutineQuickRecordCard
+            name="모닝루틴"
+            timeSlot="MORNING"
+            productCount={3}
+            productSummary="토너 · 세럼 · 선크림"
+            onQuickRecord={() => {}}
+            style={{ flex: 1 }}
+          />
+          <RoutineQuickRecordCard
+            name="나이트루틴"
+            timeSlot="NIGHT"
+            productCount={4}
+            productSummary="클렌저 · 토너 · 크림"
+            onQuickRecord={() => {}}
+            style={{ flex: 1 }}
+          />
+        </View>
       </Section>
 
       <Section title="SkinRecordSuggestionCard (Phase 7-B)">
@@ -466,12 +473,21 @@ export default function CatalogScreen() {
 
       <Section title="RecordSlotCard">
         <RecordSlotCard
+          variant="product"
+          timeSlot="morning"
           label="제품 기록"
           completed
           summary="라운드랩 토너 외 2개"
           onPress={() => {}}
         />
-        <RecordSlotCard label="피부 기록" completed={false} summary={null} onPress={() => {}} />
+        <RecordSlotCard
+          variant="skin"
+          timeSlot="night"
+          label="피부 기록"
+          completed={false}
+          summary={null}
+          onPress={() => {}}
+        />
       </Section>
 
       <Section title="RecordCalendar">
@@ -722,12 +738,13 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: adjustFontSize(16),
+    ...weightFamily('bold'),
     color: color.ink900,
   },
   hint: {
-    fontSize: 12,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('regular'),
     color: color.ink600,
   },
   row: {
@@ -758,7 +775,8 @@ const styles = StyleSheet.create({
     width: 64,
   },
   iconLabel: {
-    fontSize: 10,
+    fontSize: adjustFontSize(10),
+    ...weightFamily('regular'),
     color: color.ink600,
     textAlign: 'center',
   },

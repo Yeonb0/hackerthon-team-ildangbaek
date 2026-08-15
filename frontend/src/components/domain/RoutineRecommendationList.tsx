@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/state/EmptyState';
 import { color, gradient, radius, space, typography } from '@/theme';
 import type { TimeSlot } from '@/app/routes';
 import type { RoutineRecommendationItem } from '@/types/home';
+import { weightFamily } from '@/theme/typography';
 
 type RoutineRecommendationListProps = {
   timeSlot: TimeSlot;
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   priorityPillText: {
     ...typography.micro,
     color: color.bg,
-    fontWeight: '700',
+    ...weightFamily('bold'),
   },
   info: {
     flex: 1,

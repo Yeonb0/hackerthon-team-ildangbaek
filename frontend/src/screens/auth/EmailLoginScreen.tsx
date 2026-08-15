@@ -3,16 +3,21 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
+import { IconBack } from '@/components/icons';
 import { useAuthStore } from '@/store/authStore';
 import { loginWithEmail } from '@/api/emailAuth';
 import { isValidEmail } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
+import { adjustFontSize } from '@/theme/typography';
 
 export function EmailLoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'EmailLogin'>>();
+  const insets = useSafeAreaInsets();
   const setTokens = useAuthStore((state) => state.setTokens);
   const setOnboardingCompleted = useAuthStore((state) => state.setOnboardingCompleted);
   const setOnboardingNextStep = useAuthStore((state) => state.setOnboardingNextStep);
@@ -42,7 +47,19 @@ export function EmailLoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.screen}>
+      <View style={[styles.nav, { paddingTop: insets.top }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로가기"
+          hitSlop={8}
+          style={styles.navBackButton}
+        >
+          <IconBack size={22} color={color.ink900} />
+        </Pressable>
+      </View>
+      <View style={styles.container}>
       <Text style={styles.title}>이메일로 로그인</Text>
 
       <View style={styles.form}>
@@ -87,11 +104,28 @@ export function EmailLoginScreen() {
       >
         <Text style={styles.signupLinkText}>이메일로 회원가입</Text>
       </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: color.bg,
+  },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  navBackButton: {
+    width: 40,
+    height: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -99,8 +133,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: adjustFontSize(20),
+    ...weightFamily('bold'),
     color: color.ink900,
     marginBottom: space[6],
     textAlign: 'center',
@@ -109,14 +143,16 @@ const styles = StyleSheet.create({
     gap: space[4],
   },
   forgotPassword: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('regular'),
     color: color.ink300,
     textAlign: 'right',
   },
   errorText: {
     color: color.statusCaution,
     marginTop: space[4],
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('regular'),
   },
   submitButton: {
     marginTop: space[6],
@@ -126,7 +162,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   signupLinkText: {
-    fontSize: 13,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('regular'),
     color: color.ink600,
     textDecorationLine: 'underline',
   },
