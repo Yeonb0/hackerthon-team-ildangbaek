@@ -59,7 +59,7 @@
 | --- | --- | --- |
 | 백엔드 — 공통 인프라 | 🟡 | 응답/예외 envelope 완비. 스토리지·날짜 유틸 추가. **인증은 임시 방편** |
 | 백엔드 — 엔티티 · 리포지토리 | ✅ | 전 도메인 정의 완료 |
-| 백엔드 — service / controller / dto | 🟡 | **skin · report · user · product · productrecord · routine · check · onboard · auth · home · location · record 12개 도메인 코드 존재.** 2026-08-15 재확인 — 이전 판에서 "미착수"로 적었던 HOME-01·RECORD-01/02·PRODUCT-01~05·07·08·USER-05~07은 실제로는 코드가 이미 있다(아래 2.3절). **USER-03·04(프로필 조회/수정)와 PRODUCT-06(제품 기록 수정)만 진짜 코드 없음.** AUTH-03(로그아웃)은 컨트롤러만 있고 토큰 폐기 로직 없는 빈 구현 |
+| 백엔드 — service / controller / dto | 🟡 | **skin · report · user · product · productrecord · routine · check · onboard · auth · home · location · record 12개 도메인 코드 존재.** 2026-08-15 재확인 — 이전 판에서 "미착수"로 적었던 HOME-01·RECORD-01/02·PRODUCT-01~05·07·08·USER-05~07은 실제로는 코드가 이미 있다(아래 2.3절). USER-03·04(프로필 조회/수정)와 PRODUCT-06(제품 기록 수정)도 2026-08-15에 구현 완료(실서버 미검증). AUTH-03(로그아웃)은 컨트롤러만 있고 토큰 폐기 로직 없는 빈 구현 |
 | 프론트엔드 | 🟡 | 전 화면(S-00~S-24, S-03 결번) 구현 완료. 백엔드 실연동은 미착수 — `EXPO_PUBLIC_USE_MOCK=true`로 전부 목업 모드 동작 |
 | 배포 | ⬜ | 미착수. 로컬 실행만 |
 
@@ -145,15 +145,15 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | ONBOARD-01~05 온보딩 | 🟡 | 코드 존재(상태조회·`basic-info`·`skin-types`·`hormone`·`complete` 5단계 모두 컨트롤러/서비스 메서드 있음). `basic-info`·`skin-types`는 인증 통합 검증(ADR 0017, 2026-08-13)에서 실서버로 확인. **`hormone`·`complete`는 2026-08-15 기준 코드 확인만, 실서버 미검증** — 5절 블로커 #10("호르몬 저장 API 없음")은 코드상 해소된 것으로 보이나 실서버 검증 전이라 완전히 닫지 않음. 테스트 파일 0개 |
 | USER-01 마이페이지 조회 | ✅ | 원래 A 담당이나 F-ANALYSIS-05 BR 4(값 일치) 검증을 위해 B가 구현. `MyPageService` |
 | USER-02 성분 프로파일 조회 | ✅ | B 구현(2.10절) |
-| USER-03 프로필 조회 | ⬜ | **코드 없음 확인**(2026-08-15). `UserController`에 대응 메서드 없음 |
-| USER-04 프로필 수정 | ⬜ | **코드 없음 확인**(2026-08-15). `UserController`에 대응 메서드 없음 |
+| USER-03 프로필 조회 | 🟡 | `UserController.getProfile()` — `GET /api/v1/users/me/profile`. `UserService.getProfile()`이 프로필·피부타입·알림설정을 조합해 반환. 엔티티의 `menstrualStatus`+`oralContraceptive`+`progesteroneInjection` 조합을 API `hormoneStatus` 4종으로 역매핑한다. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
+| USER-04 프로필 수정 | 🟡 | `UserController.updateProfile()` — `PATCH /api/v1/users/me/profile`. 전달된 필드만 수정(BR 2), `gender`를 FEMALE 외 값으로 바꾸면 `UserProfile.clearHormoneInfo()`로 호르몬 필드 초기화(BR 3), `skinTypes`는 전체 교체(BR 4). 응답은 USER-03과 동일한 전체 프로필. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
 | USER-05 지역 목록 조회 | 🟡 | `LocationController.searchLocations()` — `GET /api/v1/locations?keyword=`. 코드 존재, 실서버 미검증. 지역 데이터가 하드코딩된 시/도 6개(`LocationSeed`) 샘플 수준 — 명세가 요구하는 시/구 단위 전국 목록에는 못 미침(명세 자체도 "전국 시/구 목록 확보 필요"로 미정 표시) |
 | USER-06 위치 설정 | 🟡 | `UserController.updateLocation()` — `PATCH /api/v1/users/me/location`. 코드 존재, 실서버 미검증 |
 | USER-07 알림 설정 | 🟡 | `UserController.updateNotification()` — `PATCH /api/v1/users/me/notification`. 코드 존재, 실서버 미검증 |
 | HOME-01 홈 조회 | 🟡 | `HomeController.getHome()` — `GET /api/v1/home?homeType=`. `HomeService`(147줄)가 낮/밤 판정·environment·routineRecommendation·todayRecord·weeklyCalendar·todayReport를 명세 필드 구조대로 채움. **다만 `environment`는 실제 날씨 API 연동 없이 단순화된 값으로 보이고, `failedSections`는 항상 빈 배열 고정 반환** — 부분 실패 처리가 명세만큼 정교하지 않을 수 있다. 테스트 없음, 실서버 미검증 |
 | RECORD-01~02 기록 허브 | 🟡 | `RecordController` — `GET /api/v1/records/calendar?yearMonth=`(RECORD-01) · `GET /api/v1/records/today`(RECORD-02). `RecordHubService`(138줄), `yearMonth` 파싱 실패 시 `RECORD_INVALID_MONTH` 예외 처리도 있음. 테스트 없음, 실서버 미검증 |
 | PRODUCT-01·02·03·04·05·07·08 | 🟡 | 코드 존재. `ProductController`(검색·상세·스캔·매칭·찜), `ProductRecordController`(`GET /product-records/home`=PRODUCT-01, `POST /product-records`=PRODUCT-05), `RoutineController`(`GET /routines`=PRODUCT-07, `POST /routines/{id}/records`=PRODUCT-08). PRODUCT-05만 B가 실서버 검증 완료(2.13절), 나머지는 코드 확인만(2026-08-15), 실서버 미검증. 테스트는 `ProductRecordWriterTest` 1개뿐, `productrecord`·`routine` 패키지 테스트 0개 |
-| PRODUCT-06 제품 기록 수정 | ⬜ | **코드 없음 확인**(2026-08-15). `ProductRecordController`에 `PATCH /product-records/{recordId}` 없음 |
+| PRODUCT-06 제품 기록 수정 | 🟡 | `ProductRecordController.update()` — `PATCH /api/v1/product-records/{recordId}`. `productIds` 전체 교체(기존 항목 삭제 후 요청 순서대로 `usageOrder` 재부여), 오늘 기록이 아니면 `PRODUCT_RECORD_NOT_EDITABLE`(403), 타인 기록/미존재는 `PRODUCT_RECORD_NOT_FOUND`(404). 수정 시각은 `BaseTimeEntity.updatedAt` 자동 갱신으로 처리. 구현 2026-08-15, 실서버 미검증, 테스트 없음 |
 | F-PRODUCT-08 제품 직접 등록 | ⬜ | 여전히 TBD-07 미정. 그 화면이 쓰는 매칭 조회(PRODUCT-09)만 2026-08-14에 B가 별도 구현 |
 
 > ⚠️ **AUTH·ONBOARD는 "코드가 있다"만 확인했다.** `saveSkinTypes`가 `skin_types` 마스터를
@@ -691,7 +691,7 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 **중복 판정은 항목 존재 여부만 본다.** 같은 날짜 + 슬롯에 기존 `ProductRecord`가 있고 요청에 겹치는
 `productId`가 있으면 `force`가 아닌 한 `409 PRODUCT_ALREADY_RECORDED_IN_SLOT`을 던지며, 겹친
 `productId` 목록을 `result.duplicatedProductIds`에 싣는다. `force: true`면 기존 기록에 항목을
-이어붙인다 — 전체 교체는 PRODUCT-06(미구현) 몫이라 이 API에서는 다루지 않는다.
+이어붙인다 — 전체 교체는 PRODUCT-06(`PATCH /product-records/{recordId}`) 몫이라 이 API에서는 다루지 않는다.
 
 **`skinRecordSuggested`는 저장 직후 같은 슬롯의 `SkinRecord` 존재 여부로 판정한다.** (F-PRODUCT-07)
 

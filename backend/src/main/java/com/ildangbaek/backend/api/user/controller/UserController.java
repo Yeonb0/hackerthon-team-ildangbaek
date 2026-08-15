@@ -5,7 +5,9 @@ import com.ildangbaek.backend.api.user.dto.IngredientProfileResponse;
 import com.ildangbaek.backend.api.user.dto.MyPageResponse;
 import com.ildangbaek.backend.api.user.dto.request.LocationUpdateRequest;
 import com.ildangbaek.backend.api.user.dto.request.NotificationSettingRequest;
+import com.ildangbaek.backend.api.user.dto.request.ProfileUpdateRequest;
 import com.ildangbaek.backend.api.user.dto.response.NotificationSettingResponse;
+import com.ildangbaek.backend.api.user.dto.response.ProfileResponse;
 import com.ildangbaek.backend.api.user.dto.response.SavedProductResponse;
 import com.ildangbaek.backend.api.user.service.MyPageService;
 import com.ildangbaek.backend.api.user.service.UserIngredientProfileService;
@@ -78,6 +80,25 @@ public class UserController {
     @GetMapping
     public ApiResponse<MyPageResponse> getMyPage(@CurrentUserId Long userId) {
         return ApiResponse.success(myPageService.getMyPage(userId));
+    }
+
+    /**
+     * USER-03 · 프로필 조회.
+     */
+    @GetMapping("/profile")
+    public ApiResponse<ProfileResponse> getProfile(@CurrentUserId Long userId) {
+        return ApiResponse.success(userService.getProfile(userId));
+    }
+
+    /**
+     * USER-04 · 프로필 수정.
+     */
+    @PatchMapping("/profile")
+    public ApiResponse<ProfileResponse> updateProfile(
+            @CurrentUserId Long userId,
+            @Valid @RequestBody ProfileUpdateRequest request
+    ) {
+        return ApiResponse.success(userService.updateProfile(userId, request));
     }
 
     /**

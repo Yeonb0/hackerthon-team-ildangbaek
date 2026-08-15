@@ -105,4 +105,13 @@ public class UserProfile extends BaseTimeEntity {
     public void updateRegion(String regionName) {
         this.regionName = regionName;
     }
+
+    public void clearHormoneInfo() {
+        this.menstrualStatus = null;
+        this.lastMenstrualStartDate = null;
+        this.menstrualCycleDays = null;
+        this.oralContraceptive = false;
+        this.progesteroneInjection = false;
+        this.hormoneReplacementTherapy = false;
+    }
 }
