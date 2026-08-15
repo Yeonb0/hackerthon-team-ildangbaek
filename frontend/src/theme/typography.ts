@@ -18,6 +18,7 @@ import {
   DisplayFont,
   FontChoice,
   FontWeightKey,
+  activeFontSizeOffset,
   displayFontFamily,
   fixedFontFamily,
   fontFamilyFor,
@@ -30,7 +31,20 @@ export const fontFamily = {
   bold: fontFamilyFor('bold'),
 } as const;
 
-if (__DEV__) console.log('[typography 평가]', fontFamily.regular);
+/**
+ * 글꼴별 크기 보정을 적용합니다 (fontFamily.ts의 FONT_SIZE_OFFSET).
+ * 나눔스퀘어네오는 -1pt — Pretendard 기준으로 잡은 크기가 더 크게 보여서입니다.
+ *
+ * 화면에서 크기를 직접 지정할 때도 이걸 통과시켜야 글꼴 전환 시 같이 조정됩니다.
+ *
+ *   title: { fontSize: adjustFontSize(20), ...weightFamily('bold') }
+ *
+ * ⚠️ pinDisplayFont로 고정한 자리(주아체 등)에는 쓰지 마세요 — 사용자 글꼴 설정과
+ * 무관한 자리라 같이 줄어들면 안 됩니다.
+ * ⚠️ 하한 10pt로 막아둡니다. 보정값을 더 키웠을 때 micro(11)가 읽을 수 없게
+ * 작아지는 걸 막기 위한 안전장치입니다.
+ */
+export const adjustFontSize = (size: number) => Math.max(10, size + activeFontSizeOffset());
 
 /**
  * @deprecated 굵기는 fontFamily(파일명)로 표현합니다. 이 값을 스타일에 직접 넣으면
@@ -44,14 +58,15 @@ export const fontWeight = {
 } as const;
 
 export const fontSize = {
-  display: 28, // 홈/온보딩 대형 타이틀
-  h1: 22,      // 섹션 타이틀
-  h2: 18,      // 카드/서브 타이틀
-  body: 15,    // 기본 본문
-  caption: 13, // 보조 설명
-  micro: 11,   // 태그, 배지
+  display: adjustFontSize(28), // 홈/온보딩 대형 타이틀
+  h1: adjustFontSize(22),      // 섹션 타이틀
+  h2: adjustFontSize(18),      // 카드/서브 타이틀
+  body: adjustFontSize(15),    // 기본 본문
+  caption: adjustFontSize(13), // 보조 설명
+  micro: adjustFontSize(11),   // 태그, 배지
 } as const;
 
+// lineHeight는 보정하지 않습니다 — fontFamily.ts의 FONT_SIZE_OFFSET 주석 참고.
 export const lineHeight = {
   display: 36,
   h1: 30,
@@ -108,6 +123,7 @@ export const pinFont = (choice: FontChoice, weight: FontWeightKey = 'regular') =
  *   temperature: { fontSize: 40, lineHeight: 48, ...pinDisplayFont('bmjua') },
  *
  * ⚠️ 이 글꼴들은 굵기 파일이 하나뿐이라 fontWeight를 같이 주면 안 됩니다.
+ * ⚠️ 크기에 adjustFontSize를 쓰지 마세요 — 사용자 글꼴 전환과 무관한 자리입니다.
  * ⚠️ 세로 중심선이 본문 글꼴과 달라서, 옆 요소와 baseline을 맞출 때는
  *    alignItems: 'center'가 아니라 실제 렌더를 보고 미세 조정이 필요할 수 있습니다.
  */
