@@ -92,7 +92,7 @@ def _redness(a_channel: np.ndarray, cheeks: np.ndarray) -> int:
     return _to_score(float(np.percentile(a_channel[cheeks > 0], 85)), *REDNESS_RANGE)
 
 
-def _pigmentation(lightness: np.ndarray, skin: np.ndarray) -> int:
+def _pigmentation(lightness: np.ndarray, pigmentation_skin: np.ndarray) -> int:
     """색소침착 — 주변보다 어두운 반점의 정도.
 
     큰 스케일로 흐린 영상과의 차분을 써서 "주변 대비 얼마나 어두운가"를 잰다. 절대 밝기가 아니라
@@ -106,10 +106,18 @@ def _pigmentation(lightness: np.ndarray, skin: np.ndarray) -> int:
     반점 신호보다 커져 오탐이 난다. clean 자연 변동(다양한 노이즈·웜조명 실측 11.2~14.9)과
     가장 약한 반점(15.6)이 갈리는 지점인 99.6을 택했다 — `face_regions.skin_mask`의 경계 침식을
     10px로 늘린 것과 함께 이 마진을 확보했다.
+
+    <strong>skin 전체가 아니라 `pigmentation_mask`(코·눈 밑 제외)를 쓴다.</strong> 실사진
+    실측에서 콧망울 옆·눈 밑 그늘이 반점과 구분 안 되는 정도로 "주변보다 어두운" 신호를 냈다
+    — 정면이 아니거나 조명이 측면에서 오면 두드러진다. 블러 반경을 sigma=80까지 키워도 이
+    구조적 음영은 사라지지 않았다(실측) — 급경사 경계는 큰 블러로도 배경 추정이 못 따라간다.
+    합성 얼굴은 코가 평평해 이 문제가 테스트로 드러나지 않았다.
     """
     background = cv2.GaussianBlur(lightness, (0, 0), 15)
     darker_than_surroundings = np.clip(background - lightness, 0, None)
-    return _to_score(float(np.percentile(darker_than_surroundings[skin > 0], 99.6)), *PIGMENTATION_RANGE)
+    return _to_score(
+        float(np.percentile(darker_than_surroundings[pigmentation_skin > 0], 99.6)), *PIGMENTATION_RANGE
+    )
 
 
 # clean 사진 20장(노이즈만 다름, JPEG+리사이즈 포함)의 hf_std 실측 범위. 측정값이 이 안에 있으면
@@ -168,7 +176,7 @@ def compute(image_bgr: np.ndarray, masks: dict[str, np.ndarray]) -> AnalysisResu
         TROUBLE=_trouble(lightness, a_channel, skin),
         REDNESS=_redness(a_channel, masks["cheeks"]),
         PORES=pores_score,
-        PIGMENTATION=_pigmentation(lightness, skin),
+        PIGMENTATION=_pigmentation(lightness, masks["pigmentation"]),
     )
     result = AnalysisResult(scores=scores, pores_reliability=pores_reliability)
     log.info("지표 산출: %s", result.model_dump())

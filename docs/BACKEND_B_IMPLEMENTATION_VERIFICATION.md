@@ -8,9 +8,17 @@
 > **2026-08-14 추가 세션**: 이 문서가 "이번 세션 미실행"으로 남겨둔 항목(B-01 SKIN-01 이미지
 > 업로드, B-09 PRODUCT-05, B-14/15 REPORT-02/03)을 실제로 재현했고, P1(시드 `user_profiles`
 > 부재)·P2(CHECK-03 쿼리 수 불일치)를 코드로 확인·수정했다. 아래 각 절과 §13에 갱신 표시로 반영했다.
+>
+> **2026-08-15~16 커밋 반영 (코드 대조, 이 세션은 실서버 재기동 없이 diff·STATUS.md 근거로만
+> 갱신)**: `d4cacdd` 이후 yunjin 브랜치에 쌓인 커밋을 반영했다. B 담당 범위에서 실질적인 변경은
+> CHECK-01에 `aiComment`(AI 코멘트) 필드가 추가된 것(`882781c`, ADR 0025) 하나이며, 아래 B-10
+> 절에 갱신했다. 그 외 커밋(`b17f7dd` OpenAI Vision을 Spring에서 제거하고 ai-server 내부로 이관,
+> `ee79fb9`/`67a2b25`/`d25a600`/`82908c9`~`d87018b`/`51a0545`의 USER-03~07·PRODUCT-06·10·HOME-01
+> 등)은 전부 A 담당 영역(온보딩·프로필·홈·제품 등록)이거나 인증 리졸버 리팩터링이라 이 문서의
+> B 담당 범위 밖이다 — 해당 항목은 `docs/STATUS.md` 2.3절 "A 담당" 표를 참고할 것.
 
-- 검증 일시: 2026-08-13, 2026-08-14(P1·P2 해소 및 잔여 항목 재현)
-- 검증 브랜치/커밋: `yunjin` @ `d0f5429` → `7b2c730`(2026-08-14)
+- 검증 일시: 2026-08-13, 2026-08-14(P1·P2 해소 및 잔여 항목 재현), 2026-08-16(B-10 aiComment 코드 대조)
+- 검증 브랜치/커밋: `yunjin` @ `d0f5429` → `7b2c730`(2026-08-14) → `882781c`(2026-08-16, 코드 대조만)
 - 검증 환경: macOS(Darwin 25.2.0), Java 21 (Corretto 21.0.11), Gradle(Wrapper), MySQL 8.0(Docker)
 - 검증자: 윤진(Backend B) + Claude Code(보조)
 
@@ -167,8 +175,77 @@ curl -i -X POST "http://localhost:8090/api/v1/skin-records" \
 gif로 재요청(`.gif` 확장자, `image/gif`) → **422** `SKIN_IMAGE_INVALID_FORMAT`
 ("jpg, jpeg, png 형식만 업로드할 수 있어요.") 확인. STATUS.md 2.4절(2026-08-08) 기록과 완전 일치.
 
+> ⚠️ **위 실측은 전부 `app.skin.analysis.provider` 기본값인 `mock`으로 진행됐다.** 사진을
+> 실제로 "분석"하지 않고 결정적 규칙(파일 바이트 기반)으로 점수를 만드는 경로라, 여기서 확인한
+> 것은 SKIN-01의 저장·중복 방지·트랜잭션 흐름이지 **AI 분석 자체의 정확도가 아니다.** AI 경로
+> (ai-server의 MediaPipe 규칙 기반 1차 산출 + OpenAI Vision 2차 확정, ADR 0020·0022)는 이
+> 세션에서 검증하지 않았다 — 아래 절차로 별도 확인해야 한다.
+
+#### AI 분석 경로 실서버 재현 방법 (직접 검증용, 아직 실행 안 함)
+
+SKIN-01의 사진 분석은 `SkinAnalysisClient` 구현체 중 어느 것을 쓰느냐로 완전히 다르게 동작한다.
+
+| provider 값 | 실제로 도는 것 | 사진을 "보는가" |
+| --- | --- | --- |
+| `mock`(기본값) | `MockSkinAnalysisClient` — 파일 바이트로 결정적 점수 생성 | 아니오 |
+| `local-vision` | ai-server `/analyze` — MediaPipe 규칙 기반 1차 산출 → (키 있으면) OpenAI Vision 2차 확정 | 예 |
+
+**AI가 실제로 사진을 분석하는 경로를 검증하려면 `local-vision`으로 바꿔야 한다.**
+
+```bash
+# STEP 0. ai-server 준비 (B-10 절차와 동일, 이미 떠 있으면 생략)
+cd ai-server
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # 최초 1회
+./scripts/download_model.sh                                          # 최초 1회
+cp .env.example .env                                                  # 최초 1회
+
+# STEP 1-A. "1차 규칙 기반까지만" 확인 — OPENAI_API_KEY를 비운 채(.env 기본값) 기동
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+# 이 경우도 MediaPipe 얼굴 검출·CIELAB 규칙 기반 산출은 실제로 동작한다(OpenAI 확정만 생략)
+
+# STEP 1-B. "OpenAI 2차 확정까지" 확인 — .env에 OPENAI_API_KEY 채운 뒤 기동
+#   OPENAI_API_KEY=sk-...   (과금 발생 가능 — 실행 전 사용자 판단 필요)
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# STEP 2. ai-server 단독으로 먼저 확인 (Spring 없이)
+curl -X POST http://127.0.0.1:8000/analyze -F "image=@/path/to/실제_얼굴_사진.jpg"
+# 기대: 200, {"scores":{"TROUBLE":.., "REDNESS":.., "PORES":.., "PIGMENTATION":..},"pores_reliability":".."}
+# 실제 얼굴이 아닌 사진(가림/각도 등)이면 422, {"code":"FACE_NOT_DETECTED"} 등을 볼 수 있다
+
+# STEP 3. Spring이 이 ai-server를 보도록 provider 전환 후 기동
+cd ../backend
+export SKIN_ANALYSIS_PROVIDER=local-vision
+export LOCAL_VISION_BASE_URL=http://localhost:8000
+SPRING_PROFILES_ACTIVE=local ./gradlew bootRun --args='--server.port=8090'
+
+# STEP 4. SKIN-01 실호출 — 실제 얼굴 사진으로
+curl -i -X POST "http://localhost:8090/api/v1/skin-records" \
+  -H "Authorization: Bearer mock-access-9001-$(uuidgen)" \
+  -F "timeSlot=MORNING" \
+  -F "image=@/path/to/실제_얼굴_사진.jpg;type=image/jpeg"
+# 기대: 201, DB의 skin_records.analysis_method가 'API'로 저장됨(MOCK/AI와 구분, README 참고)
+docker exec ildangbaek-mysql mysql -uildangbaek -pildangbaek1234 ildangbaek \
+  -e "SELECT id, analysis_method FROM skin_records ORDER BY id DESC LIMIT 1;"
+
+# STEP 5. 실패 경로 — 얼굴이 없는 사진(예: 풍경 사진)으로 재요청
+curl -i -X POST "http://localhost:8090/api/v1/skin-records" \
+  -H "Authorization: Bearer mock-access-9001-$(uuidgen)" \
+  -F "timeSlot=NIGHT" -F "image=@/path/to/얼굴없는사진.jpg;type=image/jpeg"
+# 기대: ai-server가 422 FACE_NOT_DETECTED → Spring이 SKIN_FACE_NOT_DETECTED로 매핑해 응답
+```
+
+**주의**:
+- 이 경로를 검증한 뒤 `SKIN_ANALYSIS_PROVIDER` 환경변수를 원래대로 되돌리지 않으면, 이후
+  다른 SKIN-01 테스트가 계속 ai-server를 거치게 되어 응답 시간이 늘고 ai-server 미기동 시
+  실패한다 — 검증이 끝나면 `unset SKIN_ANALYSIS_PROVIDER` 하거나 서버를 mock 기본값으로
+  재기동할 것.
+- 실제 얼굴 사진은 개인정보다. ai-server 저장소에도 테스트용 얼굴 사진을 넣지 않는다(README
+  명시) — 검증에 쓸 사진은 검증자 본인이 로컬에만 두고 커밋하지 말 것.
+- `PORES` 지표는 README가 명시하듯 원리적으로 신뢰도가 낮다 — 점수 자체보다
+  `pores_reliability` 필드가 `LOW`/`NORMAL` 중 무엇인지를 함께 확인해야 한다.
+
 #### 발견된 문제
-없음.
+없음(단, 위 AI 분석 경로는 이 세션에서 실행하지 않아 "문제 없음"의 범위가 아니다).
 
 #### 개선 방법
 없음.
@@ -541,9 +618,10 @@ curl -i -X POST "http://localhost:8090/api/v1/product-records" \
 `GET /api/v1/checks/home` — 완성도(`profileCompletion`)와 `GOOD` 성분 기반 제품 추천.
 
 #### 구현 상태
-**상태: ✅ 완료 · 이번 세션 실측.**
+**상태: ✅ 완료 · 이번 세션 실측(2026-08-13). 2026-08-16 `aiComment` 필드 추가는 코드 대조로만
+확인(실서버 재기동 없음).**
 
-#### 실제 테스트 결과 (이번 세션)
+#### 실제 테스트 결과 (2026-08-13 세션)
 ```bash
 curl -s "http://localhost:8090/api/v1/checks/home" \
   -H "Authorization: Bearer mock-access-9001-{uuid}"
@@ -555,13 +633,76 @@ curl -s "http://localhost:8090/api/v1/checks/home" \
 프로파일에 `GOOD`(SUITABLE) 성분이 하나도 없기(레티놀·히알루론산 `CAUTION`, 판테놀 `INSUFFICIENT`)
 때문 — 오류가 아니라 정상 동작(BR 2, "근거 있는 추천만 노출")임을 코드와 데이터로 함께 확인했다.
 
+#### 2026-08-16 추가: `aiComment` 필드 (ADR 0025, 코드 대조만)
+`CheckRecommendationResponse`에 `aiComment`(nullable) 필드가 추가됐다(`882781c`). `reason`(성분
+매칭 근거 문구, BR 2 감사 대상)은 그대로 두고, 신설된 `domain/product/client/ProductCommentClient`가
+ai-server의 `POST /product-comments`를 추천 목록 전체에 대해 **배치 1회**로 호출해 자연스러운
+한 줄 코멘트를 받아온다. 실패 시 `RestClientException`을 잡아 빈 맵으로 흡수하므로 `aiComment`는
+전부 `null`이 되고 추천 응답 자체는 막히지 않는다 — `CheckHomeService.withAiComment()`로 코드
+확인했다. **이 세션은 서버를 띄워 실제 OpenAI 응답/장애 시나리오를 재현하지 않았다** — 코드
+리딩과 단위 테스트(`CheckHomeServiceTest`, ai-server `test_product_comment.py`)로만 확인했다.
+
+#### `aiComment` 실서버 재현 방법 (직접 검증용, 아직 실행 안 함)
+
+`aiComment`는 Spring이 아니라 **ai-server**가 생성한다. Spring(`ProductCommentClient`)은
+`app.skin.analysis.local-vision.base-url`(기본 `http://localhost:8000`)로 ai-server의
+`POST /product-comments`를 호출하므로, **ai-server가 떠 있어야만** `aiComment`가 채워진다.
+ai-server가 꺼져 있거나 실패하면 `aiComment`는 전부 `null`이 되고 나머지 응답은 정상 — 이 자체가
+하나의 검증 시나리오다.
+
+```bash
+# STEP 0. (선택) OpenAI 키 없이도 폴백 경로 확인 가능 — ai-server는 키가 비어 있으면
+# /product-comments가 502(COMMENT_UNAVAILABLE)를 내도록 설계돼 있다(README 참고).
+cd ai-server
+python3 -m venv .venv                      # 최초 1회
+.venv/bin/pip install -r requirements.txt  # 최초 1회
+./scripts/download_model.sh                # 최초 1회, 얼굴 랜드마크 모델 다운로드
+cp .env.example .env                       # 최초 1회
+
+# STEP 1-A. "정상 생성" 시나리오 — .env에 OPENAI_API_KEY를 채운 뒤 서버 기동
+#   OPENAI_API_KEY=sk-...   (과금 발생 가능 — 실행 전 사용자 판단 필요)
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# STEP 1-B. "실패 폴백" 시나리오 — OPENAI_API_KEY를 비운 채(.env 기본값) 그대로 기동
+# 위와 같은 명령, .env만 다름
+
+# STEP 2. ai-server 단독 테스트 (Spring 없이 aiComment 로직만 먼저 확인)
+curl -X POST http://127.0.0.1:8000/product-comments \
+  -H "Content-Type: application/json" \
+  -d '{"products":[{"product_id":71,"name":"라로슈포제 시카플라스트","brand":"라로슈포제","matched_ingredients":["판테놀"],"category":"SERUM"}]}'
+# 키 있음(1-A) 기대: 200, {"comments":[{"product_id":71,"comment":"..."}]}
+# 키 없음(1-B) 기대: 502, {"code":"COMMENT_UNAVAILABLE"}
+
+# STEP 3. Spring 쪽에서 통합 확인 — backend가 STEP 1의 ai-server를 바라보게 기동
+cd ../backend
+export SKIN_ANALYSIS_PROVIDER=local-vision   # 기본 mock을 벗어나 실제 ai-server 경유
+export LOCAL_VISION_BASE_URL=http://localhost:8000
+SPRING_PROFILES_ACTIVE=local ./gradlew bootRun --args='--server.port=8090'
+
+# STEP 4. CHECK-01 호출, aiComment 필드 확인
+curl -s "http://localhost:8090/api/v1/checks/home" \
+  -H "Authorization: Bearer mock-access-9001-{uuid}" | python3 -m json.tool
+# GOOD 성분이 있는(recommendations가 비지 않는) 사용자로 호출해야 aiComment를 볼 수 있다 —
+# 위 §B-10 실측에서 쓴 9001은 recommendations가 비어 있어 이 케이스로는 부적합.
+# 1-A(키 있음) 기대: 각 recommendation의 "aiComment"에 문자열 채워짐
+# 1-B(키 없음) 기대: 응답은 200 그대로, "aiComment": null (추천 자체는 막히지 않음, ADR 0025)
+
+# STEP 5. ai-server 로그로 502 → 빈 맵 흡수가 실제로 일어났는지 확인
+# backend 로그에 "제품 AI 코멘트 생성 실패, 코멘트 없이 진행" WARN이 찍히면 폴백 경로 확인 완료
+```
+
+**주의**: `SKIN_ANALYSIS_PROVIDER=local-vision`으로 바꾸면 B-01(SKIN-01)의 사진 업로드도 목업이
+아니라 이 ai-server의 `/analyze`(MediaPipe 규칙 기반 + OpenAI 2차 확정, ADR 0020·0022)를 타게
+된다 — CHECK-01만 검증하고 싶다면 SKIN-01 재현 시나리오와 분리해서 순서를 정할 것.
+
 #### 관련 코드
 `CheckHomeService` — `CheckService`(CHECK-02·03)와 응집도가 달라 별도 서비스로 분리(STATUS.md
 2.15절 근거). GOOD 성분을 가진 제품을 제품 단위로 dedup하는 로직은 ADR 0016에 "근거 없는 초기값"
-으로 명시돼 있다.
+으로 명시돼 있다. `domain/product/client/ProductCommentClient`(신규, ADR 0025).
 
-#### 점수: 8/10 — 요구사항 3, 실제 동작(이번 세션 확인, 단 recommendations 비어있는 케이스만 확인해
-매칭 로직 자체는 미검증) 1, 테스트(단위 4개) 1, 코드 구조 1, 설계 근거 문서화 2
+#### 점수: 8/10 — 요구사항 3, 실제 동작(2026-08-13 실측, 단 recommendations 비어있는 케이스만
+확인해 매칭 로직 자체·2026-08-16 aiComment 실서버 동작은 미검증) 1, 테스트(단위 4개 + aiComment
+관련 신규 테스트) 1, 코드 구조 1, 설계 근거 문서화 2
 
 ---
 
@@ -891,7 +1032,7 @@ total errors: 0
 | B-07 USER-02 | ✅ | 9/10 | 필터 실패 케이스(BOGUS/SUITABLE) 2026-08-14 실측 완료(422) |
 | B-08 USER-01 | ✅ | 9/10 | 시드에 user_profiles 이미 포함 확인(2026-08-14) — 즉시 200 |
 | B-09 PRODUCT-05 | ✅ | 9/10 | 2026-08-14 3시나리오 실측(201/409/201, 과거 버그 미재현) |
-| B-10 CHECK-01 | ✅ | 8/10 | 추천 매칭 로직 자체는 이번 세션 미검증 |
+| B-10 CHECK-01 | ✅ | 8/10 | 추천 매칭 로직 자체는 미검증. 2026-08-16 `aiComment`(ADR 0025) 추가는 코드 대조만, 실서버 미검증 |
 | B-11/12 CHECK-02/03 | ✅ | 9/10 | N+1(3→2쿼리) 2026-08-14 수정 완료 |
 | B-13 REPORT-01 | ✅ | 9/10 | 없음 |
 | B-14 REPORT-02 | ✅ | 9/10 | 2026-08-14 실측(insightId=84, 이벤트 파생 구조 확인) |
@@ -935,7 +1076,7 @@ total errors: 0
 
 ---
 
-## 14. 윤진이 직접 검증하는 순서
+## 14. 직접 검증하는 순서
 
 ```bash
 # STEP 1. MySQL 실행 확인 (주의: 3306 포트를 다른 컨테이너가 쓰고 있으면 충돌)
@@ -1028,7 +1169,7 @@ git log --stat -20 -- backend/src/main/java/com/ildangbaek/backend/api/check
 
 ## 16. 최종 평가
 
-**Backend B(분석 흐름) 구현은 아래와 같이 완료되었다(2026-08-14 재검증 세션 반영).**
+**Backend B(분석 흐름) 구현은 아래와 같이 완료되었다(2026-08-16 커밋 코드 대조 반영).**
 
 ```
 Backend B
@@ -1037,10 +1178,18 @@ Backend B
 ├── B-04~06 F-ANALYSIS 계열   구현 ✅  테스트(자동) ✅  실서버 ✅ (3자 대조 완료)
 ├── B-07/08 USER-01/02        구현 ✅  테스트(자동) ✅  실서버 ✅ (시드 user_profiles 확인, 즉시 200)
 ├── B-09 PRODUCT-05           구현 ✅  테스트(자동) ✅  실서버 ✅ (3시나리오 실측, 과거 버그 미재현)
-├── B-10~12 CHECK 도메인      구현 ✅  테스트(자동) ✅  실서버 ✅ (CHECK-03 N+1 3→2쿼리 수정 완료)
+├── B-10~12 CHECK 도메인      구현 ✅  테스트(자동) ✅  실서버 🟡 (CHECK-03 N+1 수정은 실서버 확인. CHECK-01 aiComment(2026-08-16, ADR 0025)는 코드 대조만, 실서버 미검증)
 ├── B-13~15 REPORT 도메인     구현 ✅  테스트(자동) ✅  실서버 ✅ (REPORT-01/02/03 전량 실행)
 └── B-16/17 F-ANALYSIS-02/03  B-16 ✅(2026-08-14 구현·단위 테스트, ADR 0021, 실데이터는 A 선행 필요) · B-17 ✅(2026-08-14 구현·검증, ADR 0019)
 ```
+
+**2026-08-15~16 커밋 중 이 문서 범위 밖인 것**: `b17f7dd`(OpenAI Vision 호출을 Spring에서 완전히
+제거하고 ai-server 내부 2단계 확정으로 이관, ADR 0022)는 B-01(SKIN-01)이 쓰는 `SkinAnalysisClient`
+구현체 목록에서 `OpenAiSkinAnalysisClient`가 사라진 변경이라 §2.1 공통 인프라 성격에 가깝고,
+`ee79fb9`·`67a2b25`·`d25a600`·`82908c9`~`d87018b`·`51a0545`는 USER-03~07(프로필 조회/수정·위치·
+알림)·PRODUCT-06/10(제품 기록 수정·직접 등록)·HOME-01(`weekStart`)·인증 리졸버 통합(ADR 0024)으로
+전부 A 담당 영역이다. B 담당 관점에서 영향은 없다 — SKIN-01의 기본 제공자(`app.skin.analysis.provider`)
+는 여전히 `mock`이며 이번 세션에서 이를 재검증하지 않았다.
 
 - **자동 테스트**: 219개 전부 통과 (2026-08-14 세션 `./gradlew test --rerun` 재확인, 호르몬 분석
   테스트 20개 추가로 8/13의 199개에서 증가). 이후 환경 요인 보정(B-16, ADR 0021) 테스트가 추가로
@@ -1067,7 +1216,11 @@ Backend B
      (STATUS.md §5 블로커 #10).
   3. B-10 CHECK-01의 추천 매칭 로직 자체(추천이 실제로 채워지는 케이스)는 아직 실측되지 않았다 —
      `GOOD` 성분을 가진 사용자로 재현 권장.
+  4. B-10 CHECK-01의 `aiComment`(2026-08-16, ADR 0025)는 코드 대조·단위 테스트로만 확인했다 —
+     로컬 MySQL + 실제(또는 fake) ai-server를 띄워 정상 생성·실패 폴백(`null`) 두 경로를
+     curl로 재현하는 것이 다음 세션 과제.
 
 **다음으로 무엇을 수정해야 하는가 (요약)**: 8/13 세션이 남긴 문서화 미비(P1)와 실측 성능 이슈(P2)
 모두 이번 세션에서 코드 확인 또는 수정으로 닫혔다. 신규 발견된 결함은 CHECK-03 N+1 하나였고 이미
-수정·재검증했다. 남은 과제는 A 담당 선행 작업(F-HOME-03, F-ONBOARD-03)에 의존적이다.
+수정·재검증했다. 남은 과제는 A 담당 선행 작업(F-HOME-03, F-ONBOARD-03)과, 2026-08-16에 코드
+대조만 마친 CHECK-01 `aiComment`의 실서버 검증이다.

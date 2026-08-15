@@ -30,6 +30,7 @@ RIGHT_EYE = _indices("FACE_LANDMARKS_RIGHT_EYE")
 LEFT_EYEBROW = _indices("FACE_LANDMARKS_LEFT_EYEBROW")
 RIGHT_EYEBROW = _indices("FACE_LANDMARKS_RIGHT_EYEBROW")
 LIPS = _indices("FACE_LANDMARKS_LIPS")
+NOSE = _indices("FACE_LANDMARKS_NOSE")
 
 # 볼·이마 ROI의 중심으로 쓰는 개별 랜드마크.
 # MediaPipe Face Mesh 표준 인덱스이며, 연결 그룹으로는 얻을 수 없어 상수로 둔다.
@@ -70,6 +71,32 @@ def skin_mask(landmarks: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
     return cv2.erode(mask, np.ones((10, 10), np.uint8))
 
 
+def pigmentation_mask(landmarks: np.ndarray, shape: tuple[int, int], skin: np.ndarray) -> np.ndarray:
+    """PIGMENTATION 측정용으로 skin에서 코와 눈 밑을 추가로 뺀 마스크.
+
+    `_pigmentation`(app/metrics.py)은 "주변보다 어두운 정도"의 상위 백분위를 쓰는데, 콧망울
+    옆·눈 밑처럼 얼굴 굴곡 때문에 생기는 그림자도 반점과 똑같이 "주변보다 어둡다"로 잡힌다.
+    실사진(정면이 아니거나 조명이 측면에서 오는 경우) 실측에서 이 구조적 음영이 p99.6을
+    반점 없는 얼굴에서도 구간 상한 가까이 밀어 올리는 것을 확인했다 — 합성 얼굴은 코가
+    평평해 이 문제가 드러나지 않았다.
+
+    코는 눈보다 넓게(반경 방향으로) 팽창해 콧망울 그림자까지 포함해서 뺀다. 눈은 팽창을
+    키워 눈 밑 그늘까지 함께 제외한다.
+    """
+    nose = _polygon_mask(shape, landmarks[NOSE])
+    nose = cv2.dilate(nose, np.ones((15, 15), np.uint8))
+
+    eye_shadow_kernel = np.ones((25, 25), np.uint8)
+    eyes = cv2.bitwise_or(
+        _polygon_mask(shape, landmarks[LEFT_EYE]),
+        _polygon_mask(shape, landmarks[RIGHT_EYE]),
+    )
+    eyes = cv2.dilate(eyes, eye_shadow_kernel)
+
+    excluded = cv2.bitwise_or(nose, eyes)
+    return cv2.bitwise_and(skin, cv2.bitwise_not(excluded))
+
+
 def _disc_mask(shape: tuple[int, int], center: np.ndarray, radius: float) -> np.ndarray:
     mask = np.zeros(shape, dtype=np.uint8)
     cv2.circle(mask, (int(center[0]), int(center[1])), max(int(radius), 1), 255, -1)
@@ -108,4 +135,5 @@ def region_masks(landmarks: np.ndarray, shape: tuple[int, int]) -> dict[str, np.
         "forehead": limited(forehead),
         "nose": limited(nose),
         "tzone": limited(cv2.bitwise_or(forehead, nose)),
+        "pigmentation": pigmentation_mask(landmarks, shape, skin),
     }
