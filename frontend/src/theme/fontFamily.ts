@@ -41,7 +41,7 @@ export const FONT_FAMILIES: Record<FontChoice, Record<FontWeightKey, string>> = 
  * 글자 상자가 위아래로 잘릴 수 있어서, 여유를 남겨두는 쪽이 안전합니다.
  */
 export const FONT_SIZE_OFFSET: Record<FontChoice, number> = {
-  pretendard: 0,
+  pretendard: -2,
   nanumSquareNeo: -4,
 };
 
