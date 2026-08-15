@@ -31,6 +31,13 @@ export const color = {
   textSub: '#A79FC2', // 보조 설명·라벨
   textMuted: '#C9C0E0', // placeholder·비활성
 
+  // F-RECORD-02 주간 스트립 요일 라벨(일요일) 전용 — Figma 210:699 실측값.
+  // 토요일은 별도 토큰 없이 brand500을 그대로 씁니다(Figma 색상이 동일).
+  calendarSunday: '#FF6B5B',
+  // F-RECORD-02 주간 스트립 점(모닝) 전용 — 밤은 기존 brand500(보라)을 그대로 씁니다.
+  // (관리자 결정 2026-08-15: 낮/밤 점 색상 분리)
+  calendarMorningDot: '#FF8FC7', // = brandPink, 의미가 달라 별도 키로 참조
+
   // --- 테두리 (2026-08-15 관리자 결정: 검정/무채색 → 보라 계열) ---
   border: '#C9C0E0', // 일반 구분선·칩 테두리
   borderStrong: '#9B8CF5', // 입력창 등 강조 테두리 (Figma Input/Text)
@@ -60,6 +67,9 @@ export const gradient = {
   // CTA 버튼 — Figma Button/Primary 실측값 [brand-purple, brand-pink].
   brand: ['#9B8CF5', '#FF8FC7'] as const,
   night: ['#1F1C31', '#474071'] as const,
+  // F-RECORD-02(Frame 10, 210:766) 슬롯 카드 아이콘 박스 전용 — brand보다 훨씬
+  // 옅은 톤(연라벤더→연핑크). CTA 그라데이션과 색상 자체가 다른 별도 실측값입니다.
+  iconBoxSoft: ['#EDE9FF', '#FCE8F4'] as const,
 } as const;
 
 // CTA 그라데이션 방향.
@@ -78,6 +88,9 @@ export const gradientDirection = {
   // 위에서 이미 겪었으므로, 정사각형 요소는 매번 따로 계산합니다.
   // 변환식: x2=0.5+0.5·sin(θ), y2=0.5-0.5·cos(θ), start=(1-x2,1-y2), end=(x2,y2)
   badge: { start: { x: 0.25, y: 0.07 }, end: { x: 0.75, y: 0.93 } },
+  // 기록 홈 주간 스트립 선택 요일 원(32×32, 정사각형) 및 슬롯 카드 아이콘 박스(44×44,
+  // 정사각형) 공용 — Figma 135deg 실측값을 위 변환식으로 좌표화.
+  iconBox: { start: { x: 0.1464, y: 0.1464 }, end: { x: 0.8536, y: 0.8536 } },
 } as const;
 
 // CTA 전용 그림자 (Figma shadow/cta: #9B8CF559, offset 0/8, blur 20).

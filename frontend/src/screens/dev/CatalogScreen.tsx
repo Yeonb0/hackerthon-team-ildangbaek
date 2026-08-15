@@ -468,12 +468,21 @@ export default function CatalogScreen() {
 
       <Section title="RecordSlotCard">
         <RecordSlotCard
+          variant="product"
+          timeSlot="morning"
           label="제품 기록"
           completed
           summary="라운드랩 토너 외 2개"
           onPress={() => {}}
         />
-        <RecordSlotCard label="피부 기록" completed={false} summary={null} onPress={() => {}} />
+        <RecordSlotCard
+          variant="skin"
+          timeSlot="night"
+          label="피부 기록"
+          completed={false}
+          summary={null}
+          onPress={() => {}}
+        />
       </Section>
 
       <Section title="RecordCalendar">
