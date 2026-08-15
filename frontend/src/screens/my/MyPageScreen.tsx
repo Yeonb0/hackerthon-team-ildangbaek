@@ -16,7 +16,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconBell, IconChevronRight, IconLocationPin, IconLogout } from '@/components/icons';
+import { IconBell, IconCalendar, IconChevronRight, IconLocationPin, IconLogout } from '@/components/icons';
 import { Card } from '@/components/base/Card';
 import { Tag, TagVariant } from '@/components/base/Tag';
 import { ProgressBar } from '@/components/base/ProgressBar';
@@ -26,6 +26,8 @@ import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { useMyPage, useUpdateNotificationSetting, useLogout } from '@/api/queries/user';
 import { useFontStore, FontChoice } from '@/store/fontStore';
+import { useWeekStartStore } from '@/store/weekStartStore';
+import type { WeekStart } from '@/lib/date';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space, typography, weightFamily } from '@/theme';
 import type { IngredientStatus } from '@/types/user';
@@ -46,6 +48,8 @@ export function MyPageScreen() {
   const logoutMutation = useLogout();
   const fontChoice = useFontStore((s) => s.fontChoice);
   const setFontChoice = useFontStore((s) => s.setFontChoice);
+  const weekStart = useWeekStartStore((s) => s.weekStart);
+  const setWeekStart = useWeekStartStore((s) => s.setWeekStart);
 
   const [logoutPopupVisible, setLogoutPopupVisible] = useState(false);
   const [restartPopupVisible, setRestartPopupVisible] = useState(false);
@@ -196,6 +200,24 @@ export function MyPageScreen() {
               ]}
               value={fontChoice}
               onChange={handleSelectFont}
+              style={styles.fontToggle}
+            />
+          </View>
+
+          {/* 주 시작 요일 설정(2026-08-15, 관리자님 요청). 글꼴 행과 같은 패턴 —
+              dayNightStore·fontStore처럼 서버 전송 없이 클라이언트 메모리에만 저장합니다
+              (weekStartStore). 기록 홈 주간 스트립·월간 기록 캘린더에 바로 반영되고,
+              밤 홈 주간 스트립은 USE_MOCK에서는 반영되지만 실서버는 백엔드가 weekStart
+              파라미터를 지원해야 정확해집니다(요청서 전달 예정). */}
+          <View style={[styles.menuRow, styles.fontRow]}>
+            <Text style={styles.menuLabel}>주 시작</Text>
+            <SegmentToggle
+              options={[
+                { value: 'SUNDAY' as WeekStart, label: '일요일' },
+                { value: 'MONDAY' as WeekStart, label: '월요일' },
+              ]}
+              value={weekStart}
+              onChange={setWeekStart}
               style={styles.fontToggle}
             />
           </View>

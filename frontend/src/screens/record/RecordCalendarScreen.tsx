@@ -23,6 +23,7 @@ import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { useRecordCalendar, useRecordDayDetail } from '@/api/queries/record';
 import { formatYearMonthString, isFutureDateString } from '@/lib/date';
+import { useWeekStartStore } from '@/store/weekStartStore';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, weightFamily } from '@/theme';
 
@@ -38,6 +39,7 @@ const LEGEND_ITEMS = [
 export function RecordCalendarScreen() {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
+  const weekStart = useWeekStartStore((s) => s.weekStart);
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -103,7 +105,7 @@ export function RecordCalendarScreen() {
             onPrevMonth={goPrevMonth}
             onNextMonth={goNextMonth}
             onPressDay={setSelectedDate}
-            weekStart="SUNDAY"
+            weekStart={weekStart}
           />
 
           <View style={styles.legendRow}>

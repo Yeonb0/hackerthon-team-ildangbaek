@@ -3,6 +3,7 @@
 // 목업 원본 데이터. 명세서 HOME-01의 낮/밤 예시를 데모 시나리오 값으로 채웠습니다.
 // USE_MOCK=true일 때 getHome()이 homeType에 맞는 쪽을 반환합니다 (api/queries/home.ts 참고).
 import { getCurrentWeekDates, getTodayDateString } from '@/lib/date';
+import type { WeekStart } from '@/lib/date';
 import { buildMockRecordToday } from '@/api/mock/record';
 import type {
   HomeResponse,
@@ -46,9 +47,13 @@ function computeDotStatus(productDone: boolean, skinDone: boolean): RecordDotSta
 // NONE으로 채우고, 화면(WeeklyRecordStrip)에서 점을 그리지 않는 방식으로 "기록
 // 안 함"과 구분합니다. 실서버 반영을 위해 백엔드 요청 문서를 롤링 버전에서 고정 주
 // 버전으로 교체해 다시 전달해야 합니다(request-weekly-calendar-rolling-7days.md → 대체).
-function buildMockWeeklyCalendar(): WeeklyCalendarDay[] {
+//
+// weekStart 파라미터 추가(2026-08-15, 관리자님 요청 — 주 시작 요일 설정): 실서버는
+// 아직 이 값을 안 받지만(백엔드 요청서 별도 전달 예정), USE_MOCK 데모에서는 로컬
+// weekStartStore 값을 여기까지 그대로 반영해서 밤 홈도 목업 상태에서는 바로 동작합니다.
+function buildMockWeeklyCalendar(weekStart: WeekStart): WeeklyCalendarDay[] {
   const todayStr = getTodayDateString();
-  const weekDates = getCurrentWeekDates('MONDAY');
+  const weekDates = getCurrentWeekDates(weekStart);
 
   // 오늘은 buildTodayRecord()와 같은 소스로 계산합니다 — 과거엔 여기 별도 고정값이
   // 있었는데, 그게 홈/기록 허브 간 "오늘 기록했는지" 불일치 버그의 원인이었습니다.
@@ -112,7 +117,7 @@ function buildMockDayHome(): HomeResponse {
   };
 }
 
-function buildMockNightHome(): HomeResponse {
+function buildMockNightHome(weekStart: WeekStart): HomeResponse {
   return {
     homeType: 'NIGHT',
     greeting: '오늘도 수고했어요',
@@ -123,7 +128,7 @@ function buildMockNightHome(): HomeResponse {
       items: [{ rank: 1, productId: 33, name: '레티놀 크림', reason: '야간 루틴 권장' }],
     },
     todayRecord: buildTodayRecord(),
-    weeklyCalendar: buildMockWeeklyCalendar(),
+    weeklyCalendar: buildMockWeeklyCalendar(weekStart),
     todayReport: {
       skinRecordId: 31,
       totalScore: 78,
@@ -139,6 +144,9 @@ function buildMockNightHome(): HomeResponse {
 // 매 호출마다 buildMockDayHome()/buildMockNightHome()을 새로 만듭니다 — 예전엔 모듈
 // 최상단에 고정 객체(MOCK_NIGHT_HOME)로 한 번만 만들어뒀어서, todayRecord·weeklyCalendar가
 // 세션 중 기록을 아무리 완료해도 그 "최초 스냅샷" 값 그대로 응답됐습니다.
-export function buildMockHomeResponse(homeType: HomeType): HomeResponse {
-  return homeType === 'DAY' ? buildMockDayHome() : buildMockNightHome();
+//
+// weekStart 파라미터 추가(2026-08-15) — 낮 홈은 주간 스트립이 없어 안 쓰지만, 시그니처를
+// 통일해서 호출부(api/queries/home.ts)가 homeType 분기와 무관하게 항상 넘길 수 있게 했습니다.
+export function buildMockHomeResponse(homeType: HomeType, weekStart: WeekStart = 'MONDAY'): HomeResponse {
+  return homeType === 'DAY' ? buildMockDayHome() : buildMockNightHome(weekStart);
 }

@@ -13,6 +13,7 @@ import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { useRecordCalendar, useRecordToday } from '@/api/queries/record';
 import { formatYearMonthString, getCurrentWeekDates, isFutureDateString } from '@/lib/date';
+import { useWeekStartStore } from '@/store/weekStartStore';
 import { DetailRoutes, DetailStackParamList, MainTabParamList, TimeSlot } from '@/app/routes';
 import { color, space, weightFamily } from '@/theme';
 
@@ -37,6 +38,7 @@ export function RecordHubScreen() {
   const navigation = useNavigation<RecordHubNavigationProp>();
   const route = useRoute<RouteProp<MainTabParamList, 'RecordHub'>>();
   const insets = useSafeAreaInsets();
+  const weekStart = useWeekStartStore((s) => s.weekStart);
 
   const [activeTab, setActiveTab] = useState<TimeSlot | null>(route.params?.timeSlot ?? null);
 
@@ -75,11 +77,13 @@ export function RecordHubScreen() {
 
   const slots = currentTab === 'MORNING' ? today.data.morning : today.data.night;
 
-  // 이번 주(일~토) 중 "완료"로 셀 날짜 수 — 헤더 "이번 주 N일 완료"에 씀. 모닝·나이트가
-  // 둘 다 FULL인 날만 완료로 셉니다(오늘 이후 날짜는 아직 지나지 않았으니 제외). 서버가
-  // 이 수치를 직접 내려주진 않아 클라이언트에서 계산했습니다 — 정의(둘 다 FULL)가
-  // 맞는지는 실기기 확인 때 같이 봐주세요.
-  const weekDates = getCurrentWeekDates('SUNDAY');
+  // 이번 주(설정된 시작 요일 기준 7일) 중 "완료"로 셀 날짜 수 — 헤더 "이번 주 N일 완료"에
+  // 씀. 모닝·나이트가 둘 다 FULL인 날만 완료로 셉니다(오늘 이후 날짜는 아직 지나지
+  // 않았으니 제외). 서버가 이 수치를 직접 내려주진 않아 클라이언트에서 계산했습니다 —
+  // 정의(둘 다 FULL)가 맞는지는 실기기 확인 때 같이 봐주세요. weekStart는
+  // weekStartStore에서 가져와 RecordWeekStrip과 항상 같은 7일을 보게 맞춰뒀습니다
+  // (관리자님 요청 — 주 시작 요일 설정, 2026-08-15).
+  const weekDates = getCurrentWeekDates(weekStart);
   const dayMap = new Map(calendar.data.days.map((d) => [d.date, d]));
   const weekCompletedCount = weekDates.filter((date) => {
     if (isFutureDateString(date)) return false;
@@ -111,7 +115,7 @@ export function RecordHubScreen() {
           </Pressable>
         </View>
 
-        <RecordWeekStrip days={calendar.data.days} />
+        <RecordWeekStrip days={calendar.data.days} weekStart={weekStart} />
       </View>
 
       {/* 칩 전환 + 슬롯 카드 영역은 라벤더 배경 — Figma 210:755/210:760 실측(#f5f2ff). */}

@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
 import { Toast } from '@/components/base/Toast';
-import { IconBack, IconClose } from '@/components/icons';
+import { IconBack, IconChevronRight, IconClose } from '@/components/icons';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { ProductSearchBar } from '@/components/domain/ProductSearchBar';
@@ -36,7 +36,6 @@ import {
   useProductRecordHome,
   useProductSearch,
   useRoutineQuickRecord,
-  useRoutines,
   useSaveProductRecord,
 } from '@/api/queries/product';
 import { ApiError } from '@/api/unwrap';
@@ -92,10 +91,6 @@ export function ProductRecordScreen() {
   const searchQuery = useProductSearch(debouncedKeyword);
   const quickRecordMutation = useRoutineQuickRecord();
   const saveMutation = useSaveProductRecord();
-  // PRODUCT-01(routines)은 요약 문자열만 줘서, 펼침 UI(관리자님 요청, 2026-08-10)에 필요한
-  // 실제 제품 목록은 PRODUCT-07을 따로 불러옵니다. timeSlot 인자 없이 전체를 받아서
-  // 모닝·나이트 루틴 둘 다 펼칠 수 있게 합니다.
-  const routinesQuery = useRoutines();
 
   const [selectedProductIds, setSelectedProductIds] = useState<Set<number>>(new Set());
   const [routineError, setRoutineError] = useState<string | null>(null);
@@ -236,6 +231,14 @@ export function ProductRecordScreen() {
       timeSlot,
       initialKeyword: prefillKeyword,
     });
+  // 섹션 헤더 "루틴 수정" 링크(관리자님 요청, 2026-08-15) — 현재 탭(timeSlot)과 같은
+  // 루틴을 기본으로 열고, RoutineEditScreen 안에서 모닝/나이트를 탭으로 오갈 수 있습니다.
+  const handleEditRoutines = () => {
+    const routines = homeQuery.data?.routines ?? [];
+    const target = routines.find((r) => r.timeSlot === timeSlot) ?? routines[0];
+    if (!target) return;
+    navigation.navigate(DetailRoutes.RoutineEdit, { routineId: target.routineId });
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -295,8 +298,8 @@ export function ProductRecordScreen() {
         ) : (
           <HomeSection
             homeQuery={homeQuery}
-            routinesQuery={routinesQuery}
             onQuickRecord={handleQuickRecord}
+            onEditRoutines={handleEditRoutines}
             quickRecordingRoutineId={
               quickRecordMutation.isPending ? quickRecordMutation.variables?.routineId ?? null : null
             }
@@ -362,8 +365,8 @@ export function ProductRecordScreen() {
 // ---------------------------------------------------------------------------
 function HomeSection({
   homeQuery,
-  routinesQuery,
   onQuickRecord,
+  onEditRoutines,
   quickRecordingRoutineId,
   routineError,
   onRetryHome,
@@ -376,8 +379,10 @@ function HomeSection({
   onScanPress,
 }: {
   homeQuery: ReturnType<typeof useProductRecordHome>;
-  routinesQuery: ReturnType<typeof useRoutines>;
   onQuickRecord: (routine: RoutineSummaryItem) => void;
+  /** "루틴 수정" 섹션 헤더 링크(Figma 요청, 2026-08-15) — RoutineEditScreen으로 이동합니다.
+   * 어느 routineId로 열지는 호출부(ProductRecordScreen)가 정합니다. */
+  onEditRoutines: () => void;
   quickRecordingRoutineId: number | null;
   routineError: string | null;
   onRetryHome: () => void;
@@ -420,23 +425,30 @@ function HomeSection({
       {/* BR7: 루틴이 없으면 섹션을 생략합니다 */}
       {routines.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>자주 쓰는 루틴</Text>
-          <View style={styles.list}>
+          <View style={styles.routineHeaderRow}>
+            <Text style={styles.sectionTitle}>자주 쓰는 루틴</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="루틴 수정"
+              onPress={onEditRoutines}
+              hitSlop={8}
+              style={styles.editRoutinesLink}
+            >
+              <Text style={styles.editRoutinesLinkText}>루틴 수정</Text>
+              <IconChevronRight size={14} color={color.brand500} />
+            </Pressable>
+          </View>
+          <View style={styles.routineGrid}>
             {routines.map((routine) => (
               <RoutineQuickRecordCard
                 key={routine.routineId}
-                routineId={routine.routineId}
                 name={routine.name}
                 timeSlot={routine.timeSlot}
                 productCount={routine.productCount}
                 productSummary={routine.productSummary}
                 loading={quickRecordingRoutineId === routine.routineId}
                 onQuickRecord={() => onQuickRecord(routine)}
-                products={
-                  routinesQuery.data?.find((r) => r.routineId === routine.routineId)?.products
-                }
-                productsError={routinesQuery.isError}
-                onRetryProducts={() => routinesQuery.refetch()}
+                style={styles.routineCard}
               />
             ))}
           </View>
@@ -680,6 +692,21 @@ const styles = StyleSheet.create({
   section: {
     gap: space[3],
   },
+  routineHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  editRoutinesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  editRoutinesLinkText: {
+    ...typography.caption,
+    ...weightFamily('medium'),
+    color: color.brand500,
+  },
   sectionTitleRow: {
     gap: 2,
   },
@@ -702,6 +729,15 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: space[2],
+  },
+  // 자주 쓰는 루틴 전용 2열 그리드(Figma RecordProduct-Library 59:8263, 2026-08-15) —
+  // 저장된 제품/검색결과 리스트(styles.list)와 달리 세로가 아니라 가로로 나란히 놓습니다.
+  routineGrid: {
+    flexDirection: 'row',
+    gap: space[3],
+  },
+  routineCard: {
+    flex: 1,
   },
   resultCount: {
     ...typography.caption,
