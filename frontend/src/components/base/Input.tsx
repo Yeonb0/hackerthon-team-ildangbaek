@@ -26,7 +26,7 @@ export function Input({ label, error, style, ...textInputProps }: InputProps) {
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
         style={[styles.input, error ? styles.inputError : null]}
-        placeholderTextColor={color.ink300}
+        placeholderTextColor={color.textMuted}
         {...textInputProps}
       />
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -34,27 +34,32 @@ export function Input({ label, error, style, ...textInputProps }: InputProps) {
   );
 }
 
-// 2026-08-15 — TextInput도 fontFamily를 명시해야 입력 글씨·placeholder가 앱 글꼴을
-// 따릅니다. 지정하지 않으면 OS 기본 글꼴로 남습니다(입력칸만 다른 글꼴로 보이던 원인).
+// 2026-08-15 — Figma Input/Text 실측값 반영.
+//  · 테두리 ink300(#B7BCC2 회색) → borderStrong(#9B8CF5 보라)  ← 관리자 결정 2번
+//  · 높이 48 → 52, radius md(16) → sm(12)
+//  · 라벨 13 semibold ink600 → 11 medium textSub(#A79FC2)
+//  · 입력 글씨 regular → bold (Figma card-title 스타일)
+//
+// TextInput은 fontFamily를 명시해야 입력 글씨·placeholder가 앱 글꼴을 따릅니다.
 const styles = StyleSheet.create({
   container: {
     width: '100%',
   },
   label: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('semibold'),
-    color: color.ink600,
-    marginBottom: space[2],
+    fontSize: adjustFontSize(11),
+    ...weightFamily('medium'),
+    color: color.textSub,
+    marginBottom: space[1] + 2, // Figma Label pb 6
   },
   input: {
-    height: 48,
+    height: 52,
     borderWidth: 1,
-    borderColor: color.ink300,
-    borderRadius: radius.md,
+    borderColor: color.borderStrong,
+    borderRadius: radius.sm,
     paddingHorizontal: space[4],
     fontSize: adjustFontSize(16),
-    ...weightFamily('regular'),
-    color: color.ink900,
+    ...weightFamily('bold'),
+    color: color.textInk,
     backgroundColor: color.bg,
   },
   inputError: {
