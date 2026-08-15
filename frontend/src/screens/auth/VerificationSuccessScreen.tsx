@@ -9,8 +9,6 @@ import { useAuthStore } from '@/store/authStore';
 import { completeEmailSignup } from '@/api/emailAuth';
 import { AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 export function VerificationSuccessScreen() {
   const route = useRoute<RouteProp<AuthStackParamList, 'VerificationSuccess'>>();
@@ -67,13 +65,12 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
   },
   emoji: {
-    fontSize: adjustFontSize(48),
-    ...weightFamily('regular'),
+    fontSize: 48,
     marginBottom: space[4],
   },
   title: {
-    fontSize: adjustFontSize(20),
-    ...weightFamily('bold'),
+    fontSize: 20,
+    fontWeight: '700',
     color: color.ink900,
     textAlign: 'center',
   },

@@ -1,16 +1,10 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { AppIcon, AppIconName } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type SegmentOption<T extends string> = {
   value: T;
   label: string;
-  /** 라벨 앞에 넣을 아이콘(선택) — 2026-08-15 F-RECORD-02(모닝/나이트) 요청으로 추가.
-   * 생략하면 기존처럼 텍스트만 나옵니다(스캐너 2모드, S-19 기간 3택은 영향 없음). */
-  icon?: AppIconName;
 };
 
 type SegmentToggleProps<T extends string> = {
@@ -44,13 +38,6 @@ export function SegmentToggle<T extends string>({
             onPress={() => onChange(option.value)}
             style={[styles.segment, selected && styles.segmentSelected]}
           >
-            {option.icon && (
-              <AppIcon
-                name={option.icon}
-                size={14}
-                color={selected ? color.brand700 : color.ink600}
-              />
-            )}
             <Text style={[styles.label, selected && styles.labelSelected]}>{option.label}</Text>
           </Pressable>
         );
@@ -68,20 +55,16 @@ const styles = StyleSheet.create({
   },
   segment: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
     paddingVertical: space[2],
     borderRadius: radius.pill,
+    alignItems: 'center',
   },
   segmentSelected: {
     backgroundColor: color.bg,
   },
   label: {
-    fontSize: adjustFontSize(14),
-    // 2026-08-15 — fontWeight: '600' → weightFamily로 교체(글꼴 토큰 적용).
-    ...weightFamily('semibold'),
+    fontSize: 14,
+    fontWeight: '600',
     color: color.ink600,
   },
   labelSelected: {

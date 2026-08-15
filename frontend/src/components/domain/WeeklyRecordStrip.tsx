@@ -1,21 +1,17 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { RecordDot } from '@/components/domain/RecordDot';
-import { getTodayDateString, isFutureDateString } from '@/lib/date';
+import { getTodayDateString } from '@/lib/date';
 import { color, space, typography } from '@/theme';
 import type { WeeklyCalendarDay } from '@/types/home';
-import { weightFamily } from '@/theme/typography';
 
 type WeeklyRecordStripProps = {
   /**
-   * 명세 원안(HOME-01 BR1)은 "이번 주(월~오늘)"만이라 월요일엔 1칸만 나오는 문제가
-   * 있었고, 이를 "최근 7일 롤링"으로 바꿨다가(관리자님 요청, 2026-08-10) 다시
-   * "월~일 고정 7칸"으로 되돌렸습니다(관리자님 결정, 2026-08-14 — 캘린더 주 개념과
-   * 어긋나는 롤링 방식보다 고정 주가 더 명확하다는 판단). 항상 월~일 7칸이 오고,
-   * 오늘 이후 날짜는 이 컴포넌트가 RecordCalendar.tsx와 동일한 규칙으로 점을 그리지
-   * 않고 흐리게 처리합니다 — "기록 안 함(NONE)"과 "아직 안 지난 날"을 구분하기 위함.
-   * (백엔드 요청 문서는 request-weekly-calendar-rolling-7days.md → 고정 주 버전으로
-   * 교체 필요, 관리자님께 전달 예정)
+   * 명세상으로는 "이번 주(월~오늘)"만 옵니다(HOME-01 BR1) — 이번 달 전체는 기록
+   * 허브(F-RECORD-01) 담당. 다만 이 규칙대로면 월요일엔 1칸만 와서(관리자님 확인,
+   * 2026-08-10) 최근 7일(롤링)로 바꿔달라고 백엔드에 요청해뒀습니다
+   * (request-weekly-calendar-rolling-7days.md 참고). 목업은 이미 롤링 7일을 주므로,
+   * 이 컴포넌트는 며칠이 오든 그대로 그리기만 합니다 — 개수를 가정하지 않습니다.
    */
   days: WeeklyCalendarDay[];
   style?: StyleProp<ViewStyle>;
@@ -41,32 +37,14 @@ export function WeeklyRecordStrip({ days, style }: WeeklyRecordStripProps) {
     <View style={[styles.row, style]}>
       {days.map((day) => {
         const isToday = day.date === today;
-        const isFuture = isFutureDateString(day.date);
         return (
           <View key={day.date} style={styles.column}>
-            <Text
-              style={[
-                styles.weekday,
-                isToday && styles.weekdayToday,
-                isFuture && styles.weekdayMuted,
-              ]}
-            >
+            <Text style={[styles.weekday, isToday && styles.weekdayToday]}>
               {getWeekdayLabel(day.date)}
             </Text>
             <View style={styles.dots}>
-              {isFuture ? (
-                // 미래 요일 — 점을 그리지 않고 자리만 비워 정렬을 맞춥니다
-                // (RecordCalendar.tsx와 동일한 "아직 안 지난 날" 처리 규칙).
-                <>
-                  <View style={styles.dotPlaceholder} />
-                  <View style={styles.dotPlaceholder} />
-                </>
-              ) : (
-                <>
-                  <RecordDot slot="morning" status={day.morning} />
-                  <RecordDot slot="night" status={day.night} />
-                </>
-              )}
+              <RecordDot status={day.morning} />
+              <RecordDot status={day.night} />
             </View>
           </View>
         );
@@ -90,19 +68,10 @@ const styles = StyleSheet.create({
   },
   weekdayToday: {
     color: color.brand700,
-    ...weightFamily('bold'),
-  },
-  weekdayMuted: {
-    color: color.ink300,
+    fontWeight: '700',
   },
   dots: {
     flexDirection: 'row',
     gap: 4,
-  },
-  // RecordDot과 같은 8px — RecordDot.tsx의 SIZE 상수와 값만 맞춰둠(export되어 있지
-  // 않아 직접 참조는 못 함).
-  dotPlaceholder: {
-    width: 8,
-    height: 8,
   },
 });

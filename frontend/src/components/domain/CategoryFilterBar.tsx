@@ -1,8 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { color, radius, space } from '@/theme/tokens';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type CategoryFilterBarProps = {
   categories: string[];
@@ -14,15 +12,9 @@ type CategoryFilterBarProps = {
 };
 
 /**
- * S-11 "저장된 제품" 아래 카테고리 필터(관리자님 요청, 2026-08-10). "전체" 칩은 가로
+ * S-11 "저장된 제품" 아래 카테고리 필터(관리자님 요청, 2026-08-10). "초기화" 칩은 가로
  * 스크롤 영역 밖에 고정해두고, 나머지 카테고리 칩만 옆으로 드래그해서 봅니다 —
- * "칩은 고정" 요구사항 그대로입니다.
- *
- * 스타일 Figma 정합(2026-08-15, RecordProduct-Library 59:8263) — 기존 "초기화" 라벨을
- * "전체"로 바꾸고(동작은 동일, onSelect(null)), 테두리 있던 흰 배경 칩을 테두리 없는
- * 라벤더(surfaceLavenderSoft) 배경으로, 활성 칩은 브랜드 퍼플 배경으로 교체했습니다.
- * 그라데이션은 이번에 "바로 기록"/"기록 완료" 버튼에만 쓰기로 확정(관리자님 지시,
- * 2026-08-15)돼서, Figma가 활성 칩에 그라데이션을 쓰고 있어도 여기는 단색(brand500)만 씁니다.
+ * "초기화 버튼은 고정" 요구사항 그대로입니다.
  */
 export function CategoryFilterBar({
   categories,
@@ -37,11 +29,11 @@ export function CategoryFilterBar({
     <View style={[styles.row, style]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="전체 보기"
+        accessibilityLabel="필터 초기화"
         onPress={() => onSelect(null)}
-        style={[styles.chip, selected === null && styles.chipActive]}
+        style={[styles.chip, styles.resetChip, selected === null && styles.chipActive]}
       >
-        <Text style={[styles.chipText, selected === null && styles.chipTextActive]}>전체</Text>
+        <Text style={[styles.chipText, selected === null && styles.chipTextActive]}>초기화</Text>
       </Pressable>
       <ScrollView
         horizontal
@@ -81,20 +73,25 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: space[3],
-    paddingVertical: space[2],
+    paddingVertical: space[1],
     borderRadius: radius.pill,
-    backgroundColor: color.surfaceLavenderSoft,
+    borderWidth: 1,
+    borderColor: color.ink300,
+    backgroundColor: color.bg,
+  },
+  resetChip: {
+    borderColor: color.brand700,
   },
   chipActive: {
-    backgroundColor: color.brand500,
+    backgroundColor: color.brand700,
+    borderColor: color.brand700,
   },
   chipText: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('medium'),
-    color: color.textInk,
+    fontSize: 13,
+    fontWeight: '600',
+    color: color.ink600,
   },
   chipTextActive: {
-    ...weightFamily('medium'),
     color: color.white,
   },
 });

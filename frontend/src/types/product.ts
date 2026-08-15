@@ -130,8 +130,6 @@ export interface RegisterProductInput {
   category: ProductCategory;
   /** 쉼표로 구분한 자유 텍스트 입력을 화면단에서 파싱한 배열. 비어 있어도 됨(BR 안내 문구 참고) */
   ingredientNames: string[];
-  /** 등록 화면에서 카메라로 찍은 제품 사진의 로컬 URI. 촬영을 건너뛰면 undefined. */
-  imageUri?: string;
 }
 
 /** PRODUCT-03 · GET /products/{productId} (S-14) — 7-B에서 연결 */

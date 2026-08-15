@@ -22,8 +22,6 @@ import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { CheckResult } from '@/types/check';
 import type { IngredientStatus } from '@/types/product';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -200,8 +198,8 @@ const styles = StyleSheet.create({
     color: color.ink600,
   },
   riskTitle: {
-    fontSize: adjustFontSize(28),
-    ...weightFamily('bold'),
+    fontSize: 28,
+    fontWeight: '800',
   },
   riskDescription: {
     ...typography.body,

@@ -5,8 +5,6 @@ import { AppIcon, AppIconName } from '@/components/icons';
 import { Card } from '@/components/base/Card';
 import { color, space, typography } from '@/theme';
 import type { InsightSummary } from '@/types/report';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type InsightCardProps = {
   insight: InsightSummary;
@@ -62,8 +60,8 @@ const styles = StyleSheet.create({
     gap: space[1],
   },
   typeLabel: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('semibold'),
+    fontSize: 13,
+    fontWeight: '600',
     color: color.brand700,
   },
   observingBadge: {
@@ -73,8 +71,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink300,
   },
   observingText: {
-    fontSize: adjustFontSize(11),
-    ...weightFamily('semibold'),
+    fontSize: 11,
+    fontWeight: '600',
     color: color.ink900,
   },
   title: {
@@ -88,8 +86,8 @@ const styles = StyleSheet.create({
     marginTop: space[1],
   },
   link: {
-    fontSize: adjustFontSize(12),
-    ...weightFamily('semibold'),
+    fontSize: 12,
+    fontWeight: '600',
     color: color.brand700,
     marginTop: space[2],
   },

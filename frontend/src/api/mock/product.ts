@@ -14,7 +14,6 @@ import {
 } from '@/api/mock/mockPersistence';
 import type { PersistedManualProductsState } from '@/api/mock/mockPersistence';
 import type { TimeSlot } from '@/app/routes';
-import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import type {
   IngredientItem,
   KeyIngredient,
@@ -231,14 +230,10 @@ export function listMockRoutines(timeSlot?: TimeSlot): RoutineListItem[] {
   }));
 }
 
-// 2026-08-15(세션4) — 카드 요약 문구가 서버 원본 카테고리 코드(TONER, SERUM 등)를 그대로
-// 보여주고 있던 걸 발견, ProductCard/CategoryFilterBar와 동일하게
-// PRODUCT_CATEGORY_LABELS로 한글 라벨 변환하도록 수정(관리자님 지시).
 function buildProductSummary(productIds: number[]): string {
   return productIds
     .map((id) => findCatalogProduct(id)?.category)
     .filter((category): category is string => Boolean(category))
-    .map((category) => PRODUCT_CATEGORY_LABELS[category] ?? category)
     .join(' · ');
 }
 

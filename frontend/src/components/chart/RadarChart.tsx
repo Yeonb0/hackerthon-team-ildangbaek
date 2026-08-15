@@ -4,8 +4,6 @@ import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
 import { color } from '@/theme/tokens';
 import { s } from '@/lib/scale';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 export type RadarChartItem = {
   key: string;
@@ -128,8 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notice: {
-    fontSize: adjustFontSize(12),
-    ...weightFamily('regular'),
+    fontSize: 12,
     color: color.ink600,
     textAlign: 'center',
     paddingHorizontal: 16,

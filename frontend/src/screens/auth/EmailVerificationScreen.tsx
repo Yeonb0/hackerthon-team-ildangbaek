@@ -4,21 +4,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
-import { IconBack } from '@/components/icons';
 import { getResendRemainingSeconds, sendVerificationCode, verifyEmailCode } from '@/api/emailAuth';
 import { isValidVerificationCode } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 export function EmailVerificationScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<AuthStackParamList, 'EmailVerification'>>();
-  const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<AuthStackParamList, 'EmailVerification'>>();
   const { email, password } = route.params;
 
@@ -73,19 +68,7 @@ export function EmailVerificationScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.nav, { paddingTop: insets.top }]}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로가기"
-          hitSlop={8}
-          style={styles.navBackButton}
-        >
-          <IconBack size={22} color={color.ink900} />
-        </Pressable>
-      </View>
-      <View style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.title}>이메일 인증</Text>
       <Text style={styles.subtitle}>{email}로 보낸 6자리 코드를 입력해주세요</Text>
 
@@ -119,28 +102,11 @@ export function EmailVerificationScreen() {
         onPress={handleVerify}
         style={styles.submitButton}
       />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: color.bg,
-  },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
-  },
-  navBackButton: {
-    width: 40,
-    height: 68,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -148,14 +114,13 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
   },
   title: {
-    fontSize: adjustFontSize(20),
-    ...weightFamily('bold'),
+    fontSize: 20,
+    fontWeight: '700',
     color: color.ink900,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('regular'),
+    fontSize: 13,
     color: color.ink600,
     textAlign: 'center',
     marginTop: space[2],
@@ -166,13 +131,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resendText: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('regular'),
+    fontSize: 13,
     color: color.ink600,
   },
   resendActive: {
     color: color.brand700,
-    ...weightFamily('bold'),
+    fontWeight: '700',
     textDecorationLine: 'underline',
   },
   resendInactive: {

@@ -8,15 +8,13 @@ import { Button } from '@/components/base/Button';
 import { Card } from '@/components/base/Card';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
-import { DeltaBadge, MetricScoreList } from '@/components/domain/MetricScoreList';
-import { SkinDiamondChart } from '@/components/domain/SkinDiamondChart';
+import { MetricScoreList } from '@/components/domain/MetricScoreList';
 import { toMetricList } from '@/api/adapters';
 import { getSkinRecordToday } from '@/api/skin';
 import { ApiError } from '@/api/unwrap';
 import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { SkinRecordResult } from '@/types/skin';
-import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -97,51 +95,28 @@ export function SkinResultScreen() {
     : null;
 
   return (
-    <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space[5] }]}>
-        <Text style={styles.title}>오늘의 피부 분석</Text>
+    <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space[5] }]}>
+      <Text style={styles.title}>오늘의 피부 분석</Text>
 
-        <View style={styles.totalScoreBlock}>
-          <Text style={styles.totalScoreValue}>{result.totalScore}</Text>
-          <Text style={styles.totalScoreUnit}>점</Text>
-        </View>
+      <View style={styles.totalScoreBlock}>
+        <Text style={styles.totalScoreValue}>{result.totalScore}</Text>
+        <Text style={styles.totalScoreUnit}>점</Text>
+      </View>
 
-        {totalDelta === null ? (
-          <Text style={styles.totalComparison}>첫 기록입니다</Text>
-        ) : (
-          <Text style={styles.totalComparison}>
-            {result.comparison?.comparedTo}보다 {Math.abs(totalDelta)}점{' '}
-            {totalDelta > 0 ? '올랐어요' : totalDelta < 0 ? '낮아졌어요' : '똑같아요'}
-          </Text>
-        )}
+      {totalDelta === null ? (
+        <Text style={styles.totalComparison}>첫 기록입니다</Text>
+      ) : (
+        <Text style={styles.totalComparison}>
+          {result.comparison?.comparedTo}보다 {Math.abs(totalDelta)}점{' '}
+          {totalDelta > 0 ? '올랐어요' : totalDelta < 0 ? '낮아졌어요' : '똑같아요'}
+        </Text>
+      )}
 
-        {metrics.length === 4 ? (
-          <>
-            <SkinDiamondChart items={metrics} style={styles.chart} />
-            {/* 관리자님 요청(2026-08-14) — 카드 형태로 변경(테두리+배경). 증감
-                화살표(▲/▼)는 기존 막대바 리스트의 DeltaBadge를 그대로 재사용합니다. */}
-            <View style={styles.summaryRow}>
-              {metrics.map((item) => (
-                <View key={item.key} style={styles.summaryCard}>
-                  <Text style={styles.summaryScore}>{item.score}</Text>
-                  <Text style={styles.summaryLabel}>{item.label}</Text>
-                  <DeltaBadge delta={item.delta} />
-                </View>
-              ))}
-            </View>
-          </>
-        ) : (
-          // 지표가 4개가 아닌 예외적인 경우(운영 중 지표 개수가 바뀌는 등) — 다이아몬드
-          // 차트는 4축 고정이라 못 그리므로 기존 막대바 리스트로 안전하게 폴백합니다.
-          <Card style={styles.metricsCard}>
-            <MetricScoreList items={metrics} />
-          </Card>
-        )}
-      </ScrollView>
+      <Card style={styles.metricsCard}>
+        <MetricScoreList items={metrics} />
+      </Card>
 
-      {/* 관리자님 요청(2026-08-14) — 버튼이 콘텐츠 짧을 때 화면 위쪽에 붙어있던 문제를
-          고치기 위해 스크롤 영역 밖으로 빼서 화면 하단에 고정합니다. */}
-      <View style={[styles.buttonRow, { paddingBottom: insets.bottom + space[5] }]}>
+      <View style={styles.buttonRow}>
         <Button label="닫기" variant="secondary" onPress={handleClose} style={styles.buttonHalf} />
         <Button
           label="리포트 보러가기"
@@ -150,19 +125,17 @@ export function SkinResultScreen() {
           style={styles.buttonHalf}
         />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: color.bg,
-  },
   content: {
     padding: space[5],
+    paddingBottom: space[8],
     gap: space[4],
     backgroundColor: color.bg,
+    flexGrow: 1,
   },
   title: {
     ...typography.h1,
@@ -178,7 +151,7 @@ const styles = StyleSheet.create({
   },
   totalScoreValue: {
     ...typography.display,
-    fontSize: adjustFontSize(56),
+    fontSize: 56,
     lineHeight: 60,
     color: color.brand700,
   },
@@ -195,44 +168,10 @@ const styles = StyleSheet.create({
   metricsCard: {
     marginTop: space[3],
   },
-  chart: {
-    marginTop: space[3],
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: space[2],
-    marginTop: space[2],
-  },
-  // 관리자님 요청(2026-08-14) — 카드 형태로 변경. 테두리+배경으로 각 지표를 구분되는
-  // 하나의 블록처럼 보이게 합니다.
-  summaryCard: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: space[3],
-    paddingHorizontal: space[1],
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: color.brand500,
-    backgroundColor: color.bg,
-  },
-  summaryScore: {
-    ...typography.h2,
-    color: color.ink900,
-  },
-  summaryLabel: {
-    ...typography.caption,
-    color: color.ink600,
-    fontSize: adjustFontSize(12),
-  },
-  // 스크롤 영역 밖, 화면 하단에 고정되는 버튼 바 (관리자님 요청, 2026-08-14).
   buttonRow: {
     flexDirection: 'row',
     gap: space[3],
-    paddingHorizontal: space[5],
-    paddingTop: space[3],
-    borderTopWidth: 1,
-    borderTopColor: color.ink300 + '40',
+    marginTop: space[5],
   },
   buttonHalf: {
     flex: 1,

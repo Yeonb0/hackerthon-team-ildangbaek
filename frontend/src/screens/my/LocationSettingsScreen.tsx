@@ -17,7 +17,7 @@ import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconBack, IconCheck } from '@/components/icons';
+import { IconCheck } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
 import { Popup } from '@/components/base/Popup';
@@ -28,7 +28,6 @@ import { useLocationSearch, useUpdateLocation } from '@/api/queries/user';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { LocationItem } from '@/types/user';
-import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -103,19 +102,7 @@ export function LocationSettingsScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + space[4] }]}>
         <View style={styles.headerRow}>
-          <View style={styles.titleGroup}>
-            <Pressable
-              onPress={() => navigation.goBack()}
-              accessibilityRole="button"
-              accessibilityLabel="뒤로가기"
-              hitSlop={8}
-            >
-              <IconBack size={22} color={color.ink900} />
-            </Pressable>
-            <Text style={styles.title}>위치 설정</Text>
-          </View>
-          {/* F-MY-04 BR5: "변경 없음" 텍스트 버튼 — 위 뒤로가기 아이콘과 동작은 같지만
-              (저장 안 하고 나가기) 명세서에 명시된 문구라 그대로 유지합니다. */}
+          <Text style={styles.title}>위치 설정</Text>
           <Pressable onPress={() => navigation.goBack()} accessibilityRole="button">
             <Text style={styles.skipText}>변경 없음</Text>
           </Pressable>
@@ -200,11 +187,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  titleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-  },
   title: {
     ...typography.h1,
     color: color.ink900,
@@ -248,7 +230,7 @@ const styles = StyleSheet.create({
   currentBadge: {
     ...typography.micro,
     color: color.brand700,
-    ...weightFamily('semibold'),
+    fontWeight: '600',
   },
   bottomBar: {
     paddingHorizontal: space[5],

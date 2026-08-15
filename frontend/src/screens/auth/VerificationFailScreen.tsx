@@ -8,8 +8,6 @@ import { Button } from '@/components/base/Button';
 import { sendVerificationCode } from '@/api/emailAuth';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 export function VerificationFailScreen() {
   const navigation =
@@ -56,14 +54,13 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
   },
   title: {
-    fontSize: adjustFontSize(20),
-    ...weightFamily('bold'),
+    fontSize: 20,
+    fontWeight: '700',
     color: color.ink900,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('regular'),
+    fontSize: 13,
     color: color.ink600,
     textAlign: 'center',
     marginTop: space[2],

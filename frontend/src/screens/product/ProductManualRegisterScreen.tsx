@@ -34,8 +34,6 @@ import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, space, typography } from '@/theme';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import type { ProductCategory } from '@/types/product';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -43,7 +41,7 @@ export function ProductManualRegisterScreen() {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<DetailStackParamList, 'ProductManualRegister'>>();
-  const { timeSlot, initialKeyword, initialRoutineId } = route.params;
+  const { timeSlot, initialKeyword } = route.params;
 
   const [name, setName] = useState(initialKeyword ?? '');
   const [brand, setBrand] = useState('');
@@ -92,14 +90,8 @@ export function ProductManualRegisterScreen() {
   const addToRoutineMutation = useAddProductToRoutine();
 
   // 관리자님 요청(2026-08-14) — 모닝/나이트 루틴 둘 다 동시에 추가할 수 있게 다중 선택으로.
-  // initialRoutineId(2026-08-15 세션5, RoutineAddProductScreen "새 제품 등록하기"에서 옴)가
-  // 있으면 그 루틴을 기본으로 미리 체크해둡니다 — 루틴 수정 흐름에서 온 거니 그 루틴에
-  // 담으려는 의도가 명확하기 때문입니다. 사용자가 직접 해제하거나 다른 루틴을 추가로
-  // 고를 수 있습니다.
   const routinesQuery = useRoutines();
-  const [selectedRoutineIds, setSelectedRoutineIds] = useState<Set<number>>(
-    initialRoutineId ? new Set([initialRoutineId]) : new Set()
-  );
+  const [selectedRoutineIds, setSelectedRoutineIds] = useState<Set<number>>(new Set());
   const toggleRoutine = (routineId: number) => {
     setSelectedRoutineIds((prev) => {
       const next = new Set(prev);
@@ -405,7 +397,7 @@ const styles = StyleSheet.create({
   photoPickerLabel: {
     ...typography.caption,
     color: color.brand700,
-    ...weightFamily('semibold'),
+    fontWeight: '600',
   },
   nav: {
     backgroundColor: color.bg,
@@ -466,7 +458,7 @@ const styles = StyleSheet.create({
   categoryChipText: {
     ...typography.caption,
     color: color.ink600,
-    ...weightFamily('semibold'),
+    fontWeight: '600',
   },
   categoryChipTextActive: {
     color: color.bg,
@@ -478,8 +470,8 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   fieldLabel: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('semibold'),
+    fontSize: 13,
+    fontWeight: '600',
     color: color.ink600,
   },
   textarea: {
@@ -489,8 +481,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: space[4],
     paddingVertical: space[3],
-    fontSize: adjustFontSize(15),
-    ...weightFamily('regular'),
+    fontSize: 15,
     color: color.ink900,
     backgroundColor: color.bg,
     textAlignVertical: 'top',

@@ -13,8 +13,6 @@ import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -192,23 +190,21 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   stageText: {
-    fontSize: adjustFontSize(14),
-    ...weightFamily('regular'),
+    fontSize: 14,
     color: color.ink300,
   },
   stageTextActive: {
     color: color.ink900,
-    ...weightFamily('semibold'),
+    fontWeight: '600',
   },
   messageTitle: {
-    fontSize: adjustFontSize(16),
-    ...weightFamily('bold'),
+    fontSize: 16,
+    fontWeight: '700',
     color: color.ink900,
     marginTop: space[3],
   },
   messageDescription: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('regular'),
+    fontSize: 13,
     color: color.ink600,
     textAlign: 'center',
   },

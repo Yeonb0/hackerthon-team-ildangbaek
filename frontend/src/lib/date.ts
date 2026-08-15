@@ -43,29 +43,6 @@ export function formatYearMonthString(year: number, month: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}`;
 }
 
-/**
- * 오늘이 속한 주의 7일치 날짜를 고정으로 반환합니다 (기본 월~일).
- * F-HOME-06(밤 홈 주간 현황) 개선안 — 관리자님 결정(2026-08-14)으로 "이번 주(월~오늘만,
- * 요일 수 가변)"도 "최근 7일 롤링"도 아닌 "월~일 고정 7칸"으로 다시 바꿨습니다. 요일과
- * 무관하게 항상 7개가 나오고, 오늘 이후 날짜는 호출하는 쪽에서 "아직 안 지난 날"로
- * 구분해 처리합니다(RecordCalendar.tsx의 isFutureDateString 사용 패턴과 동일).
- */
-export function getCurrentWeekDates(weekStart: WeekStart = 'MONDAY'): string[] {
-  const today = new Date();
-  const rawDayOfWeek = today.getDay(); // 0(일)~6(토)
-  const offsetFromStart =
-    weekStart === 'MONDAY' ? (rawDayOfWeek === 0 ? 6 : rawDayOfWeek - 1) : rawDayOfWeek;
-
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offsetFromStart);
-
-  const dates: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-    dates.push(formatDateString(d.getFullYear(), d.getMonth(), d.getDate()));
-  }
-  return dates;
-}
-
 export interface MonthGridCell {
   date: string; // 'YYYY-MM-DD'
   day: number;
@@ -75,16 +52,6 @@ export interface MonthGridCell {
 const TOTAL_GRID_CELLS = 42; // 6주 고정 — 달마다 그리드 높이가 바뀌지 않게 (Calendar.tsx와 동일 원칙)
 
 export type WeekStart = 'SUNDAY' | 'MONDAY';
-
-const WEEKDAY_LABELS_SUNDAY_FIRST = ['일', '월', '화', '수', '목', '금', '토'];
-const WEEKDAY_LABELS_MONDAY_FIRST = ['월', '화', '수', '목', '금', '토', '일'];
-
-/** weekStart에 맞는 요일 라벨 7개를 반환합니다(일~토 또는 월~일 순). RecordCalendar·
- * RecordWeekStrip이 각자 같은 배열을 따로 두고 있던 걸 공용 함수로 뺐습니다
- * (관리자님 요청 — 주 시작 요일 설정 기능, 2026-08-15). */
-export function getWeekdayLabels(weekStart: WeekStart): string[] {
-  return weekStart === 'MONDAY' ? WEEKDAY_LABELS_MONDAY_FIRST : WEEKDAY_LABELS_SUNDAY_FIRST;
-}
 
 /**
  * 지정한 달의 42칸 그리드(이전/다음 달 여백 포함)를 계산합니다.

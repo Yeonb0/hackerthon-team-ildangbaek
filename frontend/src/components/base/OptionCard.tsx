@@ -1,10 +1,8 @@
 // src/components/base/OptionCard.tsx
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { IconCheck } from '@/components/icons';
+import { IconCheck, IconCircleEmpty } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type OptionCardProps = {
   title: string;
@@ -42,15 +40,13 @@ export function OptionCard({
       ]}
     >
       <View style={styles.textGroup}>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={[styles.title, selected && styles.titleSelected]}>{title}</Text>
         {description ? <Text style={styles.description}>{description}</Text> : null}
       </View>
       {selected ? (
-        <View style={styles.checkboxFilled}>
-          <IconCheck size={14} color={color.white} />
-        </View>
+        <IconCheck size={22} color={color.brand500} />
       ) : (
-        <View style={styles.checkboxEmpty} />
+        <IconCircleEmpty size={22} color={color.ink300} />
       )}
     </Pressable>
   );
@@ -62,16 +58,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: color.borderDivider,
+    borderColor: color.ink300,
     borderRadius: radius.md,
     paddingVertical: space[3],
     paddingHorizontal: space[4],
-    backgroundColor: color.bg,
   },
   selected: {
-    borderWidth: 1.5,
     borderColor: color.brand500,
-    backgroundColor: color.surfaceLavenderSoft,
+    backgroundColor: color.brand50,
   },
   disabled: {
     opacity: 0.4,
@@ -81,30 +75,16 @@ const styles = StyleSheet.create({
     marginRight: space[3],
   },
   title: {
-    fontSize: adjustFontSize(15),
-    ...weightFamily('semibold'),
+    fontSize: 15,
+    fontWeight: '600',
     color: color.ink900,
+  },
+  titleSelected: {
+    color: color.brand700,
   },
   description: {
     marginTop: space[1],
-    fontSize: adjustFontSize(12),
-    ...weightFamily('regular'),
+    fontSize: 12,
     color: color.ink600,
-  },
-  // Figma Card/Selectable > checkbox — 24px, radius 12(=circle), border 1.5px.
-  checkboxEmpty: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: color.borderDivider,
-  },
-  checkboxFilled: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: color.brand500,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

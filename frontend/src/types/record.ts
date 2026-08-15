@@ -19,27 +19,6 @@ export interface RecordMonthlySummary {
   skinRecordCount: number;
 }
 
-/** 월간 기록 화면(F-RECORD-02, Frame 10 210:1505) 날짜 탭 바텀시트용.
- * ⚠️ 백엔드 API 명세서에 대응 엔드포인트가 없습니다 — 목업 전용(관리자 확인 필요,
- * 2026-08-15). 기존 제품 등록(ProductManualRegister)·이메일 인증 흐름과 같은 패턴으로
- * 우선 프론트만 구현했습니다. */
-export interface RecordDayProductItem {
-  name: string;
-}
-
-export interface RecordDaySlotDetail {
-  completed: boolean;
-  items: RecordDayProductItem[];
-}
-
-export interface RecordDayDetailResponse {
-  date: string;
-  /** 그 날 피부 기록이 없으면 null. */
-  skinScore: number | null;
-  morningProducts: RecordDaySlotDetail;
-  nightProducts: RecordDaySlotDetail;
-}
-
 /** GET /records/calendar 응답 (result). 조회 월의 모든 날짜를 항상 포함합니다(BR1). */
 export interface RecordCalendarResponse {
   yearMonth: string; // 'YYYY-MM'

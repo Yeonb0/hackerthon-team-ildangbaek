@@ -62,7 +62,7 @@ export interface TodayRecord {
   night: TodayRecordSlot;
 }
 
-/** weeklyCalendar는 밤에만 반환 (이번 주, 월~일 고정 7칸 — 오늘 이후는 NONE, 관리자님 결정 2026-08-14) */
+/** weeklyCalendar는 밤에만 반환 (이번 주, 월~오늘) */
 export interface WeeklyCalendarDay {
   date: string; // 'YYYY-MM-DD'
   morning: RecordDotStatus;

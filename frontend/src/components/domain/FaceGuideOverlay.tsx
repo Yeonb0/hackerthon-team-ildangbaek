@@ -24,8 +24,8 @@ type FaceGuideOverlayProps = {
  * theme/tokens.ts만 교체하면 되도록 색상은 전부 토큰 참조로 뺐습니다.
  */
 export function FaceGuideOverlay({
-  width = s(320),
-  height = s(420),
+  width = s(260),
+  height = s(340),
   style,
 }: FaceGuideOverlayProps) {
   return (

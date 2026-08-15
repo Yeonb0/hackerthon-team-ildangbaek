@@ -1,16 +1,14 @@
 // PhotoGuideScreen.tsx
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconBack, IconPersonCircle } from '@/components/icons';
+import { IconPersonCircle } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Card } from '@/components/base/Card';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -35,31 +33,15 @@ export function PhotoGuideScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.nav, { paddingTop: insets.top }]}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로가기"
-          hitSlop={8}
-          style={styles.navBackButton}
-        >
-          <IconBack size={22} color={color.ink900} />
-        </Pressable>
-        <Text style={styles.title}>이렇게 찍어주세요</Text>
-      </View>
-      <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.subtitle}>같은 조건일수록 분석이 정확해져요</Text>
+    <ScrollView
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + space[5] }]}
+    >
+      <Text style={styles.title}>촬영 전 확인해 주세요</Text>
 
-      {/* 예시 이미지 — 실제 이미지 에셋은 디자인 확정 후 교체 (BR1). Figma 구조 그대로
-          (관리자님 요청, 2026-08-14) — 연한 배경 박스 안에 얼굴 모양 점선 타원 + 라벨
-          두 줄. 사진 자체가 아직 없어서 얼굴 아이콘으로 자리를 대신합니다. */}
+      {/* 예시 이미지 — 실제 이미지 에셋은 디자인 확정 후 교체 (BR1) */}
       <View style={styles.exampleBox}>
-        <View style={styles.exampleOval}>
-          <IconPersonCircle size={56} color={color.ink300} />
-          <Text style={styles.exampleOvalLabel}>예시 얼굴</Text>
-        </View>
-        <Text style={styles.exampleLabel}>예시 이미지</Text>
+        <IconPersonCircle size={72} color={color.ink300} />
+        <Text style={styles.exampleLabel}>예시 이미지 (디자인 확정 전)</Text>
       </View>
 
       <Card style={styles.tipsCard}>
@@ -81,77 +63,35 @@ export function PhotoGuideScreen() {
         }
         style={styles.startButton}
       />
-      </ScrollView>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: color.bg,
-  },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
-  },
-  navBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   container: {
     padding: space[5],
-    paddingTop: space[2],
     gap: space[5],
     backgroundColor: color.bg,
     flexGrow: 1,
   },
-  titleGroup: {
-    gap: space[1],
-  },
   title: {
-    fontSize: adjustFontSize(24),
-    ...weightFamily('bold'),
+    fontSize: 20,
+    fontWeight: '700',
     color: color.ink900,
-  },
-  subtitle: {
-    fontSize: adjustFontSize(14),
-    ...weightFamily('regular'),
-    color: color.ink600,
   },
   exampleBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[3],
-    minHeight: 260,
+    gap: space[2],
+    paddingVertical: space[8],
     borderRadius: 16,
-    backgroundColor: color.brand50,
-  },
-  exampleOval: {
-    width: 130,
-    height: 172,
-    borderRadius: 999,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: color.ink300,
     borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[1],
-  },
-  exampleOvalLabel: {
-    fontSize: adjustFontSize(11),
-    ...weightFamily('regular'),
-    color: color.ink300,
   },
   exampleLabel: {
-    fontSize: adjustFontSize(11),
-    ...weightFamily('regular'),
-    color: color.ink300,
+    fontSize: 12,
+    color: color.ink600,
   },
   tipsCard: {
     gap: space[4],
@@ -170,14 +110,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tipNumberText: {
-    fontSize: adjustFontSize(12),
-    ...weightFamily('bold'),
+    fontSize: 12,
+    fontWeight: '700',
     color: color.brand700,
   },
   tipText: {
     flex: 1,
-    fontSize: adjustFontSize(14),
-    ...weightFamily('regular'),
+    fontSize: 14,
     color: color.ink900,
     lineHeight: 20,
   },

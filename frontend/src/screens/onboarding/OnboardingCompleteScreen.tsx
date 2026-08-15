@@ -10,7 +10,6 @@
 // "이동"만 하고, 실제 완료 플래그는 S-06의 버튼에서 바꿉니다.
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { IconCheck } from '@/components/icons';
@@ -23,10 +22,9 @@ import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { useAuthStore } from '@/store/authStore';
 import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
-import { color, space, gradient, gradientDirection, shadow } from '@/theme/tokens';
+import { color, space } from '@/theme/tokens';
+import { s } from '@/lib/scale';
 import type { OnboardingSummaryRow } from '@/types/onboarding';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 export function OnboardingCompleteScreen() {
   const navigation =
@@ -76,42 +74,31 @@ export function OnboardingCompleteScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <LinearGradient
-          colors={gradient.brand}
-          start={gradientDirection.badge.start}
-          end={gradientDirection.badge.end}
-          style={[styles.iconBadge, shadow.badge]}
-        >
-          <IconCheck size={36} color={color.white} />
-        </LinearGradient>
+      <IconCheck size={64} color={color.brand500} style={styles.icon} />
 
-        <Text style={styles.title}>계정 생성 완료!</Text>
-        <Text style={styles.description}>
-          이제부터 피부 기록을 시작하고{'\n'}성분 프로파일을 완성해나가요
-        </Text>
+      <Text style={styles.title}>프로파일이 완성되었어요</Text>
+      <Text style={styles.description}>
+        입력해주신 정보를 바탕으로{'\n'}피부 변화와 성분 반응을 분석해드릴게요.
+      </Text>
 
-        <Card style={styles.summaryCard}>
-          {summary.map((row, index) => (
-            <View
-              key={row.label}
-              style={[styles.summaryRow, index === summary.length - 1 && styles.summaryRowLast]}
-            >
-              <Text style={styles.summaryLabel}>{row.label}</Text>
-              <Text style={styles.summaryValue}>{row.value}</Text>
-            </View>
-          ))}
-        </Card>
-      </View>
+      <Card style={styles.summaryCard}>
+        {summary.map((row, index) => (
+          <View
+            key={row.label}
+            style={[styles.summaryRow, index === summary.length - 1 && styles.summaryRowLast]}
+          >
+            <Text style={styles.summaryLabel}>{row.label}</Text>
+            <Text style={styles.summaryValue}>{row.value}</Text>
+          </View>
+        ))}
+      </Card>
 
-      <View style={styles.footer}>
-        <Button
-          label="기록 시작하기"
-          variant="primary"
-          onPress={handleStart}
-          style={styles.startButton}
-        />
-      </View>
+      <Button
+        label="기록 시작하기"
+        variant="primary"
+        onPress={handleStart}
+        style={styles.startButton}
+      />
     </View>
   );
 }
@@ -119,71 +106,51 @@ export function OnboardingCompleteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: color.surfaceLavenderPale,
-  },
-  content: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space[6],
+    padding: space[6],
+    backgroundColor: color.bg,
   },
-  iconBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: space[8],
+  icon: {
+    marginBottom: space[4],
   },
   title: {
-    // Figma는 Pretendard Black(900)인데, 프로젝트에 등록된 굵기 파일이
-    // regular/medium/semibold/bold 4종뿐이라 900 파일이 없습니다. 가장 굵은
-    // bold로 근사 처리했습니다 — fontWeight를 얹어 합성 볼드로 흉내내는 건
-    // 안드로이드에서 더 두꺼워지는 부작용이 있어서 하지 않았습니다.
-    fontSize: adjustFontSize(26),
-    ...weightFamily('bold'),
-    color: color.textInk,
+    fontSize: s(22),
+    fontWeight: '700',
+    color: color.ink900,
     marginBottom: space[2],
     textAlign: 'center',
   },
   description: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('medium'),
-    color: color.textSub,
+    fontSize: 14,
+    color: color.ink600,
     textAlign: 'center',
     marginBottom: space[6],
   },
   summaryCard: {
     width: '100%',
-    padding: 0,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: space[4],
-    paddingHorizontal: space[6],
-    borderBottomWidth: 0.76,
-    borderBottomColor: color.borderDividerFaint,
+    paddingVertical: space[3],
+    borderBottomWidth: 1,
+    borderBottomColor: color.ink300,
   },
   summaryRowLast: {
     borderBottomWidth: 0,
   },
   summaryLabel: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('medium'),
-    color: color.textSub,
+    fontSize: 14,
+    color: color.ink600,
   },
   summaryValue: {
-    fontSize: adjustFontSize(14),
-    ...weightFamily('bold'),
-    color: color.textInk,
-  },
-  footer: {
-    paddingHorizontal: space[6],
-    paddingTop: space[3],
-    paddingBottom: space[8],
+    fontSize: 14,
+    fontWeight: '600',
+    color: color.ink900,
   },
   startButton: {
     width: '100%',
+    marginTop: space[8],
   },
 });

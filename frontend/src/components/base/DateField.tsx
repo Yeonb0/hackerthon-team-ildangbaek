@@ -5,8 +5,6 @@ import { IconCalendar } from '@/components/icons';
 import { Calendar } from '@/components/base/Calendar';
 import { Button } from '@/components/base/Button';
 import { color, radius, space } from '@/theme/tokens';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
 
 type DateFieldProps = {
   label?: string;
@@ -84,8 +82,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('semibold'),
+    fontSize: 13,
+    fontWeight: '600',
     color: color.ink600,
     marginBottom: space[2],
   },
@@ -104,19 +102,16 @@ const styles = StyleSheet.create({
     borderColor: color.statusCaution,
   },
   valueText: {
-    fontSize: adjustFontSize(16),
-    ...weightFamily('regular'),
+    fontSize: 16,
     color: color.ink900,
   },
   placeholderText: {
-    fontSize: adjustFontSize(16),
-    ...weightFamily('regular'),
+    fontSize: 16,
     color: color.ink300,
   },
   errorText: {
     marginTop: space[1],
-    fontSize: adjustFontSize(12),
-    ...weightFamily('regular'),
+    fontSize: 12,
     color: color.statusCaution,
   },
   backdrop: {

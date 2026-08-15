@@ -47,14 +47,8 @@ import { IconLogout } from './IconLogout';
 import { IconPersonCircle } from './IconPersonCircle';
 import { IconTrash } from './IconTrash';
 import { IconTrayEmpty } from './IconTrayEmpty';
-// 아래 5개는 2026-08-15 디자이너 전달분(날씨 낮/밤 2종 + 성분 표정 3종).
-import { IconSunny } from './IconSunny';
-import { IconMoon } from './IconMoon';
-import { IconFaceGood } from './IconFaceGood';
-import { IconFaceNeutral } from './IconFaceNeutral';
-import { IconFaceCaution } from './IconFaceCaution';
 
-/** 카탈로그 화면·AppIcon 등에서 47개를 이름으로 순회/조회할 때 쓰는 이름→컴포넌트 맵. */
+/** 카탈로그 화면·AppIcon 등에서 42개를 이름으로 순회/조회할 때 쓰는 이름→컴포넌트 맵. */
 export const ICONS = {
   navHome: IconNavHome,
   navShop: IconNavShop,
@@ -98,11 +92,6 @@ export const ICONS = {
   personCircle: IconPersonCircle,
   trash: IconTrash,
   trayEmpty: IconTrayEmpty,
-  sunny: IconSunny,
-  moon: IconMoon,
-  faceGood: IconFaceGood,
-  faceNeutral: IconFaceNeutral,
-  faceCaution: IconFaceCaution,
 } as const;
 
 export type IconName = keyof typeof ICONS;
