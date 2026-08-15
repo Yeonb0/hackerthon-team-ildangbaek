@@ -1,7 +1,12 @@
-# AI 분석 서버 (규칙 기반 비전)
+# AI 분석 서버 (규칙 기반 1차 산출 + OpenAI Vision 확정)
 
 얼굴 사진에서 피부 지표 4종(트러블 · 홍조 · 모공 · 색소잡티)을 산출하는 FastAPI 서버다.
 Spring Boot의 `LocalVisionSkinAnalysisClient`가 이 서버를 호출한다.
+
+MediaPipe·OpenCV로 CIELAB 규칙 기반 1차 점수를 낸 뒤(`app/metrics.py`), 그 점수를 근거로
+OpenAI Vision에 최종 확정을 요청한다(`app/vision.py`, ADR 0022). OpenAI 호출이
+실패·타임아웃·비신뢰 응답이면 1차 규칙 기반 점수를 그대로 반환한다 — 외부 API 장애가 분석
+전체를 실패시키지 않는다.
 
 ## 신뢰도 (실측)
 
@@ -56,12 +61,17 @@ REDNESS와 TROUBLE은 서로 다른 신호를 쓴다(REDNESS는 볼의 붉기, T
 
 ## 무엇이 아닌가
 
-**딥러닝 모델이 아니다.** MediaPipe(얼굴 검출)와 OpenCV(영상처리)를 쓴 **규칙 기반 근사치**다.
-학습 데이터가 없어 모델 학습이 불가능한 상태에서 선택한 방식이며, 한계는 다음과 같다.
+**직접 학습한 딥러닝 모델이 아니다.** 1차 산출은 MediaPipe(얼굴 검출)와 OpenCV(영상처리)를 쓴
+**규칙 기반 근사치**이고, 최종 확정만 OpenAI Vision(gpt-4o)에 맡긴다. 학습 데이터가 없어 자체
+모델 학습이 불가능한 상태에서 선택한 방식이며, 한계는 다음과 같다.
 
 - 의학적 정확도를 보장하지 않는다. 검증할 정답 데이터가 없다.
 - 조명 · 화질 · 각도에 민감하다. 전처리로 억제하지만 제거하지는 못한다.
 - 목표는 절대 점수가 아니라 **같은 사람의 변화 방향**을 일관되게 잡아내는 것이다.
+- 최종 점수는 OpenAI 판단을 **클램핑 없이** 그대로 신뢰한다. 1차 점수와 동떨어진 값이 나올 수
+  있고, 이는 반복 촬영 시 점수 변동성을 키울 위험이 있다(ADR 0022의 알려진 한계).
+- PORES의 신뢰도(`pores_reliability`)는 OpenAI가 아니라 항상 규칙 기반 판정을 따른다 — 이
+  임계값은 촬영 조건별 실측 통계로 정의된 것이라 LLM에 재위임할 근거가 없다.
 
 ## 실행
 
@@ -70,6 +80,7 @@ cd ai-server
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ./scripts/download_model.sh          # 얼굴 랜드마크 모델(3.7MB) 내려받기
+cp .env.example .env                 # OPENAI_API_KEY 등을 채운다
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -78,6 +89,16 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 
 모델 파일은 저장소에 넣지 않는다(`models/`는 gitignore). 경로를 바꾸려면
 `LANDMARKER_MODEL_PATH` 환경변수를 쓴다.
+
+`.env`(gitignore 대상)에 다음을 설정한다. `OPENAI_API_KEY`가 비어 있으면 OpenAI 확정 단계를
+건너뛰고 1차 규칙 기반 점수만 반환한다 — 로컬 개발 시 키 없이도 서버가 정상 동작한다.
+
+| 환경변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | (빈 값) | 비어 있으면 OpenAI 확정을 건너뛰고 1차 점수로 폴백 |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | |
+| `OPENAI_MODEL` | `gpt-4o` | |
+| `OPENAI_TIMEOUT_SECONDS` | `15` | |
 
 ## 테스트
 
@@ -128,3 +149,4 @@ export LOCAL_VISION_BASE_URL=http://localhost:8000   # 기본값
 - [x] Phase 3 — 조명 · 화질 정규화
 - [x] Phase 4 — 지표별 점수 산출
 - [x] Phase 5 — 일관성 검증
+- [x] Phase 6 — OpenAI Vision 2차 확정 (ADR 0022)

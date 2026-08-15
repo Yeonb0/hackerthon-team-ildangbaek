@@ -50,9 +50,7 @@ DB 설정은 `application-local.yml`에 있습니다.
 | `DB_PASSWORD` | `ildangbaek1234` | |
 | `STORAGE_LOCAL_DIR` | `./uploads/images` | 이미지 저장 경로 ([ADR 0007](../docs/decisions/0007-이미지-스토리지.md)) |
 | `STORAGE_LOCAL_URL_PREFIX` | `/images/` | 반환 URL 접두사 |
-| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택. `mock` · `openai` · `local-vision` ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md) · [ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md)) |
-| `OPENAI_API_KEY` | (없음) | `SKIN_ANALYSIS_PROVIDER=openai`일 때 필수. OpenAI API 키 |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API 베이스 URL |
+| `SKIN_ANALYSIS_PROVIDER` | `mock` | 분석 구현체 선택. `mock` · `local-vision` ([ADR 0003](../docs/decisions/0003-AI-분석-목업-우선.md) · [ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md) · [ADR 0022](../docs/decisions/0022-openai-비전-2단계-점수-확정.md)) |
 | `LOCAL_VISION_BASE_URL` | `http://localhost:8000` | `SKIN_ANALYSIS_PROVIDER=local-vision`일 때 사용할 `ai-server/` 주소 |
 
 업로드 상한은 `spring.servlet.multipart.max-file-size=10MB`다. Spring 기본값(파일 1MB)이면
@@ -71,20 +69,13 @@ DB 설정은 `application-local.yml`에 있습니다.
 ./gradlew bootRun --args='--app.skin.analysis.mock.failure-mode=timeout'
 ```
 
-**실제 AI 분석(OpenAI) 사용** — `gpt-4o`로 얼굴 이미지를 분석한다. 이미지는
-`LocalImageStorage`가 저장한 디렉터리에서 다시 읽어 base64로 인코딩해 전송한다(저장 URL이
-로컬 상대 경로라 OpenAI가 직접 가져올 수 없기 때문). 응답 JSON 파싱 실패·지표 누락은
-`SKIN_ANALYSIS_FAILED`, 얼굴 미검출 응답은 `SKIN_FACE_NOT_DETECTED`, HTTP 타임아웃은
-`SKIN_ANALYSIS_TIMEOUT`으로 매핑한다.
-
-```bash
-SKIN_ANALYSIS_PROVIDER=openai OPENAI_API_KEY=sk-... ./gradlew bootRun
-```
-
 **규칙 기반 자체 분석 서버(local-vision) 사용** — 딥러닝 모델이 아니라 MediaPipe·OpenCV로 얼굴을
-검출하고 영상처리 규칙으로 지표를 산출한다. 라벨링된 학습 데이터가 없어 채택한 방식이며, 절대
-정확도가 아니라 개인의 상대적 변화 추적용이다. 한계와 신뢰도는 `ai-server/README.md`,
-[ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md) 참고.
+검출하고 영상처리 규칙으로 1차 지표를 산출한 뒤, OpenAI Vision(`gpt-4o`)이 그 1차 점수를 근거로
+최종 점수를 확정한다. OpenAI 호출은 이 서버(`ai-server/`) 내부에서만 이루어지며 Spring은 OpenAI를
+직접 호출하지 않는다. 절대 정확도가 아니라 개인의 상대적 변화 추적용이다. 한계와 신뢰도, OpenAI
+연동 설정(`OPENAI_API_KEY` 등)은 `ai-server/README.md`,
+[ADR 0020](../docs/decisions/0020-규칙-기반-로컬-비전-분석.md),
+[ADR 0022](../docs/decisions/0022-openai-비전-2단계-점수-확정.md) 참고.
 
 ```bash
 # 1) 별도 터미널에서 분석 서버를 먼저 띄운다

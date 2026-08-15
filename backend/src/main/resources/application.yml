@@ -25,9 +25,8 @@ app:
       url-prefix: ${STORAGE_LOCAL_URL_PREFIX:/images/}
   skin:
     analysis:
+      # mock | local-vision. OpenAI Vision은 local-vision(ai-server) 내부에서 2차 확정
+      # 단계로만 호출된다(ADR 0022) — Spring이 직접 OpenAI를 호출하지 않는다.
       provider: ${SKIN_ANALYSIS_PROVIDER:mock}
-      openai:
-        api-key: ${OPENAI_API_KEY:}
-        base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
       local-vision:
         base-url: ${LOCAL_VISION_BASE_URL:http://localhost:8000}

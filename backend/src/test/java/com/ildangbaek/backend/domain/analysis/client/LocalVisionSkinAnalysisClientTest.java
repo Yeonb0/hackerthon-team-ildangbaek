@@ -30,8 +30,7 @@ import org.springframework.web.client.RestClient;
 /**
  * 자체 분석 서버 호출부의 응답 파싱 · 에러 매핑을 고정한다.
  *
- * <p>{@link OpenAiSkinAnalysisClientTest}와 같은 방식으로 {@link MockRestServiceServer}를 써서
- * 실제 FastAPI 서버 없이 HTTP 계층만 가짜로 세운다.
+ * <p>{@link MockRestServiceServer}를 써서 실제 FastAPI 서버 없이 HTTP 계층만 가짜로 세운다.
  */
 class LocalVisionSkinAnalysisClientTest {
 
