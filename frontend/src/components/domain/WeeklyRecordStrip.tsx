@@ -63,8 +63,8 @@ export function WeeklyRecordStrip({ days, style }: WeeklyRecordStripProps) {
                 </>
               ) : (
                 <>
-                  <RecordDot status={day.morning} />
-                  <RecordDot status={day.night} />
+                  <RecordDot slot="morning" status={day.morning} />
+                  <RecordDot slot="night" status={day.night} />
                 </>
               )}
             </View>

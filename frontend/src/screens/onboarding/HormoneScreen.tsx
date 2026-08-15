@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Chip } from '@/components/base/Chip';
 import { DateField } from '@/components/base/DateField';
@@ -18,7 +17,6 @@ import { getTodayDateString } from '@/lib/date';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
-import { s } from '@/lib/scale';
 import type { HormoneStatus } from '@/types/onboarding';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
@@ -47,7 +45,6 @@ const CURRENT_STEP_INDEX = 3;
 export function HormoneScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'Hormone'>>();
-  const insets = useSafeAreaInsets();
 
   const totalStepCount = useOnboardingStore((state) => state.totalStepCount);
 
@@ -101,23 +98,23 @@ export function HormoneScreen() {
   const progress = totalStepCount ? CURRENT_STEP_INDEX / totalStepCount : 0.7;
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.nav, { paddingTop: insets.top }]}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로가기"
-          hitSlop={8}
-          style={styles.navBackButton}
-        >
-          <IconBack size={22} color={color.ink900} />
-        </Pressable>
-      </View>
-      <KeyboardAvoidingView
+    <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      {/* 헤더 — BasicInfoScreen(S-01)과 동일한 구조·스타일로 통일 (관리자 지시, 2026-08-15) */}
+      <View style={styles.header}>
+        <View style={styles.backSlot}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="뒤로가기"
+            hitSlop={12}
+          >
+            <IconBack size={24} color={color.textInk} />
+          </Pressable>
+        </View>
+
         <ProgressBar
           progress={progress}
           current={totalStepCount ? CURRENT_STEP_INDEX : undefined}
@@ -129,7 +126,9 @@ export function HormoneScreen() {
         <Text style={styles.subtitle}>
           피부 변화 분석에 활용돼요. 지금 넘어가도 괜찮아요.
         </Text>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.chipRow}>
           {HORMONE_OPTIONS.map((option) => (
             <Chip
@@ -178,7 +177,9 @@ export function HormoneScreen() {
             style={styles.errorBanner}
           />
         )}
+      </ScrollView>
 
+      <View style={styles.footer}>
         <Button
           label="저장하고 계속하기"
           variant="primary"
@@ -193,28 +194,20 @@ export function HormoneScreen() {
           onPress={handleSkip}
           style={styles.skipButton}
         />
-      </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: color.bg,
+  header: {
+    paddingTop: 56,
+    paddingHorizontal: space[6],
+    paddingBottom: space[2],
   },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
-  },
-  navBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+  backSlot: {
+    height: 30, // 관리자 지정값 (2026-08-15) — 뒤로가기 버튼 표준 스타일
+    justifyContent: 'flex-start',
   },
   flex: {
     flex: 1,
@@ -222,22 +215,24 @@ const styles = StyleSheet.create({
   },
   container: {
     flexGrow: 1,
-    padding: space[6],
+    paddingTop: space[8],
+    paddingHorizontal: space[6],
+    paddingBottom: space[6],
   },
   progressBar: {
-    marginBottom: space[6],
+    marginTop: space[3],
+    marginBottom: space[4],
   },
   title: {
-    fontSize: s(22),
+    fontSize: adjustFontSize(22),
     ...weightFamily('bold'),
-    color: color.ink900,
-    marginBottom: space[1],
+    color: color.textInk,
   },
   subtitle: {
+    marginTop: space[1],
     fontSize: adjustFontSize(13),
-    ...weightFamily('regular'),
-    color: color.ink600,
-    marginBottom: space[6],
+    ...weightFamily('medium'),
+    color: color.textSub,
   },
   chipRow: {
     flexDirection: 'row',
@@ -266,10 +261,16 @@ const styles = StyleSheet.create({
   errorBanner: {
     marginTop: space[6],
   },
+  footer: {
+    paddingHorizontal: space[6],
+    paddingTop: space[3],
+    paddingBottom: space[8],
+  },
   submitButton: {
-    marginTop: space[8],
+    width: '100%',
   },
   skipButton: {
+    width: '100%',
     marginTop: space[2],
   },
 });

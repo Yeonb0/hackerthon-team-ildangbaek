@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SegmentToggle } from '@/components/base/SegmentToggle';
-import { Card } from '@/components/base/Card';
 import { RecordSlotCard } from '@/components/domain/RecordSlotCard';
-import { RecordCalendar } from '@/components/domain/RecordCalendar';
+import { RecordWeekStrip } from '@/components/domain/RecordWeekStrip';
+import { IconCalendar } from '@/components/icons';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { useRecordCalendar, useRecordToday } from '@/api/queries/record';
-import { formatYearMonthString } from '@/lib/date';
+import { formatYearMonthString, getCurrentWeekDates, isFutureDateString } from '@/lib/date';
 import { DetailRoutes, DetailStackParamList, MainTabParamList, TimeSlot } from '@/app/routes';
-import { color, space, typography } from '@/theme';
+import { color, space, weightFamily } from '@/theme';
 
 // RecordHubScreen은 Tabs(하단 탭 Navigator) 안에 있지만, 슬롯을 탭하면 그 밖의(부모)
 // Stack에 있는 S-11/S-15로 이동해야 합니다. 그래서 탭 레벨 navigation과 부모 스택
@@ -49,28 +49,13 @@ export function RecordHubScreen() {
   // setState를 하면 리렌더가 한 번 더 발생해서 불필요합니다.
   const currentTab: TimeSlot = activeTab ?? today.data?.defaultTab ?? 'MORNING';
 
+  // 월 이동(goPrevMonth/goNextMonth)은 이번 체크포인트(1번: 홈 주간 스트립)에서 뺐습니다 —
+  // 전체 월 이동 UI는 2번(월간 기록 신규 화면)에서 다시 들어갑니다. year/month state와
+  // calendar 쿼리 자체는 이번 주 점 데이터 출처로 계속 필요해서 남겨뒀습니다.
   const now = new Date();
-  const [calendarYear, setCalendarYear] = useState(now.getFullYear());
-  const [calendarMonth, setCalendarMonth] = useState(now.getMonth());
+  const [calendarYear] = useState(now.getFullYear());
+  const [calendarMonth] = useState(now.getMonth());
   const calendar = useRecordCalendar(formatYearMonthString(calendarYear, calendarMonth));
-
-  const goPrevMonth = () => {
-    if (calendarMonth === 0) {
-      setCalendarYear((y) => y - 1);
-      setCalendarMonth(11);
-    } else {
-      setCalendarMonth((m) => m - 1);
-    }
-  };
-
-  const goNextMonth = () => {
-    if (calendarMonth === 11) {
-      setCalendarYear((y) => y + 1);
-      setCalendarMonth(0);
-    } else {
-      setCalendarMonth((m) => m + 1);
-    }
-  };
 
   if (today.isLoading || calendar.isLoading) {
     return <LoadingState variant="spinner" />;
@@ -90,99 +75,140 @@ export function RecordHubScreen() {
 
   const slots = currentTab === 'MORNING' ? today.data.morning : today.data.night;
 
+  // 이번 주(일~토) 중 "완료"로 셀 날짜 수 — 헤더 "이번 주 N일 완료"에 씀. 모닝·나이트가
+  // 둘 다 FULL인 날만 완료로 셉니다(오늘 이후 날짜는 아직 지나지 않았으니 제외). 서버가
+  // 이 수치를 직접 내려주진 않아 클라이언트에서 계산했습니다 — 정의(둘 다 FULL)가
+  // 맞는지는 실기기 확인 때 같이 봐주세요.
+  const weekDates = getCurrentWeekDates('SUNDAY');
+  const dayMap = new Map(calendar.data.days.map((d) => [d.date, d]));
+  const weekCompletedCount = weekDates.filter((date) => {
+    if (isFutureDateString(date)) return false;
+    const data = dayMap.get(date);
+    return data ? data.morning === 'FULL' && data.night === 'FULL' : false;
+  }).length;
+
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space[5] }]}>
-      {/* Figma HUB-01/02 기준 페이지 제목 — RecordCalendar 자체 헤더(월 이동 화살표 포함)와는
-          별개로, 상단에 화면 제목 "기록"을 추가했습니다(관리자님 요청, 2026-08-14). 월 표시가
-          아래 캘린더 헤더와 중복되긴 하는데, Figma도 그렇게 두 군데 다 보여줘서 그대로 맞췄습니다. */}
-      <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>기록</Text>
-        <Text style={styles.pageMonth}>
-          {calendarYear}년 {calendarMonth + 1}월
-        </Text>
+    <ScrollView
+      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top }]}
+      style={styles.screen}
+    >
+      {/* 상단(제목+주간 스트립) 영역은 흰 배경 — Figma 210:677 실측. */}
+      <View style={styles.topSection}>
+        <View style={styles.pageHeader}>
+          <View>
+            <Text style={styles.pageTitle}>기록</Text>
+            <Text style={styles.pageSubtitle}>
+              이번 주 <Text style={styles.pageSubtitleAccent}>{weekCompletedCount}일</Text> 완료
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="월간 기록 보기"
+            onPress={() => navigation.navigate(DetailRoutes.RecordCalendar)}
+            style={styles.calendarButton}
+          >
+            <IconCalendar size={18} color={color.brand500} />
+          </Pressable>
+        </View>
+
+        <RecordWeekStrip days={calendar.data.days} />
       </View>
 
-      <Card style={styles.calendarCard}>
-        <RecordCalendar
-          year={calendarYear}
-          month={calendarMonth}
-          days={calendar.data.days}
-          onPrevMonth={goPrevMonth}
-          onNextMonth={goNextMonth}
+      {/* 칩 전환 + 슬롯 카드 영역은 라벤더 배경 — Figma 210:755/210:760 실측(#f5f2ff). */}
+      <View style={styles.bottomSection}>
+        <SegmentToggle
+          options={[
+            { value: 'MORNING', label: TAB_LABEL.MORNING, icon: 'sunny' },
+            { value: 'NIGHT', label: TAB_LABEL.NIGHT, icon: 'moon' },
+          ]}
+          value={currentTab}
+          onChange={setActiveTab}
         />
-        {/* 관리자님 요청(2026-08-14)으로 화면 맨 아래에서 다시 캘린더 카드 안으로
-            이동했습니다 — 내용은 그대로입니다.
-            ⚠️ TODO: 이 문구는 나중에 프로세스 바(progress bar) 느낌으로 다시 디자인할
-            예정이라고 관리자님이 메모해두라고 하셨습니다(2026-08-14). 지금은 텍스트만. */}
-        <Text style={styles.summary}>
-          이번 달 제품 기록 {calendar.data.monthlySummary.productRecordCount}회 · 피부 기록{' '}
-          {calendar.data.monthlySummary.skinRecordCount}회
-        </Text>
-      </Card>
 
-      <SegmentToggle
-        options={[
-          { value: 'MORNING', label: TAB_LABEL.MORNING },
-          { value: 'NIGHT', label: TAB_LABEL.NIGHT },
-        ]}
-        value={currentTab}
-        onChange={setActiveTab}
-      />
-
-      <View style={styles.slots}>
-        <RecordSlotCard
-          label="제품 기록"
-          completed={slots.product.completed}
-          summary={slots.product.summary}
-          onPress={() => navigation.navigate(DetailRoutes.ProductRecord, { timeSlot: currentTab })}
-        />
-        <RecordSlotCard
-          label="피부 기록"
-          completed={slots.skin.completed}
-          summary={slots.skin.summary}
-          // 이미 오늘 이 시간대 피부 기록이 있으면(체크 표시) 촬영 화면(S-15)이 아니라
-          // 그 결과를 보여주는 S-18로 보냅니다. 서버도 같은 슬롯 재촬영을 409
-          // SKIN_ALREADY_RECORDED_IN_SLOT으로 막기 때문에, 프론트에서 애초에 촬영
-          // 진입 자체를 막는 게 자연스럽습니다.
-          onPress={() =>
-            slots.skin.completed
-              ? navigation.navigate(DetailRoutes.SkinResult, { timeSlot: currentTab })
-              : navigation.navigate(DetailRoutes.PhotoGuide, { timeSlot: currentTab })
-          }
-        />
+        <View style={styles.slots}>
+          <RecordSlotCard
+            variant="product"
+            timeSlot={currentTab === 'MORNING' ? 'morning' : 'night'}
+            label="제품 기록"
+            completed={slots.product.completed}
+            summary={slots.product.summary}
+            onPress={() => navigation.navigate(DetailRoutes.ProductRecord, { timeSlot: currentTab })}
+          />
+          <RecordSlotCard
+            variant="skin"
+            timeSlot={currentTab === 'MORNING' ? 'morning' : 'night'}
+            label="피부 기록"
+            completed={slots.skin.completed}
+            summary={slots.skin.summary}
+            // 이미 오늘 이 시간대 피부 기록이 있으면(체크 표시) 촬영 화면(S-15)이 아니라
+            // 그 결과를 보여주는 S-18로 보냅니다. 서버도 같은 슬롯 재촬영을 409
+            // SKIN_ALREADY_RECORDED_IN_SLOT으로 막기 때문에, 프론트에서 애초에 촬영
+            // 진입 자체를 막는 게 자연스럽습니다.
+            onPress={() =>
+              slots.skin.completed
+                ? navigation.navigate(DetailRoutes.SkinResult, { timeSlot: currentTab })
+                : navigation.navigate(DetailRoutes.PhotoGuide, { timeSlot: currentTab })
+            }
+          />
+        </View>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: space[5],
-    paddingBottom: space[8],
-    gap: space[5],
+  screen: {
     backgroundColor: color.bg,
+  },
+  contentContainer: {
+    flexGrow: 1,
+  },
+  topSection: {
+    backgroundColor: color.bg,
+    paddingBottom: space[3],
   },
   pageHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    paddingHorizontal: space[5],
+    paddingTop: space[6],
+    paddingBottom: space[4],
   },
   pageTitle: {
-    ...typography.display,
-    color: color.ink900,
+    ...weightFamily('bold'),
+    fontSize: 20,
+    lineHeight: 30,
+    color: color.textInk,
   },
-  pageMonth: {
-    ...typography.caption,
-    color: color.ink300,
+  pageSubtitle: {
+    ...weightFamily('medium'),
+    fontSize: 12,
+    lineHeight: 18,
+    color: color.textSub,
+    marginTop: 2,
+  },
+  pageSubtitleAccent: {
+    ...weightFamily('bold'),
+    color: color.brand500,
+  },
+  calendarButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.surfaceLavenderPale,
+  },
+  bottomSection: {
+    flex: 1,
+    backgroundColor: color.surfaceLavenderPale,
+    paddingHorizontal: space[5],
+    paddingTop: space[5],
+    paddingBottom: space[8],
+    gap: space[5],
   },
   slots: {
     gap: space[3],
-  },
-  calendarCard: {
-    gap: space[3],
-  },
-  summary: {
-    ...typography.caption,
-    color: color.ink600,
   },
 });

@@ -16,6 +16,11 @@ type CardProps = ViewProps & {
  * 문제가 있었습니다. 예전엔 글래스모피즘(블러) 대체 목적으로 반투명을 썼었는데
  * (안드로이드 큰 카드에 블러 쓰면 성능 이슈 — 로드맵 Phase 2 결정), 그 목적 없이도
  * 불투명 흰색 + 그림자만으로 카드 구분은 충분해서 반투명을 걷어냈습니다.
+ *
+ * 2026-08-15 — 그림자를 Figma S-05(ProfileComplete) 카드 실측값으로 전역 교체
+ * (opacity 0.30→0.1, offset 4→6, blur 12→18). 관리자 결정: 공용 컴포넌트 자체를
+ * 바꾸는 방식으로 진행 — 이 컴포넌트를 쓰는 다른 화면들 카드 그림자도 같이
+ * 옅어집니다.
  */
 export function Card({ padding = 5, style, children, ...rest }: CardProps) {
   return (
@@ -30,9 +35,9 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
     borderRadius: radius.lg,
     shadowColor: color.brand500,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.30,
-    shadowRadius: 12,
-    elevation: 3, // Android
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 2, // Android
   },
 });

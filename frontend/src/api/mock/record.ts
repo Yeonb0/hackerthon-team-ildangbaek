@@ -1,7 +1,11 @@
 // src/api/mock/record.ts
 import { formatDateString, getTodayDateString } from '@/lib/date';
 import { getFixedHomeType } from '@/lib/dayNight';
-import type { RecordCalendarResponse, RecordTodayResponse } from '@/types/record';
+import type {
+  RecordCalendarResponse,
+  RecordDayDetailResponse,
+  RecordTodayResponse,
+} from '@/types/record';
 import type { RecordDotStatus } from '@/types/home';
 import type { TimeSlot } from '@/app/routes';
 
@@ -146,4 +150,48 @@ export function buildMockRecordToday(): RecordTodayResponse {
   }
 
   return base;
+}
+// ---------------------------------------------------------------------------
+// 월간 기록 날짜 탭 바텀시트용 — 백엔드 API 없음(위 types/record.ts 주석 참고).
+// 캘린더 점 상태(FULL/PARTIAL/NONE)에서 있음직한 데모 데이터를 만들어서 보여줍니다.
+// ---------------------------------------------------------------------------
+const MOCK_PRODUCT_NAMES: Record<TimeSlot, string[]> = {
+  MORNING: ['자작나무 토너', '비타민 세럼', '선크림'],
+  NIGHT: ['클렌징 오일', '레티놀 크림'],
+};
+
+export function buildMockRecordDayDetail(date: string): RecordDayDetailResponse {
+  // 오늘이면 buildMockRecordToday()와 같은 세션 상태를 재사용해서 방금 기록한 게
+  // 바로 반영되게 하고, 과거 날짜는 buildMockRecordCalendar()와 같은 DEMO_PATTERN
+  // 규칙(요일 순환)으로 있음직한 상태를 재현합니다.
+  const today = getTodayDateString();
+  let morningStatus: RecordDotStatus;
+  let nightStatus: RecordDotStatus;
+
+  if (date === today) {
+    const todayData = buildMockRecordToday();
+    morningStatus = computeDotStatus(todayData.morning.product.completed, todayData.morning.skin.completed);
+    nightStatus = computeDotStatus(todayData.night.product.completed, todayData.night.skin.completed);
+  } else {
+    const day = Number(date.slice(-2));
+    const isFuture = date > today;
+    [morningStatus, nightStatus] = isFuture ? ['NONE', 'NONE'] : DEMO_PATTERN[day % DEMO_PATTERN.length];
+  }
+
+  const buildSlot = (status: RecordDotStatus, slot: TimeSlot): RecordDayDetailResponse['morningProducts'] => {
+    const completed = status !== 'NONE';
+    const names = MOCK_PRODUCT_NAMES[slot];
+    // PARTIAL이면 일부만, FULL이면 전부, NONE이면 빈 배열.
+    const count = status === 'FULL' ? names.length : status === 'PARTIAL' ? Math.max(1, names.length - 1) : 0;
+    return { completed, items: names.slice(0, count).map((name) => ({ name })) };
+  };
+
+  const hasSkinRecord = morningStatus !== 'NONE' || nightStatus !== 'NONE';
+
+  return {
+    date,
+    skinScore: hasSkinRecord ? 68 + (Number(date.slice(-2)) % 20) : null,
+    morningProducts: buildSlot(morningStatus, 'MORNING'),
+    nightProducts: buildSlot(nightStatus, 'NIGHT'),
+  };
 }

@@ -32,6 +32,7 @@ import { LocationSettingsScreen } from '@/screens/my/LocationSettingsScreen';
 import { IngredientListScreen } from '@/screens/my/IngredientListScreen';
 import { RoutineEditScreen } from '@/screens/product/RoutineEditScreen';
 import { ProductManualRegisterScreen } from '@/screens/product/ProductManualRegisterScreen';
+import { RecordCalendarScreen } from '@/screens/record/RecordCalendarScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<DetailStackParamList>();
@@ -125,6 +126,7 @@ export function MainTabNavigator() {
       <Stack.Screen name={DetailRoutes.IngredientList} component={IngredientListScreen} />
       <Stack.Screen name={DetailRoutes.RoutineEdit} component={RoutineEditScreen} />
       <Stack.Screen name={DetailRoutes.ProductManualRegister} component={ProductManualRegisterScreen} />
+      <Stack.Screen name={DetailRoutes.RecordCalendar} component={RecordCalendarScreen} />
     </Stack.Navigator>
   );
 }

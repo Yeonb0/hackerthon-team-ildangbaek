@@ -1,7 +1,7 @@
 // src/components/base/OptionCard.tsx
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { IconCheck, IconCircleEmpty } from '@/components/icons';
+import { IconCheck } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
@@ -42,13 +42,15 @@ export function OptionCard({
       ]}
     >
       <View style={styles.textGroup}>
-        <Text style={[styles.title, selected && styles.titleSelected]}>{title}</Text>
+        <Text style={styles.title}>{title}</Text>
         {description ? <Text style={styles.description}>{description}</Text> : null}
       </View>
       {selected ? (
-        <IconCheck size={22} color={color.brand500} />
+        <View style={styles.checkboxFilled}>
+          <IconCheck size={14} color={color.white} />
+        </View>
       ) : (
-        <IconCircleEmpty size={22} color={color.ink300} />
+        <View style={styles.checkboxEmpty} />
       )}
     </Pressable>
   );
@@ -60,14 +62,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: color.ink300,
+    borderColor: color.borderDivider,
     borderRadius: radius.md,
     paddingVertical: space[3],
     paddingHorizontal: space[4],
+    backgroundColor: color.bg,
   },
   selected: {
+    borderWidth: 1.5,
     borderColor: color.brand500,
-    backgroundColor: color.brand50,
+    backgroundColor: color.surfaceLavenderSoft,
   },
   disabled: {
     opacity: 0.4,
@@ -81,13 +85,26 @@ const styles = StyleSheet.create({
     ...weightFamily('semibold'),
     color: color.ink900,
   },
-  titleSelected: {
-    color: color.brand700,
-  },
   description: {
     marginTop: space[1],
     fontSize: adjustFontSize(12),
     ...weightFamily('regular'),
     color: color.ink600,
+  },
+  // Figma Card/Selectable > checkbox — 24px, radius 12(=circle), border 1.5px.
+  checkboxEmpty: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: color.borderDivider,
+  },
+  checkboxFilled: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: color.brand500,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
