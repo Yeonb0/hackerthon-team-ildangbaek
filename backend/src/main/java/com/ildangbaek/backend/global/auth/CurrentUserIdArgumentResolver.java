@@ -1,7 +1,10 @@
 package com.ildangbaek.backend.global.auth;
 
+import com.ildangbaek.backend.domain.user.entity.User;
+import com.ildangbaek.backend.domain.user.repository.UserRepository;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.MethodParameter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -23,21 +26,38 @@ import org.springframework.web.method.support.ModelAndViewContainer;
  * 하나의 토큰으로 이어진다.
  */
 @Component
+@RequiredArgsConstructor
 public class CurrentUserIdArgumentResolver implements HandlerMethodArgumentResolver {
 
     static final String AUTHORIZATION_HEADER = "Authorization";
 
-    @Override
-    public boolean supportsParameter(MethodParameter parameter) {
-        return parameter.hasParameterAnnotation(CurrentUserId.class)
-                && Long.class.isAssignableFrom(parameter.getParameterType());
-    }
+    private final UserRepository userRepository;
 
     @Override
-    public Long resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
-                                NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+    public boolean supportsParameter(MethodParameter parameter) {
+        if (!parameter.hasParameterAnnotation(CurrentUserId.class)) {
+            return false;
+        }
+        Class<?> type = parameter.getParameterType();
+        return Long.class.isAssignableFrom(type) || User.class.isAssignableFrom(type);
+    }
+
+    /**
+     * {@code Long}이면 토큰의 사용자 ID를, {@code User}면 그 ID로 조회한 엔티티를 넣는다.
+     * 엔티티가 필요한 컨트롤러도 인증을 메서드 본문에서 직접 부르지 않게 하려는 것이다 —
+     * 한 줄을 빠뜨리면 인증 없이 뚫리는 형태를 남기지 않는다.
+     */
+    @Override
+    public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
+                                  NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         String header = webRequest.getHeader(AUTHORIZATION_HEADER);
-        return MockAccessToken.parseUserId(header)
+        Long userId = MockAccessToken.parseUserId(header)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMON_UNAUTHORIZED));
+
+        if (Long.class.isAssignableFrom(parameter.getParameterType())) {
+            return userId;
+        }
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_USER_NOT_FOUND));
     }
 }
