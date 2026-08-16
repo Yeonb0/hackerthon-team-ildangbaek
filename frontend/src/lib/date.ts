@@ -76,6 +76,16 @@ const TOTAL_GRID_CELLS = 42; // 6주 고정 — 달마다 그리드 높이가 �
 
 export type WeekStart = 'SUNDAY' | 'MONDAY';
 
+const WEEKDAY_LABELS_SUNDAY_FIRST = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_LABELS_MONDAY_FIRST = ['월', '화', '수', '목', '금', '토', '일'];
+
+/** weekStart에 맞는 요일 라벨 7개를 반환합니다(일~토 또는 월~일 순). RecordCalendar·
+ * RecordWeekStrip이 각자 같은 배열을 따로 두고 있던 걸 공용 함수로 뺐습니다
+ * (관리자님 요청 — 주 시작 요일 설정 기능, 2026-08-15). */
+export function getWeekdayLabels(weekStart: WeekStart): string[] {
+  return weekStart === 'MONDAY' ? WEEKDAY_LABELS_MONDAY_FIRST : WEEKDAY_LABELS_SUNDAY_FIRST;
+}
+
 /**
  * 지정한 달의 42칸 그리드(이전/다음 달 여백 포함)를 계산합니다.
  * components/base/Calendar.tsx(S-04 날짜 선택)에서 쓰던 것과 같은 계산이라, 기록 허브
