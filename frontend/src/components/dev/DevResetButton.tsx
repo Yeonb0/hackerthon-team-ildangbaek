@@ -30,11 +30,27 @@ import { resetMockRecordSession, resetMockProductCompletion } from '@/api/mock/r
 import { resetMockProductSession, setMockScanScenario } from '@/api/mock/product';
 import { setMockReportScenario } from '@/api/mock/report';
 import { setMockCheckScenario } from '@/api/mock/check';
+import { setMockWeatherScenario } from '@/api/mock/home';
 import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
+import { getWeatherLabel } from '@/lib/weather';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
+import type { WeatherCondition } from '@/types/home';
+
+// 2026-08-16 — 날씨 배경 dev 전환 버튼 목록. WeatherCondition 8종 전부(로드맵 7종 +
+// 백엔드 실제 폴백값 FOG) 순서대로 노출합니다.
+const WEATHER_SCENARIO_OPTIONS: WeatherCondition[] = [
+  'SUNNY',
+  'CLOUDY',
+  'OVERCAST',
+  'RAIN',
+  'SNOW',
+  'YELLOW_DUST',
+  'THUNDERSTORM',
+  'FOG',
+];
 
 export function DevResetButton() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
@@ -163,6 +179,18 @@ export function DevResetButton() {
           queryClient.invalidateQueries({ queryKey: ['home'] });
         }),
     },
+    // 2026-08-16 — 낮 홈 히어로 배경(날씨별 화장대 일러스트)을 실기기에서 골라서 볼 수
+    // 있게 추가했습니다. YELLOW_DUST는 아직 에셋이 없어서 CLOUDY로 대체 표시되지만
+    // (lib/weather.ts getWeatherBackground 폴백), 버튼 자체는 남겨뒀습니다 — 에셋
+    // 도착하면 자동으로 반영됩니다.
+    ...WEATHER_SCENARIO_OPTIONS.map((weather) => ({
+      label: `날씨 배경 → ${getWeatherLabel(weather)}`,
+      onPress: () =>
+        runReset(() => {
+          setMockWeatherScenario(weather);
+          queryClient.invalidateQueries({ queryKey: ['home'] });
+        }),
+    })),
   ];
 
   return (

@@ -12,9 +12,8 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconBack, IconImagePlaceholder } from '@/components/icons';
+import { AppIcon, AppIconName, IconBack, IconImagePlaceholder } from '@/components/icons';
 import { Button } from '@/components/base/Button';
-import { Tag, TagVariant } from '@/components/base/Tag';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
@@ -29,10 +28,24 @@ import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
-const STATUS_TO_TAG_VARIANT: Record<IngredientStatus, TagVariant> = {
-  GOOD: 'match',
-  CAUTION: 'caution',
-  INSUFFICIENT: 'insufficient',
+// 2026-08-16 — 관리자 결정: 주요 성분 상태를 알약형 Tag(배경+테두리+라벨)에서
+// 배경 없는 아이콘만으로 변경(Figma 통합 리스트+배지안은 채택 안 함, 지금의
+// 주요/전체 2분할 구조는 유지). ProductDetailScreen의 아이콘 전용 상태 표시와
+// 같은 패턴입니다. 라벨 텍스트는 화면엔 안 보이지만 접근성 라벨로는 남겨둡니다.
+const STATUS_ICON: Record<IngredientStatus, AppIconName> = {
+  GOOD: 'check',
+  CAUTION: 'warning',
+  INSUFFICIENT: 'helpCircle',
+};
+const STATUS_COLOR: Record<IngredientStatus, string> = {
+  GOOD: color.statusGood,
+  CAUTION: color.statusCaution,
+  INSUFFICIENT: color.ink600,
+};
+const STATUS_LABEL: Record<IngredientStatus, string> = {
+  GOOD: '맞음',
+  CAUTION: '주의',
+  INSUFFICIENT: '데이터부족',
 };
 
 export function IngredientCheckScreen() {
@@ -138,7 +151,7 @@ export function IngredientCheckScreen() {
             {product.imageUrl ? (
               <Image source={{ uri: product.imageUrl }} style={styles.image} resizeMode="cover" />
             ) : (
-              <IconImagePlaceholder size={32} color={color.ink300} />
+              <IconImagePlaceholder size={40} color={color.ink300} />
             )}
           </View>
           <Text style={styles.brand}>{product.brand}</Text>
@@ -159,7 +172,16 @@ export function IngredientCheckScreen() {
               <View style={styles.keyIngredientList}>
                 {product.keyIngredients.map((ingredient) => (
                   <View key={ingredient.ingredientId} style={styles.keyIngredientRow}>
-                    <Tag variant={STATUS_TO_TAG_VARIANT[ingredient.status]} />
+                    <View
+                      accessibilityRole="image"
+                      accessibilityLabel={`${STATUS_LABEL[ingredient.status]} 성분`}
+                    >
+                      <AppIcon
+                        name={STATUS_ICON[ingredient.status]}
+                        size={18}
+                        color={STATUS_COLOR[ingredient.status]}
+                      />
+                    </View>
                     <Text style={styles.keyIngredientName}>
                       {ingredient.name}
                       {ingredient.note ? ` · ${ingredient.note}` : ''}
@@ -257,13 +279,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   imageBox: {
-    width: 96,
-    height: 96,
-    borderRadius: 12,
+    width: 128,
+    height: 128,
+    borderRadius: radius.lg,
     backgroundColor: color.brand50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: space[2],
+    alignSelf: 'center',
+    marginBottom: space[3],
     overflow: 'hidden',
   },
   image: {

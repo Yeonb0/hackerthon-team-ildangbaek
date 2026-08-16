@@ -72,7 +72,14 @@ export function ProductCard({
       onPress={onPress}
       style={({ pressed }) => [
         variant === 'card' ? styles.container : styles.containerPlain,
-        showCheckbox && variant === 'plain' && styles.checkboxRowBase,
+        // 2026-08-16 — plain 모드는 선택 여부와 무관하게 항상 이 처리를 켜둡니다. 부모
+        // 리스트 컨테이너(savedListCard/listCard)가 paddingHorizontal을 갖고 있어서, 이걸
+        // 안 하면 선택 시 배경색(containerSelected)이 카드 좌우 가장자리까지 안 닿고
+        // 안쪽에 붕 뜬 사각형으로 보입니다(관리자님 리포트, 2026-08-16 — ProductRecordScreen
+        // "저장된 제품" 선택 배경). checkboxRowBase와 같은 negative-margin 기법이지만
+        // showCheckbox 여부와 관계없이 적용해야 이 화면(체크박스 없음)에서도 먹습니다.
+        variant === 'plain' && styles.plainRowBase,
+        showCheckbox && variant === 'plain' && styles.checkboxBorder,
         selected && (showCheckbox ? styles.containerCheckboxSelected : styles.containerSelected),
         pressed && onPress && styles.pressed,
         style,
@@ -157,11 +164,20 @@ const styles = StyleSheet.create({
   // 미세하게 커졌다 작아졌다 했습니다. 그래서 이 자리(margin/padding/border 두께)는
   // showCheckbox면 선택 여부와 상관없이 항상 동일하게 잡아두고, 선택 시엔 오직 색상만
   // (투명 → brand500 테두리 / brand50 배경) 바꿔서 크기가 절대 안 변하게 했습니다.
-  checkboxRowBase: {
+  // 부모 리스트 컨테이너의 paddingHorizontal(space[3])을 상쇄해서 행 배경/테두리가
+  // 카드 좌우 가장자리에 정확히 맞닿게 합니다. variant="plain"이면 showCheckbox 여부와
+  // 무관하게 선택 여부와 상관없이 항상 켜둬야 크기가 안 흔들리고, 배경색도 안쪽에 뜨지
+  // 않습니다(2026-08-15 세션5, 2026-08-16 확장 — 원래 showCheckbox 전용이었는데
+  // 체크박스 없는 배경색 전용 선택(ProductRecordScreen)에도 같은 문제가 있어서 분리).
+  plainRowBase: {
     marginHorizontal: -space[3],
     paddingHorizontal: space[3],
-    borderWidth: 1.5,
     borderRadius: radius.md,
+  },
+  // showCheckbox 모드에서만 테두리 두께 자리를 확보합니다(선택 여부와 무관하게 항상 —
+  // 안 그러면 탭할 때 테두리 두께만큼 박스 크기가 미세하게 바뀝니다).
+  checkboxBorder: {
+    borderWidth: 1.5,
     borderColor: 'transparent',
   },
   containerSelected: {

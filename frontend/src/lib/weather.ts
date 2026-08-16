@@ -51,6 +51,30 @@ export function getHumidityGradeLabel(code: string): string {
   return HUMIDITY_GRADE_LABELS[code as HumidityGrade] ?? FALLBACK_LABEL;
 }
 
+// 2026-08-16 — 낮 홈(S-07) 배경용 날씨×화장대 일러스트(디자이너 전달분). 하단으로 갈수록
+// 투명해지는 처리는 원본 PNG에 알파가 없어서(RGB) 이미지 자체를 마스킹하는 대신, 화면
+// 쪽에서 같은 색(surfaceLavenderPale, #F5F2FF) LinearGradient를 이미지 위에 겹쳐서 같은
+// 시각 효과를 냅니다(DayHomeScreen 참고) — 배경색과 그라데이션 도착색이 완전히 같아서
+// 실제 마스킹과 결과물이 동일합니다.
+//
+// YELLOW_DUST(황사)는 디자이너가 아직 전달 전이라 자리표시자로 CLOUDY를 씁니다 — 실제
+// 에셋 오면 이 맵에 한 줄만 추가하면 됩니다. FOG도 로드맵 7종엔 없는 값이라 같은 이유로
+// CLOUDY를 씁니다.
+const WEATHER_BACKGROUNDS: Record<WeatherCondition, number> = {
+  SUNNY: require('../../assets/weather/sunny.jpg'),
+  CLOUDY: require('../../assets/weather/cloudy.jpg'),
+  OVERCAST: require('../../assets/weather/overcast.jpg'),
+  RAIN: require('../../assets/weather/rain.jpg'),
+  SNOW: require('../../assets/weather/snow.jpg'),
+  THUNDERSTORM: require('../../assets/weather/thunderstorm.jpg'),
+  YELLOW_DUST: require('../../assets/weather/cloudy.jpg'), // TODO: 황사 에셋 도착하면 교체
+  FOG: require('../../assets/weather/cloudy.jpg'),
+};
+
+export function getWeatherBackground(code: string): number {
+  return WEATHER_BACKGROUNDS[code as WeatherCondition] ?? WEATHER_BACKGROUNDS.CLOUDY;
+}
+
 export type EnvironmentTip = { title: string; description: string };
 
 /**

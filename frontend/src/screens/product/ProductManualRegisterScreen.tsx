@@ -213,7 +213,7 @@ export function ProductManualRegisterScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.headingArea}>
           <Text style={styles.heading}>어떤 제품인가요?</Text>
-          <Text style={styles.subheading}>성분표를 보고 입력해주세요</Text>
+          <Text style={styles.subheading}>성분을 자동으로 불러와 분석해드려요</Text>
         </View>
 
         <Pressable
@@ -226,28 +226,31 @@ export function ProductManualRegisterScreen() {
             <Image source={{ uri: photoUri }} style={styles.photoThumbnail} resizeMode="cover" />
           ) : (
             <View style={styles.photoPlaceholder}>
-              <IconCamera size={24} color={color.ink300} />
+              <IconCamera size={32} color={color.ink300} />
             </View>
           )}
           <Text style={styles.photoPickerLabel}>{photoUri ? '다시 찍기' : '제품 사진 촬영'}</Text>
         </Pressable>
 
         <Input
+          label="제품명"
           value={name}
           onChangeText={setName}
-          placeholder="제품명 (예: 어성초 진정 토너)"
+          placeholder="예: 어성초 진정 토너"
           accessibilityLabel="제품명"
           maxLength={40}
         />
         <Input
+          label="브랜드"
           value={brand}
           onChangeText={setBrand}
-          placeholder="브랜드명 (예: 이니스프리)"
+          placeholder="예: 이니스프리"
           accessibilityLabel="브랜드명"
           maxLength={30}
         />
 
         <View style={styles.categorySection}>
+          <Text style={styles.categorySectionLabel}>제품 타입</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
             {PRODUCT_CATEGORIES.map((c) => {
               const active = category === c;
@@ -284,6 +287,7 @@ export function ProductManualRegisterScreen() {
         </View>
 
         <View style={styles.hintBox}>
+          <AppIcon name="info" size={16} color={color.brand700} style={styles.hintIcon} />
           <Text style={styles.hintText}>
             성분을 모른다면 일부만 입력하거나 비워두세요. AI가 바코드/사진으로 채울 수 있어요
           </Text>
@@ -383,19 +387,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   photoPicker: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: space[3],
+    alignSelf: 'center',
+    gap: space[2],
   },
   photoThumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.md,
+    width: 112,
+    height: 112,
+    borderRadius: radius.lg,
   },
   photoPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.md,
+    width: 112,
+    height: 112,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: color.ink300,
     backgroundColor: color.brand50,
@@ -447,29 +451,38 @@ const styles = StyleSheet.create({
   categorySection: {
     gap: space[2],
   },
+  // Figma Label 패턴(제품명/브랜드 라벨과 동일 톤) — 이 화면엔 "제품 타입" 라벨이
+  // 아예 없었어서 추가(2026-08-16, Figma 59:5839 대조).
+  categorySectionLabel: {
+    fontSize: adjustFontSize(11),
+    ...weightFamily('bold'),
+    color: color.textSub,
+  },
   categoryRow: {
     flexDirection: 'row',
     gap: space[2],
   },
+  // 2026-08-16 — Figma Chip/Default 실측 대조(관리자 결정: 그라데이션 대신 단색
+  // 브랜드 컬러). 기존엔 흰 배경+회색 테두리(미선택) / 검정 배경(선택)이라 브랜드
+  // 톤이 전혀 안 묻어났습니다. 루틴 추가 칩(routineSection)도 같은 스타일을
+  // 재사용하고 있어서 톤이 같이 맞춰집니다.
   categoryChip: {
     paddingHorizontal: space[4],
     paddingVertical: space[2],
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: color.ink300,
-    backgroundColor: color.bg,
+    backgroundColor: color.surfaceLavenderSoft,
   },
   categoryChipActive: {
-    backgroundColor: color.ink900,
-    borderColor: color.ink900,
+    backgroundColor: color.brand500,
   },
   categoryChipText: {
     ...typography.caption,
-    color: color.ink600,
-    ...weightFamily('semibold'),
+    color: color.textInk,
+    ...weightFamily('medium'),
   },
   categoryChipTextActive: {
     color: color.bg,
+    ...weightFamily('semibold'),
   },
   ingredientSection: {
     gap: space[2],
@@ -495,16 +508,25 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
     textAlignVertical: 'top',
   },
+  // 2026-08-16 — Figma 59:5894 대조: 점선 테두리 → 연라벤더(surfaceLavenderPale)
+  // 배경 실선 박스 + 안내 아이콘. 문구는 그대로 유지했습니다 — Figma 원문 문구는
+  // "자동으로 불러와" 표현이라 AI 자동 채움 기능이 있는 것처럼 읽히는데, 이 화면은
+  // 실제로 사용자가 성분을 직접 입력하는 구조라(위 성분 입력란) 문구까지 그대로
+  // 옮기면 실제 동작과 어긋나 보일 수 있어서 기존 문구(수동 입력 안내)를 유지했습니다.
   hintBox: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: color.ink300,
+    flexDirection: 'row',
+    gap: space[3],
+    backgroundColor: color.surfaceLavenderPale,
     borderRadius: radius.md,
-    padding: space[3],
+    padding: space[4],
+  },
+  hintIcon: {
+    marginTop: 2,
   },
   hintText: {
+    flex: 1,
     ...typography.caption,
-    color: color.ink600,
+    color: color.textInk,
   },
   errorText: {
     ...typography.caption,

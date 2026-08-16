@@ -228,6 +228,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
     borderRadius: radius.md,
     paddingHorizontal: space[3],
+    overflow: 'hidden',
   },
   listDivider: {
     borderTopWidth: 1,
