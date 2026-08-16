@@ -9,6 +9,7 @@ import type {
   HomeType,
   RecordDotStatus,
   TodayRecord,
+  WeatherCondition,
   WeeklyCalendarDay,
 } from '@/types/home';
 
@@ -85,13 +86,27 @@ function buildMockWeeklyCalendar(): WeeklyCalendarDay[] {
   return days;
 }
 
+// 2026-08-16 — 낮 홈 배경(DayHomeScreen 히어로 이미지)이 날씨별로 다르게 나오는데,
+// 실기기에서 날씨 API를 바꿀 방법이 없어서 각 배경을 실기기로 확인하기 어려웠습니다.
+// 다른 mock 시나리오(리포트/스캔/구매 전 확인)와 같은 패턴으로 DevResetButton에서
+// 바로 전환할 수 있게 했습니다 — 기본값은 데모 시나리오와 동일하게 SUNNY.
+let mockWeatherScenario: WeatherCondition = 'SUNNY';
+
+export function setMockWeatherScenario(weather: WeatherCondition): void {
+  mockWeatherScenario = weather;
+}
+
+export function getMockWeatherScenario(): WeatherCondition {
+  return mockWeatherScenario;
+}
+
 function buildMockDayHome(): HomeResponse {
   return {
     homeType: 'DAY',
     greeting: '좋은 아침이에요',
     environment: {
       location: '서울 강남구',
-      weather: 'SUNNY',
+      weather: mockWeatherScenario,
       temperature: 28,
       uvIndex: 7,
       uvGrade: 'HIGH',
@@ -120,7 +135,16 @@ function buildMockNightHome(): HomeResponse {
     environment: null,
     routineRecommendation: {
       timeSlot: 'NIGHT',
-      items: [{ rank: 1, productId: 33, name: '레티놀 크림', reason: '야간 루틴 권장' }],
+      // 2026-08-16 — Figma Home-Night(59:4667) 목업 그대로 3개로 늘렸습니다(기존엔
+      // 레티놀 크림 1개뿐). rank===1(우선순위 표시 기준)은 기존 로직 그대로 유지 —
+      // Figma 예시에선 "우선" 배지가 2번(레티놀 크림) 항목에 붙어있지만, 이건 이 목업
+      // 하나의 데모 상태일 뿐이고 실제 "우선" 판정은 코드에서 rank===1로 고정된 로직이라
+      // 여기서 rank만 바꿔서 우선순위 자체를 흔들진 않았습니다. 필요하면 말씀해주세요.
+      items: [
+        { rank: 1, productId: 41, name: '블랙헤드 오일', reason: '모공 케어 추천' },
+        { rank: 2, productId: 33, name: '레티놀 크림', reason: '야간 루틴 권장' },
+        { rank: 3, productId: 47, name: '수면팩', reason: '수분 집중 케어' },
+      ],
     },
     todayRecord: buildTodayRecord(),
     weeklyCalendar: buildMockWeeklyCalendar(),

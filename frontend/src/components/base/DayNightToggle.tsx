@@ -1,12 +1,16 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { AppIcon } from '@/components/icons';
-import { color, radius, space } from '@/theme/tokens';
+import { color, overlayWhite, radius, space } from '@/theme/tokens';
 import type { HomeType } from '@/types/home';
 
 type DayNightToggleProps = {
   value: HomeType;
   onChange: (value: HomeType) => void;
+  /** 낮 홈 히어로(날씨 배경 이미지) 위에 얹을 때 true — 트랙 배경을 반투명 흰색으로
+   * (Figma Home-Day 229:2571, 2026-08-16). 기본값(불투명 연라벤더)은 밤 홈처럼 사진
+   * 배경이 없는 곳에서 계속 씁니다. */
+  onHero?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -31,9 +35,9 @@ const OPTIONS: { value: HomeType; icon: 'sunny' | 'moon'; label: string }[] = [
  * 접근성: 해/달은 모양 자체가 달라서 색만으로 상태를 구분하지 않는다는 규칙(Phase 2)을
  * 이미 만족하고, 선택된 쪽에 흰 원형 배경을 추가로 얹어 한 번 더 구분됩니다.
  */
-export function DayNightToggle({ value, onChange, style }: DayNightToggleProps) {
+export function DayNightToggle({ value, onChange, onHero = false, style }: DayNightToggleProps) {
   return (
-    <View style={[styles.track, style]} accessibilityRole="tablist">
+    <View style={[styles.track, onHero && styles.trackOnHero, style]} accessibilityRole="tablist">
       {OPTIONS.map((option) => {
         const selected = option.value === value;
         return (
@@ -63,6 +67,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     padding: space[1],
     gap: space[1],
+  },
+  trackOnHero: {
+    backgroundColor: overlayWhite[28],
   },
   segment: {
     alignItems: 'center',

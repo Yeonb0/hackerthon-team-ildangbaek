@@ -14,15 +14,15 @@
 // 체크 다중 선택 저장은 기존 API 그대로 씁니다 — 새 엔드포인트가 필요 없습니다.
 // ⚠️ 트레이드오프: 저장된 제품을 탭해서 성분을 다시 들여다볼 방법이 이제 없습니다(바로
 // 체크됩니다). 필요하시면 별도 "성분 보기" 진입점을 다시 추가할 수 있습니다.
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
 import { Toast } from '@/components/base/Toast';
-import { IconBack, IconClose } from '@/components/icons';
+import { IconBack, IconChevronRight, IconClose } from '@/components/icons';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { ProductSearchBar } from '@/components/domain/ProductSearchBar';
@@ -36,7 +36,6 @@ import {
   useProductRecordHome,
   useProductSearch,
   useRoutineQuickRecord,
-  useRoutines,
   useSaveProductRecord,
 } from '@/api/queries/product';
 import { ApiError } from '@/api/unwrap';
@@ -49,7 +48,11 @@ import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
-const TIME_SLOT_TITLE = { MORNING: '모닝 제품 기록', NIGHT: '나이트 제품 기록' } as const;
+// 2026-08-15(세션4) — Figma RecordProduct-Library(59:8263) 정합: 헤더 타이틀을 시간대별
+// 동적 문구("모닝 제품 기록"/"나이트 제품 기록")에서 고정 문구 "제품 기록"으로 변경
+// (관리자님 지시). 화면 안에서 어느 시간대인지는 그대로 route.params.timeSlot으로
+// 구분되므로(루틴 카드 아이콘, 저장 시 timeSlot 전달 등) 헤더만 고정합니다.
+const PRODUCT_RECORD_TITLE = '제품 기록';
 
 /** 루틴 바로 기록·체크 저장·검색결과 즉시 저장 3곳이 전부 "중복 시 확인" 팝업을 씁니다 —
  * 하나의 상태로 통일해서 각 호출부가 재시도 함수만 넘기면 되게 했습니다. */
@@ -82,6 +85,7 @@ export function ProductRecordScreen() {
   const insets = useSafeAreaInsets();
   const { timeSlot } = route.params;
 
+  const searchInputRef = useRef<TextInput>(null);
   const [keyword, setKeyword] = useState('');
   const debouncedKeyword = useDebouncedValue(keyword, 300);
   // BR: 검색어 1~20자, 공백만 입력 시 요청하지 않음(useProductSearch의 enabled가 담당) —
@@ -92,10 +96,6 @@ export function ProductRecordScreen() {
   const searchQuery = useProductSearch(debouncedKeyword);
   const quickRecordMutation = useRoutineQuickRecord();
   const saveMutation = useSaveProductRecord();
-  // PRODUCT-01(routines)은 요약 문자열만 줘서, 펼침 UI(관리자님 요청, 2026-08-10)에 필요한
-  // 실제 제품 목록은 PRODUCT-07을 따로 불러옵니다. timeSlot 인자 없이 전체를 받아서
-  // 모닝·나이트 루틴 둘 다 펼칠 수 있게 합니다.
-  const routinesQuery = useRoutines();
 
   const [selectedProductIds, setSelectedProductIds] = useState<Set<number>>(new Set());
   const [routineError, setRoutineError] = useState<string | null>(null);
@@ -236,6 +236,14 @@ export function ProductRecordScreen() {
       timeSlot,
       initialKeyword: prefillKeyword,
     });
+  // 섹션 헤더 "루틴 수정" 링크(관리자님 요청, 2026-08-15) — 현재 탭(timeSlot)과 같은
+  // 루틴을 기본으로 열고, RoutineEditScreen 안에서 모닝/나이트를 탭으로 오갈 수 있습니다.
+  const handleEditRoutines = () => {
+    const routines = homeQuery.data?.routines ?? [];
+    const target = routines.find((r) => r.timeSlot === timeSlot) ?? routines[0];
+    if (!target) return;
+    navigation.navigate(DetailRoutes.RoutineEdit, { routineId: target.routineId });
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -249,7 +257,7 @@ export function ProductRecordScreen() {
         >
           <IconBack size={22} color={color.ink900} />
         </Pressable>
-        <Text style={styles.title}>{TIME_SLOT_TITLE[timeSlot]}</Text>
+        <Text style={styles.title}>{PRODUCT_RECORD_TITLE}</Text>
       </View>
 
       {/* Figma PROD-01 기준 — 선택한 제품을 칩으로 보여주고 ×로 바로 해제할 수 있게 합니다
@@ -291,12 +299,13 @@ export function ProductRecordScreen() {
             onDirectRegister={() => handleGoToManualRegister(keyword)}
             searchKeyword={keyword}
             onSearchKeywordChange={setKeyword}
+            searchInputRef={searchInputRef}
           />
         ) : (
           <HomeSection
             homeQuery={homeQuery}
-            routinesQuery={routinesQuery}
             onQuickRecord={handleQuickRecord}
+            onEditRoutines={handleEditRoutines}
             quickRecordingRoutineId={
               quickRecordMutation.isPending ? quickRecordMutation.variables?.routineId ?? null : null
             }
@@ -309,6 +318,7 @@ export function ProductRecordScreen() {
             searchKeyword={keyword}
             onSearchKeywordChange={setKeyword}
             onScanPress={handleScanPress}
+            searchInputRef={searchInputRef}
           />
         )}
       </ScrollView>
@@ -362,8 +372,8 @@ export function ProductRecordScreen() {
 // ---------------------------------------------------------------------------
 function HomeSection({
   homeQuery,
-  routinesQuery,
   onQuickRecord,
+  onEditRoutines,
   quickRecordingRoutineId,
   routineError,
   onRetryHome,
@@ -374,10 +384,13 @@ function HomeSection({
   searchKeyword,
   onSearchKeywordChange,
   onScanPress,
+  searchInputRef,
 }: {
   homeQuery: ReturnType<typeof useProductRecordHome>;
-  routinesQuery: ReturnType<typeof useRoutines>;
   onQuickRecord: (routine: RoutineSummaryItem) => void;
+  /** "루틴 수정" 섹션 헤더 링크(Figma 요청, 2026-08-15) — RoutineEditScreen으로 이동합니다.
+   * 어느 routineId로 열지는 호출부(ProductRecordScreen)가 정합니다. */
+  onEditRoutines: () => void;
   quickRecordingRoutineId: number | null;
   routineError: string | null;
   onRetryHome: () => void;
@@ -388,6 +401,7 @@ function HomeSection({
   searchKeyword: string;
   onSearchKeywordChange: (text: string) => void;
   onScanPress: () => void;
+  searchInputRef?: React.RefObject<TextInput | null>;
 }) {
   // "저장된 제품" 전용 카테고리 필터(관리자님 요청, 2026-08-10) — 검색 결과나 루틴에는
   // 적용하지 않습니다. 검색 모드로 전환하면(HomeSection이 통째로 언마운트) 자연히
@@ -420,23 +434,30 @@ function HomeSection({
       {/* BR7: 루틴이 없으면 섹션을 생략합니다 */}
       {routines.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>자주 쓰는 루틴</Text>
-          <View style={styles.list}>
+          <View style={styles.routineHeaderRow}>
+            <Text style={styles.sectionTitle}>자주 쓰는 루틴</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="루틴 수정"
+              onPress={onEditRoutines}
+              hitSlop={8}
+              style={styles.editRoutinesLink}
+            >
+              <Text style={styles.editRoutinesLinkText}>루틴 수정</Text>
+              <IconChevronRight size={14} color={color.brand500} />
+            </Pressable>
+          </View>
+          <View style={styles.routineGrid}>
             {routines.map((routine) => (
               <RoutineQuickRecordCard
                 key={routine.routineId}
-                routineId={routine.routineId}
                 name={routine.name}
                 timeSlot={routine.timeSlot}
                 productCount={routine.productCount}
                 productSummary={routine.productSummary}
                 loading={quickRecordingRoutineId === routine.routineId}
                 onQuickRecord={() => onQuickRecord(routine)}
-                products={
-                  routinesQuery.data?.find((r) => r.routineId === routine.routineId)?.products
-                }
-                productsError={routinesQuery.isError}
-                onRetryProducts={() => routinesQuery.refetch()}
+                style={styles.routineCard}
               />
             ))}
           </View>
@@ -444,15 +465,12 @@ function HomeSection({
       ) : null}
 
       <View style={styles.section}>
-        <View style={styles.sectionTitleRow}>
-          <View style={styles.sectionTitleLine}>
-            <Text style={styles.sectionTitle}>저장된 제품</Text>
-            {savedProducts.length > 0 ? (
-              <Text style={styles.sectionCount}>{savedProducts.length}개</Text>
-            ) : null}
-          </View>
+        {/* 2026-08-15(세션4) — Figma 정합: "탭해서 오늘 쓴 제품을 체크하세요" 힌트 문구
+            제거(관리자님 지시). Figma 헤더는 타이틀+개수만 보여줍니다. */}
+        <View style={styles.sectionTitleLine}>
+          <Text style={styles.sectionTitle}>저장된 제품</Text>
           {savedProducts.length > 0 ? (
-            <Text style={styles.sectionHint}>탭해서 오늘 쓴 제품을 체크하세요</Text>
+            <Text style={styles.sectionCount}>{savedProducts.length}개</Text>
           ) : null}
         </View>
         {savedProducts.length === 0 ? (
@@ -476,16 +494,18 @@ function HomeSection({
                 description="초기화를 눌러 전체 제품을 다시 볼 수 있어요."
               />
             ) : (
-              <View style={styles.list}>
-                {filteredSavedProducts.map((product) => (
+              <View style={styles.savedListCard}>
+                {filteredSavedProducts.map((product, index) => (
                   <ProductCard
                     key={product.productId}
+                    variant="plain"
                     brand={product.brand}
                     name={product.name}
                     category={getCategoryLabel(product.category)}
                     selected={selectedProductIds.has(product.productId)}
                     onPress={() => onToggleProduct(product.productId)}
                     onViewIngredients={() => onViewIngredients(product.productId)}
+                    style={index > 0 ? styles.savedListDivider : undefined}
                   />
                 ))}
               </View>
@@ -500,6 +520,7 @@ function HomeSection({
           충돌하지 않습니다 — 그래서 검색 결과 상태(SearchResultsSection)에도 동일하게
           검색창을 넣어서 계속 보이게 했습니다. */}
       <ProductSearchBar
+        ref={searchInputRef}
         value={searchKeyword}
         onChangeText={onSearchKeywordChange}
         onScanPress={onScanPress}
@@ -524,6 +545,7 @@ function SearchResultsSection({
   onDirectRegister,
   searchKeyword,
   onSearchKeywordChange,
+  searchInputRef,
 }: {
   query: ReturnType<typeof useProductSearch>;
   keyword: string;
@@ -534,12 +556,14 @@ function SearchResultsSection({
   onDirectRegister: () => void;
   searchKeyword: string;
   onSearchKeywordChange: (text: string) => void;
+  searchInputRef?: React.RefObject<TextInput | null>;
 }) {
   // 명세서 F-PRODUCT-01 BR2 — 검색 결과 상태에서도 검색창은 계속 보여야 합니다.
   // HomeSection에서는 "저장된 제품" 아래 있지만, 이 상태는 그 섹션 자체가 없어서
   // 화면 맨 위에 둡니다(검색어를 바로 고쳐 쓸 수 있어야 하니 접근성 우선).
   const searchBar = (
     <ProductSearchBar
+      ref={searchInputRef}
       value={searchKeyword}
       onChangeText={onSearchKeywordChange}
       onScanPress={onScan}
@@ -680,8 +704,20 @@ const styles = StyleSheet.create({
   section: {
     gap: space[3],
   },
-  sectionTitleRow: {
+  routineHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  editRoutinesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 2,
+  },
+  editRoutinesLinkText: {
+    ...typography.caption,
+    ...weightFamily('medium'),
+    color: color.brand500,
   },
   sectionTitleLine: {
     flexDirection: 'row',
@@ -696,12 +732,30 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: color.brand700,
   },
-  sectionHint: {
-    ...typography.caption,
-    color: color.ink600,
-  },
   list: {
     gap: space[2],
+  },
+  // 2026-08-15(세션4) — Figma 정합: "저장된 제품" 목록을 개별 카드+간격에서 흰 카드
+  // 하나 + 구분선 방식으로 변경(관리자님 지시). ProductCard variant="plain"과 짝을
+  // 이룹니다 — 배경/모서리는 여기(컨테이너)가, 행 사이 구분은 아래 divider가 담당.
+  savedListCard: {
+    backgroundColor: color.bg,
+    borderRadius: radius.md,
+    paddingHorizontal: space[3],
+    overflow: 'hidden',
+  },
+  savedListDivider: {
+    borderTopWidth: 1,
+    borderTopColor: color.brand50,
+  },
+  // 자주 쓰는 루틴 전용 2열 그리드(Figma RecordProduct-Library 59:8263, 2026-08-15) —
+  // 저장된 제품/검색결과 리스트(styles.list)와 달리 세로가 아니라 가로로 나란히 놓습니다.
+  routineGrid: {
+    flexDirection: 'row',
+    gap: space[3],
+  },
+  routineCard: {
+    flex: 1,
   },
   resultCount: {
     ...typography.caption,

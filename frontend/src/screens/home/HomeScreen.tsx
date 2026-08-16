@@ -59,12 +59,14 @@ export function HomeScreen() {
     return <ErrorState variant="network" onRetry={() => refetch()} />;
   }
 
-  const toggleElement = (
-    <DayNightToggle
-      value={data.homeType}
-      onChange={(value) => setManual(value === 'DAY' ? 'day' : 'night')}
-    />
-  );
+  // 2026-08-16 — 낮 홈은 날씨 히어로 이미지 위에 토글이 얹히면서 반투명 흰 배경이
+  // 필요해졌고(Figma Home-Day 229:2571), 밤 홈은 사진 배경이 없어서 기존 불투명
+  // 연라벤더 배경을 그대로 씁니다. 그래서 공용 toggleElement 하나 대신 onHero만 다른
+  // 두 인스턴스로 분리했습니다 — value/onChange 로직은 동일합니다.
+  const toggleProps = {
+    value: data.homeType,
+    onChange: (value: HomeType) => setManual(value === 'DAY' ? 'day' : 'night'),
+  } as const;
 
   return (
     <View style={styles.container}>
@@ -73,7 +75,7 @@ export function HomeScreen() {
         // DayHomeScreen 헤더 행 안에서 인라인으로 그립니다 (관리자님 확인, 2026-08-13).
         <DayHomeScreen
           data={data}
-          toggle={toggleElement}
+          toggle={<DayNightToggle {...toggleProps} onHero />}
           onPressRecordCta={() =>
             navigation.navigate(MainTabRoutes.RecordHub, { timeSlot: 'MORNING' })
           }
@@ -81,8 +83,7 @@ export function HomeScreen() {
       ) : (
         <NightHomeScreen
           data={data}
-          toggle={toggleElement}
-          location={myPage?.location ?? null}
+          toggle={<DayNightToggle {...toggleProps} />}          location={myPage?.location ?? null}
           onPressRecordCta={() =>
             navigation.navigate(MainTabRoutes.RecordHub, { timeSlot: 'NIGHT' })
           }

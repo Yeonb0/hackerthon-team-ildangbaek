@@ -64,16 +64,11 @@ export function RoutineRecommendationList({
           {items.map((item) => {
             const isTop = item.rank === 1;
             return (
-              <Card key={item.productId} padding={4} style={styles.row}>
+              <Card key={item.productId} padding={3} style={styles.row}>
                 {isTop ? (
-                  <LinearGradient
-                    colors={gradient.brand}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.rankBadge}
-                  >
+                  <View style={[styles.rankBadge, styles.rankBadgeTop]}>
                     <Text style={styles.rankTextTop}>{item.rank}</Text>
-                  </LinearGradient>
+                  </View>
                 ) : (
                   <View style={[styles.rankBadge, styles.rankBadgeNeutral]}>
                     <Text style={styles.rankText}>{item.rank}</Text>
@@ -83,7 +78,7 @@ export function RoutineRecommendationList({
                   <Text style={styles.name} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={styles.reason} numberOfLines={2}>
+                  <Text style={[styles.reason, isTop && styles.reasonTop]} numberOfLines={2}>
                     {item.reason}
                   </Text>
                 </View>
@@ -108,7 +103,8 @@ export function RoutineRecommendationList({
 
 const styles = StyleSheet.create({
   container: {
-    gap: space[3],
+    gap: space[2],
+    paddingBottom: space[2],
   },
   title: {
     ...typography.h2,
@@ -132,14 +128,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // 비우선(rank 2 이상) 배지 — brand 컬러가 보라로 바뀌면서 전부 보라색이면 "우선"과
-  // 구분이 안 돼서, 중립 회색(ink300 톤)으로 분리했습니다 (Checkpoint 9-D).
+  // 2026-08-16 — Figma Home-Day(229:2571) 대조: 1위 배지는 그라데이션이 아니라 단색
+  // brand-purple입니다(그라데이션은 "우선" 알약 배지 쪽에만 남아있음).
+  rankBadgeTop: {
+    backgroundColor: color.brand500,
+  },
+  // 비우선(rank 2 이상) 배지 — 기존엔 임시 rgba 회색이었는데, Figma 실측값(#e3ddf5)이
+  // 이미 프로젝트 토큰(borderDivider)과 같은 색이라 토큰으로 교체했습니다.
   rankBadgeNeutral: {
-    backgroundColor: 'rgba(183, 188, 194, 0.25)',
+    backgroundColor: color.borderDivider,
   },
   rankText: {
     ...typography.micro,
-    color: color.ink600,
+    color: color.textSub,
   },
   rankTextTop: {
     ...typography.micro,
@@ -166,5 +167,8 @@ const styles = StyleSheet.create({
   reason: {
     ...typography.caption,
     color: color.ink600,
+  },
+  reasonTop: {
+    color: color.brandPink,
   },
 });

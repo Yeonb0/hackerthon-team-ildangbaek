@@ -118,16 +118,18 @@ export const navIcon = {
   active: '#9B8CF5',
 } as const;
 
-// UV·습도 배지 / 환경 팁 카드 전용 (Checkpoint 9-D, HOME01 목업 실측값).
+// UV·습도 배지 / 환경 팁 카드 전용.
+// 2026-08-16 — Figma Home-Day(229:2571, 최신본) 실측값으로 교체. 기존 값(Checkpoint 9-D)은
+// 히어로 이미지가 생기기 전, 카드 배경 위에 배지가 있던 시절 값이라 지금은 안 맞습니다.
 export const environmentTint = {
-  uvBg: '#F1E8DE',
-  uvText: '#6B5540',
-  humidityBg: '#E7F2F0',
-  humidityText: '#3E6461',
-  tipBg: '#F7F1EC',
-  tipBorder: '#C9A484',
-  tipTitle: '#6B5540',
-  tipDescription: '#8A7A63',
+  tipBg: '#FFF1D8', // --ds-status-amber-soft
+  tipText: '#B4600A', // --ds-status-amber-text
+} as const;
+
+// 히어로(날씨 배경 이미지) 위에 얹는 UI 전용 반투명 흰색 — Figma --ds-overlay-white-*.
+export const overlayWhite = {
+  28: 'rgba(255, 255, 255, 0.28)', // 낮/밤 토글 배경
+  90: 'rgba(255, 255, 255, 0.9)', // UV·습도 칩 배경
 } as const;
 
 // xl(20)은 Figma --ds-radius-xl — CTA 버튼 전용입니다.

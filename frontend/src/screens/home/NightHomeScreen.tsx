@@ -8,6 +8,7 @@ import { WeeklyRecordStrip } from '@/components/domain/WeeklyRecordStrip';
 import { TodayReportCard } from '@/components/domain/TodayReportCard';
 import { color, gradient, space, typography } from '@/theme';
 import type { HomeResponse } from '@/types/home';
+import { adjustFontSize, weightFamily } from '@/theme/typography';
 
 type NightHomeScreenProps = {
   data: HomeResponse;
@@ -40,11 +41,20 @@ type NightHomeScreenProps = {
  *   (HomeScreen.tsx에서 useMyPage로 조회해 prop으로 내려줌).
  * - 주간 기록 스트립: Card 래핑·제목 텍스트 제거, 반투명 흰 박스로(관리자님 요청으로
  *   0.92까지 밝게 조정).
- * - 밤 화장대 일러스트 자리 추가 (낮과 동일한 점선 placeholder 패턴).
  * - CTA 버튼: 맨 아래·그라데이션 버튼으로 최종 확정(관리자님 2026-08-14 요청 — 중간에
  *   맨 위·solid로 바꿨다가 다시 낮 화면과 통일). 완료 여부에 따른 라벨 전환은 계속 유지.
  * - "오늘의 리포트" 카드(TodayReportCard)는 Figma HOME-02엔 대응 요소가 안 보이지만
  *   관리자님 요청으로 그대로 유지합니다.
+ *
+ * 2026-08-16 — Figma Home-Night(59:4667, 최신본) 재대조:
+ * - 위치 텍스트/안내문("지금 기록을 남기면...") 색이 회색(ink300)이라 어두운 배경 위에서
+ *   묻혀 보이던 걸 흰색/반투명 흰색으로 고쳤습니다. 안내문에 붙어있던 `marginTop:
+ *   -space[3]`(음수 마진 임시 처리)도 같이 제거했습니다. 인사말 폰트도 22→28(Figma
+ *   실측)로 키웠습니다.
+ * - Figma엔 "1~7 숫자 원" 스트릭 표시가 있는데, 관리자님 확인 결과 `WeeklyRecordStrip`
+ *   (달력형 주간 스트립)이 이미 같은 역할이라 새로 안 만들고 그대로 둡니다.
+ * - "밤 화장대 일러스트" placeholder 박스 제거 — Figma에 이 화면 자체엔 화장대 자리가
+ *   없어서(낮 화면과 다름), 추측성으로 넣어뒀던 걸 뺐습니다.
  */
 export function NightHomeScreen({
   data,
@@ -74,12 +84,6 @@ export function NightHomeScreen({
             <WeeklyRecordStrip days={data.weeklyCalendar} />
           </View>
         )}
-
-        {/* Figma HOME-02의 밤 화장대 일러스트 자리 — 낮 화면과 동일한 패턴(점선 박스),
-            에셋 없어서 텍스트 자리표시자만 둡니다. */}
-        <View style={styles.illustrationPlaceholder}>
-          <Text style={styles.illustrationPlaceholderText}>(화장대 일러스트)</Text>
-        </View>
 
         {/* 관리자님 요청(2026-08-14): 나이트루틴을 완료(제품+피부기록 둘 다)해야만 노출.
             data.todayReport 자체는 백엔드가 "오늘 피부기록" 기준으로만 null을 판단해서
@@ -129,16 +133,19 @@ const styles = StyleSheet.create({
   },
   location: {
     ...typography.caption,
-    color: color.ink300,
+    color: color.white,
+    ...weightFamily('bold'),
+    marginTop: space[5],
   },
   greeting: {
     ...typography.h1,
+    fontSize: adjustFontSize(28),
+    lineHeight: adjustFontSize(28) * 1.4,
     color: color.bg,
   },
   prompt: {
     ...typography.body,
-    color: color.ink300,
-    marginTop: -space[3],
+    color: 'rgba(255,255,255,0.7)',
   },
   section: {
     width: '100%',
@@ -149,20 +156,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 10,
     padding: space[3],
-  },
-  illustrationPlaceholder: {
-    height: 140,
-    width: '100%',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  illustrationPlaceholderText: {
-    ...typography.caption,
-    color: color.ink300,
   },
   cta: {
     width: '100%',
