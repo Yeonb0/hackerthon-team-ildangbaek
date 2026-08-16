@@ -20,7 +20,7 @@
 //   해당 리포트 쿼리를 무효화하고, S-19의 "아직 리포트를 만들 수 없어요" 팝업을 다시 볼 수
 //   있도록 1회 노출 상태(reportUiStore)도 같이 초기화합니다.
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
@@ -38,6 +38,11 @@ import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
 import type { WeatherCondition } from '@/types/home';
+
+// 2026-08-16 — 메뉴가 22개 항목까지 늘어나면서 스크롤 없이 위쪽(로그인/온보딩
+// 초기화)이 화면 밖으로 밀려 안 보이는 문제가 있었습니다. 화면 높이 기준으로 메뉴
+// 최대 높이를 잡아서, 그 이상은 ScrollView로 스크롤하게 합니다.
+const MENU_MAX_HEIGHT = Dimensions.get('window').height * 0.55;
 
 // 2026-08-16 — 날씨 배경 dev 전환 버튼 목록. WeatherCondition 8종 전부(로드맵 7종 +
 // 백엔드 실제 폴백값 FOG) 순서대로 노출합니다.
@@ -197,18 +202,25 @@ export function DevResetButton() {
     <View style={styles.wrapper} pointerEvents="box-none">
       {expanded ? (
         <View style={styles.menu}>
-          {menuItems.map((item, index) => (
-            <Pressable
-              key={item.label}
-              accessibilityRole="button"
-              accessibilityLabel={item.label}
-              onPress={item.onPress}
-              disabled={resetting}
-              style={[styles.menuItem, index > 0 && styles.menuItemDivider]}
-            >
-              <Text style={styles.menuItemLabel}>{item.label}</Text>
-            </Pressable>
-          ))}
+          <ScrollView
+            style={styles.menuScroll}
+            contentContainerStyle={styles.menuScrollContent}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled
+          >
+            {menuItems.map((item, index) => (
+              <Pressable
+                key={item.label}
+                accessibilityRole="button"
+                accessibilityLabel={item.label}
+                onPress={item.onPress}
+                disabled={resetting}
+                style={[styles.menuItem, index > 0 && styles.menuItemDivider]}
+              >
+                <Text style={styles.menuItemLabel}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
         </View>
       ) : null}
       <Pressable
@@ -251,6 +263,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     opacity: 0.95,
     minWidth: 150,
+    maxHeight: MENU_MAX_HEIGHT,
+  },
+  menuScroll: {
+    maxHeight: MENU_MAX_HEIGHT,
+  },
+  menuScrollContent: {
+    flexGrow: 1,
   },
   menuItem: {
     paddingVertical: space[3],

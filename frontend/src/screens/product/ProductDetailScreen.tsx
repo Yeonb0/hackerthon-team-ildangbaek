@@ -64,9 +64,9 @@ const RISK_COLOR: Record<RiskLevel, string> = {
 };
 
 // 얼굴 아이콘(🙂/😐/🙁) 디자이너 전달 완료(2026-08-15, docs/icon-request-face-expression.md
-// 회신) — faceGood/faceNeutral/faceCaution으로 교체. 이 3종은 색이 고정된 일러스트라
-// RISK_COLOR로 색을 입히진 않지만(요약 카드 타이틀 텍스트 색상에는 계속 사용), AppIcon
-// 호출부 시그니처(color prop)는 그대로 유지합니다 — 컴포넌트가 내부적으로 무시합니다.
+// 회신) — faceGood/faceNeutral/faceCaution으로 교체. 2026-08-16부터 이 3종의 윤곽선이
+// color prop(RISK_COLOR)을 따르도록 바뀌어서, 요약 카드 아이콘 자체도 이제 상태색이 입혀집니다
+// (볼터치만 원본 고정 핑크 유지). AppIcon 호출부 시그니처는 그대로입니다.
 const RISK_ICON: Record<RiskLevel, AppIconName> = {
   LOW: 'faceGood',
   MEDIUM: 'faceNeutral',
@@ -75,10 +75,22 @@ const RISK_ICON: Record<RiskLevel, AppIconName> = {
 
 // 성분별 상태 — Figma 문구를 그대로 따름(Tag 컴포넌트의 기본 라벨 "맞음"/"주의"와는 다름).
 // SHOP-02는 알약형 배지가 아니라 배경 없는 아이콘+텍스트라 Tag를 그대로 안 쓰고 로컬로 둡니다.
+// 2026-08-16 관리자 요청 — 작은 아이콘(성분별 행)도 큰 아이콘과 같은 얼굴 일러스트 세트로
+// 통일하고 STATUS_COLOR로 색을 입힙니다. GOOD은 "잘 맞음"이라 faceGood, CAUTION은
+// "지켜보는 중"(STATUS_COLOR가 statusWatch — 요약 카드의 MEDIUM과 같은 톤)이라 faceNeutral로
+// 매핑했습니다(faceCaution이 아님 — 여기 CAUTION은 요약 카드의 HIGH만큼 심각한 상태가
+// 아니라 "지켜보는" 중간 단계라서). INSUFFICIENT("정보 부족")는 표정으로 표현할 성질이
+// 아니라서 기존 helpCircle을 그대로 둡니다.
 const STATUS_ICON: Record<IngredientStatus, AppIconName> = {
-  GOOD: 'check',
-  CAUTION: 'warning',
+  GOOD: 'faceGood',
+  CAUTION: 'faceNeutral',
   INSUFFICIENT: 'helpCircle',
+};
+// 2026-08-16 — 관리자 요청: 얼굴 아이콘 3종만 더 키우고, 물음표(정보 부족)는 그대로 둡니다.
+const STATUS_ICON_SIZE: Record<IngredientStatus, number> = {
+  GOOD: 22,
+  CAUTION: 22,
+  INSUFFICIENT: 16,
 };
 const STATUS_LABEL: Record<IngredientStatus, string> = {
   GOOD: '잘 맞음',
@@ -232,7 +244,7 @@ export function ProductDetailScreen() {
         <View style={styles.summaryCard}>
           <AppIcon
             name={RISK_ICON[checkResult.riskLevel]}
-            size={48}
+            size={56}
             color={RISK_COLOR[checkResult.riskLevel]}
           />
           <View style={styles.summaryText}>
@@ -259,7 +271,7 @@ export function ProductDetailScreen() {
                 <View style={styles.statusBadge}>
                   <AppIcon
                     name={STATUS_ICON[ingredient.status]}
-                    size={16}
+                    size={STATUS_ICON_SIZE[ingredient.status]}
                     color={STATUS_COLOR[ingredient.status]}
                   />
                   <Text style={[styles.statusLabel, { color: STATUS_COLOR[ingredient.status] }]}>
