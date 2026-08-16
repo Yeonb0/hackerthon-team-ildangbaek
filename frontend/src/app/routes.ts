@@ -50,6 +50,10 @@ export const DetailRoutes = {
   // Phase 11-B — PROD-07 루틴 수정(드래그 순서 변경). Figma 구조 기준 별도 화면으로 분리
   // (관리자 결정, 2026-08-13). S-11의 RoutineQuickRecordCard에서 "수정" 진입점으로 연결됩니다.
   RoutineEdit: 'RoutineEdit',
+  // Phase 11(세션5) — 루틴 수정 전용 "제품 추가" 화면(관리자님 지시, 2026-08-15). 저장된
+  // 제품 중에서 체크박스로 여러 개 골라 루틴에 한 번에 추가합니다. RoutineEditScreen의
+  // "+ 제품 추가하기"에서 옴.
+  RoutineAddProduct: 'RoutineAddProduct',
   // Phase 11-C — PROD-05 제품 직접 등록(F-PRODUCT-08, TBD-07). 백엔드 API 없이 프론트 목업
   // 전용(관리자 결정, 2026-08-13). ProductRecord(S-11/12)의 "제품 직접 등록" 버튼에서 옴.
   ProductManualRegister: 'ProductManualRegister',
@@ -110,8 +114,16 @@ export type DetailStackParamList = {
   // 경우 그 상태로 필터를 미리 켜둡니다. 없으면 전체 목록.
   [DetailRoutes.IngredientList]: { initialStatus?: IngredientStatus } | undefined;
   [DetailRoutes.RoutineEdit]: { routineId: number };
+  [DetailRoutes.RoutineAddProduct]: { routineId: number; timeSlot: TimeSlot };
   // initialKeyword: 검색결과없음(PROD-03) 경로로 들어왔을 때만 있음 — 검색어를 제품명에 prefill
-  [DetailRoutes.ProductManualRegister]: { timeSlot: TimeSlot; initialKeyword?: string };
+  [DetailRoutes.ProductManualRegister]: {
+    timeSlot: TimeSlot;
+    initialKeyword?: string;
+    // Phase 11(세션5) — RoutineAddProductScreen "새 제품 등록하기"에서 올 때만 실립니다.
+    // 이 화면의 "루틴에 추가" 다중 선택 칩에서 해당 루틴을 미리 체크해둡니다
+    // (관리자님 지시, 2026-08-15 — 루틴 수정 흐름에서 온 거니 그 루틴을 기본으로 선택).
+    initialRoutineId?: number;
+  };
   // Phase 11-D(2번 체크포인트) — F-RECORD-02 월간 기록. RecordHub 캘린더 아이콘에서 진입.
   [DetailRoutes.RecordCalendar]: undefined;
 };

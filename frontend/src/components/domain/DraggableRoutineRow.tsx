@@ -32,11 +32,15 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { IconDragHandle, IconTrash } from '@/components/icons';
+import { IconClose, IconDragHandle } from '@/components/icons';
 import { color, radius, space, typography } from '@/theme';
+import { weightFamily } from '@/theme/typography';
 import type { RoutineProductItem } from '@/types/product';
 
-export const ROW_HEIGHT = 56;
+// 2026-08-15 — Figma RoutineEdit 이미지 정합으로 56 → 64로 늘렸습니다. 카드 사이 여백을
+// 표현하려고 슬롯(ROW_HEIGHT)은 그대로 두고, 실제 보이는 카드는 그 안에서 marginVertical로
+// 안쪽으로 밀어넣습니다(styles.cardInner) — 절대 위치 슬롯 자체엔 여백을 줄 수 없어서.
+export const ROW_HEIGHT = 64;
 
 const SETTLE_ANIMATION = {
   duration: 220,
@@ -105,37 +109,47 @@ export function DraggableRoutineRow({
   }));
 
   return (
-    <Animated.View style={[styles.row, animatedStyle]}>
-      <GestureDetector gesture={panGesture}>
-        {/* hitSlop 대신 padding으로 손잡이 터치 영역을 넉넉히 둡니다(작은 아이콘이라). */}
-        <View style={styles.handle}>
-          <IconDragHandle size={18} color={color.ink300} />
+    <Animated.View style={[styles.slot, animatedStyle]}>
+      <View style={styles.cardInner}>
+        <GestureDetector gesture={panGesture}>
+          {/* hitSlop 대신 padding으로 손잡이 터치 영역을 넉넉히 둡니다(작은 아이콘이라). */}
+          <View style={styles.handle}>
+            <IconDragHandle size={18} color={color.ink300} />
+          </View>
+        </GestureDetector>
+
+        <View style={styles.indexBadge}>
+          <Text style={styles.indexBadgeText}>{index + 1}</Text>
         </View>
-      </GestureDetector>
 
-      <Text style={styles.name} numberOfLines={1}>
-        {product.name}
-      </Text>
+        <Text style={styles.name} numberOfLines={1}>
+          {product.name}
+        </Text>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${product.name} 루틴에서 삭제`}
-        onPress={() => onDelete(product.productId)}
-        hitSlop={8}
-        style={styles.deleteButton}
-      >
-        <IconTrash size={16} color={color.statusCaution} />
-      </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${product.name} 루틴에서 삭제`}
+          onPress={() => onDelete(product.productId)}
+          hitSlop={8}
+          style={styles.deleteButton}
+        >
+          <IconClose size={14} color={color.ink600} />
+        </Pressable>
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
+  slot: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: ROW_HEIGHT,
+  },
+  cardInner: {
+    flex: 1,
+    marginVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[3],
@@ -147,7 +161,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   handle: {
-    padding: space[2],
+    padding: space[1],
+  },
+  indexBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.surfaceLavenderSoft,
+  },
+  indexBadgeText: {
+    ...typography.micro,
+    ...weightFamily('bold'),
+    color: color.brand700,
   },
   name: {
     ...typography.body,
@@ -155,6 +182,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   deleteButton: {
-    padding: space[2],
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.surfaceLavenderSoft,
   },
 });
