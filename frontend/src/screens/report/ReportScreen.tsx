@@ -11,10 +11,11 @@ import { Chip } from '@/components/base/Chip';
 import { Popup } from '@/components/base/Popup';
 import { TrendGraph } from '@/components/chart/TrendGraph';
 import { InsightCard } from '@/components/domain/InsightCard';
+import { ReportSummaryCard } from '@/components/domain/ReportSummaryCard';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { EmptyState } from '@/components/state/EmptyState';
-import { useReport } from '@/api/queries/report';
+import { useReport, useReportSummary } from '@/api/queries/report';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { useReportUiStore } from '@/store/reportUiStore';
@@ -88,6 +89,17 @@ export function ReportScreen() {
   const { data, isLoading, isError, error, refetch } = useReport(callPeriod, metric);
   const displayedGraph = data ? data.graph.slice(-displayPeriod) : [];
 
+  // 종합 점수 카드(Figma 210:2437) — ⚠️ 목업 전용, types/report.ts의
+  // ReportSummaryResult 주석 참고. 표시 기간은 화면의 다른 부분과 같은 토글을
+  // 공유합니다(Figma는 카드마다 토글이 따로 있었지만 실제로는 한 화면 안 두 상태를
+  // 각각 캡처해둔 것뿐이라, 토글 자체를 중복시키지 않았습니다 — 관리자 확인, 2026-08-17).
+  // ReportSummaryResult.period도 REPORT-01처럼 7|30만 유효 — 14일은 callPeriod(30)로
+  // 요청 후 그래프만 최근 14일로 잘라 보여줍니다(위 REPORT-01과 동일 패턴).
+  const { data: summaryData, isLoading: isSummaryLoading } = useReportSummary(callPeriod);
+  const displayedSummary = summaryData
+    ? { ...summaryData, graph: summaryData.graph.slice(-displayPeriod) }
+    : undefined;
+
   const isDataInsufficient = error instanceof ApiError && error.code === ErrorCode.REPORT_DATA_INSUFFICIENT;
   const showPopup = isDataInsufficient && !insufficientPopupSeen;
 
@@ -113,6 +125,8 @@ export function ReportScreen() {
     <View style={[styles.container, { paddingTop: insets.top + space[5] }]}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>피부 리포트</Text>
+
+        <ReportSummaryCard data={displayedSummary} isLoading={isSummaryLoading} period={displayPeriod} />
 
         <SegmentToggle
           options={[
