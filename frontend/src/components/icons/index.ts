@@ -50,6 +50,8 @@ import { IconTrash } from './IconTrash';
 import { IconTrayEmpty } from './IconTrayEmpty';
 import { IconKakao } from './IconKakao';
 import { IconGoogle } from './IconGoogle';
+import { IconSunny } from './IconSunny';
+import { IconMoon } from './IconMoon';
 import { AppIcon } from './AppIcon';
 
 export * from './types';
@@ -103,4 +105,6 @@ export {
   IconTrayEmpty,
   IconKakao,
   IconGoogle,
+  IconSunny,
+  IconMoon,
 };

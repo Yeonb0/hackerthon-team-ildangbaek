@@ -63,12 +63,14 @@ const RISK_COLOR: Record<RiskLevel, string> = {
   HIGH: color.statusCaution,
 };
 
-// 얼굴 아이콘(🙂/😐/🙁)은 디자이너 요청 중 — 도착 전까지 Tag가 쓰던 것과 같은 아이콘으로
-// 대체(check/helpCircle/warning). 도착하면 이 맵의 이름만 바꾸면 됩니다.
+// 얼굴 아이콘(🙂/😐/🙁) 디자이너 전달 완료(2026-08-15, docs/icon-request-face-expression.md
+// 회신) — faceGood/faceNeutral/faceCaution으로 교체. 이 3종은 색이 고정된 일러스트라
+// RISK_COLOR로 색을 입히진 않지만(요약 카드 타이틀 텍스트 색상에는 계속 사용), AppIcon
+// 호출부 시그니처(color prop)는 그대로 유지합니다 — 컴포넌트가 내부적으로 무시합니다.
 const RISK_ICON: Record<RiskLevel, AppIconName> = {
-  LOW: 'check',
-  MEDIUM: 'helpCircle',
-  HIGH: 'warning',
+  LOW: 'faceGood',
+  MEDIUM: 'faceNeutral',
+  HIGH: 'faceCaution',
 };
 
 // 성분별 상태 — Figma 문구를 그대로 따름(Tag 컴포넌트의 기본 라벨 "맞음"/"주의"와는 다름).
