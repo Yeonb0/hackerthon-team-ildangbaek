@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -25,12 +26,21 @@ import tools.jackson.databind.JsonNode;
 @Component
 public class ProductCommentClient {
 
+    // 분석 서버가 멈추거나 느려져도 요청이 무한정 걸려 있지 않도록 상한을 둔다.
+    // LocalVisionSkinAnalysisClient와 같은 값을 쓴다 — 같은 서버(ai-server)를 호출한다.
+    private static final int CONNECT_TIMEOUT_MILLIS = 5_000;
+    private static final int READ_TIMEOUT_MILLIS = 15_000;
+
     private final RestClient restClient;
 
     public ProductCommentClient(
             RestClient.Builder restClientBuilder,
             @Value("${app.skin.analysis.local-vision.base-url}") String baseUrl) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
+        requestFactory.setReadTimeout(READ_TIMEOUT_MILLIS);
+
+        this.restClient = restClientBuilder.baseUrl(baseUrl).requestFactory(requestFactory).build();
     }
 
     /**
