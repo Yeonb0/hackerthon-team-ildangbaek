@@ -14,11 +14,14 @@ import openai
 import pytest
 
 from app import config, vision
-from app.schema import AnalysisResult, SkinScores
+from app.schema import AnalysisResult, RawMeasurements, SkinScores
 
 PRELIMINARY = AnalysisResult(
     scores=SkinScores(TROUBLE=80, REDNESS=70, PORES=60, PIGMENTATION=90),
+    raw=RawMeasurements(TROUBLE=120.5, REDNESS=10.2, PORES=7.1, PIGMENTATION=20.3),
     pores_reliability="LOW",
+    algorithm_version="cielab-v1",
+    normalization_version="to-score-v1",
 )
 
 
@@ -96,6 +99,19 @@ def test_refine_preserves_pores_reliability(monkeypatch: pytest.MonkeyPatch) -> 
     result = vision.refine(np.zeros((10, 10, 3), np.uint8), PRELIMINARY)
 
     assert result.pores_reliability == PRELIMINARY.pores_reliability == "LOW"
+
+
+def test_refine_preserves_raw_and_versions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """raw·algorithm_version·normalization_version은 OpenAI가 관여하지 않는 1차 값을 그대로 옮긴다."""
+    _set_api_key(monkeypatch)
+    scores = {"TROUBLE": 80, "REDNESS": 70, "PORES": 60, "PIGMENTATION": 90}
+    _use_fake_client(monkeypatch, _FakeCompletions(content=json.dumps(scores)))
+
+    result = vision.refine(np.zeros((10, 10, 3), np.uint8), PRELIMINARY)
+
+    assert result.raw == PRELIMINARY.raw
+    assert result.algorithm_version == PRELIMINARY.algorithm_version
+    assert result.normalization_version == PRELIMINARY.normalization_version
 
 
 def test_refine_raises_when_api_key_missing(monkeypatch: pytest.MonkeyPatch) -> None:

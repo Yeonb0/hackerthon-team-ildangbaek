@@ -53,7 +53,7 @@ public class MockSkinAnalysisClient implements SkinAnalysisClient {
         }
 
         log.debug("목업 피부 분석: userId={} date={} slot={} scores={}", userId, recordDate, timeSlot, scores);
-        return new SkinAnalysisResult(scores);
+        return SkinAnalysisResult.ofScoresOnly(scores);
     }
 
     @Override

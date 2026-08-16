@@ -294,9 +294,13 @@ UNIQUE(user_id, record_date, time_period)
 | id | BIGINT | PK | 피부 지표 ID |
 | skin_record_id | BIGINT | FK | 피부 기록 ID |
 | metric_type | VARCHAR(30) | NOT NULL | TROUBLE, REDNESS, PORES, PIGMENTATION |
-| metric_value | DECIMAL(8,2) | NOT NULL | 분석값 |
+| metric_value | DECIMAL(8,2) | NOT NULL | 0~100 정규화 점수 |
 | comparison_difference | DECIMAL(8,2) | NULL | 비교 대상과의 차이 |
 | trend_status | VARCHAR(20) | NULL | IMPROVED, MAINTAINED, WORSENED |
+| raw_value | DOUBLE | NULL | AI/CV가 실제 측정한 원시값(정규화 이전). 분석 서버가 값을 안 주면(목업 등) NULL. 기존 score만 있는 과거 기록도 역산하지 않고 NULL로 둔다 (ADR 0026) |
+| confidence | VARCHAR(20) | NULL | 분석 결과 신뢰도. 실제 근거가 있는 지표만 채운다 — 현재는 PORES(`LOW`/`NORMAL`, 카메라 노이즈 대역 판정)만 해당. 근거 없는 지표는 NULL (ADR 0026) |
+| algorithm_version | VARCHAR(30) | NULL | raw_value를 산출한 분석 알고리즘 버전. 근거 없으면 NULL (ADR 0026) |
+| normalization_version | VARCHAR(30) | NULL | raw_value → metric_value 변환에 쓰인 정규화 기준 버전. 근거 없으면 NULL (ADR 0026) |
 
 ```
 UNIQUE(skin_record_id, metric_type)

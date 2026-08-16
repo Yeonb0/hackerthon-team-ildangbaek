@@ -156,7 +156,48 @@ public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
             }
             scores.put(type, clamp(value.asInt()));
         }
-        return new SkinAnalysisResult(scores);
+
+        Map<SkinMetricType, Double> rawValues = parseRawValues(responseBody.path("raw"));
+        Map<SkinMetricType, String> confidence = parseConfidence(responseBody);
+        String algorithmVersion = textOrNull(responseBody.get("algorithm_version"));
+        String normalizationVersion = textOrNull(responseBody.get("normalization_version"));
+
+        return new SkinAnalysisResult(scores, rawValues, confidence, algorithmVersion, normalizationVersion);
+    }
+
+    /**
+     * 원시 측정값. 구버전 분석 서버는 {@code raw} 필드가 없을 수 있어 없으면 빈 맵을 돌려준다 —
+     * 점수 파싱과 달리 실패로 취급하지 않는다. rawValue는 보조 정보이지 필수 응답 계약이 아니다.
+     */
+    private Map<SkinMetricType, Double> parseRawValues(JsonNode rawNode) {
+        Map<SkinMetricType, Double> rawValues = new EnumMap<>(SkinMetricType.class);
+        if (rawNode == null || rawNode.isMissingNode()) {
+            return rawValues;
+        }
+        for (SkinMetricType type : SkinMetricType.values()) {
+            JsonNode value = rawNode.get(type.name());
+            if (value != null && value.isNumber()) {
+                rawValues.put(type, value.asDouble());
+            }
+        }
+        return rawValues;
+    }
+
+    /**
+     * 신뢰도. 현재 분석 서버는 PORES에 한해서만 근거 있는 신뢰도({@code pores_reliability})를
+     * 제공한다 — 나머지 세 지표는 근거가 없어 임의로 채우지 않는다.
+     */
+    private Map<SkinMetricType, String> parseConfidence(JsonNode responseBody) {
+        Map<SkinMetricType, String> confidence = new EnumMap<>(SkinMetricType.class);
+        String poresReliability = textOrNull(responseBody.get("pores_reliability"));
+        if (poresReliability != null) {
+            confidence.put(SkinMetricType.PORES, poresReliability);
+        }
+        return confidence;
+    }
+
+    private String textOrNull(JsonNode node) {
+        return node != null && node.isString() ? node.asString() : null;
     }
 
     /**
