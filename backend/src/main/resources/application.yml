@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: backend
+  profiles:
+    active: local
+  servlet:
+    multipart:
+      # SKIN-01 이미지 상한(10MB)에 맞춘다. 기본값(파일 1MB)이면 정상 사진도 튕긴다.
+      max-file-size: 10MB
+      max-request-size: 12MB
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+app:
+  storage:
+    local:
+      directory: ${STORAGE_LOCAL_DIR:./uploads/images}
+      url-prefix: ${STORAGE_LOCAL_URL_PREFIX:/images/}
+  skin:
+    analysis:
+      # mock | local-vision. OpenAI Vision은 local-vision(ai-server) 내부에서 2차 확정
+      # 단계로만 호출된다(ADR 0022) — Spring이 직접 OpenAI를 호출하지 않는다.
+      provider: ${SKIN_ANALYSIS_PROVIDER:mock}
+      local-vision:
+        base-url: ${LOCAL_VISION_BASE_URL:http://localhost:8000}

@@ -1,0 +1,6 @@
+package com.ildangbaek.backend.api.onboard.dto.response;
+
+public record HormoneResponse(
+        String nextStep
+) {
+}

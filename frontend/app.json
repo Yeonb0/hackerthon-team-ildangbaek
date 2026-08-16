@@ -42,7 +42,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/skinteller-logo.png",
+          "image": "./assets/Skinteller-logo.png",
           "imageWidth": 240,
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"

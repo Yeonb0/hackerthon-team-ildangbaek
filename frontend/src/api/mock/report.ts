@@ -33,7 +33,10 @@ const METRIC_BASE_SCORE: Record<MetricKey, number> = {
   pigmentation: 80,
 };
 
-/** 3일에 한 번은 결측(null)을 섞어서, 화면이 결측 케이스를 늘 마주치도록 합니다. */
+/**
+ * 3일에 한 번은 두 슬롯 모두 결측(null)을 섞고, 4일에 한 번은 나이트만 비워서
+ * 화면이 "하루 중 한쪽만 기록한 날"까지 늘 마주치도록 합니다 (ADR 0012·0013).
+ */
 function buildMockGraph(period: ReportPeriod, base: number): GraphPoint[] {
   const points: GraphPoint[] = [];
   const today = new Date();
@@ -44,7 +47,11 @@ function buildMockGraph(period: ReportPeriod, base: number): GraphPoint[] {
       d.getDate()
     ).padStart(2, '0')}`;
     const score = i % 3 === 0 ? null : Math.max(40, Math.min(95, base + Math.round(Math.sin(i) * 12)));
-    points.push({ date, score });
+    points.push({
+      date,
+      morningScore: score === null ? null : Math.max(40, Math.min(95, score - 4)),
+      nightScore: score === null || i % 4 === 0 ? null : score,
+    });
   }
   return points;
 }

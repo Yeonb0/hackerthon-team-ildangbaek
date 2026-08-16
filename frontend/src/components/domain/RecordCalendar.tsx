@@ -3,7 +3,7 @@ import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-n
 import { LinearGradient } from 'expo-linear-gradient';
 import { IconBack, IconChevronRight } from '@/components/icons';
 import { RecordDot } from '@/components/domain/RecordDot';
-import { getMonthGridCells, getWeekdayLabels, isFutureDateString } from '@/lib/date';
+import { getMonthGridCells, isFutureDateString } from '@/lib/date';
 import type { WeekStart } from '@/lib/date';
 import { color, gradient, gradientDirection, space, typography } from '@/theme';
 import type { RecordCalendarDay } from '@/types/record';
@@ -26,6 +26,8 @@ type RecordCalendarProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+const WEEKDAY_LABELS_SUNDAY_FIRST = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_LABELS_MONDAY_FIRST = ['월', '화', '수', '목', '금', '토', '일'];
 const CELL_SIZE = 44;
 
 /** 42칸을 7개씩 6주로 나눕니다 — 그리드를 flexWrap 대신 "주 단위 row" 배열로 그리기
@@ -66,7 +68,7 @@ export function RecordCalendar({
   style,
 }: RecordCalendarProps) {
   const cells = getMonthGridCells(year, month, weekStart);
-  const weekdayLabels = getWeekdayLabels(weekStart);
+  const weekdayLabels = weekStart === 'MONDAY' ? WEEKDAY_LABELS_MONDAY_FIRST : WEEKDAY_LABELS_SUNDAY_FIRST;
   const dayMap = new Map(days.map((d) => [d.date, d]));
 
   return (

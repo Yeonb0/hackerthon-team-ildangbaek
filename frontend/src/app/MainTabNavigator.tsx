@@ -31,7 +31,6 @@ import { ProductDetailScreen } from '@/screens/product/ProductDetailScreen';
 import { LocationSettingsScreen } from '@/screens/my/LocationSettingsScreen';
 import { IngredientListScreen } from '@/screens/my/IngredientListScreen';
 import { RoutineEditScreen } from '@/screens/product/RoutineEditScreen';
-import { RoutineAddProductScreen } from '@/screens/product/RoutineAddProductScreen';
 import { ProductManualRegisterScreen } from '@/screens/product/ProductManualRegisterScreen';
 import { RecordCalendarScreen } from '@/screens/record/RecordCalendarScreen';
 
@@ -126,7 +125,6 @@ export function MainTabNavigator() {
       <Stack.Screen name={DetailRoutes.LocationSettings} component={LocationSettingsScreen} />
       <Stack.Screen name={DetailRoutes.IngredientList} component={IngredientListScreen} />
       <Stack.Screen name={DetailRoutes.RoutineEdit} component={RoutineEditScreen} />
-      <Stack.Screen name={DetailRoutes.RoutineAddProduct} component={RoutineAddProductScreen} />
       <Stack.Screen name={DetailRoutes.ProductManualRegister} component={ProductManualRegisterScreen} />
       <Stack.Screen name={DetailRoutes.RecordCalendar} component={RecordCalendarScreen} />
     </Stack.Navigator>

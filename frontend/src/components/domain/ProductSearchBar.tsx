@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React from 'react';
 import { Pressable, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
 import { IconBarcode, IconClose, IconSearch } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
@@ -18,20 +18,19 @@ type ProductSearchBarProps = {
  * 검색어 없음 → 스캔 아이콘(누르면 카메라로 이동), 검색어 있음 → 지우기 아이콘(BR3).
  * S-11/12뿐 아니라 F-CHECK-02(S-21)의 검색 모드에서도 그대로 재사용할 컴포넌트라
  * ProductRecordScreen 밖으로 분리해뒀습니다.
- *
- * 2026-08-15 — forwardRef로 내부 TextInput을 노출합니다(예: 빈 상태에서 검색창에
- * 바로 포커스를 주고 싶은 경우 등, 호출부가 필요할 때 ref를 넘겨 쓸 수 있게).
  */
-export const ProductSearchBar = forwardRef<TextInput, ProductSearchBarProps>(function ProductSearchBar(
-  { value, onChangeText, onScanPress, placeholder = '제품명을 검색해보세요', style },
-  ref
-) {
+export function ProductSearchBar({
+  value,
+  onChangeText,
+  onScanPress,
+  placeholder = '제품명을 검색해보세요',
+  style,
+}: ProductSearchBarProps) {
   const hasText = value.length > 0;
   return (
     <View style={[styles.container, style]}>
       <IconSearch size={18} color={color.ink300} style={styles.leadingIcon} />
       <TextInput
-        ref={ref}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -58,7 +57,7 @@ export const ProductSearchBar = forwardRef<TextInput, ProductSearchBarProps>(fun
       </Pressable>
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
   container: {

@@ -73,7 +73,7 @@ function buildDemoGraphPoints(count: number): GraphPoint[] {
       d.getDate()
     ).padStart(2, '0')}`;
     const score = i % 3 === 0 ? null : 60 + Math.round(Math.sin(i) * 20);
-    points.push({ date, score });
+    points.push({ date, morningScore: score === null ? null : score - 5, nightScore: score });
   }
   return points;
 }
@@ -301,25 +301,20 @@ export default function CatalogScreen() {
         <ProductSearchBar value="토너" onChangeText={() => {}} onScanPress={() => {}} style={{ marginTop: space[2] }} />
       </Section>
 
-      <Section title="RoutineQuickRecordCard (Figma RecordProduct-Library, 2026-08-15)">
-        <View style={{ flexDirection: 'row', gap: space[3] }}>
-          <RoutineQuickRecordCard
-            name="모닝루틴"
-            timeSlot="MORNING"
-            productCount={3}
-            productSummary="토너 · 세럼 · 선크림"
-            onQuickRecord={() => {}}
-            style={{ flex: 1 }}
-          />
-          <RoutineQuickRecordCard
-            name="나이트루틴"
-            timeSlot="NIGHT"
-            productCount={4}
-            productSummary="클렌저 · 토너 · 크림"
-            onQuickRecord={() => {}}
-            style={{ flex: 1 }}
-          />
-        </View>
+      <Section title="RoutineQuickRecordCard (Phase 7 — 탭하면 펼쳐짐)">
+        <RoutineQuickRecordCard
+          routineId={1}
+          name="모닝루틴"
+          timeSlot="MORNING"
+          productCount={3}
+          productSummary="토너 · 세럼 · 선크림"
+          onQuickRecord={() => {}}
+          products={[
+            { productId: 11, name: '라운드랩 자작나무 수분 토너' },
+            { productId: 15, name: '이니스프리 어성초 세럼' },
+            { productId: 21, name: '닥터지 선베이스' },
+          ]}
+        />
       </Section>
 
       <Section title="SkinRecordSuggestionCard (Phase 7-B)">
