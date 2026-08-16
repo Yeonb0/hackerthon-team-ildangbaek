@@ -28,14 +28,20 @@ import { weightFamily } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
-// 2026-08-16 — 관리자 결정: 주요 성분 상태를 알약형 Tag(배경+테두리+라벨)에서
-// 배경 없는 아이콘만으로 변경(Figma 통합 리스트+배지안은 채택 안 함, 지금의
-// 주요/전체 2분할 구조는 유지). ProductDetailScreen의 아이콘 전용 상태 표시와
-// 같은 패턴입니다. 라벨 텍스트는 화면엔 안 보이지만 접근성 라벨로는 남겨둡니다.
+// 2026-08-16 — 관리자 요청: ProductDetailScreen(SHOP-02)과 같은 얼굴 일러스트 세트로 통일.
+// 이 화면은 STATUS_COLOR가 statusCaution(진한 경고톤)이고 라벨도 "주의"라서(ProductDetailScreen의
+// "지켜보는 중"/statusWatch보다 심각한 뉘앙스), CAUTION은 faceNeutral이 아니라 faceCaution으로
+// 매핑했습니다. INSUFFICIENT("데이터부족")는 표정으로 표현할 성질이 아니라 helpCircle 유지.
 const STATUS_ICON: Record<IngredientStatus, AppIconName> = {
-  GOOD: 'check',
-  CAUTION: 'warning',
+  GOOD: 'faceGood',
+  CAUTION: 'faceCaution',
   INSUFFICIENT: 'helpCircle',
+};
+// 2026-08-16 — 관리자 요청: 얼굴 아이콘 3종만 더 키우고, 물음표(정보 부족)는 그대로 둡니다.
+const STATUS_ICON_SIZE: Record<IngredientStatus, number> = {
+  GOOD: 34,
+  CAUTION: 34,
+  INSUFFICIENT: 28,
 };
 const STATUS_COLOR: Record<IngredientStatus, string> = {
   GOOD: color.statusGood,
@@ -178,7 +184,7 @@ export function IngredientCheckScreen() {
                     >
                       <AppIcon
                         name={STATUS_ICON[ingredient.status]}
-                        size={18}
+                        size={STATUS_ICON_SIZE[ingredient.status]}
                         color={STATUS_COLOR[ingredient.status]}
                       />
                     </View>
@@ -326,7 +332,13 @@ const styles = StyleSheet.create({
   keyIngredientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[2],
+    gap: space[3],
+    backgroundColor: color.bg,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radius.md,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
   },
   keyIngredientName: {
     ...typography.body,
