@@ -17,6 +17,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -43,6 +44,11 @@ import tools.jackson.databind.JsonNode;
 @ConditionalOnProperty(name = "app.skin.analysis.provider", havingValue = "local-vision")
 public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
 
+    // 분석 서버가 멈추거나 느려져도 요청이 무한정 걸려 있지 않도록 상한을 둔다.
+    // 연결 자체가 안 되는 경우(서버 다운)와 응답이 느린 경우(모델 추론 지연)를 구분해 둔다.
+    private static final int CONNECT_TIMEOUT_MILLIS = 5_000;
+    private static final int READ_TIMEOUT_MILLIS = 15_000;
+
     private final RestClient restClient;
     private final Path storageDirectory;
     private final String urlPrefix;
@@ -52,9 +58,25 @@ public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
             @Value("${app.skin.analysis.local-vision.base-url}") String baseUrl,
             @Value("${app.storage.local.directory}") String storageDirectory,
             @Value("${app.storage.local.url-prefix}") String urlPrefix) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this(buildRestClient(restClientBuilder, baseUrl), storageDirectory, urlPrefix);
+    }
+
+    /**
+     * 테스트가 {@code MockRestServiceServer.bindTo(builder)}로 mock request factory를 미리
+     * 심어 둔 {@link RestClient}를 그대로 주입할 수 있도록 연다 — 운영 생성자가 타임아웃 factory로
+     * 덮어써 mock을 무력화하지 않게 하기 위함이다.
+     */
+    LocalVisionSkinAnalysisClient(RestClient restClient, String storageDirectory, String urlPrefix) {
+        this.restClient = restClient;
         this.storageDirectory = Path.of(storageDirectory).toAbsolutePath().normalize();
         this.urlPrefix = urlPrefix;
+    }
+
+    private static RestClient buildRestClient(RestClient.Builder restClientBuilder, String baseUrl) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
+        requestFactory.setReadTimeout(READ_TIMEOUT_MILLIS);
+        return restClientBuilder.baseUrl(baseUrl).requestFactory(requestFactory).build();
     }
 
     @Override

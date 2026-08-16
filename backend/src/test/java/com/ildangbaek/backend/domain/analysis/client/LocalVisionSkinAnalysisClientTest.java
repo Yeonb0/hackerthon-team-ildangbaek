@@ -54,8 +54,7 @@ class LocalVisionSkinAnalysisClientTest {
 
     private LocalVisionSkinAnalysisClient client() {
         return new LocalVisionSkinAnalysisClient(
-                restClientBuilder,
-                BASE_URL,
+                restClientBuilder.baseUrl(BASE_URL).build(),
                 tempDir.toString(),
                 URL_PREFIX);
     }
