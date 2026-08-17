@@ -4,8 +4,7 @@ import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
 import { color } from '@/theme/tokens';
 import { s } from '@/lib/scale';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
+import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 
 export type RadarChartItem = {
   key: string;
@@ -29,6 +28,25 @@ type RadarChartProps = {
 
 const LABEL_MARGIN = 32;
 const LABEL_OFFSET = 18;
+
+/**
+ * SVG 캔버스 좌우/상하 여백.
+ *
+ * 좌우 축 라벨은 `center ± (radius + LABEL_OFFSET)`에 놓이고 textAnchor가 start/end라
+ * **캔버스 바깥으로 뻗어나갑니다**. size=220 기준 왼쪽 라벨의 x는 14인데 "색소침착"
+ * 4글자는 약 52px가 필요해서 38px가 잘려나갔습니다(실기기 확인, 2026-08-17).
+ *
+ * radius를 줄여 여백을 만들면 도형 자체가 작아지므로, 대신 viewBox를 음수 원점으로
+ * 넓혀 **좌표계는 그대로 두고 캔버스만 키웁니다** — 도형 크기는 size가 그대로 결정합니다.
+ */
+const PAD_X = 46;
+const PAD_Y = 14;
+
+/** SvgText는 StyleSheet의 fontFamily를 상속하지 않아 prop으로 직접 넘겨야 합니다. */
+// 축 라벨은 기본 굵기입니다(관리자 요청, 2026-08-17) — 아래 점수가 주아체로 커지면서
+// 라벨까지 굵으면 둘이 경합합니다.
+const LABEL_FONT_FAMILY = weightFamily('regular').fontFamily;
+const VALUE_FONT_FAMILY = pinDisplayFont('bmjua').fontFamily;
 
 /**
  * n각형 범용 레이더 차트. items.length(n)가 몇 개든(3/4/6...) 그대로 그립니다 —
@@ -73,8 +91,14 @@ export function RadarChart({ items, size = s(240), showValues = false, style }: 
   const dataPoints = data.map((p) => `${p.x},${p.y}`).join(' ');
 
   return (
-    <View style={[styles.wrapper, { width: size, height: size }, style]}>
-      <Svg width={size} height={size}>
+    <View
+      style={[styles.wrapper, { width: size + PAD_X * 2, height: size + PAD_Y * 2 }, style]}
+    >
+      <Svg
+        width={size + PAD_X * 2}
+        height={size + PAD_Y * 2}
+        viewBox={`${-PAD_X} ${-PAD_Y} ${size + PAD_X * 2} ${size + PAD_Y * 2}`}
+      >
         {items.map((item, i) => {
           const axisEnd = pointAt(i, radius);
           return (
@@ -111,9 +135,10 @@ export function RadarChart({ items, size = s(240), showValues = false, style }: 
             <React.Fragment key={`label-${item.key}`}>
               <SvgText
                 x={labelPos.x}
-                y={showValues ? labelPos.y - 6 : labelPos.y}
-                fontSize={showValues ? 11 : 12}
-                fontWeight={showValues ? 'bold' : 'normal'}
+                y={showValues ? labelPos.y - 8 : labelPos.y}
+                fontSize={showValues ? 13 : 12}
+                fontFamily={showValues ? LABEL_FONT_FAMILY : undefined}
+                fontWeight={showValues ? undefined : 'normal'}
                 fill={showValues ? color.textInk : color.ink900}
                 textAnchor={anchor}
                 alignmentBaseline="middle"
@@ -123,9 +148,9 @@ export function RadarChart({ items, size = s(240), showValues = false, style }: 
               {showValues ? (
                 <SvgText
                   x={labelPos.x}
-                  y={labelPos.y + 8}
-                  fontSize={10}
-                  fontWeight="bold"
+                  y={labelPos.y + 11}
+                  fontSize={18}
+                  fontFamily={VALUE_FONT_FAMILY}
                   fill={item.accent ?? color.brand500}
                   textAnchor={anchor}
                   alignmentBaseline="middle"

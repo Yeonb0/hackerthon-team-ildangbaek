@@ -6,6 +6,7 @@
 // 테스트/데모 중에 실제 입력값이 요약에 반영되는 게 훨씬 체감이 잘 되기 때문에,
 // 화면 간 입력을 여기 모듈 스코프 변수에 잠깐 기억해뒀다가 완료 요약을 만들 때 씁니다.
 // 앱 상태가 아니라 목업 세션 동안만 유지되는 값이고, 실제 authStore/onboardingStore와는 무관합니다.
+import { GENDER_LABEL, HORMONE_LABEL, SKIN_TYPE_LABEL } from '@/lib/profileLabels';
 import type {
   BasicInfoInput,
   BasicInfoResult,
@@ -89,25 +90,9 @@ export function resetMockSession(): void {
   mockSession.averageCycleDays = undefined;
 }
 
-const GENDER_LABEL: Record<Gender, string> = {
-  FEMALE: '여성',
-  MALE: '남성',
-  UNSPECIFIED: '선택 안 함',
-};
-
-const SKIN_TYPE_LABEL: Record<SkinTypeCode, string> = {
-  OILY: '지성',
-  DRY: '건성',
-  SENSITIVE: '민감성',
-  UNKNOWN: '모르겠음',
-};
-
-const HORMONE_LABEL: Record<HormoneStatus, string> = {
-  MENSTRUATING: '생리',
-  HORMONE_PILL: '호르몬약',
-  HORMONE_INJECTION: '주사',
-  MENOPAUSE: '폐경',
-};
+// 라벨 정의는 lib/profileLabels.ts에 있습니다(2026-08-17 분리) — 마이페이지 부제에서도
+// 같은 표기가 필요한데, 화면이 mock 모듈을 import하면 실서버 모드 번들에 목업이
+// 딸려 들어갑니다. 상단 import 참고.
 
 /** 실제 서버 응답 형태(라벨·값 서버 완성)를 목업으로 흉내 냅니다 — ONBOARD-05 BR4와 동일한 모양 */
 export function buildMockCompleteResult(): CompleteOnboardingResult {

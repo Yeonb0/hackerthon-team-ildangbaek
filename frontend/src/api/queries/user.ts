@@ -1,14 +1,17 @@
 // src/api/queries/user.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { unwrap } from '@/api/unwrap';
+import { ApiError, unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
+import { ErrorCode } from '@/types/errorCodes';
 import { saveNotificationSetting } from '@/api/notification';
 import {
   buildMockIngredientProfile,
   buildMockMyPage,
+  buildMockProfile,
   searchMockLocations,
   updateMockLocation,
+  withdrawMockAccount,
 } from '@/api/mock/user';
 import { useAuthStore } from '@/store/authStore';
 import type {
@@ -16,6 +19,7 @@ import type {
   IngredientStatus,
   LocationItem,
   MyPageResult,
+  ProfileResult,
   UpdateLocationInput,
 } from '@/types/user';
 import type { NotificationSettingInput } from '@/types/onboarding';
@@ -33,6 +37,30 @@ export async function getMyPage(): Promise<MyPageResult> {
 
 export function useMyPage() {
   return useQuery({ queryKey: ['myPage'], queryFn: getMyPage });
+}
+
+// ---------------------------------------------------------------------------
+// GET /users/me/profile (S-23 부제 — 나이·성별)
+//
+// USER-01에 나이·성별이 없어 별도로 부릅니다(백엔드 ProfileResponse에는 존재).
+// 마이페이지가 API 두 개에 의존하므로 이 쿼리는 **실패해도 화면을 막지 않습니다** —
+// 화면에서 data가 없으면 부제를 축약해 렌더합니다.
+// ---------------------------------------------------------------------------
+
+export async function getProfile(): Promise<ProfileResult> {
+  if (USE_MOCK) {
+    return await buildMockProfile();
+  }
+  return unwrap<ProfileResult>(apiClient.get('/users/me/profile'));
+}
+
+export function useProfile() {
+  return useQuery({
+    queryKey: ['profile'],
+    queryFn: getProfile,
+    // 부제 한 줄 때문에 재시도를 오래 끌 이유가 없습니다.
+    retry: 1,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -172,6 +200,39 @@ export function useLogout() {
     onSuccess: () => {
       // RootNavigator가 accessToken === null을 감지해서 자동으로 S-00(로그인)으로 전환합니다.
       // (명시적 navigation 호출이 필요 없는 구조 — RootNavigator.tsx 참고)
+      clearAuth();
+      queryClient.clear();
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 회원 탈퇴 (S-23)
+//
+// ⚠️ 백엔드에 엔드포인트가 없습니다(2026-08-17 확인). User 엔티티에 withdraw()와
+// AccountStatus.WITHDRAWN은 이미 있어서 컨트롤러만 열면 됩니다 —
+// docs/backend-request-account-withdraw.md로 요청했습니다.
+//
+// 실서버 모드에서는 지금 호출하면 404가 납니다. 경로가 열리면 아래 주석 처리된
+// 한 줄로 교체하면 되고, 화면 코드는 손대지 않아도 됩니다.
+// ---------------------------------------------------------------------------
+
+export async function withdrawAccount(): Promise<void> {
+  if (USE_MOCK) {
+    await withdrawMockAccount();
+    return;
+  }
+  // TODO(백엔드 응답 후): return unwrap<void>(apiClient.delete('/users/me'));
+  throw new ApiError(ErrorCode.COMMON_SERVER_ERROR, '탈퇴 기능은 아직 준비 중이에요.');
+}
+
+export function useWithdrawAccount() {
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: withdrawAccount,
+    onSuccess: () => {
+      // 로그아웃과 동일 — RootNavigator가 accessToken null을 보고 S-00으로 보냅니다.
       clearAuth();
       queryClient.clear();
     },

@@ -17,6 +17,8 @@
 // USER-01 · GET /users/me (S-23 마이페이지)
 // ---------------------------------------------------------------------------
 
+import type { Gender, HormoneStatus } from '@/types/onboarding';
+
 export type IngredientStatus = 'GOOD' | 'CAUTION' | 'INSUFFICIENT';
 
 export interface TopIngredientItem {
@@ -42,6 +44,30 @@ export interface MyPageResult {
   skinTypes: string[];
   ingredientProfile: IngredientProfileSummary;
   /** 위치 미설정이면 서버가 null을 줄 수 있음 — 명세서에 명시되어 있진 않지만 방어적으로 nullable 처리. */
+  location: string | null;
+  notificationEnabled: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// GET /users/me/profile (S-23 프로필 부제 — 나이·성별)
+//
+// USER-01(GET /users/me)에는 나이·성별이 없습니다. Figma MyPage(59:7194)의 부제가
+// "26세 · 여성 · 지성·민감성 · 서울 강남구" 형태라 이 둘이 필요한데, 백엔드
+// ProfileResponse에는 이미 gender/age가 있어서 별도 요청 없이 이 엔드포인트를
+// 같이 부릅니다(백엔드 UserController.getProfile 확인, 2026-08-17).
+//
+// ⚠️ 마이페이지가 API 두 개에 의존하게 됩니다. profile 쪽이 실패해도 화면 전체가
+// 죽지 않도록 화면에서 부제만 축약해 렌더합니다.
+// ---------------------------------------------------------------------------
+
+export interface ProfileResult {
+  name: string;
+  gender: Gender;
+  age: number | null;
+  skinTypes: string[];
+  hormoneStatus: HormoneStatus | null;
+  lastPeriodStartDate: string | null;
+  averageCycleDays: number | null;
   location: string | null;
   notificationEnabled: boolean;
 }
@@ -91,4 +117,17 @@ export interface UpdateProfileInput {
   hormoneStatus?: string;
   lastPeriodStartDate?: string;
   averageCycleDays?: number;
+}
+
+// ---------------------------------------------------------------------------
+// 회원 탈퇴 (엔드포인트 미구현 — docs/backend-request-account-withdraw.md 참고)
+//
+// 백엔드 User 엔티티에 withdraw()와 AccountStatus.WITHDRAWN이 이미 있지만
+// UserController에 대응 엔드포인트가 없습니다(2026-08-17 확인). 프론트는 mock으로
+// 두고, 실제 경로가 열리면 queries/user.ts의 withdrawAccount만 바꾸면 됩니다.
+// ---------------------------------------------------------------------------
+
+export interface WithdrawInput {
+  /** 탈퇴 사유(선택). 서버 스펙 미확정이라 optional로 둡니다. */
+  reason?: string;
 }

@@ -199,9 +199,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   miniScoreValue: {
-    fontSize: adjustFontSize(22),
+    // 주아체 자리 — S-18 지표 카드 숫자(22px)와 같은 성격이라 글꼴을 맞춥니다
+    // (관리자 요청, 2026-08-17). adjustFontSize를 쓰지 않는 건 typography.ts 규약이고,
+    // 여기서는 4개가 가로로 나란히 놓여서 하나만 커지면 열이 어긋나기도 합니다.
+    fontSize: 22,
     lineHeight: 30,
-    ...weightFamily('bold'),
+    ...pinDisplayFont('bmjua'),
   },
   miniScoreDelta: {
     marginTop: 2,
