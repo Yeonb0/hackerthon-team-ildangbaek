@@ -1,5 +1,6 @@
 package com.ildangbaek.backend.api.report.service;
 
+import com.ildangbaek.backend.api.report.dto.InsightEventKind;
 import com.ildangbaek.backend.api.report.dto.ReportDailyResponse;
 import com.ildangbaek.backend.api.report.dto.ReportGraphPointResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightDetailResponse;
@@ -11,6 +12,8 @@ import com.ildangbaek.backend.api.report.dto.ReportSummaryMetricResponse;
 import com.ildangbaek.backend.api.report.dto.ReportSummaryResponse;
 import com.ildangbaek.backend.api.skin.dto.SkinRecordResponse;
 import com.ildangbaek.backend.api.skin.service.SkinRecordService;
+import com.ildangbaek.backend.domain.analysis.client.InsightTipClient;
+import com.ildangbaek.backend.domain.analysis.client.InsightTipClient.InsightTipRequest;
 import com.ildangbaek.backend.domain.analysis.entity.AnalysisInsight;
 import com.ildangbaek.backend.domain.analysis.entity.InsightType;
 import com.ildangbaek.backend.domain.analysis.repository.AnalysisInsightRepository;
@@ -92,6 +95,9 @@ public class ReportService {
 
     /** REPORT-02의 자외선 급증 이벤트. */
     private final DailyEnvironmentRepository dailyEnvironmentRepository;
+
+    /** REPORT-02의 관리 팁. 실패해도 상세 응답을 막지 않는다 (ADR 0028). */
+    private final InsightTipClient insightTipClient;
 
     @Transactional(readOnly = true)
     public ReportResponse getReport(Long userId, int period, SkinMetricType metric) {
@@ -236,8 +242,30 @@ public class ReportService {
                 metric,
                 insight.getTitle() + " 추이",
                 subtitleOf(insight.getStartDate(), insight.getEndDate()),
+                insight.getDescription(),
                 buildGraph(records, metric, startDate, endDate),
-                buildEvents(userId, insight, metric, startDate, endDate));
+                buildEvents(userId, insight, metric, startDate, endDate),
+                loadTip(insight, metric));
+    }
+
+    /**
+     * 관리 팁은 ai-server가 생성한다(ADR 0028). 실패하면 {@code null}이다 — 팁이 없어도 상세
+     * 화면은 성립하므로 상세 조회 전체를 막지 않는다.
+     *
+     * <p>AI에 넘기는 시차·변화량은 {@code impact} 문구에 싣는 것과 **같은 기준으로 거른다**
+     * ({@link #firstUsageDelta}). 확정되지 않은 패턴의 변화량을 넘기면 AI가 그 부호로 "악화됐다"고
+     * 단정해 버려, 화면은 "확인 중"인데 팁만 단정하는 모순이 생긴다 (BR 2).
+     */
+    private String loadTip(AnalysisInsight insight, SkinMetricType metric) {
+        Integer delta = firstUsageDelta(insight);
+        return insightTipClient.generateTip(new InsightTipRequest(
+                        insight.getTitle(),
+                        metricName(metric),
+                        insight.getDescription(),
+                        confidenceOf(insight),
+                        delta == null ? null : insight.getLagDays(),
+                        delta == null ? null : BigDecimal.valueOf(delta)))
+                .orElse(null);
     }
 
     /** 기록이 있는 날만이 아니라 창 전체를 조밀하게 채운다 — 결측 날짜는 두 슬롯 모두 {@code null}이다. */
@@ -317,12 +345,15 @@ public class ReportService {
         List<ReportInsightEventResponse> events = new ArrayList<>();
 
         if (insight.getInsightType() == InsightType.INGREDIENT) {
+            Integer delta = firstUsageDelta(insight);
             findFirstUsageDate(userId, insight.getTitle(), startDate, endDate)
                     .map(date -> new ReportInsightEventResponse(
                             date,
                             "%s 이 기간 첫 사용".formatted(insight.getTitle()),
-                            firstUsageImpact(insight, metric),
-                            confidenceOf(insight)))
+                            firstUsageImpact(insight, delta, metric),
+                            confidenceOf(insight),
+                            delta,
+                            InsightEventKind.INGREDIENT_USAGE))
                     .ifPresent(events::add);
         }
 
@@ -332,18 +363,29 @@ public class ReportService {
     }
 
     /**
-     * 확정된 패턴만 시차와 변화량을 문구에 싣는다. 확인 중이거나 두 값이 없으면 단정하지 않는다 (BR 2).
+     * 문구에 실을 수 있는 변화량. 확정되지 않았거나 시차·변화량이 없으면 {@code null}이다 (BR 2) —
+     * {@link #firstUsageImpact}가 "확인 중"으로 폴백하는 조건과 같아, 문구와 {@code delta} 필드가
+     * 어긋날 수 없다.
      */
-    private String firstUsageImpact(AnalysisInsight insight, SkinMetricType metric) {
-        String metricName = metricName(metric);
-        Integer lagDays = insight.getLagDays();
+    private Integer firstUsageDelta(AnalysisInsight insight) {
         BigDecimal averageDelta = insight.getAverageDelta();
-        if (!"OBSERVED".equals(confidenceOf(insight)) || lagDays == null || averageDelta == null) {
+        if (!"OBSERVED".equals(confidenceOf(insight)) || insight.getLagDays() == null || averageDelta == null) {
+            return null;
+        }
+        // 지표값 기준이라 양수면 증상 악화다. 부호를 그대로 보존한다.
+        return averageDelta.intValue();
+    }
+
+    /**
+     * 확정된 패턴만 시차와 변화량을 문구에 싣는다. 확인 중이거나 값이 없으면 단정하지 않는다 (BR 2).
+     */
+    private String firstUsageImpact(AnalysisInsight insight, Integer delta, SkinMetricType metric) {
+        String metricName = metricName(metric);
+        if (delta == null) {
             return "이후 %s 변화를 확인 중이에요".formatted(metricName);
         }
-        // 지표값 기준이라 양수면 증상 악화다. 부호를 그대로 보여준다.
         return "이후 %d일 뒤 %s 수치 %s%d".formatted(
-                lagDays, metricName, averageDelta.signum() < 0 ? "-" : "+", averageDelta.abs().intValue());
+                insight.getLagDays(), metricName, delta < 0 ? "-" : "+", Math.abs(delta));
     }
 
     /**
@@ -390,11 +432,14 @@ public class ReportService {
         if (spikeStart == null || streak < UV_SPIKE_MIN_DAYS) {
             return;
         }
+        // 자외선 이벤트는 변화량을 산출할 근거가 없다 — 단정하지 않는다는 BR 2 그대로다.
         events.add(new ReportInsightEventResponse(
                 spikeStart,
                 "자외선 지수 %d 이상 %d일 연속".formatted(UV_SPIKE_THRESHOLD.intValue(), streak),
                 "이 기간 %s 변화를 확인 중이에요".formatted(metricName(metric)),
-                confidence));
+                confidence,
+                null,
+                InsightEventKind.UV_SPIKE));
     }
 
     /**

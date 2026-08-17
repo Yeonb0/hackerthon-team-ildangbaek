@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ByteArrayResource;
@@ -53,6 +54,9 @@ public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
     private final Path storageDirectory;
     private final String urlPrefix;
 
+    // 생성자가 둘이라 Spring이 주입 대상을 고를 수 없다. 아래 테스트용 생성자가 추가되면서
+    // 컨텍스트 로딩이 깨졌으므로(단위 테스트는 목을 써서 잡히지 않았다) 운영 생성자를 명시한다.
+    @Autowired
     public LocalVisionSkinAnalysisClient(
             RestClient.Builder restClientBuilder,
             @Value("${app.skin.analysis.local-vision.base-url}") String baseUrl,

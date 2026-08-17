@@ -3,8 +3,9 @@
 얼굴 사진에서 피부 지표 4종(트러블 · 홍조 · 모공 · 색소잡티)을 산출하는 FastAPI 서버다.
 Spring Boot의 `LocalVisionSkinAnalysisClient`가 이 서버를 호출한다.
 
-제품 추천 AI 코멘트 생성(`/product-comments`, ADR 0025)도 이 서버가 맡는다. 추천 여부·순서는
-Spring이 규칙 기반으로 정하고, 이 서버는 그 결과에 자연스러운 한 줄 코멘트만 덧붙인다.
+제품 추천 AI 코멘트 생성(`/product-comments`, ADR 0025)과 요인 상세 관리 팁 생성
+(`/insight-tips`, ADR 0028)도 이 서버가 맡는다. 두 경우 모두 판단(추천 여부·순서, 패턴 판정·수치)은
+Spring이 규칙 기반으로 확정하고, 이 서버는 그 결과에 문구만 덧붙인다.
 
 MediaPipe·OpenCV로 CIELAB 규칙 기반 1차 점수를 낸 뒤(`app/metrics.py`), 그 점수를 근거로
 OpenAI Vision에 최종 확정을 요청한다(`app/vision.py`, ADR 0022). OpenAI 호출이
@@ -93,10 +94,10 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 모델 파일은 저장소에 넣지 않는다(`models/`는 gitignore). 경로를 바꾸려면
 `LANDMARKER_MODEL_PATH` 환경변수를 쓴다.
 
-`.env`(gitignore 대상)에 다음을 설정한다. `OPENAI_API_KEY`는 피부 분석 2차 확정(`/analyze`)과
-제품 AI 코멘트(`/product-comments`) 양쪽에 쓰인다. 비어 있으면 `/analyze`는 1차 규칙 기반
-점수만 반환하고, `/product-comments`는 502로 응답한다 — 로컬 개발 시 키 없이도 두 엔드포인트
-모두 정상 동작(폴백)한다.
+`.env`(gitignore 대상)에 다음을 설정한다. `OPENAI_API_KEY`는 피부 분석 2차 확정(`/analyze`) ·
+제품 AI 코멘트(`/product-comments`) · 관리 팁(`/insight-tips`) 세 곳에 쓰인다. 비어 있으면
+`/analyze`는 1차 규칙 기반 점수만 반환하고 나머지 둘은 502로 응답한다 — 로컬 개발 시 키 없이도
+세 엔드포인트 모두 정상 동작(폴백)한다.
 
 | 환경변수 | 기본값 | 설명 |
 | --- | --- | --- |
@@ -123,6 +124,7 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 | GET | `/health` | 헬스 체크 |
 | POST | `/analyze` | `image` multipart 파일을 받아 지표 4종 점수와 1차 원시 측정값 반환 |
 | POST | `/product-comments` | 추천 제품 목록을 받아 제품별 AI 코멘트를 배치로 반환(ADR 0025) |
+| POST | `/insight-tips` | 인사이트 근거를 받아 관리 팁 한 단락을 반환(ADR 0028) |
 
 ```bash
 curl -X POST http://127.0.0.1:8000/analyze -F "image=@face.jpg"
@@ -153,6 +155,19 @@ curl -X POST http://127.0.0.1:8000/product-comments \
 지연·비용이 배로 늘기 때문이다. OpenAI 호출이 실패·타임아웃·비신뢰 응답이면 502와
 `{"code": "COMMENT_UNAVAILABLE"}`를 반환한다. Spring(`ProductCommentClient`)은 이를 예외로
 전파하지 않고 빈 맵으로 흡수해, AI 코멘트 없이도 추천 자체는 정상 응답한다(ADR 0025).
+
+```bash
+curl -X POST http://127.0.0.1:8000/insight-tips \
+  -H "Content-Type: application/json" \
+  -d '{"title":"레티놀","metric":"트러블","summary":"레티놀 사용 후 평균 2일 뒤 트러블 수치가 올라가는 패턴이 감지되었어요.","confidence":"OBSERVED","lag_days":2,"average_delta":18.0}'
+# {"tip":"레티놀은 처음엔 피부 장벽을 약화시킬 수 있어요. 주 2~3회로 줄여 보세요."}
+```
+
+화면당 인사이트가 하나라 배치가 아닌 단건 호출이다. **판정·수치는 Spring이 확정한 값을 근거로
+넘기고 AI는 이를 바꾸지 않는다** — 시스템 프롬프트가 "주어진 근거 밖의 수치를 지어내지 마라"와
+"`confidence`가 `OBSERVING`이면 단정하지 말고 관찰을 권하는 어조로 써라"를 명시한다(BR 2).
+실패 시 502와 `{"code": "TIP_UNAVAILABLE"}`를 반환하고, Spring(`InsightTipClient`)이 이를
+흡수해 `tip=null`인 채 상세 조회는 정상 응답한다(ADR 0028).
 
 ## Spring 연동
 
