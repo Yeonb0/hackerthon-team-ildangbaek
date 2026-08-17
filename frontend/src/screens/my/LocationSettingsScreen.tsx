@@ -12,12 +12,13 @@
 // F-MY-04 BR6 / F-SYSTEM-01 BR4: 위치 권한 거부는 이 화면(S-24)의 수동 설정으로
 // 대체 — 그래서 GPS 권한이 거부돼도 화면 전체를 막지 않고 검색 목록은 계속 씁니다.
 import React, { useState } from 'react';
-import { FlatList, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AppTextInput } from '@/components/base/AppTextInput';
 import { IconBack, IconCheck, IconSearch } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
@@ -130,7 +131,7 @@ export function LocationSettingsScreen() {
             성분 목록 화면과 같은 방식으로 직접 구성합니다. */}
         <View style={styles.searchBox}>
           <IconSearch size={14} color={color.textMuted} />
-          <TextInput
+          <AppTextInput
             value={keyword}
             onChangeText={setKeyword}
             placeholder="지역 설정을 직접 입력해요"

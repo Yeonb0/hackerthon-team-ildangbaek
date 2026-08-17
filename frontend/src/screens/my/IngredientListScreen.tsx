@@ -30,10 +30,11 @@
 //     깨짐). 1px 실선으로 둡니다.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppTextInput } from '@/components/base/AppTextInput';
 import { Tag, TagVariant } from '@/components/base/Tag';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { LoadingState } from '@/components/state/LoadingState';
@@ -116,7 +117,7 @@ export function IngredientListScreen() {
             없음) 대신 여기서 직접 구성합니다. */}
         <View style={styles.searchBox}>
           <IconSearch size={14} color={color.textMuted} />
-          <TextInput
+          <AppTextInput
             value={keyword}
             onChangeText={setKeyword}
             placeholder="성분 검색"

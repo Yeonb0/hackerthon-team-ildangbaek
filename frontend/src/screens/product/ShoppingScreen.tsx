@@ -318,7 +318,7 @@ export function ShoppingScreen() {
           </View>
         ) : checkHomeQuery.isError || !checkHomeQuery.data ? (
           <View style={styles.panelCard}>
-            <ErrorState variant="network" onRetry={() => checkHomeQuery.refetch()} />
+            <ErrorState variant="network" layout="inline" onRetry={() => checkHomeQuery.refetch()} />
           </View>
         ) : recommendations.length === 0 ? (
           <View style={styles.panelCard}>
@@ -399,6 +399,7 @@ export function ShoppingScreen() {
                       <Chip
                         key={ing.ingredientId}
                         label={ing.name}
+                        variant="solid"
                         selected={ing.name === effectiveSelectedIngredient}
                         onPress={() => setSelectedIngredient(ing.name)}
                       />
@@ -617,7 +618,7 @@ function SearchArea({
       {trimmed.length === 0 ? null : query.isLoading ? (
         <LoadingState variant="skeleton" skeletonLines={3} />
       ) : query.isError || !query.data ? (
-        <ErrorState variant="network" onRetry={() => query.refetch()} />
+        <ErrorState variant="network" layout="inline" onRetry={() => query.refetch()} />
       ) : query.data.totalCount === 0 ? (
         <EmptyState icon="search" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
       ) : (

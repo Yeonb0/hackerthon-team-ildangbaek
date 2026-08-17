@@ -100,7 +100,12 @@ export const ProductCameraCapture = forwardRef<
   if (!permission.granted) {
     return (
       <View style={[styles.fallback, style]}>
-        <PermissionDenied type="camera" />
+        <PermissionDenied
+          type="camera"
+          layout="inline"
+          stage={permission.canAskAgain ? 'request' : 'guide'}
+          onRequest={permission.canAskAgain ? requestPermission : undefined}
+        />
       </View>
     );
   }

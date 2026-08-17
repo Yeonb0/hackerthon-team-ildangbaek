@@ -3,7 +3,7 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { AreaTrendChart, weekdayLabel } from '@/components/chart/AreaTrendChart';
 import { LoadingState } from '@/components/state/LoadingState';
-import { IconMinus } from '@/components/icons';
+import { AppIcon, IconMinus } from '@/components/icons';
 import { color, metricAccent, reportColor, space } from '@/theme/tokens';
 import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { ReportSummaryResult, MetricKey, ReportPeriod } from '@/types/report';
@@ -135,9 +135,10 @@ function DeltaText({
   const deltaColor = good ? reportColor.safe : reportColor.caution;
   return (
     <View style={[styles.deltaRow, style]}>
-      <Text style={[styles.deltaText, { color: deltaColor }]}>
-        {isUp ? '▲' : '▼'} {Math.abs(delta)}
-      </Text>
+      {/* ▲/▼ 문자 → 아이콘 세트 (2026-08-17 세션 15, 관리자 요청).
+          글리프가 비어 있을 위험도 함께 사라집니다. */}
+      <AppIcon name={isUp ? 'arrowUp' : 'arrowDown'} size={9} color={deltaColor} />
+      <Text style={[styles.deltaText, { color: deltaColor }]}>{Math.abs(delta)}</Text>
     </View>
   );
 }
@@ -212,6 +213,9 @@ const styles = StyleSheet.create({
   deltaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    // 화살표 아이콘과 숫자 사이. 예전엔 '▲ 3'처럼 문자열 안의 공백이 이 간격을
+    // 만들었는데, 아이콘으로 바뀌면서 직접 줘야 합니다.
+    gap: 2,
   },
   deltaText: {
     fontSize: adjustFontSize(10),
