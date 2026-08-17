@@ -9,12 +9,15 @@ import logging
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 
-from app import pipeline, product_comment
+from app import insight_tip, pipeline, product_comment
 from app.errors import AnalysisError
+from app.insight_tip import InsightTipUnavailableError
 from app.product_comment import ProductCommentUnavailableError
 from app.schema import (
     AnalyzeErrorResponse,
     AnalyzeResponse,
+    InsightTipRequest,
+    InsightTipResponse,
     ProductCommentBatchRequest,
     ProductCommentBatchResponse,
 )
@@ -75,3 +78,20 @@ async def product_comments(request: ProductCommentBatchRequest) -> ProductCommen
         return JSONResponse(status_code=502, content={"code": "COMMENT_UNAVAILABLE"})
 
     return ProductCommentBatchResponse(comments=comments)
+
+
+@app.post("/insight-tips", response_model=InsightTipResponse)
+async def insight_tips(request: InsightTipRequest) -> InsightTipResponse:
+    """요인 상세(REPORT-02) 인사이트 한 건에 대한 관리 팁을 생성한다.
+
+    패턴 판정·수치는 Spring이 이미 확정한 상태다. 이 엔드포인트는 그 근거를 받아 조언
+    문장만 덧붙인다. OpenAI 실패는 502로 응답한다 — Spring이 이를 잡아 팁 없이(tip=null)
+    상세 응답 자체는 정상 반환하도록 폴백한다(ADR 0025와 동일한 패턴).
+    """
+    try:
+        tip = insight_tip.generate(request)
+    except InsightTipUnavailableError as e:
+        log.warning("인사이트 관리 팁 생성 실패, 폴백: %s", e)
+        return JSONResponse(status_code=502, content={"code": "TIP_UNAVAILABLE"})
+
+    return InsightTipResponse(tip=tip)

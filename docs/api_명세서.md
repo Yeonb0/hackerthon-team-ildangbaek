@@ -2216,7 +2216,8 @@ json
         "brand": "라로슈포제",
         "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요",
         "category": "MATCHED_INGREDIENT",
-        "aiComment": "판테놀이 진정에 도움을 줘요"
+        "aiComment": "판테놀이 진정에 도움을 줘요",
+        "tags": ["잘 맞는 성분", "주의 성분 미포함"]
       },
       {
         "productId": 82,
@@ -2224,7 +2225,8 @@ json
         "brand": "마누카",
         "reason": "히알루론산 반응이 좋았어요",
         "category": "TODAY_NEEDED",
-        "aiComment": null
+        "aiComment": null,
+        "tags": ["트러블 진정 성분"]
       }
     ],
     "todayContext": {
@@ -2261,6 +2263,17 @@ json
    여기에 문구만 덧붙인다. ai-server 호출이 실패·타임아웃되면 `aiComment`는 `null`이고, 이 실패는
    `failedSections`에 반영되지 않는다(BR 5) — AI 코멘트는 추천의 전제 조건이 아니므로 200 응답을
    그대로 유지한다.
+8. **태그 칩(ADR 0027)**: `recommendations[].tags`는 추천 카드에 함께 노출하는 짧은 근거 칩이며,
+   **AI가 아니라 규칙으로 도출한다** — 단정문이라 틀리면 사실오류가 그대로 노출되기 때문이다.
+   길이는 1 또는 2다.
+
+   | 칩 | 근거 |
+   | --- | --- |
+   | 1 (항상) | `category`(BR 6) → `TODAY_NEEDED`=`"트러블 진정 성분"` · `HUMIDITY_CARE`=`"보습 강화 성분"` · `MATCHED_INGREDIENT`=`"잘 맞는 성분"` |
+   | 2 (조건부) | 사용자 프로파일 기준 `CAUTION` 성분이 이 제품에 **없을 때만** `"주의 성분 미포함"` |
+
+   CAUTION 성분이 있으면 두 번째 칩을 붙이지 않는다(칩 1개만 나간다). "주의 성분 포함" 같은 부정
+   문구는 넣지 않는다 — 추천 카드는 권하는 자리이고, 주의 성분 노출은 CHECK-02가 담당한다.
 
 ---
 
@@ -2547,6 +2560,7 @@ json
     "metric": "TROUBLE",
     "title": "트러블 추이",
     "subtitle": "최근 30일 · 이벤트와 상관관계",
+    "summary": "레티놀 사용 후 평균 2일 뒤 트러블 수치가 반복적으로 올라가는 패턴이 감지되었어요.",
 
     "graph": [
       { "date": "2026-07-08", "morningScore": 64, "nightScore": 68 },
@@ -2558,15 +2572,21 @@ json
         "date": "2026-07-10",
         "label": "레티놀 이 기간 첫 사용",
         "impact": "이후 2일 뒤 트러블 수치 +18",
-        "confidence": "OBSERVED"
+        "confidence": "OBSERVED",
+        "delta": 18,
+        "eventKind": "INGREDIENT_USAGE"
       },
       {
         "date": "2026-07-22",
         "label": "자외선 지수 8 이상 3일 연속",
         "impact": "이 기간 트러블 변화를 확인 중이에요",
-        "confidence": "OBSERVING"
+        "confidence": "OBSERVING",
+        "delta": null,
+        "eventKind": "UV_SPIKE"
       }
-    ]
+    ],
+
+    "tip": "레티놀은 처음엔 피부 장벽을 약화시킬 수 있어요. 주 2~3회로 줄이거나, 보습제를 함께 쓰는 버퍼링 방식을 시도해 보세요."
   }
 }
 ```
@@ -2583,6 +2603,19 @@ json
 5. `insightId`는 영속 식별자가 아니다. F-ANALYSIS-01이 피부 기록 저장마다 성분 인사이트를 지우고
    다시 넣으므로, 이전에 받은 id로 조회하면 404가 나는 것이 정상이다.
 6. 도출할 이벤트가 없으면 빈 배열이며 오류가 아니다.
+7. **이벤트 구조화 필드(ADR 0027)**: `events[].delta`는 `impact` 문구에 실린 지표 변화량을 부호 있는
+   정수로 그대로 낸 값이고, `events[].eventKind`는 도출 유형(`INGREDIENT_USAGE`/`UV_SPIKE`)이다.
+   클라이언트가 `impact` 문구를 파싱해 수치·유형을 복원하지 않도록 두는 필드이므로, `impact` 문구
+   형식에 의존하는 구현을 만들지 않는다. **`delta`는 `impact`가 단정하는 경우에만 값이 있다** —
+   BR 2로 문구가 "확인 중"으로 폴백하면 `delta`도 `null`이며, 둘이 어긋나지 않는다. 자외선 이벤트는
+   변화량 근거가 없어 항상 `null`이다. `eventKind`에 "성분 재시작"에 해당하는 값은 없다(BR 4).
+8. **`subtitle`과 `summary`는 다른 값이다(ADR 0027)**: `subtitle`은 기간 길이를 알리는 메타 문구
+   (`"최근 30일 · 이벤트와 상관관계"`)이고, `summary`는 F-ANALYSIS-01이 인사이트에 저장해 둔 분석
+   요약 문장(REPORT-01 `insights[].description`과 같은 값)이다. 저장된 값이 없으면 `null`이다.
+9. **관리 팁(ADR 0028)**: `tip`은 ai-server가 인사이트의 근거(요인·지표·신뢰도·시차·변화량)를 받아
+   생성한 관리 조언이다. 패턴 판정·수치는 서버가 이미 확정한 상태이고 AI는 이를 바꾸지 않는다.
+   ai-server 호출이 실패·타임아웃되면 `tip`은 `null`이며, 이때도 상세 조회는 200이다 — 팁은 상세
+   화면의 전제 조건이 아니다. 클라이언트는 `null`이면 팁 섹션을 감춘다.
 
 **이벤트 도출 기준**
 

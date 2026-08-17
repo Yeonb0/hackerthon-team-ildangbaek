@@ -96,3 +96,22 @@ class ProductComment(BaseModel):
 
 class ProductCommentBatchResponse(BaseModel):
     comments: list[ProductComment]
+
+
+class InsightTipRequest(BaseModel):
+    """관리 팁을 생성할 인사이트 한 건. Spring의 `ReportInsightDetailResponse` 조립 시점 정보다.
+
+    분석·판정은 Spring이 이미 끝낸 상태다. 여기서는 그 결과를 근거로 조언 문장만 쓴다 —
+    수치를 새로 만들거나 패턴 판정을 바꾸지 않는다.
+    """
+
+    title: str
+    metric: str
+    summary: str | None = None
+    confidence: str
+    lag_days: int | None = None
+    average_delta: float | None = None
+
+
+class InsightTipResponse(BaseModel):
+    tip: str

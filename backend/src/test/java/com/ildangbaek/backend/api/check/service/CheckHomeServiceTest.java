@@ -2,7 +2,10 @@ package com.ildangbaek.backend.api.check.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -110,6 +113,45 @@ class CheckHomeServiceTest {
         CheckRecommendationResponse recommendation = response.recommendations().get(0);
         assertThat(recommendation.productId()).isEqualTo(71L);
         assertThat(recommendation.reason()).contains("판테놀").contains("마데카소사이드");
+    }
+
+    @Test
+    @DisplayName("주의 성분 프로파일이 없으면 대조할 것이 없어 조회하지 않고 미포함 칩을 붙인다")
+    void tagsCautionFreeWhenNoCautionProfile() {
+        when(ingredientProfileRepository.findAllByUserIdWithIngredient(USER_ID)).thenReturn(List.of(
+                profile(3L, "판테놀", ReactionType.SUITABLE)));
+
+        Product product = product(71L, "라로슈포제 시카플라스트", "라로슈포제");
+        when(productIngredientRepository.findAllWithProductByIngredientIdInAndKeyIngredientTrue(List.of(3L)))
+                .thenReturn(List.of(productIngredient(product, ingredient(3L, "판테놀"))));
+
+        CheckHomeResponse response = service.getHome(USER_ID);
+
+        assertThat(response.recommendations().get(0).tags())
+                .containsExactly("잘 맞는 성분", "주의 성분 미포함");
+        verify(productIngredientRepository, never()).findAllWithIngredientByProductIdIn(anyList());
+    }
+
+    @Test
+    @DisplayName("제품이 사용자의 CAUTION 성분을 가지면 미포함 칩을 붙이지 않는다 — 근거 있는 칩만 낸다")
+    void omitsCautionFreeTagWhenProductHasCautionIngredient() {
+        when(ingredientProfileRepository.findAllByUserIdWithIngredient(USER_ID)).thenReturn(List.of(
+                profile(3L, "판테놀", ReactionType.SUITABLE),
+                profile(9L, "향료", ReactionType.CAUTION)));
+
+        Product product = product(71L, "라로슈포제 시카플라스트", "라로슈포제");
+        Ingredient panthenol = ingredient(3L, "판테놀");
+        Ingredient fragrance = ingredient(9L, "향료");
+        when(productIngredientRepository.findAllWithProductByIngredientIdInAndKeyIngredientTrue(List.of(3L)))
+                .thenReturn(List.of(productIngredient(product, panthenol)));
+        when(productIngredientRepository.findAllWithIngredientByProductIdIn(List.of(71L)))
+                .thenReturn(List.of(
+                        productIngredient(product, panthenol),
+                        productIngredient(product, fragrance)));
+
+        CheckHomeResponse response = service.getHome(USER_ID);
+
+        assertThat(response.recommendations().get(0).tags()).containsExactly("잘 맞는 성분");
     }
 
     @Test

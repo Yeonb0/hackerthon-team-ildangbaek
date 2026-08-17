@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from app import config, product_comment
+from app import config, insight_tip, product_comment
 from app.main import app
 from tests.conftest import draw_face, encode_jpeg
 
@@ -132,4 +132,58 @@ def test_product_comments_falls_back_to_502_on_failure(monkeypatch: pytest.Monke
 
     assert response.status_code == 502
     assert response.json()["code"] == "COMMENT_UNAVAILABLE"
+    config.get_settings.cache_clear()
+
+
+INSIGHT_TIP_BODY = {
+    "title": "레티놀",
+    "metric": "트러블",
+    "summary": "레티놀 사용 후 평균 2일 뒤 트러블 수치가 올라가는 패턴이 감지되었어요.",
+    "confidence": "OBSERVED",
+    "lag_days": 2,
+    "average_delta": 18.0,
+}
+
+
+def test_insight_tips_returns_generated_tip(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    config.get_settings.cache_clear()
+    insight_tip._client.cache_clear()
+
+    class _FakeMessage:
+        content = json.dumps({"tip": "주 2~3회로 줄여 보세요."})
+
+    class _FakeChoice:
+        message = _FakeMessage()
+
+    class _FakeResponse:
+        choices = [_FakeChoice()]
+
+    class _FakeCompletions:
+        def create(self, **_kwargs: object) -> _FakeResponse:
+            return _FakeResponse()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        chat = _FakeChat()
+
+    monkeypatch.setattr(insight_tip, "_client", lambda: _FakeClient())
+
+    response = client.post("/insight-tips", json=INSIGHT_TIP_BODY)
+
+    assert response.status_code == 200
+    assert response.json() == {"tip": "주 2~3회로 줄여 보세요."}
+    config.get_settings.cache_clear()
+
+
+def test_insight_tips_falls_back_to_502_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    config.get_settings.cache_clear()
+
+    response = client.post("/insight-tips", json=INSIGHT_TIP_BODY)
+
+    assert response.status_code == 502
+    assert response.json()["code"] == "TIP_UNAVAILABLE"
     config.get_settings.cache_clear()
