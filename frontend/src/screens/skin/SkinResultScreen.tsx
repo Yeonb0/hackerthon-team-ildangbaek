@@ -1,41 +1,107 @@
 // SkinResultScreen.tsx
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Card } from '@/components/base/Card';
+import { GradientNumber } from '@/components/base/GradientNumber';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
-import { DeltaBadge, MetricScoreList } from '@/components/domain/MetricScoreList';
-import { SkinDiamondChart } from '@/components/domain/SkinDiamondChart';
-import { toMetricList } from '@/api/adapters';
+import { MetricScoreList } from '@/components/domain/MetricScoreList';
+import { RadarChart } from '@/components/chart/RadarChart';
+import { IconBack } from '@/components/icons';
+import { toMetricList, type MetricListItem } from '@/api/adapters';
 import { getSkinRecordToday } from '@/api/skin';
 import { ApiError } from '@/api/unwrap';
 import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
-import { color, space, typography } from '@/theme';
+import { color, metricAccent, reportCardShadow, reportColor, space } from '@/theme/tokens';
+import { weightFamily, adjustFontSize } from '@/theme/typography';
 import type { SkinRecordResult } from '@/types/skin';
-import { adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
+
+/**
+ * SKIN-01 기준점. 첫 기록엔 비교 대상이 없어서(comparison === null) Figma가 "기준점(50)
+ * 대비"로 표기합니다 — 서버가 주는 값이 아니라 화면 표기용 상수입니다.
+ */
+const BASELINE_SCORE = 50;
+
+/**
+ * 지표 점수 등급. 지표 4종은 모두 **낮을수록 좋음**입니다(REPORT-01 BR7, Figma TodaySkin).
+ *
+ * 경계값은 Figma 118:9423 실측에서 역산했습니다 — 트러블 38·모공 44·색소잡티 55가 전부
+ * "보통", 홍조 62가 "주의"입니다. 따라서 좋음 경계는 30, 주의 경계는 60입니다.
+ * ⚠️ 기획이 정한 임계값이 아니라 화면 한 장에서 역산한 값이라 확인이 필요합니다.
+ */
+const GRADE_GOOD_BELOW = 30;
+const GRADE_CAUTION_FROM = 60;
+
+function gradeOf(score: number): { label: string; accent: string } {
+  if (score < GRADE_GOOD_BELOW) return { label: '좋음', accent: reportColor.safe };
+  if (score < GRADE_CAUTION_FROM) return { label: '보통', accent: reportColor.amber };
+  return { label: '주의', accent: reportColor.caution };
+}
+
+/** Figma 118:9504 등의 지표별 한 줄 설명. 등급에 따라 문구가 바뀝니다. */
+const METRIC_PHRASE: Record<string, [good: string, normal: string, caution: string]> = {
+  trouble: ['트러블이 거의 없어요', '트러블이 조금 있어요', '트러블이 많은 편이에요'],
+  redness: ['홍조가 거의 없어요', '홍조가 약간 있어요', '홍조가 뚜렷해요'],
+  pores: ['모공이 눈에 띄지 않아요', '모공이 보통 수준이에요', '모공이 넓은 편이에요'],
+  pigmentation: ['잡티가 거의 없어요', '잡티가 중간 수준이에요', '잡티가 많은 편이에요'],
+};
+
+function phraseOf(item: MetricListItem): string {
+  const set = METRIC_PHRASE[item.key];
+  if (!set) return '';
+  if (item.score < GRADE_GOOD_BELOW) return set[0];
+  if (item.score < GRADE_CAUTION_FROM) return set[1];
+  return set[2];
+}
 
 /**
  * S-18 분석 결과. GET /skin-records/today를 항상 새로 호출합니다 — S-17에서 방금 분석을
  * 마치고 들어온 경우든, 기록 허브에서 이미 완료된 기록을 다시 보러 들어온 경우든
  * "오늘 이 시간대 기록을 보여준다"는 점에서 동일해서 같은 코드 경로로 처리합니다.
  *
- * 확인 버튼 → 닫기/리포트 보러가기 2버튼 (관리자님 요청, 2026-08-10): TBD-10b A안
- * (관리자 확인, 2026-08-09) — 기록은 SKIN-01 POST 시점에 이미 저장이 끝난 상태라
- * 둘 다 추가 저장은 하지 않습니다.
- * - 닫기: 그냥 화면을 닫습니다(goBack). S-17에서 replace로 넘어온 경우든 기록
- *   허브에서 navigate로 들어온 경우든, 바로 이전 화면이 항상 기록 허브(Tabs)라서
- *   goBack 하나로 충분합니다.
- * - 리포트 보러가기: S-19(리포트 탭)로 이동합니다. 이 시점부터는 촬영 플로우로
- *   돌아갈 이유가 없어서(같은 시간대 재기록은 서버가 409로 막음), navigate 대신
- *   reset으로 스택을 [Tabs(Report)] 하나로 정리합니다 — FaceCaptureScreen의 reset
- *   패턴과 동일한 이유(state 없이 'Tabs'만 넣으면 탭 내비게이터가 기본 탭인 홈으로
- *   열리는 버그가 있어서, Report 탭 상태를 명시합니다).
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 2026-08-17(세션 13) — Figma 컬러 확정본 전면 반영. **화면이 두 갈래로 나뉩니다.**
+ *
+ *   ① 첫 기록 (comparison === null) → `FirstSkinResult` (node 59:6527)
+ *      "첫 기록이에요! 🎉" + 그라데이션 총점 원 + 지표 4종 2×2 그리드.
+ *      예전엔 같은 레이아웃에서 "첫 기록입니다" 한 줄만 바뀌었는데, Figma가 축하 화면을
+ *      따로 그려놨습니다 — 비교할 이전 값이 없으니 증감·등급을 보여줄 수 없고, 대신
+ *      "이 값이 앞으로의 기준"이라는 맥락을 주는 화면입니다.
+ *
+ *   ② 그 외 (comparison 있음) → `TodaySkin` (node 118:9423)
+ *      헤더 블록(총점 56px + "/100" + 기준 대비) → 레이더 카드 → 지표 카드 2×2 →
+ *      전체 리포트 보기 / 홈으로 가기.
+ *      다이아몬드 차트(SkinDiamondChart) → 레이더 차트로 교체됐고, 지표 카드가
+ *      등급 배지 + 프로그레스 바 + 한 줄 설명 구조로 바뀌었습니다.
+ *
+ * ⚠️ Figma TodaySkin의 총점 56px은 그라데이션 텍스트(`bg-clip-text`)인데 **솔리드로
+ * 대체**했습니다(관리자 결정). 리포트 홈 총점에서 같은 판단을 이미 내렸고, 텍스트
+ * 그라데이션은 MaskedView 부팅 크래시 이력이 있습니다(GradientNumber.tsx 주석 참고).
+ * 첫 기록 화면의 총점은 **원형 배경**이라 마스킹이 필요 없어 GradientNumber를 그대로
+ * 씁니다 — 세션 11에서 미사용이 된 컴포넌트가 여기서 되살아납니다.
+ *
+ * ⚠️ Figma FirstSkinResult의 지표 색 배치(트러블=핑크, 홍조=보라, 모공=보라,
+ * 색소잡티=핑크)는 `metricAccent`(트러블=caution, 홍조=pink, 색소잡티=amber,
+ * 모공=purple)와 어긋납니다. 같은 파일의 TodaySkin은 metricAccent와 일치하므로,
+ * **두 화면이 같은 지표를 다른 색으로 그리지 않도록 metricAccent를 정본**으로 삼았습니다.
+ *
+ * 하단 버튼: Figma가 "전체 리포트 보기"(Primary) + "홈으로 가기"(텍스트) 2개로 확정해서,
+ * 기존 "닫기 / 리포트 보러가기" 2버튼 구성을 교체했습니다. 기록은 SKIN-01 POST 시점에
+ * 이미 저장이 끝난 상태라 둘 다 추가 저장은 하지 않습니다(TBD-10b A안).
+ *
+ * ⚠️ **지표 점수 방향 주의.** 이 화면은 `scores`를 "낮을수록 좋음"으로 해석합니다 —
+ * REPORT-01 BR7과 Figma TodaySkin(홍조 62 = "주의") 둘 다 그 방향입니다. 다만 SKIN-01
+ * 명세 예시는 반대로 읽힙니다(trouble 74·redness 66인데 totalScore 78). 백엔드
+ * `calculateTotalScore`가 4지표 단순 평균(ADR 0008)이라, 지표가 "낮을수록 좋음"이면
+ * 총점도 "낮을수록 좋음"이 되어 명세의 "totalScore는 높을수록 좋다"와 충돌합니다.
+ * 백엔드 확인이 필요한 항목입니다 — 방향이 뒤집히면 gradeOf/phraseOf만 반대로 바꾸면
+ * 되도록 임계값을 상수로 빼뒀습니다.
  *
  * ⚠️ 기록이 아예 없는 상태로 이 화면에 들어오는 건(SKIN_RECORD_NOT_FOUND) 정상 흐름상
  * 발생하지 않습니다 — 기록 허브가 completed일 때만 이 화면으로 보내기 때문입니다.
@@ -65,21 +131,17 @@ export function SkinResultScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleClose = () => {
-    navigation.goBack();
+  const handleGoHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Tabs', state: { routes: [{ name: MainTabRoutes.Home }] } }],
+    });
   };
 
   const handleGoToReport = () => {
     navigation.reset({
       index: 0,
-      routes: [
-        {
-          name: 'Tabs',
-          state: {
-            routes: [{ name: MainTabRoutes.Report }],
-          },
-        },
-      ],
+      routes: [{ name: 'Tabs', state: { routes: [{ name: MainTabRoutes.Report }] } }],
     });
   };
 
@@ -92,149 +154,385 @@ export function SkinResultScreen() {
   }
 
   const metrics = toMetricList(result.scores, result.comparison?.changes ?? null);
-  const totalDelta = result.comparison
-    ? result.totalScore - result.comparison.previousTotalScore
-    : null;
+  const isFirstRecord = result.comparison === null;
 
-  return (
-    <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space[5] }]}>
-        <Text style={styles.title}>오늘의 피부 분석</Text>
+  // ─────────────────────────────── ① 첫 기록 ───────────────────────────────
+  if (isFirstRecord) {
+    return (
+      <View style={styles.firstScreen}>
+        <ScrollView
+          contentContainerStyle={[styles.firstContent, { paddingTop: insets.top + space[6] }]}
+        >
+          <Text style={styles.firstTitle}>첫 기록이에요! 🎉</Text>
+          <GradientNumber value={result.totalScore} fontSize={28} size={160} style={styles.firstScoreCircle} />
+          <Text style={styles.firstLead}>이 결과가 기준 데이터로 저장돼요</Text>
+          <Text style={styles.firstCaption}>앞으로 변화를 이 점수와 비교해드려요</Text>
 
-        <View style={styles.totalScoreBlock}>
-          <Text style={styles.totalScoreValue}>{result.totalScore}</Text>
-          <Text style={styles.totalScoreUnit}>점</Text>
-        </View>
-
-        {totalDelta === null ? (
-          <Text style={styles.totalComparison}>첫 기록입니다</Text>
-        ) : (
-          <Text style={styles.totalComparison}>
-            {result.comparison?.comparedTo}보다 {Math.abs(totalDelta)}점{' '}
-            {totalDelta > 0 ? '올랐어요' : totalDelta < 0 ? '낮아졌어요' : '똑같아요'}
-          </Text>
-        )}
-
-        {metrics.length === 4 ? (
-          <>
-            <SkinDiamondChart items={metrics} style={styles.chart} />
-            {/* 관리자님 요청(2026-08-14) — 카드 형태로 변경(테두리+배경). 증감
-                화살표(▲/▼)는 기존 막대바 리스트의 DeltaBadge를 그대로 재사용합니다. */}
-            <View style={styles.summaryRow}>
+          <View style={styles.firstGridCard}>
+            <View style={styles.firstGrid}>
               {metrics.map((item) => (
-                <View key={item.key} style={styles.summaryCard}>
-                  <Text style={styles.summaryScore}>{item.score}</Text>
-                  <Text style={styles.summaryLabel}>{item.label}</Text>
-                  <DeltaBadge delta={item.delta} />
+                <View key={item.key} style={styles.firstGridCell}>
+                  <Text style={styles.firstGridLabel}>{item.label}</Text>
+                  <Text
+                    style={[styles.firstGridScore, { color: metricAccent[asMetricKey(item.key)] }]}
+                  >
+                    {item.score}
+                  </Text>
                 </View>
               ))}
             </View>
-          </>
-        ) : (
-          // 지표가 4개가 아닌 예외적인 경우(운영 중 지표 개수가 바뀌는 등) — 다이아몬드
-          // 차트는 4축 고정이라 못 그리므로 기존 막대바 리스트로 안전하게 폴백합니다.
-          <Card style={styles.metricsCard}>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.firstFooter, { paddingBottom: insets.bottom + space[6] }]}>
+          <Button label="자세한 피부 결과 보기" variant="primary" onPress={handleGoToReport} />
+          <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
+            <Text style={styles.textButton}>홈으로 가기</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // ────────────────────────────── ② 오늘의 피부 ──────────────────────────────
+  const totalDelta = result.comparison
+    ? result.totalScore - result.comparison.previousTotalScore
+    : null;
+  const deltaAccent =
+    totalDelta === null || totalDelta === 0
+      ? color.textSub
+      : totalDelta > 0
+        ? reportColor.safe
+        : reportColor.caution;
+
+  const radarItems = metrics.map((item) => ({
+    key: item.key,
+    label: item.label,
+    score: item.score,
+    accent: metricAccent[asMetricKey(item.key)],
+  }));
+
+  return (
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
+          <View style={styles.headerNav}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel="뒤로가기"
+              hitSlop={12}
+            >
+              <IconBack size={18} color={color.textInk} />
+            </Pressable>
+            <Text style={styles.headerTitle}>오늘의 피부</Text>
+          </View>
+
+          <View style={styles.totalBlock}>
+            <Text style={styles.totalLabel}>종합 피부 점수</Text>
+            <View style={styles.totalRow}>
+              {/* Figma는 그라데이션 텍스트지만 솔리드로 대체 — 파일 상단 주석 참고. */}
+              <Text style={styles.totalValue}>{result.totalScore}</Text>
+              <Text style={styles.totalUnit}>/ 100</Text>
+            </View>
+            <Text style={styles.totalCompare}>
+              {result.comparison?.comparedTo ?? `기준점(${BASELINE_SCORE})`} 대비{' '}
+              <Text style={[styles.totalCompareValue, { color: deltaAccent }]}>
+                {totalDelta !== null && totalDelta > 0 ? '+' : ''}
+                {totalDelta ?? 0}
+              </Text>
+            </Text>
+          </View>
+        </View>
+
+        {radarItems.length >= 3 ? (
+          <View style={styles.radarCard}>
+            <RadarChart items={radarItems} size={220} showValues />
+          </View>
+        ) : null}
+
+        <View style={styles.metricGrid}>
+          {metrics.map((item) => {
+            const accent = metricAccent[asMetricKey(item.key)];
+            const grade = gradeOf(item.score);
+            return (
+              <View key={item.key} style={styles.metricCard}>
+                <View style={styles.metricCardHead}>
+                  <Text style={styles.metricCardName}>{item.label}</Text>
+                  <View style={[styles.gradeBadge, { backgroundColor: tint(grade.accent) }]}>
+                    <Text style={[styles.gradeBadgeText, { color: grade.accent }]}>
+                      {grade.label}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.max(0, Math.min(100, item.score))}%`, backgroundColor: accent },
+                    ]}
+                  />
+                </View>
+                <View style={styles.metricCardFoot}>
+                  <Text style={styles.metricPhrase} numberOfLines={2}>
+                    {phraseOf(item)}
+                  </Text>
+                  <Text style={[styles.metricScore, { color: accent }]}>{item.score}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {radarItems.length < 3 ? (
+          // 지표가 3개 미만인 예외 상황(운영 중 지표 구성이 바뀌는 등) — 레이더를 못
+          // 그리므로 기존 막대바 리스트로 안전하게 폴백합니다.
+          <Card style={styles.fallbackCard}>
             <MetricScoreList items={metrics} />
           </Card>
-        )}
+        ) : null}
       </ScrollView>
 
-      {/* 관리자님 요청(2026-08-14) — 버튼이 콘텐츠 짧을 때 화면 위쪽에 붙어있던 문제를
-          고치기 위해 스크롤 영역 밖으로 빼서 화면 하단에 고정합니다. */}
-      <View style={[styles.buttonRow, { paddingBottom: insets.bottom + space[5] }]}>
-        <Button label="닫기" variant="secondary" onPress={handleClose} style={styles.buttonHalf} />
-        <Button
-          label="리포트 보러가기"
-          variant="primary"
-          onPress={handleGoToReport}
-          style={styles.buttonHalf}
-        />
+      <View style={[styles.footer, { paddingBottom: insets.bottom + space[5] }]}>
+        <Button label="전체 리포트 보기" variant="primary" onPress={handleGoToReport} />
+        <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
+          <Text style={styles.textButton}>홈으로 가기</Text>
+        </Pressable>
       </View>
     </View>
   );
 }
 
+/** metricAccent는 확정 4지표만 키로 갖습니다. 서버가 다른 키를 보내도 색이 없다고
+ *  화면이 죽지 않게 trouble로 폴백합니다(라벨은 adapters가 이미 폴백 처리). */
+function asMetricKey(key: string): keyof typeof metricAccent {
+  return key in metricAccent ? (key as keyof typeof metricAccent) : 'trouble';
+}
+
+/** 등급 배지 배경 — accent의 옅은 알파(Figma rgba(...,0.13)). */
+function tint(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.13)`;
+}
+
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: color.bg,
+  // --- ① 첫 기록 (FirstSkinResult) ---
+  firstScreen: { flex: 1, backgroundColor: color.surfaceLavenderPale },
+  firstContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space[6],
+    paddingBottom: space[6],
   },
-  content: {
-    padding: space[5],
-    gap: space[4],
-    backgroundColor: color.bg,
+  firstTitle: {
+    fontSize: adjustFontSize(22),
+    lineHeight: 31,
+    ...weightFamily('bold'),
+    color: color.textInk,
+    paddingBottom: space[4],
   },
-  title: {
-    ...typography.h1,
-    color: color.ink900,
+  firstScoreCircle: { marginBottom: space[6] },
+  firstLead: {
+    fontSize: adjustFontSize(15),
+    lineHeight: 22,
+    ...weightFamily('bold'),
+    color: color.textInk,
+    paddingBottom: space[1],
+  },
+  firstCaption: {
+    fontSize: adjustFontSize(12),
+    lineHeight: 18,
+    ...weightFamily('medium'),
+    color: color.textSub,
     textAlign: 'center',
+    paddingBottom: space[8],
   },
-  totalScoreBlock: {
+  firstGridCard: {
+    alignSelf: 'stretch',
+    backgroundColor: color.bg,
+    borderRadius: 24,
+    padding: space[5],
+    ...reportCardShadow.soft,
+  },
+  // 셀 사이 1px 간격이 그대로 격자선이 됩니다 — 배경색이 선 색입니다(Figma 59:6543).
+  firstGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: color.borderDividerFaint,
+    borderRadius: 12,
+    overflow: 'hidden',
+    gap: 1,
+  },
+  firstGridCell: {
+    // 2열 그리드. gap 1px을 감안해 정확히 반으로 나누면 줄바꿈이 어긋나서 살짝 줄입니다.
+    width: '49.8%',
+    backgroundColor: color.bg,
+    padding: space[4],
+  },
+  firstGridLabel: {
+    fontSize: adjustFontSize(11),
+    lineHeight: 16,
+    ...weightFamily('medium'),
+    color: color.textSub,
+    paddingBottom: space[1],
+  },
+  firstGridScore: {
+    fontSize: adjustFontSize(28),
+    lineHeight: 39,
+    ...weightFamily('bold'),
+  },
+  firstFooter: {
+    paddingHorizontal: space[6],
+    paddingTop: space[3],
+    gap: space[3],
+    alignItems: 'stretch',
+  },
+
+  // --- ② 오늘의 피부 (TodaySkin) ---
+  screen: { flex: 1, backgroundColor: color.surfaceLavenderPale },
+  content: { paddingBottom: space[6] },
+  header: {
+    backgroundColor: color.bg,
+    paddingHorizontal: space[5],
+    paddingBottom: space[5],
+  },
+  headerNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+  },
+  headerTitle: {
+    fontSize: adjustFontSize(17),
+    lineHeight: 24,
+    ...weightFamily('bold'),
+    color: color.textInk,
+  },
+  totalBlock: { paddingTop: space[5] },
+  totalLabel: {
+    fontSize: adjustFontSize(12),
+    lineHeight: 18,
+    ...weightFamily('medium'),
+    color: color.textSub,
+  },
+  totalRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    justifyContent: 'center',
-    gap: space[1],
-    marginTop: space[3],
+    gap: space[2],
+    paddingTop: 2,
   },
-  totalScoreValue: {
-    ...typography.display,
+  totalValue: {
     fontSize: adjustFontSize(56),
     lineHeight: 60,
-    color: color.brand700,
+    ...weightFamily('bold'),
+    color: color.brand500,
   },
-  totalScoreUnit: {
-    ...typography.h2,
-    color: color.ink600,
-    marginBottom: space[2],
+  totalUnit: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 20,
+    ...weightFamily('medium'),
+    color: color.textSub,
+    paddingBottom: space[2],
   },
-  totalComparison: {
-    ...typography.caption,
-    color: color.ink600,
-    textAlign: 'center',
-  },
-  metricsCard: {
-    marginTop: space[3],
-  },
-  chart: {
-    marginTop: space[3],
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: space[2],
-    marginTop: space[2],
-  },
-  // 관리자님 요청(2026-08-14) — 카드 형태로 변경. 테두리+배경으로 각 지표를 구분되는
-  // 하나의 블록처럼 보이게 합니다.
-  summaryCard: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: space[3],
-    paddingHorizontal: space[1],
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: color.brand500,
-    backgroundColor: color.bg,
-  },
-  summaryScore: {
-    ...typography.h2,
-    color: color.ink900,
-  },
-  summaryLabel: {
-    ...typography.caption,
-    color: color.ink600,
+  totalCompare: {
     fontSize: adjustFontSize(12),
+    lineHeight: 18,
+    ...weightFamily('medium'),
+    color: color.textSub,
   },
-  // 스크롤 영역 밖, 화면 하단에 고정되는 버튼 바 (관리자님 요청, 2026-08-14).
-  buttonRow: {
+  totalCompareValue: { ...weightFamily('bold') },
+  radarCard: {
+    marginHorizontal: space[4],
+    marginTop: space[4],
+    backgroundColor: color.bg,
+    borderRadius: 24,
+    paddingVertical: space[6],
+    alignItems: 'center',
+    ...reportCardShadow.strong,
+  },
+  metricGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: space[3],
-    paddingHorizontal: space[5],
-    paddingTop: space[3],
-    borderTopWidth: 1,
-    borderTopColor: color.ink300 + '40',
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
   },
-  buttonHalf: {
+  metricCard: {
+    // 2열. gap 12px을 뺀 나머지를 반으로 나눕니다.
+    width: '48%',
+    flexGrow: 1,
+    backgroundColor: color.bg,
+    borderRadius: 20,
+    padding: space[4],
+    ...reportCardShadow.soft,
+  },
+  metricCardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
+  },
+  metricCardName: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 20,
+    ...weightFamily('bold'),
+    color: color.textInk,
+    flexShrink: 1,
+  },
+  gradeBadge: {
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  gradeBadgeText: {
+    fontSize: adjustFontSize(10),
+    lineHeight: 15,
+    ...weightFamily('bold'),
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: color.borderDividerFaint,
+    overflow: 'hidden',
+    marginTop: space[3],
+  },
+  progressFill: { height: 8, borderRadius: 999 },
+  metricCardFoot: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: space[2],
+    paddingTop: space[2],
+  },
+  metricPhrase: {
     flex: 1,
+    fontSize: adjustFontSize(11),
+    lineHeight: 15,
+    ...weightFamily('medium'),
+    color: color.textSub,
+  },
+  metricScore: {
+    fontSize: adjustFontSize(22),
+    lineHeight: 30,
+    ...weightFamily('bold'),
+  },
+  fallbackCard: {
+    marginHorizontal: space[4],
+    marginTop: space[4],
+  },
+  footer: {
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
+    gap: space[3],
+    alignItems: 'stretch',
+  },
+  textButton: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 20,
+    ...weightFamily('medium'),
+    color: color.textSub,
+    textAlign: 'center',
   },
 });

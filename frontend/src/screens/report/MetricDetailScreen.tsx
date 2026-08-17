@@ -22,7 +22,7 @@ import {
   space,
 } from '@/theme/tokens';
 import { weightFamily, adjustFontSize } from '@/theme/typography';
-import type { InsightDetail, InsightEvent, MetricKey } from '@/types/report';
+import type { InsightDetail, InsightEvent, InsightEventKind, MetricKey } from '@/types/report';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -39,22 +39,32 @@ const METRIC_INDEX_LABEL: Record<MetricKey, string> = {
  *
  * 화면 구조: 흰 헤더(뒤로가기 + 요인명 + "…수치와의 상관관계" + 기간 변화 배지) 위에
  * 연보라 배경, 그 위에 카드 3개 —
- *   1) "{지표} 추이 (최근 N일)" + 평균/현재 + 이벤트 밴드 차트 + 범례
- *   2) AI 분석 요약 (연보라→연핑크 그라데이션 카드)
+ *   1) "{지표} 추이 (최근 N일)" + subtitle 메타 줄 + 평균/현재 + 이벤트 밴드 차트 + 범례
+ *   2) AI 분석 요약 (연보라→연핑크 그라데이션 카드, `summary`가 있을 때만)
  *   3) 상관 이벤트 (아이콘 + 날짜·라벨 + impact + 변화량 배지)
+ *   4) 💡 관리 팁 (`tip`이 있을 때만)
  *
- * ⚠️ 데이터 출처 메모 — REPORT-02 응답엔 아래 값들이 없어서 클라이언트에서 파생합니다
- * (관리자 결정, 2026-08-17: 계산·파싱 가능한 건 채우고 관리 팁만 백엔드 요청):
- *   - 기간 변화(+3) / 평균 / 현재 → `graph`에서 직접 계산합니다.
- *   - 이벤트 배지(+16, 안정) → `impact` 문장 끝의 부호 있는 숫자를 파싱합니다
- *     ("사용 2일 뒤 트러블 수치 +16" → "+16"). 숫자가 없으면(OBSERVING 등 단정하지
- *     않는 문구) confidence로 "안정"/"확인 중"을 대신 씁니다.
- *   - 이벤트 아이콘(🧴/✅) → 배지가 숫자면 성분/노출 이벤트(🧴), 아니면 안정 구간(✅)으로
- *     근사합니다. 원본 필드가 없어 정확한 구분은 아닙니다.
- *   - 💡 관리 팁 → 파싱·계산 어느 쪽으로도 만들 수 없는 완전 신규 텍스트라 REPORT-02엔
- *     아직 필드가 없습니다. 지금은 목업(api/mock/report.ts)만 `tip` 값을 채우고,
- *     값이 없으면(실서버) 섹션 자체가 사라집니다. 백엔드 필드 추가 요청:
- *     docs/backend-request-report02-detail-fields.md
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 2026-08-17(세션 12) — 백엔드가 ADR 0027·0028로 필드를 추가해서 **클라이언트 파싱을
+ * 전부 제거**했습니다. 세션 11의 임시 로직과 달라진 점:
+ *
+ *   - 이벤트 배지 → `event.delta`(부호 있는 정수)를 그대로 씁니다. 예전엔 `impact`
+ *     문장 끝의 숫자를 정규식으로 뽑았는데, 백엔드가 문구를 바꾸면 깨지는 구조였습니다.
+ *     `delta`는 `impact`와 **같은 판정을 공유**해서(REPORT-02 BR7) 문구가 "확인 중"인데
+ *     배지에 수치가 뜨는 조합이 나오지 않습니다.
+ *   - 이벤트 아이콘 → `event.eventKind`로 분기합니다(🧴 성분 첫 사용 / ☀️ 자외선 급증).
+ *     예전의 "배지가 숫자면 🧴, 아니면 ✅" 근사는 지웠습니다 — ✅에 해당하던 "안정 구간"
+ *     이벤트는 애초에 서버가 도출하지 않는 유형이었습니다(ADR 0013 §2).
+ *   - AI 분석 요약 → `summary`. 예전엔 `subtitle`을 썼는데, ADR 0027이 `subtitle`을
+ *     메타 문구("최근 30일 · 이벤트와 상관관계")로 확정해서 자리가 갈렸습니다.
+ *     `subtitle`은 관리자 결정으로 차트 카드 제목 아래 메타 줄에 표시합니다.
+ *   - 💡 관리 팁 → `tip`. ai-server 생성이라 실패 시 null이고, 그때 섹션이 사라집니다.
+ *
+ * 여전히 클라이언트가 계산하는 값: **기간 변화(+3) / 평균 / 현재.** 백엔드가 필드 추가를
+ * 거절했습니다(ADR 0027 "만들지 않기로 한 것") — 서버가 같은 값을 다시 계산하면 모닝·
+ * 나이트 중 어느 쪽을 기준으로 잡든 `nightScore ?? morningScore`로 접어 그리는 화면
+ * 수치와 미묘하게 어긋나기 때문입니다. `graph` 하나를 정본으로 둡니다.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 export function MetricDetailScreen() {
   const navigation = useNavigation<NavProp>();
@@ -142,9 +152,14 @@ export function MetricDetailScreen() {
         <View style={styles.cardWrap}>
           <View style={styles.chartCard}>
             <View style={styles.chartHeader}>
-              <Text style={styles.chartTitle}>
-                {METRIC_INDEX_LABEL[data.metric]} 추이 (최근 {stats.dayCount}일)
-              </Text>
+              <View style={styles.chartTitleBlock}>
+                <Text style={styles.chartTitle}>
+                  {METRIC_INDEX_LABEL[data.metric]} 추이 (최근 {stats.dayCount}일)
+                </Text>
+                {/* 서버 subtitle은 기간 길이를 알리는 메타 문구입니다(ADR 0027) —
+                    분석 요약이 아니라 여기 제목 아래에 붙입니다(관리자 결정). */}
+                {data.subtitle ? <Text style={styles.chartMeta}>{data.subtitle}</Text> : null}
+              </View>
               <View style={styles.chartStats}>
                 {stats.average !== null && (
                   <Text style={styles.chartStatText}>
@@ -179,18 +194,21 @@ export function MetricDetailScreen() {
           </View>
         </View>
 
-        {/* 2) AI 분석 요약 */}
-        <View style={styles.cardWrap}>
-          <LinearGradient
-            colors={gradient.iconBoxSoft}
-            start={gradientDirection.badge.start}
-            end={gradientDirection.badge.end}
-            style={styles.summaryCard}
-          >
-            <Text style={styles.summaryLabel}>AI 분석 요약</Text>
-            <Text style={styles.summaryText}>{data.subtitle}</Text>
-          </LinearGradient>
-        </View>
+        {/* 2) AI 분석 요약 — F-ANALYSIS-01이 저장해 둔 분석 요약 문장(ADR 0027).
+            저장된 값이 없으면 null로 와서 섹션이 사라집니다. */}
+        {data.summary ? (
+          <View style={styles.cardWrap}>
+            <LinearGradient
+              colors={gradient.iconBoxSoft}
+              start={gradientDirection.badge.start}
+              end={gradientDirection.badge.end}
+              style={styles.summaryCard}
+            >
+              <Text style={styles.summaryLabel}>AI 분석 요약</Text>
+              <Text style={styles.summaryText}>{data.summary}</Text>
+            </LinearGradient>
+          </View>
+        ) : null}
 
         {/* 3) 상관 이벤트 */}
         <View style={styles.cardWrap}>
@@ -215,8 +233,8 @@ export function MetricDetailScreen() {
             )}
           </View>
         </View>
-        {/* 4) 관리 팁 — REPORT-02에 필드가 없어서 값이 있을 때만(현재는 목업) 그립니다.
-            실서버 연동 시 undefined로 와서 섹션이 자동으로 사라집니다. */}
+        {/* 4) 관리 팁 — ai-server 생성이라 호출 실패·타임아웃 시 null입니다(ADR 0028).
+            팁은 상세 화면의 전제 조건이 아니라서 없으면 섹션만 사라집니다. */}
         {data.tip ? (
           <View style={styles.cardWrap}>
             <View style={styles.tipCard}>
@@ -230,14 +248,19 @@ export function MetricDetailScreen() {
   );
 }
 
+/** 아이콘은 도출 유형으로만 정합니다 — 배지 수치 유무로 추정하지 않습니다(ADR 0027). */
+const EVENT_KIND_ICON: Record<InsightEventKind, string> = {
+  INGREDIENT_USAGE: '🧴',
+  UV_SPIKE: '☀️',
+};
+
 function EventRow({ event, isLast }: { event: InsightEvent; isLast: boolean }) {
   const badge = deriveEventBadge(event);
-  const badgeAccent = badge.isIncrease ? reportColor.caution : reportColor.safe;
   return (
     <View style={styles.eventRow}>
       <View style={styles.eventIconColumn}>
-        <View style={[styles.eventIconBox, { backgroundColor: tint(badgeAccent) }]}>
-          <Text style={styles.eventIcon}>{badge.isIncrease ? '🧴' : '✅'}</Text>
+        <View style={[styles.eventIconBox, { backgroundColor: tint(badge.accent) }]}>
+          <Text style={styles.eventIcon}>{EVENT_KIND_ICON[event.eventKind]}</Text>
         </View>
         {!isLast && <View style={styles.eventConnector} />}
       </View>
@@ -247,8 +270,8 @@ function EventRow({ event, isLast }: { event: InsightEvent; isLast: boolean }) {
         </Text>
         <Text style={styles.eventImpact}>{event.impact}</Text>
       </View>
-      <View style={[styles.eventBadge, { backgroundColor: tint(badgeAccent) }]}>
-        <Text style={[styles.eventBadgeText, { color: badgeAccent }]}>{badge.text}</Text>
+      <View style={[styles.eventBadge, { backgroundColor: tint(badge.accent) }]}>
+        <Text style={[styles.eventBadgeText, { color: badge.accent }]}>{badge.text}</Text>
       </View>
     </View>
   );
@@ -279,20 +302,22 @@ function deriveStats(detail: InsightDetail): {
 }
 
 /**
- * 이벤트 배지 — impact 문장 끝의 부호 있는 숫자를 파싱합니다
- * ("사용 2일 뒤 트러블 수치 +16" → "+16"). 숫자가 없으면 confidence로 대체합니다.
- * ⚠️ 원본 필드가 아니라 문구 파싱이라 백엔드가 문장 형식을 바꾸면 깨집니다 —
- * 필드 추가 요청은 docs/backend-request-report02-detail-fields.md 참고.
+ * 이벤트 배지 — `delta`를 그대로 씁니다(ADR 0027). 문구 파싱은 하지 않습니다.
+ *
+ * `delta`가 null인 경우는 서버가 단정하지 않기로 한 자리입니다 — `impact`도 같은 판정으로
+ * "확인 중" 문구가 되므로(REPORT-02 BR7) 배지에도 수치 대신 "확인 중"을 씁니다. 자외선
+ * 이벤트는 변화량 근거 자체가 없어 항상 이쪽입니다.
+ *
+ * 지표 4종은 "낮을수록 좋음"이라 delta가 양수면 악화(caution), 음수면 개선(safe)입니다.
  */
-function deriveEventBadge(event: InsightEvent): { text: string; isIncrease: boolean } {
-  const match = event.impact.match(/([+-]\s?\d+)(?!.*\d)/);
-  if (match) {
-    const normalized = match[1].replace(/\s/g, '');
-    return { text: normalized, isIncrease: normalized.startsWith('+') };
+function deriveEventBadge(event: InsightEvent): { text: string; accent: string } {
+  if (event.delta === null) {
+    return { text: '확인 중', accent: color.textMuted };
   }
+  const worsened = event.delta > 0;
   return {
-    text: event.confidence === 'OBSERVED' ? '안정' : '확인 중',
-    isIncrease: false,
+    text: `${worsened ? '+' : ''}${event.delta}`,
+    accent: worsened ? reportColor.caution : reportColor.safe,
   };
 }
 
@@ -402,15 +427,24 @@ const styles = StyleSheet.create({
   },
   chartHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // 제목 아래 메타 줄이 붙어 왼쪽이 2줄이 되므로 위쪽 정렬입니다.
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: space[2],
+  },
+  chartTitleBlock: {
+    flexShrink: 1,
+    gap: 2,
   },
   chartTitle: {
     fontSize: adjustFontSize(13),
     ...weightFamily('bold'),
     color: color.textInk,
-    flexShrink: 1,
+  },
+  chartMeta: {
+    fontSize: adjustFontSize(11),
+    ...weightFamily('medium'),
+    color: color.textMuted,
   },
   chartStats: {
     flexDirection: 'row',

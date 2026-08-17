@@ -76,11 +76,33 @@ export interface ReportSummaryResult {
   graph: { date: string; score: number | null }[];
 }
 
+/**
+ * 이벤트 도출 유형 (REPORT-02 BR7, ADR 0027). 백엔드가 도출할 수 있는 유형은 이 둘이
+ * 전부입니다 — "성분 재시작"에 해당하는 값은 **의도적으로 없습니다.** 제품 기록이 없는
+ * 날은 "쓰지 않았다"가 아니라 "기록하지 않았다"라서 중단을 판정할 수 없기 때문입니다
+ * (ADR 0013 §2). 프론트가 요청했던 `ABSTINENCE`는 그래서 거절됐습니다 — 오지 않는
+ * 분기를 만들지 않습니다.
+ */
+export type InsightEventKind = 'INGREDIENT_USAGE' | 'UV_SPIKE';
+
 export interface InsightEvent {
   date: string;
   label: string;
   impact: string;
   confidence: Confidence;
+  /**
+   * `impact` 문구에 실린 지표 변화량을 부호 있는 정수로 그대로 낸 값(ADR 0027).
+   *
+   * **`impact`와 같은 판정을 공유합니다** — 서버의 `firstUsageDelta()` 하나가 판정하고
+   * 문구가 그 결과를 받는 구조라, 문구가 "확인 중"으로 폴백했는데 여기에 숫자가 실리는
+   * 상태는 구조적으로 불가능합니다(REPORT-02 BR7). 즉 이 값이 있으면 단정해도 되는
+   * 자리이고, null이면 배지에 수치를 띄우면 안 됩니다(BR2).
+   *
+   * 자외선 이벤트(`UV_SPIKE`)는 변화량 근거가 없어 **항상 null**입니다.
+   */
+  delta: number | null;
+  /** 도출 유형. 아이콘 분기에 씁니다 — `impact` 문구를 파싱해 추정하지 않습니다. */
+  eventKind: InsightEventKind;
 }
 
 export interface InsightDetail {
@@ -88,15 +110,28 @@ export interface InsightDetail {
   type: InsightType;
   metric: MetricKey;
   title: string;
+  /**
+   * 기간 길이를 알리는 **메타 문구**입니다("최근 30일 · 이벤트와 상관관계").
+   *
+   * ⚠️ 분석 요약 문장이 아닙니다 — 세션 11까지는 이 필드를 "AI 분석 요약" 카드에
+   * 그렸지만, ADR 0027이 `subtitle`(메타) / `summary`(요약)로 의미를 갈랐습니다.
+   * 화면에서는 차트 카드 제목 아래 메타 줄로 씁니다(관리자 결정, 2026-08-17).
+   */
   subtitle: string;
+  /**
+   * F-ANALYSIS-01이 인사이트에 저장해 둔 분석 요약 문장(ADR 0027). REPORT-01
+   * `insights[].description`과 **같은 값**이며 새로 생성하지 않습니다. 저장된 값이
+   * 없으면 null이고, 그때는 "AI 분석 요약" 카드를 그리지 않습니다.
+   */
+  summary: string | null;
   graph: GraphPoint[];
   /** 날짜 오름차순 (REPORT-02 BR1) */
   events: InsightEvent[];
   /**
-   * 💡 관리 팁 (Figma 281:917). ⚠️ REPORT-02 응답엔 아직 없는 필드라 현재는 목업만
-   * 값을 채웁니다 — 실서버 연동 시 undefined로 와서 화면이 섹션을 자동으로 숨깁니다.
-   * 백엔드 필드 추가 요청: docs/backend-request-report02-detail-fields.md
-   * (ADR 0025 aiComment처럼 ai-server 생성 + 실패 시 null 방식 제안).
+   * 💡 관리 팁 (Figma 281:917). ai-server가 인사이트의 근거(요인·지표·신뢰도·시차·
+   * 변화량)를 받아 생성합니다(ADR 0028). 호출이 실패·타임아웃되면 null이며, 그때도
+   * 상세 조회 자체는 200입니다 — 팁은 상세 화면의 전제 조건이 아니라서 값이 없으면
+   * 화면이 섹션을 감춥니다(REPORT-02 BR9).
    */
-  tip?: string | null;
+  tip: string | null;
 }

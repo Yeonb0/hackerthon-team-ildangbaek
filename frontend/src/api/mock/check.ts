@@ -20,6 +20,10 @@ import type {
 
 // SHOP-01 3분류(ADR 0018) 실측용 목업 — Figma(193:5724) 예시 문구를 그대로 씁니다.
 // 카탈로그 신규 제품(90~94)은 api/mock/product.ts CATALOG 참고.
+//
+// tags(ADR 0027)는 서버 규칙을 그대로 흉내 냅니다 — 1번 칩은 category에서 결정되므로
+// 같은 섹션의 제품끼리 항상 같고, 2번 "주의 성분 미포함"은 CAUTION 성분이 없는 제품에만
+// 붙습니다. 칩이 1개인 제품을 섹션마다 하나씩 섞어둬서 두 경우가 화면에서 다 보입니다.
 export function buildMockCheckHome(): CheckHomeResult {
   return {
     profileCompletion: 65,
@@ -32,6 +36,7 @@ export function buildMockCheckHome(): CheckHomeResult {
         reason: '판테놀·마데카소사이드가 잘 맞는 성분이에요',
         category: 'TODAY_NEEDED',
         aiComment: '판테놀이 진정에 도움을 줘요',
+        tags: ['트러블 진정 성분', '주의 성분 미포함'],
       },
       {
         productId: 82,
@@ -40,6 +45,8 @@ export function buildMockCheckHome(): CheckHomeResult {
         reason: '히알루론산 반응이 좋았어요',
         category: 'TODAY_NEEDED',
         aiComment: null,
+        // 이 제품엔 프로파일상 CAUTION 성분이 있다고 가정 — 2번 칩이 붙지 않습니다.
+        tags: ['트러블 진정 성분'],
       },
       // HUMIDITY_CARE — todayContext(습도 55%, DRY)를 근거로 함
       {
@@ -49,6 +56,7 @@ export function buildMockCheckHome(): CheckHomeResult {
         reason: '히알루론산이 잘 맞는 성분이에요',
         category: 'HUMIDITY_CARE',
         aiComment: null,
+        tags: ['보습 강화 성분', '주의 성분 미포함'],
       },
       {
         productId: 91,
@@ -57,6 +65,7 @@ export function buildMockCheckHome(): CheckHomeResult {
         reason: '히알루론산이 잘 맞는 성분이에요',
         category: 'HUMIDITY_CARE',
         aiComment: null,
+        tags: ['보습 강화 성분'],
       },
       {
         productId: 92,
@@ -65,6 +74,7 @@ export function buildMockCheckHome(): CheckHomeResult {
         reason: '판테놀이 잘 맞는 성분이에요',
         category: 'HUMIDITY_CARE',
         aiComment: null,
+        tags: ['보습 강화 성분', '주의 성분 미포함'],
       },
       // MATCHED_INGREDIENT — 성분 필터 칩(useIngredientProfile GOOD)으로 걸러 보여줌
       {
@@ -74,6 +84,7 @@ export function buildMockCheckHome(): CheckHomeResult {
         reason: '나이아신아마이드가 잘 맞는 성분이에요',
         category: 'MATCHED_INGREDIENT',
         aiComment: null,
+        tags: ['잘 맞는 성분', '주의 성분 미포함'],
       },
       {
         productId: 94,
@@ -82,6 +93,7 @@ export function buildMockCheckHome(): CheckHomeResult {
         reason: '판테놀이 잘 맞는 성분이에요',
         category: 'MATCHED_INGREDIENT',
         aiComment: null,
+        tags: ['잘 맞는 성분'],
       },
     ],
     todayContext: {

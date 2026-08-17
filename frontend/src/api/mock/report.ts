@@ -7,6 +7,7 @@ import type {
   ReportResult,
   InsightDetail,
   InsightSummary,
+  InsightEventKind,
   GraphPoint,
   ReportSummaryResult,
   MetricScoreSummary,
@@ -162,15 +163,27 @@ export function buildMockReportSummary(period: ReportPeriod): ReportSummaryResul
  * 이벤트 날짜는 "오늘" 기준 상대값(daysAgo)으로 만들어서 언제 실행하든 7일/30일
  * 윈도우 안에 자연스럽게 들어오게 했습니다 — 101(2일 전)은 7일 뷰에도 보이고,
  * 102(9일 전)·103(20일 전)은 30일 뷰에서만 보입니다. */
+/** REPORT-02는 period 파라미터가 없고 인사이트가 만들어진 창을 그대로 내려줍니다.
+ * 목업은 그 창을 14일로 고정하고, subtitle 메타 문구도 같은 값에서 만듭니다. */
+const MOCK_DETAIL_WINDOW_DAYS = 14;
+
 const INSIGHT_DETAIL_SEED: Record<
   number,
   {
     metric: MetricKey;
-    /** AI 분석 요약(화면의 subtitle 자리) — Figma 281:873 문구 형식. */
+    /** AI 분석 요약 — 실서버의 `summary`(ADR 0027). Figma 281:873 문구 형식. */
     summary: string;
-    /** 💡 관리 팁 — Figma 281:921. REPORT-02에 없는 필드라 목업만 값을 갖습니다. */
+    /** 💡 관리 팁 — 실서버는 ai-server가 생성합니다(ADR 0028). Figma 281:921. */
     tip: string;
-    events: { daysAgo: number; label: string; impact: string; confidence: Confidence }[];
+    events: {
+      daysAgo: number;
+      label: string;
+      impact: string;
+      confidence: Confidence;
+      /** ⚠️ impact와 판정을 공유합니다 — 문구가 단정하지 않으면 반드시 null(REPORT-02 BR7). */
+      delta: number | null;
+      eventKind: InsightEventKind;
+    }[];
   }
 > = {
   101: {
@@ -180,21 +193,21 @@ const INSIGHT_DETAIL_SEED: Record<
     events: [
       {
         daysAgo: 11,
-        label: '레티놀 세럼 첫 사용',
-        impact: '사용 2일 뒤 트러블 수치 +16',
+        label: '레티놀 이 기간 첫 사용',
+        impact: '이후 2일 뒤 트러블 수치 +16',
         confidence: 'OBSERVED',
+        delta: 16,
+        eventKind: 'INGREDIENT_USAGE',
       },
+      // 성분 인사이트의 신뢰도는 그 성분에 대한 것이라, 자외선 이벤트는 항상 OBSERVING입니다
+      // (ReportService.uvSpikeEvents). delta도 산출 근거가 없어 항상 null입니다.
       {
         daysAgo: 4,
-        label: '레티놀 세럼 재사용',
-        impact: '사용 2일 뒤 트러블 수치 +18',
-        confidence: 'OBSERVED',
-      },
-      {
-        daysAgo: 8,
-        label: '레티놀 미사용 기간',
-        impact: '수치가 꾸준히 내려갔어요',
-        confidence: 'OBSERVED',
+        label: '자외선 지수 8 이상 3일 연속',
+        impact: '이 기간 트러블 변화를 확인 중이에요',
+        confidence: 'OBSERVING',
+        delta: null,
+        eventKind: 'UV_SPIKE',
       },
     ],
   },
@@ -202,24 +215,24 @@ const INSIGHT_DETAIL_SEED: Record<
     metric: 'redness',
     summary: '자외선 지수가 7 이상인 날의 다음 날, 홍조 수치가 평균 12포인트 높아지는 패턴이 반복돼요.',
     tip: 'SPF 50+ 선크림을 외출 30분 전에 바르고, 자외선 지수가 높은 날은 자외선 차단 의류나 모자를 함께 사용하는 게 좋아요.',
+    // 환경 인사이트라 성분 첫 사용 이벤트가 없습니다 — buildEvents는 INGREDIENT 타입에만
+    // 성분 이벤트를 답니다. 환경 인사이트의 자외선 이벤트는 인사이트 신뢰도를 그대로 씁니다.
     events: [
       {
         daysAgo: 11,
-        label: '자외선 지수 8–9',
-        impact: '다음 날 홍조 수치 +13',
+        label: '자외선 지수 8 이상 2일 연속',
+        impact: '이 기간 홍조 변화를 확인 중이에요',
         confidence: 'OBSERVED',
+        delta: null,
+        eventKind: 'UV_SPIKE',
       },
       {
         daysAgo: 5,
-        label: '자외선 지수 9–10',
-        impact: '다음 날 홍조 수치 +13',
+        label: '자외선 지수 8 이상 4일 연속',
+        impact: '이 기간 홍조 변화를 확인 중이에요',
         confidence: 'OBSERVED',
-      },
-      {
-        daysAgo: 9,
-        label: '흐린 날',
-        impact: '홍조 수치가 낮게 유지됐어요',
-        confidence: 'OBSERVING',
+        delta: null,
+        eventKind: 'UV_SPIKE',
       },
     ],
   },
@@ -228,11 +241,15 @@ const INSIGHT_DETAIL_SEED: Record<
     summary: '히알루론산 세럼을 연속으로 사용한 기간에 모공 점수가 개선되는 추세를 확인하는 중이에요.',
     tip: '히알루론산은 건조한 환경에서 오히려 수분을 뺏길 수 있어요. 토너로 피부를 적신 뒤 바르고, 위에 크림으로 덮어 마무리해 보세요.',
     events: [
+      // OBSERVING이라 firstUsageDelta가 null을 내고, impact도 같은 판정으로 "확인 중"
+      // 문구가 됩니다 — 둘이 어긋나는 조합은 실서버에서 나오지 않습니다(REPORT-02 BR7).
       {
         daysAgo: 20,
-        label: '히알루론산 세럼 재시작',
-        impact: '모공 점수 개선 추세 확인 중',
+        label: '히알루론산 이 기간 첫 사용',
+        impact: '이후 모공 변화를 확인 중이에요',
         confidence: 'OBSERVING',
+        delta: null,
+        eventKind: 'INGREDIENT_USAGE',
       },
     ],
   },
@@ -257,16 +274,22 @@ export function buildMockInsightDetail(insightId: number): InsightDetail {
     metric: seed.metric,
     // 화면 헤더는 요인명(=REPORT-01 title)을 그대로 씁니다 — Figma 281:815 "레티놀 세럼".
     title: source.title,
-    subtitle: seed.summary,
+    // subtitle은 기간 길이를 알리는 메타 문구입니다 — 분석 요약은 summary로 따로
+    // 나갑니다(ADR 0027). 예전 목업은 여기에 요약문을 넣었는데, 그러면 실서버 응답이
+    // 올 때 요약 카드에 메타 문구가 떠서 어긋납니다.
+    subtitle: `최근 ${MOCK_DETAIL_WINDOW_DAYS}일 · 이벤트와 상관관계`,
+    summary: seed.summary,
     // Figma는 "최근 14일" 창을 씁니다(리포트 홈의 7/30일 토글과 별개 — REPORT-02엔
     // period 파라미터 자체가 없고 인사이트가 만들어진 창을 그대로 내려줍니다).
-    graph: buildMockGraph(14, METRIC_BASE_SCORE[seed.metric]),
+    graph: buildMockGraph(MOCK_DETAIL_WINDOW_DAYS, METRIC_BASE_SCORE[seed.metric]),
     events: seed.events
       .map((event) => ({
         date: daysAgoDate(event.daysAgo),
         label: event.label,
         impact: event.impact,
         confidence: event.confidence,
+        delta: event.delta,
+        eventKind: event.eventKind,
       }))
       // REPORT-02 BR1 — events는 날짜 오름차순.
       .sort((a, b) => a.date.localeCompare(b.date)),

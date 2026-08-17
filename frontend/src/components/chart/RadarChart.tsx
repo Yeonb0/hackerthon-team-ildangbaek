@@ -12,11 +12,18 @@ export type RadarChartItem = {
   label: string;
   /** 0~100, 높을수록 좋음을 가정합니다 (MetricScoreList와 동일 규칙) */
   score: number;
+  /** 축 라벨 아래 점수를 그릴 때 쓰는 지표 고유색. 미지정 시 brand500. */
+  accent?: string;
 };
 
 type RadarChartProps = {
   items: RadarChartItem[];
   size?: number;
+  /**
+   * 축 라벨 아래에 점수를 함께 그립니다 (S-18 TodaySkin, Figma 118:9474~118:9485).
+   * 기본값 false — 기존 카탈로그 호출부의 모양이 바뀌지 않게 옵트인으로 둡니다.
+   */
+  showValues?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -33,7 +40,7 @@ const LABEL_OFFSET = 18;
  * MetricScoreList로 구현이 끝나 있습니다. 관리자 확인(2026-08-10)에 따라 컴포넌트만
  * 미리 준비해 카탈로그에 등록해두고, 실제 배치는 기획 확인 후 별도로 결정합니다.
  */
-export function RadarChart({ items, size = s(240), style }: RadarChartProps) {
+export function RadarChart({ items, size = s(240), showValues = false, style }: RadarChartProps) {
   const n = items.length;
   const center = size / 2;
   const radius = size / 2 - LABEL_MARGIN;
@@ -99,18 +106,34 @@ export function RadarChart({ items, size = s(240), style }: RadarChartProps) {
 
         {items.map((item, i) => {
           const labelPos = pointAt(i, radius + LABEL_OFFSET);
+          const anchor = anchorAt(i);
           return (
-            <SvgText
-              key={`label-${item.key}`}
-              x={labelPos.x}
-              y={labelPos.y}
-              fontSize={12}
-              fill={color.ink900}
-              textAnchor={anchorAt(i)}
-              alignmentBaseline="middle"
-            >
-              {item.label}
-            </SvgText>
+            <React.Fragment key={`label-${item.key}`}>
+              <SvgText
+                x={labelPos.x}
+                y={showValues ? labelPos.y - 6 : labelPos.y}
+                fontSize={showValues ? 11 : 12}
+                fontWeight={showValues ? 'bold' : 'normal'}
+                fill={showValues ? color.textInk : color.ink900}
+                textAnchor={anchor}
+                alignmentBaseline="middle"
+              >
+                {item.label}
+              </SvgText>
+              {showValues ? (
+                <SvgText
+                  x={labelPos.x}
+                  y={labelPos.y + 8}
+                  fontSize={10}
+                  fontWeight="bold"
+                  fill={item.accent ?? color.brand500}
+                  textAnchor={anchor}
+                  alignmentBaseline="middle"
+                >
+                  {item.score}
+                </SvgText>
+              ) : null}
+            </React.Fragment>
           );
         })}
       </Svg>
