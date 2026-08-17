@@ -45,7 +45,7 @@ export function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.brand}>
-        <Image source={require('../../../assets/skinteller-logo.png')} style={styles.logo} resizeMode="contain" />
+        <Image source={require('../../../assets/Skinteller-logo.png')} style={styles.logo} resizeMode="contain" />
       </View>
 
       <View style={styles.buttonGroup}>
