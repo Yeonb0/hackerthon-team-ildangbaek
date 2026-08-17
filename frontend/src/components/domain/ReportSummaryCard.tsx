@@ -1,14 +1,12 @@
 // src/components/domain/ReportSummaryCard.tsx
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Card } from '@/components/base/Card';
-import { GradientNumber } from '@/components/base/GradientNumber';
 import { AreaTrendChart, weekdayLabel } from '@/components/chart/AreaTrendChart';
 import { LoadingState } from '@/components/state/LoadingState';
 import { IconMinus } from '@/components/icons';
 import { color, metricAccent, reportColor, space } from '@/theme/tokens';
 import { weightFamily, adjustFontSize } from '@/theme/typography';
-import type { ReportSummaryResult, MetricKey } from '@/types/report';
+import type { ReportSummaryResult, MetricKey, ReportPeriod } from '@/types/report';
 
 const METRIC_LABELS: Record<MetricKey, string> = {
   trouble: '트러블',
@@ -18,48 +16,53 @@ const METRIC_LABELS: Record<MetricKey, string> = {
 };
 
 // 화면 순서는 항상 trouble/redness/pigmentation/pores 고정 — Figma 210:1860 실측
-// 순서와 동일합니다 (기존 리포트 화면 Chip 순서 trouble/redness/pores/pigmentation과
-// 다릅니다 — 이 카드만 Figma 순서를 따릅니다. Chip 쪽은 별도 항목으로 다룹니다).
+// 순서와 동일합니다 (항목별 추이 탭 순서와도 같습니다).
 const SUMMARY_METRIC_ORDER: MetricKey[] = ['trouble', 'redness', 'pigmentation', 'pores'];
 
 type ReportSummaryCardProps = {
   data: ReportSummaryResult | undefined;
   isLoading: boolean;
-  /** 화면 표시용일 뿐이라 7|14|30 어느 값이든 받습니다 — 실제 조회 기간(7|30)은
-   * 호출부(ReportScreen)가 이미 callPeriod로 정리해서 useReportSummary에 넘깁니다. */
-  period: number;
+  /** 7 또는 30 — REPORT-01 유효 기간과 항상 동일합니다. */
+  period: ReportPeriod;
+  /** 종합 점수 그래프에 점을 찍을 날짜. 7일 뷰는 호출부(ReportScreen)가 표시 중인
+   * 날짜 전체를 넘겨 매일 점을 찍고, 30일 뷰는 REPORT-02에서 모아온 이벤트 날짜만
+   * 넘겨 이벤트가 있는 날에만 점을 찍습니다. */
+  dotDates?: string[];
   style?: StyleProp<ViewStyle>;
 };
 
 /**
- * 리포트 홈 상단 "종합 피부 점수" 카드 (Figma 210:2437 실측). ⚠️ 데이터는 전부
- * 목업입니다 — types/report.ts의 ReportSummaryResult 주석 참고. 백엔드 필드가
- * 생기기 전까지는 항상 이 값들이 뜹니다.
+ * 리포트 홈 상단 "종합 피부 점수" 헤더 (Figma 컬러 최종본 210:1831 실측).
+ * 데이터는 REPORT-01 응답의 summary 필드를 그대로 씁니다 — mock/live 분기는
+ * api/queries/report.ts의 getReport가 처리합니다.
+ *
+ * 2026-08-17 — Card(둥근 흰 카드)에서 화면 상단 흰 섹션으로 바뀌었습니다(Figma는
+ * 배경이 연보라 #F5F2FF이고 섹션들이 흰 블록으로 쌓입니다). 총점 숫자의 그라데이션은
+ * 관리자 요청으로 제외하고 brand500 솔리드로 둡니다.
  *
  * 총점(totalScore)은 "높을수록 좋음" 방향(SKIN-01과 동일)이라 델타 색이 일반
- * 방향(▲=safe/▼=caution)입니다. 반면 지표 4개 미니 스코어는 "낮을수록 좋음"
- * (항목별 추이 섹션의 "낮을수록 좋아요" 안내문과 동일 기준)이라 델타 색이
- * 반대(▲=caution/▼=safe)입니다 — Figma 실측값(트러블 38 ▼1 초록, 홍조 34 ▲1 빨강)
- * 그대로입니다.
+ * 방향(▲=safe/▼=caution)입니다. 반면 지표 4개 미니 스코어는 "낮을수록 좋음"이라
+ * 델타 색이 반대(▲=caution/▼=safe)입니다 — Figma 실측값(트러블 38 ▼1 초록,
+ * 홍조 34 ▲1 빨강) 그대로입니다.
  */
-export function ReportSummaryCard({ data, isLoading, period, style }: ReportSummaryCardProps) {
+export function ReportSummaryCard({ data, isLoading, period, dotDates, style }: ReportSummaryCardProps) {
   if (isLoading || !data) {
     return (
-      <Card style={[styles.card, style]}>
+      <View style={[styles.section, style]}>
         <LoadingState variant="spinner" style={styles.loading} />
-      </Card>
+      </View>
     );
   }
 
   const metricByKey = new Map(data.metrics.map((item) => [item.metric, item]));
 
   return (
-    <Card style={[styles.card, style]}>
+    <View style={[styles.section, style]}>
       <View style={styles.headerRow}>
         <View style={styles.totalBlock}>
           <Text style={styles.label}>종합 피부 점수</Text>
           <View style={styles.totalNumberRow}>
-            <GradientNumber value={data.totalScore} fontSize={48} />
+            <Text style={styles.totalNumber}>{data.totalScore}</Text>
             <DeltaText delta={data.totalDelta} invert={false} style={styles.totalDelta} />
           </View>
           <Text style={styles.label}>지난 {period}일 기준</Text>
@@ -85,9 +88,10 @@ export function ReportSummaryCard({ data, isLoading, period, style }: ReportSumm
         accentColor={color.brand500}
         labelMode={period === 7 ? 'all' : 'edges'}
         formatLabel={period === 7 ? weekdayLabel : undefined}
+        dotDates={dotDates}
         style={styles.chart}
       />
-    </Card>
+    </View>
   );
 }
 
@@ -106,14 +110,7 @@ function DeltaText({
   invert: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  if (delta === null) {
-    return (
-      <View style={[styles.deltaRow, style]}>
-        <IconMinus size={10} color={color.textSub} />
-      </View>
-    );
-  }
-  if (delta === 0) {
+  if (delta === null || delta === 0) {
     return (
       <View style={[styles.deltaRow, style]}>
         <IconMinus size={10} color={color.textSub} />
@@ -133,8 +130,10 @@ function DeltaText({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: space[4],
+  section: {
+    backgroundColor: color.bg,
+    paddingHorizontal: space[5],
+    paddingBottom: space[5],
   },
   loading: {
     minHeight: 160,
@@ -144,6 +143,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: space[3],
+    paddingTop: space[5],
   },
   totalBlock: {
     gap: 2,
@@ -158,8 +158,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: space[2],
   },
+  // 그라데이션 제외(관리자 결정, 2026-08-17) — Figma는 라벤더→핑크 그라데이션 텍스트지만
+  // MaskedView 부팅 크래시 이력이 있어 brand500 솔리드로 둡니다.
+  totalNumber: {
+    fontSize: adjustFontSize(48),
+    lineHeight: 52,
+    ...weightFamily('bold'),
+    color: color.brand500,
+  },
   totalDelta: {
-    paddingBottom: 6,
+    paddingBottom: 8,
   },
   miniScoreRow: {
     flexDirection: 'row',
@@ -167,27 +175,30 @@ const styles = StyleSheet.create({
   },
   miniScoreCard: {
     alignItems: 'center',
-    gap: 2,
   },
   miniScoreLabel: {
     fontSize: adjustFontSize(10),
     ...weightFamily('semibold'),
     color: color.textSub,
+    marginBottom: 4,
   },
   miniScoreValue: {
     fontSize: adjustFontSize(22),
+    lineHeight: 30,
     ...weightFamily('bold'),
   },
-  miniScoreDelta: {},
+  miniScoreDelta: {
+    marginTop: 2,
+  },
   deltaRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   deltaText: {
-    fontSize: adjustFontSize(11),
+    fontSize: adjustFontSize(10),
     ...weightFamily('semibold'),
   },
   chart: {
-    marginTop: space[2],
+    marginTop: space[4],
   },
 });

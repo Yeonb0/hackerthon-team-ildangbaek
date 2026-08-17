@@ -53,6 +53,13 @@ const CATALOG: CatalogProduct[] = [
   { productId: 21, name: '닥터지 선베이스', brand: '닥터지', category: 'SUNCREAM' },
   { productId: 71, name: '라로슈포제 시카플라스트', brand: '라로슈포제', category: 'CREAM' },
   { productId: 82, name: '마누카 히알루론산 토너', brand: '마누카', category: 'TONER' },
+  // SHOP-01 3분류(ADR 0018) HUMIDITY_CARE/MATCHED_INGREDIENT 섹션 실측용 신규 카탈로그 —
+  // Figma(193:5724) 예시 제품명 그대로 사용.
+  { productId: 90, name: '라운드랩 수분 크림', brand: '라운드랩', category: 'CREAM' },
+  { productId: 91, name: '닥터지 히알루론산 세럼', brand: '닥터지', category: 'SERUM' },
+  { productId: 92, name: '코스알엑스 달팽이 에센스', brand: '코스알엑스', category: 'ESSENCE' },
+  { productId: 93, name: '코스알엑스 나이아신아마이드 15% 앰플', brand: '코스알엑스', category: 'AMPOULE' },
+  { productId: 94, name: '닥터자르트 시카페어 크림', brand: '닥터자르트', category: 'CREAM' },
 ];
 
 export function findCatalogProduct(productId: number): CatalogProduct | undefined {

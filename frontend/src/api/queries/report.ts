@@ -3,13 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
-import { buildMockReport, buildMockInsightDetail, buildMockReportSummary } from '@/api/mock/report';
+import { buildMockReport, buildMockInsightDetail } from '@/api/mock/report';
 import type {
   ReportPeriod,
   MetricKey,
   ReportResult,
   InsightDetail,
-  ReportSummaryResult,
+  MetricScoreSummary,
 } from '@/types/report';
 
 // 서버 쿼리 파라미터/응답 필드는 대문자 enum입니다. 앱 내부(METRIC_LABELS 등)는
@@ -29,10 +29,29 @@ function normalizeMetric(value: string): MetricKey {
   return (VALID_METRIC_KEYS as string[]).includes(lower) ? (lower as MetricKey) : 'trouble';
 }
 
-type ReportApiResponse = Omit<ReportResult, 'metric'> & { metric: string };
+// summary.metrics[].metric도 다른 응답 필드와 마찬가지로 대문자 enum(TROUBLE 등)이라
+// 여기서 소문자로 정규화합니다.
+type SummaryMetricApiResponse = Omit<MetricScoreSummary, 'metric'> & { metric: string };
+type ReportSummaryApiResponse = {
+  totalScore: number;
+  totalDelta: number | null;
+  metrics: SummaryMetricApiResponse[];
+  graph: { date: string; score: number | null }[];
+};
+
+type ReportApiResponse = Omit<ReportResult, 'metric' | 'summary'> & {
+  metric: string;
+  summary: ReportSummaryApiResponse;
+};
 type InsightDetailApiResponse = Omit<InsightDetail, 'metric'> & { metric: string };
 
-/** REPORT-01 · 기간별 피부 추이 + 인사이트 조회 (S-19). 409면 ApiError(REPORT_DATA_INSUFFICIENT)를 던집니다. */
+/**
+ * REPORT-01 · 기간별 피부 추이 + 인사이트 + 기간 집계 종합 점수(summary) 조회 (S-19).
+ * summary는 `metric` 파라미터와 무관하게 항상 지표 4종 전체가 함께 옵니다(백엔드
+ * 2026-08-17 추가) — 그래서 리포트 홈 상단 카드(ReportSummaryCard)도 이 응답
+ * 하나로 그립니다(별도 엔드포인트 호출 없음, 관리자 확인 2026-08-17). 409면
+ * ApiError(REPORT_DATA_INSUFFICIENT)를 던집니다.
+ */
 export async function getReport(period: ReportPeriod, metric: MetricKey): Promise<ReportResult> {
   if (USE_MOCK) {
     return buildMockReport(period, metric);
@@ -40,7 +59,20 @@ export async function getReport(period: ReportPeriod, metric: MetricKey): Promis
   const result = await unwrap<ReportApiResponse>(
     apiClient.get('/reports', { params: { period, metric: METRIC_TO_PARAM[metric] } })
   );
-  return { ...result, metric: normalizeMetric(result.metric) };
+  return {
+    ...result,
+    metric: normalizeMetric(result.metric),
+    summary: {
+      period,
+      totalScore: result.summary.totalScore,
+      totalDelta: result.summary.totalDelta,
+      metrics: result.summary.metrics.map((item) => ({
+        ...item,
+        metric: normalizeMetric(item.metric),
+      })),
+      graph: result.summary.graph,
+    },
+  };
 }
 
 export function useReport(period: ReportPeriod, metric: MetricKey) {
@@ -49,24 +81,6 @@ export function useReport(period: ReportPeriod, metric: MetricKey) {
     queryFn: () => getReport(period, metric),
     // REPORT_DATA_INSUFFICIENT(409)는 재시도로 해결되는 상태가 아니라서 자동 재시도를 끕니다.
     retry: false,
-  });
-}
-
-/**
- * "기간 집계 종합 점수" 조회 (리포트 홈 상단 카드). ⚠️ 백엔드 필드 미확정 —
- * types/report.ts의 ReportSummaryResult 주석 참고. USE_MOCK 토글과 무관하게 항상
- * 목업만 반환합니다 — 실 엔드포인트가 없어서 분기할 live 경로 자체가 아직 없습니다.
- * 백엔드가 REPORT-01에 필드를 추가하면(또는 별도 엔드포인트를 주면) 여기에
- * `if (!USE_MOCK) { ... }` 분기를 추가하세요.
- */
-export async function getReportSummary(period: ReportPeriod): Promise<ReportSummaryResult> {
-  return buildMockReportSummary(period);
-}
-
-export function useReportSummary(period: ReportPeriod) {
-  return useQuery({
-    queryKey: ['reportSummary', period],
-    queryFn: () => getReportSummary(period),
   });
 }
 

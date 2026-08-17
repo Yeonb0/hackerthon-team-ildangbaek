@@ -112,6 +112,25 @@ export const shadow = {
   },
 } as const;
 
+// 리포트 카드 그림자 (Figma 281:824/281:875 실측 — drop-shadow rgba(155,140,245,0.08|0.06)).
+// shadow.cta/badge는 CTA 버튼용이라 훨씬 진합니다 — 카드용은 별도 값입니다.
+export const reportCardShadow = {
+  strong: {
+    shadowColor: '#9B8CF5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  soft: {
+    shadowColor: '#9B8CF5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+} as const;
+
 // 탭바 아이콘 전용 색상 (Checkpoint 9-A).
 export const navIcon = {
   inactive: '#A79FC2',

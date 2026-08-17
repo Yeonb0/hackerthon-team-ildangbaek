@@ -17,23 +17,79 @@ import type {
 // ---------------------------------------------------------------------------
 // CHECK-01 · 쇼핑 홈
 // ---------------------------------------------------------------------------
+
+// SHOP-01 3분류(ADR 0018) 실측용 목업 — Figma(193:5724) 예시 문구를 그대로 씁니다.
+// 카탈로그 신규 제품(90~94)은 api/mock/product.ts CATALOG 참고.
 export function buildMockCheckHome(): CheckHomeResult {
   return {
     profileCompletion: 65,
     recommendations: [
+      // TODAY_NEEDED — todayContext(트러블 38·홍조 62)를 근거로 함
       {
         productId: 71,
         name: '라로슈포제 시카플라스트',
         brand: '라로슈포제',
         reason: '판테놀·마데카소사이드가 잘 맞는 성분이에요',
+        category: 'TODAY_NEEDED',
+        aiComment: '판테놀이 진정에 도움을 줘요',
       },
       {
         productId: 82,
         name: '마누카 히알루론산 토너',
         brand: '마누카',
         reason: '히알루론산 반응이 좋았어요',
+        category: 'TODAY_NEEDED',
+        aiComment: null,
+      },
+      // HUMIDITY_CARE — todayContext(습도 55%, DRY)를 근거로 함
+      {
+        productId: 90,
+        name: '라운드랩 수분 크림',
+        brand: '라운드랩',
+        reason: '히알루론산이 잘 맞는 성분이에요',
+        category: 'HUMIDITY_CARE',
+        aiComment: null,
+      },
+      {
+        productId: 91,
+        name: '닥터지 히알루론산 세럼',
+        brand: '닥터지',
+        reason: '히알루론산이 잘 맞는 성분이에요',
+        category: 'HUMIDITY_CARE',
+        aiComment: null,
+      },
+      {
+        productId: 92,
+        name: '코스알엑스 달팽이 에센스',
+        brand: '코스알엑스',
+        reason: '판테놀이 잘 맞는 성분이에요',
+        category: 'HUMIDITY_CARE',
+        aiComment: null,
+      },
+      // MATCHED_INGREDIENT — 성분 필터 칩(useIngredientProfile GOOD)으로 걸러 보여줌
+      {
+        productId: 93,
+        name: '코스알엑스 나이아신아마이드 15% 앰플',
+        brand: '코스알엑스',
+        reason: '나이아신아마이드가 잘 맞는 성분이에요',
+        category: 'MATCHED_INGREDIENT',
+        aiComment: null,
+      },
+      {
+        productId: 94,
+        name: '닥터자르트 시카페어 크림',
+        brand: '닥터자르트',
+        reason: '판테놀이 잘 맞는 성분이에요',
+        category: 'MATCHED_INGREDIENT',
+        aiComment: null,
       },
     ],
+    todayContext: {
+      troubleScore: 38,
+      rednessScore: 62,
+      humidity: 55,
+      humidityGrade: 'DRY',
+    },
     failedSections: [],
   };
 }
@@ -89,6 +145,27 @@ const CHECK_RISK_PROFILES: Record<number, CheckRiskProfile> = {
     { ingredientId: 61, name: '알코올', status: 'CAUTION', reason: '건성 피부 자극 가능' },
     { ingredientId: 27, name: '향료', status: 'CAUTION', reason: '과거 홍조 반응 있음' },
     { ingredientId: 71, name: '티타늄디옥사이드', status: 'GOOD', reason: '자극 반응 없음' },
+  ]),
+  // SHOP-01 3분류(ADR 0018) HUMIDITY_CARE/MATCHED_INGREDIENT 카드 실측용 신규 프로필.
+  90: buildRiskProfile('LOW', [
+    { ingredientId: 41, name: '히알루론산', status: 'GOOD', reason: '보습 반응이 꾸준히 좋았음' },
+    { ingredientId: 9, name: '글리세린', status: 'GOOD', reason: '보습 효과 확인됨' },
+  ]),
+  91: buildRiskProfile('LOW', [
+    { ingredientId: 41, name: '히알루론산', status: 'GOOD', reason: '보습 반응이 꾸준히 좋았음' },
+    { ingredientId: 88, name: '부틸렌글라이콜', status: 'INSUFFICIENT', reason: null },
+  ]),
+  92: buildRiskProfile('LOW', [
+    { ingredientId: 15, name: '판테놀', status: 'GOOD', reason: '진정 반응 확인됨' },
+    { ingredientId: 51, name: '자작나무수액', status: 'GOOD', reason: '진정 반응 좋았음' },
+  ]),
+  93: buildRiskProfile('LOW', [
+    { ingredientId: 3, name: '나이아신아마이드', status: 'GOOD', reason: '피부 톤 개선 이력' },
+    { ingredientId: 12, name: '정제수', status: 'INSUFFICIENT', reason: null },
+  ]),
+  94: buildRiskProfile('LOW', [
+    { ingredientId: 15, name: '판테놀', status: 'GOOD', reason: '진정 반응 확인됨' },
+    { ingredientId: 27, name: '향료', status: 'CAUTION', reason: '과거 홍조 반응 있음' },
   ]),
 };
 

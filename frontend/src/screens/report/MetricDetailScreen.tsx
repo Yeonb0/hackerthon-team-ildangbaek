@@ -1,78 +1,87 @@
 // MetricDetailScreen.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card } from '@/components/base/Card';
-import { SegmentToggle } from '@/components/base/SegmentToggle';
-import { TrendGraph } from '@/components/chart/TrendGraph';
+import { LinearGradient } from 'expo-linear-gradient';
+import { EventBandChart } from '@/components/chart/EventBandChart';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { EmptyState } from '@/components/state/EmptyState';
 import { IconBack } from '@/components/icons';
 import { useReportInsight } from '@/api/queries/report';
 import { DetailStackParamList } from '@/app/routes';
-import { color, space, typography } from '@/theme';
-import { weightFamily } from '@/theme/typography';
-import { adjustFontSize } from '@/theme/typography';
+import {
+  color,
+  gradient,
+  gradientDirection,
+  metricAccent,
+  reportCardShadow,
+  reportColor,
+  space,
+} from '@/theme/tokens';
+import { weightFamily, adjustFontSize } from '@/theme/typography';
+import type { InsightDetail, InsightEvent, MetricKey } from '@/types/report';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
-const TYPE_LABEL: Record<'INGREDIENT' | 'ENVIRONMENT', string> = {
-  INGREDIENT: '성분 요인',
-  ENVIRONMENT: '환경 요인',
+const METRIC_INDEX_LABEL: Record<MetricKey, string> = {
+  trouble: '트러블 지수',
+  redness: '홍조 지수',
+  pigmentation: '색소잡티 지수',
+  pores: '모공 지수',
 };
 
 /**
- * S-20 요인 상세. REPORT-02(GET /reports/insights/{insightId}) 기준.
- * S-19에서 인사이트 카드를 눌러 들어옵니다.
+ * S-20 요인 상세 (Figma 컬러 최종본 P8CmHDZp7z0dKiHByEzuLx, node 281:801/281:922 실측).
+ * REPORT-02(GET /reports/insights/{insightId}) 기준. S-19에서 인사이트 행을 눌러 들어옵니다.
  *
- * ⚠️ Phase 13(2026-08-15) — 예전엔 OS 기본 제스처/뒤로가기 버튼에만 맡기고 화면 안에
- * 별도 뒤로가기 버튼을 두지 않았는데, 카메라 화면 등 제스처가 애매한 곳들이 있다는
- * 게 확인되어 전체 화면 재점검 과정에서 이 화면에도 네브바 뒤로가기 버튼을
- * 추가했습니다 (IngredientCheckScreen과 동일한 navBar 패턴).
+ * 화면 구조: 흰 헤더(뒤로가기 + 요인명 + "…수치와의 상관관계" + 기간 변화 배지) 위에
+ * 연보라 배경, 그 위에 카드 3개 —
+ *   1) "{지표} 추이 (최근 N일)" + 평균/현재 + 이벤트 밴드 차트 + 범례
+ *   2) AI 분석 요약 (연보라→연핑크 그라데이션 카드)
+ *   3) 상관 이벤트 (아이콘 + 날짜·라벨 + impact + 변화량 배지)
  *
- * 추이 그래프는 S-19와 동일하게 선(line)을 씁니다(관리자님 요청, 2026-08-10).
- * 이벤트 목록(BR — "추이 그래프 + 주요 이벤트 목록")은 날짜순으로 그대로 나열합니다.
- * confidence가 OBSERVING인 이벤트는 InsightCard와 같은 규칙으로 "확인 중" 배지를 달아
- * 단정적 문구가 아님을 알립니다.
- *
- * 기간은 7/14/30일 중 고를 수 있습니다. REPORT-02엔 애초에 period 쿼리 파라미터가
- * 없어서(S-19의 REPORT-01과 다름 — TBD-11 참고) 서버 요청은 항상 그대로 한 번만 하고,
- * 응답으로 받은 전체 graph/events에서 화면단에서 최근 N일만 잘라 보여줍니다. 이벤트도
- * 그래프에 안 보이는 오래된 항목은 같이 숨겨서 "이 기간 동안의 이벤트"로 보이게
- * 맞췄습니다.
+ * ⚠️ 데이터 출처 메모 — REPORT-02 응답엔 아래 값들이 없어서 클라이언트에서 파생합니다
+ * (관리자 결정, 2026-08-17: 계산·파싱 가능한 건 채우고 관리 팁만 백엔드 요청):
+ *   - 기간 변화(+3) / 평균 / 현재 → `graph`에서 직접 계산합니다.
+ *   - 이벤트 배지(+16, 안정) → `impact` 문장 끝의 부호 있는 숫자를 파싱합니다
+ *     ("사용 2일 뒤 트러블 수치 +16" → "+16"). 숫자가 없으면(OBSERVING 등 단정하지
+ *     않는 문구) confidence로 "안정"/"확인 중"을 대신 씁니다.
+ *   - 이벤트 아이콘(🧴/✅) → 배지가 숫자면 성분/노출 이벤트(🧴), 아니면 안정 구간(✅)으로
+ *     근사합니다. 원본 필드가 없어 정확한 구분은 아닙니다.
+ *   - 💡 관리 팁 → 파싱·계산 어느 쪽으로도 만들 수 없는 완전 신규 텍스트라 REPORT-02엔
+ *     아직 필드가 없습니다. 지금은 목업(api/mock/report.ts)만 `tip` 값을 채우고,
+ *     값이 없으면(실서버) 섹션 자체가 사라집니다. 백엔드 필드 추가 요청:
+ *     docs/backend-request-report02-detail-fields.md
  */
 export function MetricDetailScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProp<DetailStackParamList, 'MetricDetail'>>();
   const insets = useSafeAreaInsets();
 
-  // SegmentToggle은 T extends string만 받아서(base 컴포넌트 공용 제약), 기간은
-  // 문자열로 들고 있다가 쓸 때 숫자로 바꿉니다. 기본값 30은 서버가 원래 내려주던
-  // "최근 30일" 범위와 맞춥니다.
-  const [periodOption, setPeriodOption] = useState<'7' | '14' | '30'>('30');
-  const displayPeriod = Number(periodOption) as 7 | 14 | 30;
-
   const { data, isLoading, isError, refetch } = useReportInsight(route.params.insightId);
 
-  const backButton = (
-    <Pressable
-      onPress={() => navigation.goBack()}
-      accessibilityRole="button"
-      accessibilityLabel="뒤로가기"
-      hitSlop={8}
-      style={styles.navBackButton}
-    >
-      <IconBack size={22} color={color.ink900} />
-    </Pressable>
+  const navBar = (
+    <View style={[styles.nav, { paddingTop: insets.top + space[3] }]}>
+      <Pressable
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="뒤로가기"
+        hitSlop={8}
+        style={styles.navBackButton}
+      >
+        <IconBack size={18} color={color.textSub} />
+      </Pressable>
+      <Text style={styles.navTitle}>요인 자세히 보기</Text>
+    </View>
   );
 
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        <View style={[styles.nav, { paddingTop: insets.top }]}>{backButton}</View>
+        <View style={styles.headerSection}>{navBar}</View>
         <LoadingState variant="spinner" style={styles.centerFill} />
       </View>
     );
@@ -81,178 +90,461 @@ export function MetricDetailScreen() {
   if (isError || !data) {
     return (
       <View style={styles.screen}>
-        <View style={[styles.nav, { paddingTop: insets.top }]}>{backButton}</View>
+        <View style={styles.headerSection}>{navBar}</View>
         <ErrorState variant="network" onRetry={() => refetch()} style={styles.centerFill} />
       </View>
     );
   }
 
-  const displayedGraph = data.graph.slice(-displayPeriod);
-  const earliestVisibleDate = displayedGraph[0]?.date;
-  const visibleEvents = earliestVisibleDate
-    ? data.events.filter((event) => event.date >= earliestVisibleDate)
-    : data.events;
+  const accent = metricAccent[data.metric];
+  const stats = deriveStats(data);
+  // Figma 헤더 배지 — 값이 오르면 caution(빨강), 내리면 safe(초록). 지표 4종은
+  // "낮을수록 좋음"이라 상승이 나쁜 방향입니다.
+  const changeUp = stats.change !== null && stats.change > 0;
+  const changeAccent = changeUp ? reportColor.caution : reportColor.safe;
+
+  const eventDates = data.events.map((event) => event.date);
+  const points = data.graph.map((point) => ({
+    date: point.date,
+    score: point.nightScore ?? point.morningScore,
+  }));
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.nav, { paddingTop: insets.top }]}>
-        {backButton}
-        <Text style={styles.navTitle}>{data.title}</Text>
-      </View>
       <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.eyebrow}>{TYPE_LABEL[data.type]}</Text>
-      <Text style={styles.subtitle}>{data.subtitle}</Text>
+        <View style={styles.headerSection}>
+          {navBar}
+          <View style={styles.headerBody}>
+            <View style={styles.headerTitleBlock}>
+              <View style={styles.headerTitleRow}>
+                <Text style={styles.headerEmoji}>{data.type === 'ENVIRONMENT' ? '☀️' : '⚠️'}</Text>
+                <Text style={styles.headerTitle}>{data.title}</Text>
+              </View>
+              <Text style={styles.headerSubtitle}>
+                {METRIC_INDEX_LABEL[data.metric].replace(' 지수', '')} 수치와의 상관관계
+              </Text>
+            </View>
+            {stats.change !== null && (
+              <View style={[styles.changeBadge, { backgroundColor: tint(changeAccent) }]}>
+                <Text style={[styles.changeBadgeLabel, { color: changeAccent }]}>
+                  {stats.dayCount}일 변화
+                </Text>
+                <Text style={[styles.changeBadgeValue, { color: changeAccent }]}>
+                  {stats.change > 0 ? '+' : ''}
+                  {stats.change}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
 
-      <SegmentToggle
-        options={[
-          { value: '7', label: '7일' },
-          { value: '14', label: '14일' },
-          { value: '30', label: '30일' },
-        ]}
-        value={periodOption}
-        onChange={setPeriodOption}
-        style={styles.periodToggle}
-      />
-
-      <Card padding={4} style={styles.graphCard}>
-        <TrendGraph
-          points={displayedGraph}
-          variant="line"
-          eventDates={visibleEvents.map((event) => event.date)}
-        />
-      </Card>
-
-      <Text style={styles.sectionTitle}>주요 이벤트</Text>
-
-      {visibleEvents.length > 0 ? (
-        <View style={styles.eventList}>
-          {visibleEvents.map((event, index) => (
-            <View key={`${event.date}-${index}`} style={styles.eventRow}>
-              <Text style={styles.eventDate}>{formatEventDate(event.date)}</Text>
-              <View style={styles.eventBody}>
-                <View style={styles.eventLabelRow}>
-                  <Text style={styles.eventLabel}>{event.label}</Text>
-                  {event.confidence === 'OBSERVING' && (
-                    <View style={styles.observingBadge}>
-                      <Text style={styles.observingText}>확인 중</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.eventImpact}>{event.impact}</Text>
+        {/* 1) 추이 차트 카드 */}
+        <View style={styles.cardWrap}>
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <Text style={styles.chartTitle}>
+                {METRIC_INDEX_LABEL[data.metric]} 추이 (최근 {stats.dayCount}일)
+              </Text>
+              <View style={styles.chartStats}>
+                {stats.average !== null && (
+                  <Text style={styles.chartStatText}>
+                    평균 <Text style={{ color: accent }}>{stats.average}</Text>
+                  </Text>
+                )}
+                {stats.current !== null && (
+                  <Text style={styles.chartStatText}>
+                    현재 <Text style={{ color: accent }}>{stats.current}</Text>
+                  </Text>
+                )}
               </View>
             </View>
-          ))}
+
+            <EventBandChart
+              points={points}
+              accentColor={accent}
+              eventDates={eventDates}
+              style={styles.chart}
+            />
+
+            <View style={styles.legendRow}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: accent }]} />
+                <Text style={styles.legendText}>{METRIC_INDEX_LABEL[data.metric]}</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: accent, opacity: 0.35 }]} />
+                <Text style={styles.legendText}>{data.title} 발생일</Text>
+              </View>
+            </View>
+          </View>
         </View>
-      ) : (
-        <EmptyState
-          icon="calendar"
-          title="아직 눈에 띄는 이벤트가 없어요"
-          description="기록이 더 쌓이면 관련 이벤트를 찾아드려요."
-        />
-      )}
+
+        {/* 2) AI 분석 요약 */}
+        <View style={styles.cardWrap}>
+          <LinearGradient
+            colors={gradient.iconBoxSoft}
+            start={gradientDirection.badge.start}
+            end={gradientDirection.badge.end}
+            style={styles.summaryCard}
+          >
+            <Text style={styles.summaryLabel}>AI 분석 요약</Text>
+            <Text style={styles.summaryText}>{data.subtitle}</Text>
+          </LinearGradient>
+        </View>
+
+        {/* 3) 상관 이벤트 */}
+        <View style={styles.cardWrap}>
+          <View style={styles.eventCard}>
+            <Text style={styles.eventCardTitle}>상관 이벤트</Text>
+            {data.events.length > 0 ? (
+              <View style={styles.eventList}>
+                {data.events.map((event, index) => (
+                  <EventRow
+                    key={`${event.date}-${index}`}
+                    event={event}
+                    isLast={index === data.events.length - 1}
+                  />
+                ))}
+              </View>
+            ) : (
+              <EmptyState
+                icon="calendar"
+                title="아직 눈에 띄는 이벤트가 없어요"
+                description="기록이 더 쌓이면 관련 이벤트를 찾아드려요."
+              />
+            )}
+          </View>
+        </View>
+        {/* 4) 관리 팁 — REPORT-02에 필드가 없어서 값이 있을 때만(현재는 목업) 그립니다.
+            실서버 연동 시 undefined로 와서 섹션이 자동으로 사라집니다. */}
+        {data.tip ? (
+          <View style={styles.cardWrap}>
+            <View style={styles.tipCard}>
+              <Text style={styles.tipLabel}>💡 관리 팁</Text>
+              <Text style={styles.tipText}>{data.tip}</Text>
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
 }
 
+function EventRow({ event, isLast }: { event: InsightEvent; isLast: boolean }) {
+  const badge = deriveEventBadge(event);
+  const badgeAccent = badge.isIncrease ? reportColor.caution : reportColor.safe;
+  return (
+    <View style={styles.eventRow}>
+      <View style={styles.eventIconColumn}>
+        <View style={[styles.eventIconBox, { backgroundColor: tint(badgeAccent) }]}>
+          <Text style={styles.eventIcon}>{badge.isIncrease ? '🧴' : '✅'}</Text>
+        </View>
+        {!isLast && <View style={styles.eventConnector} />}
+      </View>
+      <View style={styles.eventBody}>
+        <Text style={styles.eventLabel}>
+          {formatEventDate(event.date)} — {event.label}
+        </Text>
+        <Text style={styles.eventImpact}>{event.impact}</Text>
+      </View>
+      <View style={[styles.eventBadge, { backgroundColor: tint(badgeAccent) }]}>
+        <Text style={[styles.eventBadgeText, { color: badgeAccent }]}>{badge.text}</Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * graph에서 기간 변화·평균·현재를 계산합니다(REPORT-02에 해당 필드가 없어서 —
+ * 화면 주석의 "데이터 출처 메모" 참고). 결측(null) 슬롯은 계산에서 빼고, 유효한
+ * 값이 2개 미만이면 change를 null로 둬서 배지를 아예 숨깁니다.
+ */
+function deriveStats(detail: InsightDetail): {
+  dayCount: number;
+  average: number | null;
+  current: number | null;
+  change: number | null;
+} {
+  const scores = detail.graph
+    .map((point) => point.nightScore ?? point.morningScore)
+    .filter((score): score is number => score !== null);
+
+  if (scores.length === 0) {
+    return { dayCount: detail.graph.length, average: null, current: null, change: null };
+  }
+  const average = Math.round(scores.reduce((sum, v) => sum + v, 0) / scores.length);
+  const current = scores[scores.length - 1];
+  const change = scores.length >= 2 ? current - scores[0] : null;
+  return { dayCount: detail.graph.length, average, current, change };
+}
+
+/**
+ * 이벤트 배지 — impact 문장 끝의 부호 있는 숫자를 파싱합니다
+ * ("사용 2일 뒤 트러블 수치 +16" → "+16"). 숫자가 없으면 confidence로 대체합니다.
+ * ⚠️ 원본 필드가 아니라 문구 파싱이라 백엔드가 문장 형식을 바꾸면 깨집니다 —
+ * 필드 추가 요청은 docs/backend-request-report02-detail-fields.md 참고.
+ */
+function deriveEventBadge(event: InsightEvent): { text: string; isIncrease: boolean } {
+  const match = event.impact.match(/([+-]\s?\d+)(?!.*\d)/);
+  if (match) {
+    const normalized = match[1].replace(/\s/g, '');
+    return { text: normalized, isIncrease: normalized.startsWith('+') };
+  }
+  return {
+    text: event.confidence === 'OBSERVED' ? '안정' : '확인 중',
+    isIncrease: false,
+  };
+}
+
 function formatEventDate(date: string) {
   const [, month, day] = date.split('-');
-  return `${Number(month)}/${Number(day)}`;
+  return `${Number(month)}월 ${Number(day)}일`;
+}
+
+/** Figma는 배지·아이콘 박스 배경을 accent의 옅은 알파로 씁니다. */
+function tint(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.12)`;
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: color.bg,
-  },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
-  },
-  navBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navTitle: {
-    ...typography.h2,
-    color: color.ink900,
-    flexShrink: 1,
+    backgroundColor: color.surfaceLavenderPale,
   },
   centerFill: {
     flex: 1,
   },
   content: {
-    padding: space[5],
-    paddingTop: space[2],
     paddingBottom: space[8],
-    gap: space[3],
+  },
+  headerSection: {
     backgroundColor: color.bg,
-    flexGrow: 1,
+    paddingHorizontal: space[5],
+    paddingBottom: space[5],
   },
-  eyebrow: {
-    fontSize: adjustFontSize(13),
-    ...weightFamily('semibold'),
-    color: color.brand700,
-  },
-  subtitle: {
-    ...typography.body,
-    color: color.ink600,
-  },
-  graphCard: {
-    marginTop: space[3],
-  },
-  periodToggle: {
-    marginTop: space[2],
-  },
-  sectionTitle: {
-    ...typography.h2,
-    color: color.ink900,
-    marginTop: space[4],
-  },
-  eventList: {
-    gap: space[4],
-  },
-  eventRow: {
+  nav: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: space[3],
   },
-  eventDate: {
-    ...typography.caption,
-    color: color.ink600,
-    width: 44,
+  navBackButton: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  eventBody: {
+  navTitle: {
+    fontSize: adjustFontSize(12),
+    ...weightFamily('semibold'),
+    color: color.textSub,
+  },
+  headerBody: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: space[3],
+    paddingTop: space[5],
+  },
+  headerTitleBlock: {
     flex: 1,
-    gap: space[1],
+    gap: 4,
   },
-  eventLabelRow: {
+  headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
   },
-  eventLabel: {
-    ...typography.body,
-    ...weightFamily('semibold'),
-    color: color.ink900,
+  headerEmoji: {
+    fontSize: adjustFontSize(18),
   },
-  eventImpact: {
-    ...typography.body,
-    color: color.ink600,
+  headerTitle: {
+    fontSize: adjustFontSize(20),
+    lineHeight: 30,
+    ...weightFamily('bold'),
+    color: color.textInk,
+    flexShrink: 1,
   },
-  observingBadge: {
-    paddingHorizontal: space[2],
-    paddingVertical: 2,
-    borderRadius: 999,
-    backgroundColor: color.ink300,
+  headerSubtitle: {
+    fontSize: adjustFontSize(13),
+    ...weightFamily('medium'),
+    color: color.textSub,
   },
-  observingText: {
+  changeBadge: {
+    alignItems: 'center',
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderRadius: 14,
+  },
+  changeBadgeLabel: {
     fontSize: adjustFontSize(11),
     ...weightFamily('semibold'),
-    color: color.ink900,
+    marginBottom: 2,
+  },
+  changeBadgeValue: {
+    fontSize: adjustFontSize(20),
+    lineHeight: 26,
+    ...weightFamily('bold'),
+  },
+  cardWrap: {
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
+  },
+  chartCard: {
+    backgroundColor: color.bg,
+    borderRadius: 22,
+    paddingHorizontal: space[4],
+    paddingTop: space[5],
+    paddingBottom: space[4],
+    ...reportCardShadow.strong,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
+  },
+  chartTitle: {
+    fontSize: adjustFontSize(13),
+    ...weightFamily('bold'),
+    color: color.textInk,
+    flexShrink: 1,
+  },
+  chartStats: {
+    flexDirection: 'row',
+    gap: space[3],
+  },
+  chartStatText: {
+    fontSize: adjustFontSize(11),
+    ...weightFamily('semibold'),
+    color: color.textSub,
+  },
+  chart: {
+    marginTop: space[3],
+  },
+  legendRow: {
+    flexDirection: 'row',
+    gap: space[4],
+    marginTop: space[3],
+    paddingTop: space[3],
+    borderTopWidth: 1,
+    borderTopColor: color.surfaceLavenderPale,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    fontSize: adjustFontSize(11),
+    ...weightFamily('medium'),
+    color: color.textSub,
+  },
+  summaryCard: {
+    borderRadius: 18,
+    padding: space[4],
+  },
+  summaryLabel: {
+    fontSize: adjustFontSize(11),
+    ...weightFamily('bold'),
+    color: color.brand500,
+    marginBottom: 6,
+  },
+  summaryText: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 18,
+    ...weightFamily('semibold'),
+    color: color.textInk,
+  },
+  eventCard: {
+    backgroundColor: color.bg,
+    borderRadius: 22,
+    paddingHorizontal: space[5],
+    paddingTop: space[5],
+    paddingBottom: space[4],
+    ...reportCardShadow.soft,
+  },
+  eventCardTitle: {
+    fontSize: adjustFontSize(13),
+    ...weightFamily('bold'),
+    color: color.textInk,
+  },
+  eventList: {
+    marginTop: space[4],
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[3],
+    paddingVertical: 14,
+  },
+  eventIconColumn: {
+    alignItems: 'center',
+  },
+  eventIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventIcon: {
+    fontSize: adjustFontSize(16),
+  },
+  eventConnector: {
+    width: 1,
+    height: 16,
+    marginTop: 6,
+    backgroundColor: color.borderDividerFaint,
+  },
+  eventBody: {
+    flex: 1,
+    gap: 2,
+  },
+  eventLabel: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 19,
+    ...weightFamily('bold'),
+    color: color.textInk,
+  },
+  eventImpact: {
+    fontSize: adjustFontSize(12),
+    ...weightFamily('medium'),
+    color: color.textSub,
+  },
+  eventBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  eventBadgeText: {
+    fontSize: adjustFontSize(12),
+    ...weightFamily('bold'),
+  },
+  tipCard: {
+    backgroundColor: color.bg,
+    borderRadius: 18,
+    paddingHorizontal: space[5],
+    paddingVertical: space[4],
+    ...reportCardShadow.soft,
+  },
+  tipLabel: {
+    fontSize: adjustFontSize(11),
+    ...weightFamily('bold'),
+    color: color.brand500,
+    marginBottom: 8,
+  },
+  tipText: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 21,
+    ...weightFamily('medium'),
+    color: color.textInk,
   },
 });
