@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.ildangbaek.backend.api.report.dto.ReportDailyResponse;
@@ -14,6 +15,7 @@ import com.ildangbaek.backend.api.report.dto.ReportInsightDetailResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightEventResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightResponse;
 import com.ildangbaek.backend.api.report.dto.ReportResponse;
+import com.ildangbaek.backend.api.report.dto.ReportSummaryMetricResponse;
 import com.ildangbaek.backend.api.skin.dto.SkinRecordResponse;
 import com.ildangbaek.backend.api.skin.dto.SkinScoresResponse;
 import com.ildangbaek.backend.api.skin.service.SkinRecordService;
@@ -291,6 +293,96 @@ class ReportServiceTest {
 
         assertThat(pointOf(response, today).morningScore()).isEqualTo(66);
         assertThat(response.metric()).isEqualTo(SkinMetricType.REDNESS);
+    }
+
+    @DisplayName("summary.totalScore는 기간 내 지표 4종 평균이고, 직전 동일 기간과 비교해 증감을 낸다")
+    @Test
+    void summaryTotalScoreAveragesAllMetricsAndComparesToPreviousPeriod() {
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        SkinRecord current = record(1L, today, TimeSlot.MORNING);
+        SkinRecord previous = record(2L, yesterday.minusDays(6), TimeSlot.MORNING);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(6)), eq(today)))
+                .thenReturn(List.of(current));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(List.of(previous));
+        when(skinMetricRepository.findAllBySkinRecordIdIn(List.of(1L))).thenReturn(List.of(
+                metric(current, SkinMetricType.TROUBLE, 40),
+                metric(current, SkinMetricType.REDNESS, 30),
+                metric(current, SkinMetricType.PORES, 20),
+                metric(current, SkinMetricType.PIGMENTATION, 10)));
+        when(skinMetricRepository.findAllBySkinRecordIdIn(List.of(2L))).thenReturn(List.of(
+                metric(previous, SkinMetricType.TROUBLE, 30),
+                metric(previous, SkinMetricType.REDNESS, 30),
+                metric(previous, SkinMetricType.PORES, 30),
+                metric(previous, SkinMetricType.PIGMENTATION, 30)));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        assertThat(response.summary().totalScore()).isEqualTo(25);
+        assertThat(response.summary().totalDelta()).isEqualTo(-5);
+        assertThat(response.summary().metrics()).extracting(
+                        ReportSummaryMetricResponse::metric, ReportSummaryMetricResponse::score,
+                        ReportSummaryMetricResponse::delta)
+                .containsExactlyInAnyOrder(
+                        tuple(SkinMetricType.TROUBLE, 40, 10),
+                        tuple(SkinMetricType.REDNESS, 30, 0),
+                        tuple(SkinMetricType.PORES, 20, -10),
+                        tuple(SkinMetricType.PIGMENTATION, 10, -20));
+    }
+
+    @DisplayName("직전 동일 기간에 기록이 없으면 증감은 0이다")
+    @Test
+    void summaryDeltaIsZeroWhenNoPreviousPeriodRecords() {
+        LocalDate today = LocalDate.now();
+        SkinRecord current = record(1L, today, TimeSlot.MORNING);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(6)), eq(today)))
+                .thenReturn(List.of(current));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(List.of());
+        when(skinMetricRepository.findAllBySkinRecordIdIn(List.of(1L)))
+                .thenReturn(List.of(metric(current, SkinMetricType.TROUBLE, 40)));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        assertThat(response.summary().totalDelta()).isEqualTo(0);
+        assertThat(response.summary().metrics()).extracting(ReportSummaryMetricResponse::delta)
+                .containsOnly(0);
+    }
+
+    @DisplayName("summary.graph는 기록 없는 날짜에 null을 담고, 하루 2건은 지표 평균을 합쳐 하나로 낸다")
+    @Test
+    void summaryGraphCollapsesSlotsAndKeepsNullForMissingDate() {
+        LocalDate today = LocalDate.now();
+        SkinRecord morning = record(1L, today, TimeSlot.MORNING);
+        SkinRecord night = record(2L, today, TimeSlot.NIGHT);
+        morning.completeAnalysis(BigDecimal.valueOf(60));
+        night.completeAnalysis(BigDecimal.valueOf(40));
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(6)), eq(today)))
+                .thenReturn(List.of(morning, night));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(List.of());
+        when(skinMetricRepository.findAllBySkinRecordIdIn(List.of(1L, 2L))).thenReturn(List.of(
+                metric(morning, SkinMetricType.TROUBLE, 60),
+                metric(night, SkinMetricType.TROUBLE, 40)));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        assertThat(response.summary().graph()).hasSize(7);
+        var todayPoint = response.summary().graph().stream()
+                .filter(p -> p.date().equals(today)).findFirst().orElseThrow();
+        assertThat(todayPoint.score()).isEqualTo(50);
+        long nullDays = response.summary().graph().stream().filter(p -> p.score() == null).count();
+        assertThat(nullDays).isEqualTo(6);
     }
 
     // --- REPORT-03 · 일자별 리포트 조회 ---

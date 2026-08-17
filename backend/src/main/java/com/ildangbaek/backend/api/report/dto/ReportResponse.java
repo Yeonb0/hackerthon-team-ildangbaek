@@ -11,6 +11,7 @@ import java.util.List;
 public record ReportResponse(
         int period,
         SkinMetricType metric,
+        ReportSummaryResponse summary,
         List<ReportGraphPointResponse> graph,
         List<ReportInsightResponse> insights,
         List<String> failedSections

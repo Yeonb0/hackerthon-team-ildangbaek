@@ -195,7 +195,7 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | CHECK-02 위험도 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). ADR 0015 — 등급 산출 기준 신설 |
 | CHECK-03 확인 결과 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). CHECK-02와 같은 DTO·조립 로직 |
 | USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
-| REPORT-01 리포트 조회 | ✅ | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다. PRODUCT-05 실입력 경로로도 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 기록이 `insights`까지 나온다. **2026-08-15**: `ReportService`의 조회 메서드 3개(REPORT-01~03) 모두에 `@Transactional(readOnly = true)`가 빠져 있던 것을 수정 — `open-in-view: false`라 지연 로딩 프록시를 건드리면 `LazyInitializationException`이 날 수 있었다 |
+| REPORT-01 리포트 조회 | ✅ | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다. PRODUCT-05 실입력 경로로도 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 기록이 `insights`까지 나온다. **2026-08-15**: `ReportService`의 조회 메서드 3개(REPORT-01~03) 모두에 `@Transactional(readOnly = true)`가 빠져 있던 것을 수정 — `open-in-view: false`라 지연 로딩 프록시를 건드리면 `LazyInitializationException`이 날 수 있었다. **2026-08-17**: 프론트 요청(리포트 상단 "종합 피부 점수" 카드)에 맞춰 `summary`(`totalScore`·`totalDelta`·지표별 `metrics`·`graph`) 필드를 추가 — 실서버 미검증, 단위 테스트만 완료(아래 2.6절 추가분) |
 | PRODUCT-05 제품 기록 저장 | ✅ | 2.13절. 원래 A 담당이나 B가 대신 구현. 로컬 MySQL로 실서버 확인(2026-08-12) — 실서버에서만 드러난 버그 2건(`force` 생략 400 · `force: true` 500) 수정 |
 | REPORT-02 요인 상세 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.12절). ADR 0013 — 이벤트 조회 시점 도출 · 그래프 ADR 0012 적용 |
 | REPORT-03 일자별 리포트 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.11절). SKIN-01 응답 구조 재사용 · ADR 0012 원칙 유지 |
@@ -282,6 +282,24 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 서비스 단위 테스트 8개(기간 검증 1 · 데이터 부족 1 · 결측 null 1 · 두 슬롯 각각 반환 1 ·
 한쪽 슬롯만 기록 1 · insights 빈 배열 1 · 신뢰도 라벨 매핑 1 · metric 필터링 1).
 REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로 확인했다(아래 2.7).
+
+**2026-08-17 추가 — `summary` 필드.** 프론트가 리포트 화면 상단 "종합 피부 점수" 카드에 쓸
+기간 종합 데이터가 없다는 요청을 받아 추가했다.
+
+- `summary.totalScore`는 기간 내 지표 4종 값을 모두 모은 평균 — SKIN-01의 `totalScore` 산출식
+  (ADR 0008)을 기간 단위로 그대로 확장했다. 새 ADR을 따로 만들지 않았다 — 계산식 자체가 아니라
+  적용 범위(레코드 1건 → 기간 전체)만 넓힌 것이라 기존 결정을 벗어나지 않는다고 판단했다.
+- `summary.metrics[].delta` · `summary.totalDelta`는 직전 동일 길이 기간과 비교한다. 직전 기간에
+  기록이 아예 없으면(신규 가입자 등) `0`을 반환한다 — SKIN-01의 "비교 대상 없으면 `comparison`
+  자체가 `null`"과 달리 여기서는 필드 자체를 없앨 수 없는 구조라(항상 존재해야 하는 카드) 값이
+  없다는 신호를 `0`으로 근사했다. 프론트가 "변화 없음"과 "비교 불가"를 구분해야 하면 추후
+  `totalDelta`를 `Integer`(nullable)로 바꾸는 논의가 필요하다.
+- `summary.graph`는 기존 `graph`와 달리 모닝·나이트를 접어 하루 하나의 값으로 낸다(ADR 0012는
+  지표별 상세 그래프에만 적용되고, 종합 점수 카드의 미니 추이 그래프는 요청 문서가 대표값 하나를
+  요구했다). 기록별 종합 점수는 재계산하지 않고 `SkinRecord.overallScore`를 그대로 읽는다.
+- 단위 테스트 3개 추가(총점·지표별 평균 및 증감 1 · 직전 기간 기록 없을 때 증감 0 1 ·
+  그래프 슬롯 병합과 결측 null 1). **실서버·프론트 연동 검증은 아직이다** — 로컬 컴파일과
+  단위 테스트만 통과한 상태.
 
 **로컬 MySQL 실서버 검증** (2026-08-11). 목업 시드가 `NIGHT`만 심어 네 조합을 만들 수 없어,
 `MORNING` 기록을 얹는 보조 시드(`seed/report-01-slots.sql`)를 함께 썼다.

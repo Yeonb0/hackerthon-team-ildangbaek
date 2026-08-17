@@ -6,6 +6,9 @@ import com.ildangbaek.backend.api.report.dto.ReportInsightDetailResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightEventResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightResponse;
 import com.ildangbaek.backend.api.report.dto.ReportResponse;
+import com.ildangbaek.backend.api.report.dto.ReportSummaryGraphPointResponse;
+import com.ildangbaek.backend.api.report.dto.ReportSummaryMetricResponse;
+import com.ildangbaek.backend.api.report.dto.ReportSummaryResponse;
 import com.ildangbaek.backend.api.skin.dto.SkinRecordResponse;
 import com.ildangbaek.backend.api.skin.service.SkinRecordService;
 import com.ildangbaek.backend.domain.analysis.entity.AnalysisInsight;
@@ -105,8 +108,100 @@ public class ReportService {
             throw new BusinessException(ErrorCode.REPORT_DATA_INSUFFICIENT);
         }
 
-        return new ReportResponse(period, metric, buildGraph(records, metric, startDate, endDate),
+        return new ReportResponse(period, metric, buildSummary(userId, records, period, startDate, endDate),
+                buildGraph(records, metric, startDate, endDate),
                 loadInsights(userId, startDate), Collections.emptyList());
+    }
+
+    /**
+     * REPORT-01 {@code summary} · 기간 종합 점수 카드.
+     *
+     * <p>{@code totalScore}는 SKIN-01의 산출식(ADR 0008)을 기간 단위로 그대로 확장한다 — 기간 내
+     * 모든 지표값을 한데 모은 평균이다. 직전 동일 기간(같은 길이의 바로 전 구간)에 기록이 없으면
+     * 증감은 0으로 둔다 — 비교 대상이 없을 때 임의로 단정하지 않는다.
+     */
+    private ReportSummaryResponse buildSummary(
+            Long userId, List<SkinRecord> records, int period, LocalDate startDate, LocalDate endDate) {
+        Map<SkinMetricType, List<Integer>> scoresByMetric = loadScoresByMetric(records);
+
+        LocalDate previousEndDate = startDate.minusDays(1);
+        LocalDate previousStartDate = previousEndDate.minusDays(period - 1L);
+        List<SkinRecord> previousRecords = skinRecordRepository
+                .findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(userId, previousStartDate, previousEndDate);
+        Map<SkinMetricType, List<Integer>> previousScoresByMetric = loadScoresByMetric(previousRecords);
+
+        List<ReportSummaryMetricResponse> metrics = new ArrayList<>();
+        for (SkinMetricType type : SkinMetricType.values()) {
+            int score = averageOf(scoresByMetric.get(type));
+            metrics.add(new ReportSummaryMetricResponse(type, score, deltaOf(score, previousScoresByMetric.get(type))));
+        }
+
+        int totalScore = averageOfAll(scoresByMetric);
+        int totalDelta = previousRecords.isEmpty() ? 0 : totalScore - averageOfAll(previousScoresByMetric);
+
+        return new ReportSummaryResponse(
+                totalScore, totalDelta, metrics, buildSummaryGraph(records, startDate, endDate));
+    }
+
+    /** 직전 기간에 해당 지표 기록 자체가 없으면 0(비교 없음)이다 — 있었는데 값이 0인 경우와 구별한다. */
+    private int deltaOf(int score, List<Integer> previousScores) {
+        if (previousScores == null || previousScores.isEmpty()) {
+            return 0;
+        }
+        return score - averageOf(previousScores);
+    }
+
+    /**
+     * 하루에 모닝·나이트가 다 있으면 두 슬롯의 종합 점수 평균을 그날의 값으로 쓴다 — 대표값 하나로 접는다.
+     *
+     * <p>기록별 종합 점수는 {@link SkinRecord#getOverallScore()}를 그대로 쓴다 — SKIN-01 저장 시점에
+     * 이미 ADR 0008 방식(지표 4종 단순 평균)으로 계산되어 있어, 지표가 일부만 있는 기록도 이 계산을
+     * 다시 하지 않고 동일한 값을 재사용한다.
+     */
+    private List<ReportSummaryGraphPointResponse> buildSummaryGraph(
+            List<SkinRecord> records, LocalDate startDate, LocalDate endDate) {
+        Map<LocalDate, List<Integer>> scoresByDate = new HashMap<>();
+        for (SkinRecord record : records) {
+            if (record.getOverallScore() == null) {
+                continue;
+            }
+            scoresByDate.computeIfAbsent(record.getRecordDate(), date -> new ArrayList<>())
+                    .add(record.getOverallScore().intValue());
+        }
+
+        return startDate.datesUntil(endDate.plusDays(1))
+                .map(date -> new ReportSummaryGraphPointResponse(date, averageOfNullable(scoresByDate.get(date))))
+                .toList();
+    }
+
+    private Map<SkinMetricType, List<Integer>> loadScoresByMetric(List<SkinRecord> records) {
+        Map<SkinMetricType, List<Integer>> scoresByMetric = new EnumMap<>(SkinMetricType.class);
+        List<Long> recordIds = records.stream().map(SkinRecord::getId).toList();
+        for (SkinMetric skinMetric : skinMetricRepository.findAllBySkinRecordIdIn(recordIds)) {
+            scoresByMetric.computeIfAbsent(skinMetric.getMetricType(), type -> new ArrayList<>())
+                    .add(skinMetric.getMetricValue().intValue());
+        }
+        return scoresByMetric;
+    }
+
+    /** 지표 4종의 점수 리스트를 하나로 합쳐 평균 낸다 — SKIN-01 totalScore(ADR 0008)의 기간판이다. */
+    private int averageOfAll(Map<SkinMetricType, List<Integer>> scoresByMetric) {
+        List<Integer> all = scoresByMetric.values().stream().flatMap(List::stream).toList();
+        return averageOf(all);
+    }
+
+    private int averageOf(List<Integer> scores) {
+        if (scores == null || scores.isEmpty()) {
+            return 0;
+        }
+        return (int) Math.round(scores.stream().mapToInt(Integer::intValue).average().orElse(0));
+    }
+
+    private Integer averageOfNullable(List<Integer> scores) {
+        if (scores == null || scores.isEmpty()) {
+            return null;
+        }
+        return (int) Math.round(scores.stream().mapToInt(Integer::intValue).average().orElse(0));
     }
 
     /**
