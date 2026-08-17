@@ -44,3 +44,4 @@
 | [0023](0023-제품-직접-등록-화면-확정.md) | 제품 직접 등록 — ProductManualRegisterScreen을 정식 화면으로 확정 | 수락 | B | TBD-07(해소) · F-PRODUCT-08 · PRODUCT-09 · PRODUCT-10 |
 | [0024](0024-current-user-id-리졸버-단일화.md) | `CurrentUserResolver` 제거 — `CurrentUserIdArgumentResolver` 단일화(Long·User 둘 다 해석) | 수락 | B | ADR 0006 · ADR 0017 |
 | [0025](0025-제품-추천-AI-코멘트.md) | 제품 추천 AI 코멘트 — ai-server 배치 생성 + 실패 시 null 폴백 | 수락 | B | ADR 0016 · ADR 0022 · F-CHECK-01 · CHECK-01 |
+| [0026](0026-피부-지표-원시-측정값-보존.md) | 피부 지표 원시 측정값 보존 — SkinMetric에 raw_value·confidence·버전 추가 | 수락 | B | ADR 0002 · ADR 0008 · ADR 0020 · ADR 0022 |

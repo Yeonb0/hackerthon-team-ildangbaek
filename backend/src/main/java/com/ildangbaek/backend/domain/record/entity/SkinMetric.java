@@ -51,13 +51,45 @@ public class SkinMetric {
     @Column(name = "trend_status", length = 20)
     private TrendStatus trendStatus;
 
+    /**
+     * AI/CV가 실제로 측정한 원시값. {@link #metricValue}(0~100 정규화 점수)로 옮기기 전의
+     * 원본이다. 분석 서버가 값을 제공하지 않았거나(목업), 이 지표가 추가되기 전에 저장된
+     * 기록이면 {@code null} — 기존 score에서 rawValue를 역산하지 않는다.
+     */
+    @Column(name = "raw_value")
+    private Double rawValue;
+
+    /**
+     * 이 분석 결과의 신뢰도. 실제 근거(예: PORES의 카메라 노이즈 대역 판정)가 있을 때만 채운다.
+     * 근거 없는 지표는 {@code null}로 둔다 — 임의로 값을 지어내지 않는다.
+     */
+    @Column(name = "confidence", length = 20)
+    private String confidence;
+
+    /**
+     * rawValue를 산출한 분석 알고리즘 버전. 근거(분석 서버 응답)가 없으면 {@code null}.
+     */
+    @Column(name = "algorithm_version", length = 30)
+    private String algorithmVersion;
+
+    /**
+     * rawValue를 metricValue(score)로 바꾸는 데 쓰인 정규화 기준 버전. 근거가 없으면 {@code null}.
+     */
+    @Column(name = "normalization_version", length = 30)
+    private String normalizationVersion;
+
     @Builder
     private SkinMetric(SkinRecord skinRecord, SkinMetricType metricType, BigDecimal metricValue,
-                        BigDecimal comparisonDifference, TrendStatus trendStatus) {
+                        BigDecimal comparisonDifference, TrendStatus trendStatus, Double rawValue,
+                        String confidence, String algorithmVersion, String normalizationVersion) {
         this.skinRecord = skinRecord;
         this.metricType = metricType;
         this.metricValue = metricValue;
         this.comparisonDifference = comparisonDifference;
         this.trendStatus = trendStatus;
+        this.rawValue = rawValue;
+        this.confidence = confidence;
+        this.algorithmVersion = algorithmVersion;
+        this.normalizationVersion = normalizationVersion;
     }
 }

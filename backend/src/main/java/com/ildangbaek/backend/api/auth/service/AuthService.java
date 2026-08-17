@@ -5,9 +5,9 @@ import com.ildangbaek.backend.api.auth.dto.response.LoginResponse;
 import com.ildangbaek.backend.api.auth.dto.response.RefreshTokenResponse;
 import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.domain.user.repository.UserRepository;
+import com.ildangbaek.backend.global.auth.MockAccessToken;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final MockAccessToken mockAccessToken;
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -34,8 +35,8 @@ public class AuthService {
         }
 
         return new LoginResponse(
-                mockToken("access", user.getId()),
-                mockToken("refresh", user.getId()),
+                mockAccessToken.issueAccessToken(user.getId()),
+                mockAccessToken.issueRefreshToken(user.getId()),
                 isNewUser,
                 user.isOnboardingCompleted(),
                 user.isOnboardingCompleted() ? "NONE" : "BASIC_INFO"
@@ -44,10 +45,11 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public RefreshTokenResponse refresh(String refreshTokenHeader) {
-        Long userId = extractMockRefreshUserId(refreshTokenHeader);
+        Long userId = mockAccessToken.parseRefreshUserId(refreshTokenHeader)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_INVALID_TOKEN));
         userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_USER_NOT_FOUND));
-        return new RefreshTokenResponse(mockToken("access", userId));
+        return new RefreshTokenResponse(mockAccessToken.issueAccessToken(userId));
     }
 
     private String mockProviderUserId(LoginRequest request) {
@@ -59,27 +61,5 @@ public class AuthService {
             return request.oauthAccessToken();
         }
         return providerUserId + "@mock.ildangbaek.local";
-    }
-
-    private String mockToken(String type, Long userId) {
-        return "mock-" + type + "-" + userId + "-" + UUID.randomUUID();
-    }
-
-    private Long extractMockRefreshUserId(String refreshTokenHeader) {
-        if (refreshTokenHeader == null || !refreshTokenHeader.startsWith("mock-refresh-")) {
-            throw new BusinessException(ErrorCode.AUTH_INVALID_TOKEN);
-        }
-
-        String tail = refreshTokenHeader.substring("mock-refresh-".length());
-        int delimiterIndex = tail.indexOf("-");
-        if (delimiterIndex < 0) {
-            throw new BusinessException(ErrorCode.AUTH_INVALID_TOKEN);
-        }
-
-        try {
-            return Long.parseLong(tail.substring(0, delimiterIndex));
-        } catch (NumberFormatException exception) {
-            throw new BusinessException(ErrorCode.AUTH_INVALID_TOKEN);
-        }
     }
 }

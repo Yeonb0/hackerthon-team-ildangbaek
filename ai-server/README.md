@@ -121,13 +121,18 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 | 메서드 | 경로 | 설명 |
 | --- | --- | --- |
 | GET | `/health` | 헬스 체크 |
-| POST | `/analyze` | `image` multipart 파일을 받아 지표 4종 점수 반환 |
+| POST | `/analyze` | `image` multipart 파일을 받아 지표 4종 점수와 1차 원시 측정값 반환 |
 | POST | `/product-comments` | 추천 제품 목록을 받아 제품별 AI 코멘트를 배치로 반환(ADR 0025) |
 
 ```bash
 curl -X POST http://127.0.0.1:8000/analyze -F "image=@face.jpg"
-# {"scores":{"TROUBLE":81,"REDNESS":62,"PORES":47,"PIGMENTATION":90},"pores_reliability":"NORMAL"}
+# {"scores":{"TROUBLE":81,"REDNESS":62,"PORES":47,"PIGMENTATION":90},
+#  "raw":{"TROUBLE":120.5,"REDNESS":10.2,"PORES":7.1,"PIGMENTATION":20.3},
+#  "pores_reliability":"NORMAL","algorithm_version":"cielab-v1","normalization_version":"to-score-v1"}
 ```
+
+`raw`는 OpenAI 확정 이전의 1차(CIELAB 규칙 기반) 측정값이다. OpenAI가 최종 `scores`를 덮어써도
+`raw`는 그대로 유지되므로, `score`가 항상 `raw`에서 정확히 재현되지는 않는다(ADR 0026).
 
 실패는 422와 본문 `code`로 알린다. HTTP 상태만으로는 사유를 구분할 수 없어 코드로 분기한다.
 

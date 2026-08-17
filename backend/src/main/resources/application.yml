@@ -19,6 +19,10 @@ management:
         include: health
 
 app:
+  auth:
+    # 목업 토큰(mock-access-*, mock-refresh-*) 서명용 HMAC 비밀키. 로컬 개발 편의를 위한
+    # 기본값이며, 실제 배포 환경에서는 반드시 MOCK_TOKEN_SECRET을 별도로 설정해야 한다.
+    mock-token-secret: ${MOCK_TOKEN_SECRET:local-dev-only-mock-token-secret-change-me}
   storage:
     local:
       directory: ${STORAGE_LOCAL_DIR:./uploads/images}
@@ -27,6 +31,6 @@ app:
     analysis:
       # mock | local-vision. OpenAI Vision은 local-vision(ai-server) 내부에서 2차 확정
       # 단계로만 호출된다(ADR 0022) — Spring이 직접 OpenAI를 호출하지 않는다.
-      provider: ${SKIN_ANALYSIS_PROVIDER:mock}
+      provider: ${SKIN_ANALYSIS_PROVIDER:local-vision}
       local-vision:
         base-url: ${LOCAL_VISION_BASE_URL:http://localhost:8000}

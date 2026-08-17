@@ -2431,6 +2431,21 @@ json
     "period": 7,
     "metric": "TROUBLE",
 
+    "summary": {
+      "totalScore": 78,
+      "totalDelta": -2,
+      "metrics": [
+        { "metric": "TROUBLE", "score": 38, "delta": -1 },
+        { "metric": "REDNESS", "score": 34, "delta": 1 },
+        { "metric": "PORES", "score": 40, "delta": 3 },
+        { "metric": "PIGMENTATION", "score": 47, "delta": -2 }
+      ],
+      "graph": [
+        { "date": "2026-08-01", "score": 76 },
+        { "date": "2026-08-02", "score": null }
+      ]
+    },
+
     "graph": [
       { "date": "2026-08-01", "morningScore": 70, "nightScore": 73 },
       { "date": "2026-08-02", "morningScore": 76, "nightScore": null },
@@ -2469,6 +2484,14 @@ json
 3. 리포트 최소 요건은 **피부 사진 필수 · 제품 기록 선택**이다. 제품 기록이 없다는 이유로 `REPORT_DATA_INSUFFICIENT`를 반환하지 않는다.
 4. 실제 분석 데이터가 있는 인사이트만 반환한다. 데이터가 부족하면 빈 배열이다.
 5. `confidence`가 `OBSERVING`인 인사이트는 단정적 문구를 쓰지 않는다.
+6. `summary.totalScore`는 기간 내 지표 4종 값을 모두 모은 평균을 반올림한 0~100 정수다.
+   SKIN-01의 `totalScore` 산출식(ADR 0008)을 기간 단위로 그대로 확장한 값이며, **높을수록 좋다.**
+7. `summary.metrics`는 지표 4종 각각의 기간 평균 점수다. **낮을수록 좋다.**
+8. `summary.totalDelta`·`summary.metrics[].delta`는 직전 동일 길이 기간(예: `period=7`이면 그 이전 7일) 대비
+   증감이다. 직전 기간에 해당 지표 기록이 전혀 없으면 비교 대상이 없으므로 `0`이다 — 값이 실제로 변하지 않은
+   경우와 이 경우는 응답만으로 구분되지 않는다.
+9. `summary.graph`는 모닝·나이트를 구분하지 않고 하루 종합 점수(SKIN-01 `totalScore`) 하나로 낸다. 하루 2건이면
+   두 기록의 종합 점수 평균이다. 기록이 없는 날짜는 `score`가 `null`이다 — 0으로 계산하지 않는다.
 
 **`confidence` 값**
 

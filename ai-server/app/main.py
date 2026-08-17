@@ -48,7 +48,13 @@ async def analyze(image: UploadFile = File(...)) -> AnalyzeResponse:
     image_bytes = await image.read()
     log.info("분석 요청: filename=%s bytes=%d", image.filename, len(image_bytes))
     result = pipeline.analyze(image_bytes)
-    return AnalyzeResponse(scores=result.scores, pores_reliability=result.pores_reliability)
+    return AnalyzeResponse(
+        scores=result.scores,
+        raw=result.raw,
+        pores_reliability=result.pores_reliability,
+        algorithm_version=result.algorithm_version,
+        normalization_version=result.normalization_version,
+    )
 
 
 @app.post("/product-comments", response_model=ProductCommentBatchResponse)

@@ -63,6 +63,10 @@ public class SkinRecordWriter {
                         .skinRecord(saved)
                         .metricType(entry.getKey())
                         .metricValue(BigDecimal.valueOf(entry.getValue()))
+                        .rawValue(analysis.rawValues().get(entry.getKey()))
+                        .confidence(analysis.confidence().get(entry.getKey()))
+                        .algorithmVersion(analysis.algorithmVersion())
+                        .normalizationVersion(analysis.normalizationVersion())
                         .build())
                 .toList();
         skinMetricRepository.saveAll(metrics);

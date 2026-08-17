@@ -29,7 +29,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,10 +55,10 @@ public class ProductRecordService {
                 .findByUserIdAndRecordDateAndTimeSlot(user.getId(), today, timeSlot)
                 .isPresent();
 
-        List<RoutineSummaryResponse> routines = routineRepository.findAllByUserIdAndActiveTrue(user.getId()).stream()
+        List<Routine> activeRoutines = routineRepository.findAllByUserIdAndActiveTrue(user.getId()).stream()
                 .filter(routine -> routine.getTimePeriod().name().equals(timeSlot.name()))
-                .map(this::toRoutineSummary)
                 .toList();
+        List<RoutineSummaryResponse> routines = toRoutineSummaries(activeRoutines);
         List<SavedProductSummaryResponse> savedProducts =
                 userProductRepository.findAllByUserIdOrderByLastUsedAtDesc(user.getId()).stream()
                         .map(this::toSavedProductSummary)
@@ -191,9 +193,26 @@ public class ProductRecordService {
         userProduct.markUsedNow();
     }
 
-    private RoutineSummaryResponse toRoutineSummary(Routine routine) {
-        List<RoutineProduct> routineProducts =
-                routineProductRepository.findAllByRoutineIdOrderBySequenceOrderAsc(routine.getId());
+    /**
+     * 루틴마다 따로 조회하면 N+1이 나서(ProductRecordHomeResponse.routines), routineId 목록을
+     * 한 번에 받아 관련 RoutineProduct를 벌크로 조회한다.
+     */
+    private List<RoutineSummaryResponse> toRoutineSummaries(List<Routine> routines) {
+        if (routines.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> routineIds = routines.stream().map(Routine::getId).toList();
+        Map<Long, List<RoutineProduct>> productsByRoutineId = routineProductRepository
+                .findAllByRoutineIdInOrderBySequenceOrderAsc(routineIds).stream()
+                .collect(Collectors.groupingBy(routineProduct -> routineProduct.getRoutine().getId()));
+
+        return routines.stream()
+                .map(routine -> toRoutineSummary(routine, productsByRoutineId.getOrDefault(routine.getId(), List.of())))
+                .toList();
+    }
+
+    private RoutineSummaryResponse toRoutineSummary(Routine routine, List<RoutineProduct> routineProducts) {
         String productSummary = routineProducts.stream()
                 .map(routineProduct -> routineProduct.getUserProduct().getProduct().getProductName())
                 .limit(3)

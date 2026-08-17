@@ -8,6 +8,7 @@ import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.domain.user.entity.UserProfile;
 import com.ildangbaek.backend.domain.user.repository.UserProfileRepository;
 import com.ildangbaek.backend.domain.user.repository.UserRepository;
+import com.ildangbaek.backend.global.auth.MockAccessToken;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,7 @@ class ProfileUpdateValidationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private UserProfileRepository userProfileRepository;
+    @Autowired private MockAccessToken mockAccessToken;
 
     @Test
     @DisplayName("gender에 정의되지 않은 값이 오면 500이 아니라 400이다")
@@ -51,7 +53,7 @@ class ProfileUpdateValidationTest {
                 .build());
 
         MvcResult result = mockMvc.perform(MockMvcRequestBuilders.patch("/api/v1/users/me/profile")
-                        .header("Authorization", "Bearer mock-access-" + user.getId() + "-uuid")
+                        .header("Authorization", "Bearer " + mockAccessToken.issueAccessToken(user.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"gender\":\"NOT_A_GENDER\"}"))
                 .andReturn();

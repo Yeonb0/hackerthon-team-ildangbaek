@@ -91,6 +91,10 @@ def refine(image_bgr: np.ndarray, preliminary: AnalysisResult) -> AnalysisResult
     `pores_reliability`는 규칙 기반 판정을 그대로 유지한다 — 이 값은 촬영 조건별 실측
     통계(`metrics._PORES_NOISE_FLOOR`)로 정의된 것이라 OpenAI에 재위임할 근거가 없다.
 
+    `raw`·`algorithm_version`·`normalization_version`도 1차 결과를 그대로 옮긴다. OpenAI는
+    수치 측정값을 내지 않고 점수만 판단하므로, 이 필드들은 항상 규칙 기반(CIELAB) 1차 단계의
+    값을 가리킨다 — score가 OpenAI로 바뀌어도 raw는 바뀌지 않는다.
+
     :raises VisionUnavailableError: 키 미설정·호출 실패·타임아웃·비신뢰 응답인 경우
     """
     settings = get_settings()
@@ -131,6 +135,12 @@ def refine(image_bgr: np.ndarray, preliminary: AnalysisResult) -> AnalysisResult
         raise VisionUnavailableError(f"OpenAI 응답에 content가 없습니다: {response!r}")
 
     scores = _parse(content)
-    result = AnalysisResult(scores=scores, pores_reliability=preliminary.pores_reliability)
+    result = AnalysisResult(
+        scores=scores,
+        raw=preliminary.raw,
+        pores_reliability=preliminary.pores_reliability,
+        algorithm_version=preliminary.algorithm_version,
+        normalization_version=preliminary.normalization_version,
+    )
     log.info("OpenAI 확정 점수: %s (1차: %s)", result.model_dump(), preliminary.model_dump())
     return result

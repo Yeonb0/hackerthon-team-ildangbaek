@@ -126,17 +126,10 @@ public class ProductService {
         if (scanMode == null) {
             throw new BusinessException(ErrorCode.SCAN_UNSUPPORTED_MODE);
         }
-        Product product = productRepository.findFirstByActiveTrueOrderByIdAsc()
-                .orElseThrow(() -> new BusinessException(ErrorCode.SCAN_PRODUCT_NOT_DETECTED));
-        double confidence = scanMode == ScanMode.BARCODE ? 1.0 : 0.92;
-        return new ProductScanResponse(
-                product.getId(),
-                product.getProductName(),
-                product.getBrandName(),
-                product.getCategory().name(),
-                product.getImageUrl(),
-                confidence
-        );
+        // 이미지에서 바코드를 디코딩하거나 상품을 인식하는 비전 로직이 아직 없다.
+        // 인식한 것처럼 임의 제품을 돌려주는 대신 서비스 미지원으로 명확히 응답한다.
+        // 바코드는 /scan(JSON, barcode 문자열)으로만 실제 조회가 가능하다.
+        throw new BusinessException(ErrorCode.SCAN_SERVICE_UNAVAILABLE);
     }
 
     @Transactional
