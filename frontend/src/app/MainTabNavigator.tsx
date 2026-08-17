@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabRoutes, DetailRoutes, MainTabParamList, DetailStackParamList } from './routes';
 import { navIcon } from '@/theme/tokens';
+import { weightFamily } from '@/theme/typography';
 import {
   IconNavHome,
   IconNavShop,
@@ -34,6 +35,7 @@ import { RoutineEditScreen } from '@/screens/product/RoutineEditScreen';
 import { RoutineAddProductScreen } from '@/screens/product/RoutineAddProductScreen';
 import { ProductManualRegisterScreen } from '@/screens/product/ProductManualRegisterScreen';
 import { RecordCalendarScreen } from '@/screens/record/RecordCalendarScreen';
+import { CartScreen } from '@/screens/product/CartScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<DetailStackParamList>();
@@ -58,6 +60,20 @@ function Tabs() {
         headerShown: false,
         tabBarActiveTintColor: navIcon.active,
         tabBarInactiveTintColor: navIcon.inactive,
+        // 2026-08-17(세션 12) — 탭 라벨이 OS 기본 글꼴로 남아 있던 것을 앱 글꼴로
+        // 맞춥니다(관리자 제보). React Navigation의 탭 라벨은 우리 Text 컴포넌트가
+        // 아니라 라이브러리 내부 Text라 코드모드(scripts/apply-font-tokens.mjs)
+        // 대상에서 빠져 있었고, fontFamily를 명시하지 않으면 OS 기본 글꼴로 남습니다
+        // (TextInput과 동일한 이유 — ProductSearchBar.tsx 주석 참고).
+        //
+        // ⚠️ fontWeight는 주지 않습니다 — 굵기별 폰트 파일 위에 fontWeight를 얹으면
+        // 안드로이드가 합성 볼드를 겹쳐 얹습니다(theme/typography.ts 규칙).
+        // ⚠️ fontSize도 지정하지 않았습니다. 라이브러리 기본값을 그대로 두면 글꼴만
+        // 바뀌고 탭바 레이아웃은 건드리지 않게 됩니다 — 글꼴 교체 후 크기가 어색하면
+        // 여기에 fontSize를 추가하면 됩니다.
+        tabBarLabelStyle: {
+          ...weightFamily('medium'),
+        },
         tabBarStyle: {
           height: TAB_BAR_BASE_HEIGHT + insets.bottom,
           paddingTop: 8,
@@ -129,6 +145,8 @@ export function MainTabNavigator() {
       <Stack.Screen name={DetailRoutes.RoutineAddProduct} component={RoutineAddProductScreen} />
       <Stack.Screen name={DetailRoutes.ProductManualRegister} component={ProductManualRegisterScreen} />
       <Stack.Screen name={DetailRoutes.RecordCalendar} component={RecordCalendarScreen} />
+      {/* S-25 장바구니 — 2026-08-17(세션 12) 신규. 쇼핑 화면 우측 상단 아이콘에서 진입. */}
+      <Stack.Screen name={DetailRoutes.Cart} component={CartScreen} />
     </Stack.Navigator>
   );
 }

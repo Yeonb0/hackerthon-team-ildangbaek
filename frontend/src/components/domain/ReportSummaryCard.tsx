@@ -5,7 +5,7 @@ import { AreaTrendChart, weekdayLabel } from '@/components/chart/AreaTrendChart'
 import { LoadingState } from '@/components/state/LoadingState';
 import { IconMinus } from '@/components/icons';
 import { color, metricAccent, reportColor, space } from '@/theme/tokens';
-import { weightFamily, adjustFontSize } from '@/theme/typography';
+import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { ReportSummaryResult, MetricKey, ReportPeriod } from '@/types/report';
 
 const METRIC_LABELS: Record<MetricKey, string> = {
@@ -39,6 +39,16 @@ type ReportSummaryCardProps = {
  * 2026-08-17 — Card(둥근 흰 카드)에서 화면 상단 흰 섹션으로 바뀌었습니다(Figma는
  * 배경이 연보라 #F5F2FF이고 섹션들이 흰 블록으로 쌓입니다). 총점 숫자의 그라데이션은
  * 관리자 요청으로 제외하고 brand500 솔리드로 둡니다.
+ *
+ * 2026-08-17(세션 12) — 총점 숫자만 배달의민족 주아체(BMJUA)로 고정했습니다
+ * (관리자 결정 — 미니 스코어 4종과 증감은 기존 본문 글꼴 유지). 낮 홈 기온 숫자
+ * (EnvironmentCard)와 같은 `pinDisplayFont('bmjua')` 패턴이라 새 폰트 등록은
+ * 없습니다. ⚠️ 주아체는 Regular 단일 weight라 `weightFamily('bold')`를 같이 주면
+ * 안드로이드가 합성 볼드를 얹어 획이 뭉개집니다 — 그래서 굵기 지정을 제거했습니다.
+ * ⚠️ 주아체는 기호 글리프가 비어 있는 게 있어(°/℃ 확인됨) 숫자 자리에만 씁니다.
+ * ⚠️ 관례상 pinDisplayFont 자리엔 adjustFontSize를 쓰지 않지만, 이번엔 "크기는
+ * 지금 그대로"라는 관리자 결정에 따라 기존 adjustFontSize(48)를 유지했습니다.
+ * (사용자 글꼴을 나눔스퀘어네오로 바꾸면 이 숫자도 같이 작아집니다 — 의도된 유지)
  *
  * 총점(totalScore)은 "높을수록 좋음" 방향(SKIN-01과 동일)이라 델타 색이 일반
  * 방향(▲=safe/▼=caution)입니다. 반면 지표 4개 미니 스코어는 "낮을수록 좋음"이라
@@ -100,6 +110,9 @@ export function ReportSummaryCard({ data, isLoading, period, dotDates, style }: 
  * (MetricScoreList.DeltaBadge와 별도입니다 — 그쪽은 아이콘+"변화 없음"/"첫 기록"
  * 문구까지 포함한 다른 화면(S-18) 전용 컴포넌트라, 이 카드의 더 작고 인라인인
  * Figma 스타일(▲/▼ 글리프+숫자만, 별도 아이콘 없음)과 재사용하기엔 서로 안 맞았습니다).
+ *
+ * ⚠️ 여기는 주아체를 쓰지 않습니다 — ▲/▼ 글리프가 비어 있을 위험이 있어 본문
+ * 글꼴을 그대로 둡니다(관리자 결정, 2026-08-17 세션 12).
  */
 function DeltaText({
   delta,
@@ -160,10 +173,13 @@ const styles = StyleSheet.create({
   },
   // 그라데이션 제외(관리자 결정, 2026-08-17) — Figma는 라벤더→핑크 그라데이션 텍스트지만
   // MaskedView 부팅 크래시 이력이 있어 brand500 솔리드로 둡니다.
+  //
+  // 글꼴은 주아체 고정(관리자 결정, 2026-08-17 세션 12). weightFamily를 같이 주면
+  // 안 됩니다 — 컴포넌트 상단 주석 참고.
   totalNumber: {
     fontSize: adjustFontSize(48),
-    lineHeight: 52,
-    ...weightFamily('bold'),
+    lineHeight: 56,
+    ...pinDisplayFont('bmjua'),
     color: color.brand500,
   },
   totalDelta: {

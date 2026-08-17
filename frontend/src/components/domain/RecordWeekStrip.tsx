@@ -24,6 +24,15 @@ type RecordWeekStripProps = {
  * 월 캘린더(RecordCalendar)를 바로 넣었는데, Figma는 홈엔 이번 주 7칸만 보여주고
  * 전체 월은 캘린더 아이콘을 눌러 별도 화면(월간 기록)에서 봅니다. RecordCalendar
  * 컴포넌트 자체는 그 화면에서 계속 쓸 예정이라 건드리지 않았습니다.
+ *
+ * 2026-08-17(세션 12) — 아직 오지 않은 날짜에 흐린 회색 점(NONE)이 찍히던 것을
+ * 고쳤습니다(관리자 제보). 밤 홈 주간 스트립(WeeklyRecordStrip)·월간 캘린더
+ * (RecordCalendar)와 동일하게, 미래 날짜는 점을 그리지 않고 같은 크기의 빈 자리만
+ * 둬서 세로 정렬을 유지합니다 — "기록 안 함(NONE)"과 "아직 안 지난 날"을 구분하기
+ * 위한 규칙입니다.
+ *
+ * 달 경계를 걸쳐 `days`에 데이터가 없는 과거 날짜는 기존대로 NONE(미기록)으로
+ * 그립니다(관리자 결정 — 이번 수정 범위는 미래 날짜만).
  */
 export function RecordWeekStrip({ days, weekStart = 'SUNDAY' }: RecordWeekStripProps) {
   const dayMap = new Map(days.map((d) => [d.date, d]));
@@ -64,8 +73,19 @@ export function RecordWeekStrip({ days, weekStart = 'SUNDAY' }: RecordWeekStripP
               </View>
             )}
             <View style={styles.dots}>
-              <RecordDot slot="morning" status={data && !isFuture ? data.morning : 'NONE'} />
-              <RecordDot slot="night" status={data && !isFuture ? data.night : 'NONE'} />
+              {isFuture ? (
+                // 미래 날짜 — 점을 그리지 않고 자리만 비워 정렬을 맞춥니다
+                // (밤 홈 WeeklyRecordStrip / 월간 RecordCalendar와 동일 규칙).
+                <>
+                  <View style={styles.dotPlaceholder} />
+                  <View style={styles.dotPlaceholder} />
+                </>
+              ) : (
+                <>
+                  <RecordDot slot="morning" status={data ? data.morning : 'NONE'} />
+                  <RecordDot slot="night" status={data ? data.night : 'NONE'} />
+                </>
+              )}
             </View>
           </View>
         );
@@ -124,5 +144,11 @@ const styles = StyleSheet.create({
   dots: {
     flexDirection: 'row',
     gap: 3,
+  },
+  // RecordDot과 같은 8px — RecordDot.tsx의 SIZE 상수와 값만 맞춰둠(export되어 있지
+  // 않아 직접 참조는 못 함). WeeklyRecordStrip.tsx의 dotPlaceholder와 동일합니다.
+  dotPlaceholder: {
+    width: 8,
+    height: 8,
   },
 });

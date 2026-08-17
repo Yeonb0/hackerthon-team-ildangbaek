@@ -4,7 +4,7 @@ import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-n
 import { AreaTrendChart, weekdayLabel } from '@/components/chart/AreaTrendChart';
 import { IconMinus } from '@/components/icons';
 import { color, metricAccent, reportColor, space } from '@/theme/tokens';
-import { weightFamily, adjustFontSize } from '@/theme/typography';
+import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { MetricKey, ReportPeriod, GraphPoint } from '@/types/report';
 
 const METRIC_TABS: { key: MetricKey; label: string }[] = [
@@ -45,6 +45,14 @@ type MetricTrendCardProps = {
  * ⚠️ 지표 4종은 전부 "낮을수록 좋음"이라 증감 색이 반대입니다(▲=caution/▼=safe) —
  * 종합 점수(높을수록 좋음)와 규칙이 다르니 ReportSummaryCard의 DeltaText와 별도로
  * 둡니다.
+ *
+ * 2026-08-17(세션 12) — 지수 큰 숫자만 배달의민족 주아체(BMJUA)로 고정했습니다
+ * (관리자 결정). 탭 라벨·증감·"낮을수록 좋아요"는 본문 글꼴 그대로입니다.
+ * ⚠️ 주아체는 Regular 단일 weight라 fontWeight/weightFamily를 같이 주면 안드로이드가
+ * 합성 볼드를 얹어 획이 뭉개집니다 — 굵기 지정을 뺐습니다.
+ * ⚠️ 주아체는 기호 글리프가 비어 있는 게 있어(°/℃ 확인됨), 점수가 없을 때 쓰는
+ * 대시('–')는 주아체로 그리지 않고 본문 글꼴(scoreValueEmpty)로 분리했습니다.
+ * ⚠️ 크기는 "지금 그대로" 결정에 따라 기존 adjustFontSize(28)를 유지합니다.
  */
 export function MetricTrendCard({
   metric,
@@ -93,7 +101,11 @@ export function MetricTrendCard({
         <View style={styles.scoreBlock}>
           <Text style={styles.scoreLabel}>{METRIC_INDEX_LABEL[metric]}</Text>
           <View style={styles.scoreValueRow}>
-            <Text style={[styles.scoreValue, { color: accent }]}>{score ?? '–'}</Text>
+            {score === undefined ? (
+              <Text style={[styles.scoreValueEmpty, { color: accent }]}>–</Text>
+            ) : (
+              <Text style={[styles.scoreValue, { color: accent }]}>{score}</Text>
+            )}
             <MetricDelta delta={delta ?? null} />
           </View>
         </View>
@@ -177,7 +189,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
   },
+  // 글꼴은 주아체 고정(관리자 결정, 2026-08-17 세션 12). weightFamily를 같이 주면
+  // 안 됩니다 — 컴포넌트 상단 주석 참고.
   scoreValue: {
+    fontSize: adjustFontSize(28),
+    lineHeight: 38,
+    ...pinDisplayFont('bmjua'),
+  },
+  // 값이 없을 때의 '–'. 주아체 기호 글리프 위험을 피해 본문 글꼴로 그립니다.
+  scoreValueEmpty: {
     fontSize: adjustFontSize(28),
     lineHeight: 38,
     ...weightFamily('bold'),
