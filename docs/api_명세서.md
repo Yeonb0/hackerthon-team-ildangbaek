@@ -646,10 +646,18 @@ json
       "cautionCount": 3,
       "insufficientCount": 12,
       "topIngredients": [
-        { "ingredientId": 3,  "name": "나이아신아마이드", "status": "GOOD" },
-        { "ingredientId": 8,  "name": "히알루론산",       "status": "GOOD" },
-        { "ingredientId": 21, "name": "레티놀",           "status": "CAUTION" },
-        { "ingredientId": 27, "name": "향료",             "status": "CAUTION" }
+        {
+          "ingredientId": 3,
+          "name": "나이아신아마이드",
+          "description": "피부 톤 개선과 장벽 관리에 자주 쓰이는 성분입니다.",
+          "status": "GOOD"
+        },
+        {
+          "ingredientId": 21,
+          "name": "레티놀",
+          "description": "피부결 관리에 쓰이지만 민감 피부에는 자극이 될 수 있습니다.",
+          "status": "CAUTION"
+        }
       ]
     },
 
@@ -665,7 +673,9 @@ json
 2. `joinedDays`는 가입일 기준으로 계산한다.
 3. `totalRecordCount`는 실제 저장된 기록 수다. 하루 2회 구조이므로 모닝·나이트를 각각 1회로 센다.
 4. `topIngredients`는 마이페이지 요약 노출용으로 최대 8건을 반환한다. 전체 목록은 USER-02를 사용한다.
-5. `completionRate`는 F-ANALYSIS-05 값을 그대로 사용하며, 구매 전 확인 화면과 동일한 값이어야 한다.
+5. `topIngredients[].description`은 성분 사전의 공통 설명이다. 개인화 판단 근거가 필요하면 USER-02의
+   `reason`을 사용한다.
+6. `completionRate`는 F-ANALYSIS-05 값을 그대로 사용하며, 구매 전 확인 화면과 동일한 값이어야 한다.
    산출식은 ADR 0011에 있고 `ProfileCompletionCalculator`가 단독으로 계산한다 — 이 API가 자체
    계산하면 안 된다. 위 예시의 `65`는 산출식과 무관한 임의값이다.
 
@@ -745,6 +755,40 @@ json
 
 ---
 
+## USER-01-D · 회원 탈퇴
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `DELETE` |
+| URI | `/api/v1/users/me` |
+| 인증 | 필요 |
+
+**Request Body**
+
+없음
+
+**Success Response — 200**
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "요청에 성공했습니다.",
+  "result": null
+}
+```
+
+**Business Rule**
+
+1. 사용자 계정은 물리 삭제하지 않고 `WITHDRAWN` 상태로 전환한다.
+2. 탈퇴 상태 사용자는 로그인, 토큰 재발급, 인증 필요 API 접근이 차단된다.
+3. 현재 임시 인증 토큰은 서버 저장소가 없는 stateless mock token이므로 refresh token 행을 별도로
+   삭제하지 않는다. 실제 인증 저장소가 도입되면 이 API에서 refresh token 폐기를 함께 수행한다.
+
+---
+
 ## USER-02 · 성분 프로파일 전체 조회
 
 | 항목 | 내용 |
@@ -776,6 +820,7 @@ json
       {
         "ingredientId": 3,
         "name": "나이아신아마이드",
+        "description": "피부 톤 개선과 장벽 관리에 자주 쓰이는 성분입니다.",
         "status": "GOOD",
         "reason": "피부 톤 개선 이력",
         "recordCount": 12
@@ -783,6 +828,7 @@ json
       {
         "ingredientId": 27,
         "name": "향료",
+        "description": "제품 향을 내기 위해 쓰이는 성분입니다.",
         "status": "CAUTION",
         "reason": "과거 홍조 반응 있음",
         "recordCount": 7
@@ -790,6 +836,7 @@ json
       {
         "ingredientId": 44,
         "name": "스쿠알란",
+        "description": "피부 보습과 유연감에 쓰이는 오일 성분입니다.",
         "status": "INSUFFICIENT",
         "reason": null,
         "recordCount": 1
@@ -803,14 +850,15 @@ json
 
 1. `status`가 `INSUFFICIENT`인 성분의 `reason`은 `null`이다. **데이터가 부족한 성분에 판단 근거를 지어내지 않는다.**
 2. `recordCount`는 해당 성분이 포함된 제품의 기록 횟수다. 사용자가 왜 아직 데이터 부족인지 이해할 수 있게 한다.
-3. 정렬은 `GOOD` → `CAUTION` → `INSUFFICIENT` 순, 그룹 내에서는 `recordCount` 내림차순이다.
-4. 응답은 `ingredient_profiles`를 읽는다. F-ANALYSIS-04가 새 피부 기록마다 이 표를 갱신한다.
+3. `description`은 성분 사전의 공통 설명이다. 사용자별 판단 근거가 아니므로 `INSUFFICIENT`여도 내려갈 수 있다.
+4. 정렬은 `GOOD` → `CAUTION` → `INSUFFICIENT` 순, 그룹 내에서는 `recordCount` 내림차순이다.
+5. 응답은 `ingredient_profiles`를 읽는다. F-ANALYSIS-04가 새 피부 기록마다 이 표를 갱신한다.
    `status`는 `reaction_type`이며 `SUITABLE`은 `GOOD`으로 변환한다(ADR 0004). `reason`은 `reason_summary`,
    `recordCount`는 `observation_count`(성분 노출 일수)다. 판정 기준은 ADR 0010에 있다.
-5. **프로파일이 비어 있어도 오류가 아니다.** `ingredients`를 빈 배열로 반환한다. 아직 기록이 없는
+6. **프로파일이 비어 있어도 오류가 아니다.** `ingredients`를 빈 배열로 반환한다. 아직 기록이 없는
    사용자에게 정상적으로 나타나는 상태이며, 이 API는 분석을 실행하지 않고 읽기만 한다.
-6. `completionRate`는 `status` 필터와 무관하게 항상 전체 기준이다. 필터는 목록에만 적용된다.
-7. `status`에 `GOOD` · `CAUTION` · `INSUFFICIENT` 외의 값이 오면 422다. **DB 표기인 `SUITABLE`도
+7. `completionRate`는 `status` 필터와 무관하게 항상 전체 기준이다. 필터는 목록에만 적용된다.
+8. `status`에 `GOOD` · `CAUTION` · `INSUFFICIENT` 외의 값이 오면 422다. **DB 표기인 `SUITABLE`도
    거부한다** — API 경계는 `GOOD` 표기만 받는다(ADR 0004).
 
 **Error**
@@ -2813,6 +2861,7 @@ json
 | User | USER-01 | GET | `/users/me` | O |
 | User | USER-01-B | GET | `/users/me/account` | O |
 | User | USER-01-C | GET | `/users/me/products` | O |
+| User | USER-01-D | DELETE | `/users/me` | O |
 | User | USER-02 | GET | `/users/me/ingredient-profile` | O |
 | User | USER-03 | GET | `/users/me/profile` | O |
 | User | USER-04 | PATCH | `/users/me/profile` | O |

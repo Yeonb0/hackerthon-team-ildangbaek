@@ -8,6 +8,7 @@ import com.ildangbaek.backend.domain.analysis.entity.IngredientStatus;
 public record MyPageTopIngredientResponse(
         Long ingredientId,
         String name,
+        String description,
         IngredientStatus status
 ) {
 }

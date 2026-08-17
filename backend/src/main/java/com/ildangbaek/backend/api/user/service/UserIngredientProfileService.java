@@ -58,6 +58,7 @@ public class UserIngredientProfileService {
         return new IngredientProfileItemResponse(
                 profile.getIngredient().getId(),
                 profile.getIngredient().getKoreanName(),
+                profile.getIngredient().getDescription(),
                 IngredientStatus.from(profile.getReactionType()),
                 insufficient ? null : profile.getReasonSummary(),
                 profile.getObservationCount());

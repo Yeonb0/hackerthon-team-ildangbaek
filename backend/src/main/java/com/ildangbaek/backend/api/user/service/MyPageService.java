@@ -115,6 +115,7 @@ public class MyPageService {
         return new MyPageTopIngredientResponse(
                 profile.getIngredient().getId(),
                 profile.getIngredient().getKoreanName(),
+                profile.getIngredient().getDescription(),
                 IngredientStatus.from(profile.getReactionType()));
     }
 }

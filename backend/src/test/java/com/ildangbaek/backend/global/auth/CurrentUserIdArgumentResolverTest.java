@@ -81,6 +81,21 @@ class CurrentUserIdArgumentResolverTest {
                 .andExpect(jsonPath("$.code").value("AUTH_USER_NOT_FOUND"));
     }
 
+    @DisplayName("토큰의 사용자가 탈퇴 상태면 404 AUTH_USER_NOT_FOUND")
+    @Test
+    void rejectsWithdrawnUser() throws Exception {
+        User user = User.builder()
+                .provider(AuthProvider.KAKAO).providerUserId("kakao-42").email("u@x.local").build();
+        ReflectionTestUtils.setField(user, "id", 42L);
+        user.withdraw();
+        given(userRepository.findById(42L)).willReturn(Optional.of(user));
+
+        mockMvc.perform(get("/api/v1/test/current-user")
+                        .header("Authorization", "Bearer " + mockAccessToken.issueAccessToken(42L)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("AUTH_USER_NOT_FOUND"));
+    }
+
     @DisplayName("User 파라미터도 헤더가 없으면 401 — 사용자 조회 전에 막는다")
     @Test
     void rejectsMissingHeaderForUserEntity() throws Exception {
@@ -92,6 +107,11 @@ class CurrentUserIdArgumentResolverTest {
     @DisplayName("Authorization 헤더에 목업 토큰이 있으면 userId로 주입된다")
     @Test
     void resolvesHeader() throws Exception {
+        User user = User.builder()
+                .provider(AuthProvider.KAKAO).providerUserId("kakao-42").email("u@x.local").build();
+        ReflectionTestUtils.setField(user, "id", 42L);
+        given(userRepository.findById(42L)).willReturn(Optional.of(user));
+
         mockMvc.perform(get("/api/v1/test/current-user")
                         .header("Authorization", "Bearer " + mockAccessToken.issueAccessToken(42L)))
                 .andExpect(status().isOk())

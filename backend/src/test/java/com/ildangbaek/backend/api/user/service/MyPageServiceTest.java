@@ -136,6 +136,20 @@ class MyPageServiceTest {
     }
 
     @Test
+    @DisplayName("topIngredients에는 성분 공통 설명을 함께 내려준다")
+    void includesIngredientDescription() {
+        when(ingredientProfileRepository.findAllByUserIdWithIngredient(USER_ID)).thenReturn(List.of(
+                profile(1L, "스쿠알란", ReactionType.SUITABLE, 1)));
+
+        MyPageResponse response = service.getMyPage(USER_ID);
+
+        assertThat(response.ingredientProfile().topIngredients())
+                .singleElement()
+                .extracting(MyPageTopIngredientResponse::description)
+                .isEqualTo("성분 공통 설명");
+    }
+
+    @Test
     @DisplayName("상태별 카운트는 GOOD·CAUTION·INSUFFICIENT를 각각 센다")
     void countsByStatus() {
         when(ingredientProfileRepository.findAllByUserIdWithIngredient(USER_ID)).thenReturn(List.of(
@@ -198,7 +212,10 @@ class MyPageServiceTest {
 
     private IngredientProfile profile(Long ingredientId, String koreanName, ReactionType reactionType,
                                        int observationCount) {
-        Ingredient ingredient = Ingredient.builder().koreanName(koreanName).build();
+        Ingredient ingredient = Ingredient.builder()
+                .koreanName(koreanName)
+                .description("성분 공통 설명")
+                .build();
         ReflectionTestUtils.setField(ingredient, "id", ingredientId);
 
         IngredientProfile profile = IngredientProfile.builder().user(user).ingredient(ingredient).build();

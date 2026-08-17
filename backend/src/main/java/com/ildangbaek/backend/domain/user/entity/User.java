@@ -64,4 +64,8 @@ public class User extends BaseTimeEntity {
     public void withdraw() {
         this.accountStatus = AccountStatus.WITHDRAWN;
     }
+
+    public boolean isActive() {
+        return this.accountStatus == AccountStatus.ACTIVE;
+    }
 }
