@@ -20,8 +20,14 @@
 // 시안엔 불릿이 3줄이지만, 우리가 실제로 가진 사유는 CHECK-01의 reason 문자열 1개뿐이라
 // 불릿 1개만 그립니다(나머지 2개는 지어낼 근거가 없어 생략).
 //
-// 구매하러 가기 / 장바구니에 담기: API 명세서·기능명세서 전체에 이 기능이 없는 걸 확인했습니다
-// (관리자님 확인, 2026-08-13) — 완전히 프론트 목업이며 실제 이동/저장 없이 Toast만 띄웁니다.
+// 구매하러 가기: API 명세서·기능명세서 전체에 이 기능이 없는 걸 확인했습니다
+// (관리자님 확인, 2026-08-13) — 완전히 프론트 목업이며 실제 이동 없이 Toast만 띄웁니다.
+//
+// 장바구니에 담기: 2026-08-17(세션 12)부터 실제로 동작합니다(관리자님 요청). 백엔드 API는
+// 여전히 없어서 cartStore(SecureStore/localStorage 클라이언트 저장)에만 담기고, 담긴 상태면
+// 같은 버튼이 "장바구니에서 빼기"로 바뀝니다. 관리자 결정에 따라 담기 버튼은 이 화면에만
+// 두고 쇼핑 화면 추천 카드에는 넣지 않습니다. 제약은 src/store/cartStore.ts 상단 주석과
+// docs/design-request-cart.md 참고.
 //
 // Figma 배치 맞춤(관리자님 요청, 2026-08-13) — SHOP-02(node 193:5932) 구조를 그대로 따름:
 //   Nav(← + 제목) → 구분선 → 제품 헤더(사진 80x80 + 브랜드/이름/카테고리) → 요약 카드
@@ -47,6 +53,7 @@ import { useProductDetail } from '@/api/queries/product';
 import { computeCheck } from '@/api/queries/check';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
+import { useCartStore, useIsInCart } from '@/store/cartStore';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { CheckResult, RiskLevel } from '@/types/check';
@@ -155,9 +162,31 @@ export function ProductDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 구매/장바구니는 목업이라 실패할 일이 없어서 별도 mutation 없이 즉시 Toast만 띄웁니다.
+  // 구매는 목업이라 실패할 일이 없어서 별도 mutation 없이 즉시 Toast만 띄웁니다.
   const handlePurchase = () => setToastMessage('데모에서는 실제 구매로 연결되지 않아요.');
-  const handleAddToCart = () => setToastMessage('장바구니에 담았어요. (데모 전용)');
+
+  // 장바구니는 cartStore(클라이언트 저장)에 실제로 담깁니다 — 파일 상단 주석 참고.
+  const isInCart = useIsInCart(productId);
+  const addToCart = useCartStore((s) => s.add);
+  const removeFromCart = useCartStore((s) => s.remove);
+
+  const handleToggleCart = () => {
+    if (isInCart) {
+      removeFromCart(productId);
+      setToastMessage('장바구니에서 빼냈어요.');
+      return;
+    }
+    // 이름·브랜드는 상세 조회 결과에서 가져옵니다. 아직 로딩 중이면 버튼 자체가 안 보이는
+    // 상태(로딩 화면)라 여기 올 수 없지만, 방어적으로 막아둡니다.
+    const product = detailQuery.data;
+    if (!product) return;
+    const overflow = addToCart({ productId, name: product.name, brand: product.brand });
+    setToastMessage(
+      overflow > 0
+        ? '장바구니가 가득 차서 가장 오래 담아둔 제품을 뺐어요.'
+        : '장바구니에 담았어요.'
+    );
+  };
 
   const combinedLoading = detailQuery.isLoading || phase === 'loading';
 
@@ -299,7 +328,12 @@ export function ProductDetailScreen() {
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[3] }]}>
         <Button label="구매하러 가기" variant="primary" onPress={handlePurchase} style={styles.bottomButton} />
-        <Button label="장바구니에 담기" variant="ghost" onPress={handleAddToCart} style={styles.bottomButton} />
+        <Button
+          label={isInCart ? '장바구니에서 빼기' : '장바구니에 담기'}
+          variant="ghost"
+          onPress={handleToggleCart}
+          style={styles.bottomButton}
+        />
       </View>
 
       <Toast

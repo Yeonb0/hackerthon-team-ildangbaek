@@ -19,6 +19,15 @@ export interface CheckRecommendation {
   /** ai-server가 reason을 근거로 생성한 한 줄 코멘트(ADR 0025). 생성 실패 시 null —
    * 추천 자체는 AI 코멘트 없이도 성립합니다. */
   aiComment: string | null;
+  /**
+   * 잘 맞음 / 지켜보는 중 배지(S-21 추천 카드, Figma Badge 22:3·22:8).
+   *
+   * ⚠️ CHECK-01 응답에 아직 없는 필드입니다(2026-08-17 확인). 배지를 만들 근거가
+   * reason 문자열뿐이라 백엔드 추가를 요청해뒀고(docs/backend-request-shop01-match-grade.md),
+   * 그때까지 화면(ShoppingScreen)이 값이 없으면 'SAFE'로 폴백합니다. 필드가 실제로
+   * 내려오기 시작하면 optional을 떼면 됩니다.
+   */
+  matchGrade?: 'SAFE' | 'WATCH';
 }
 
 /** 오늘(가장 최근) 피부 기록·환경 데이터 컨텍스트(ADR 0018). 해당 데이터가 없으면 각

@@ -5,29 +5,41 @@
 // (useSaveProductRecord 등)은 이 화면에서 전혀 안 씁니다. 제품을 고르면 바로 CHECK-02로
 // 넘어갑니다(S-22가 진입 시 자동으로 POST /checks를 호출).
 //
-// 2026-08-17 — Figma "최종"(dNq0tcX6O5Mg3gDzvctryO, node 193:5724) 실측 반영, SHOP-01
-// 3분류(ADR 0018) 구현. 기존 "나에게 맞는 제품" 플랫 리스트를 CheckRecommendation.category
-// 기준 3개 섹션으로 분리:
-//   - TODAY_NEEDED(오늘 내 피부에 필요해요): 큰 카드, todayContext.troubleScore/rednessScore
-//     서브텍스트
-//   - HUMIDITY_CARE(보습이 필요한 날): 가로 배열 미니 카드, todayContext.humidity/humidityGrade
-//     서브텍스트
-//   - MATCHED_INGREDIENT(내게 잘 맞는 성분이 들어간 제품): 성분 필터 칩 + 필터된 리스트
-// Figma는 각 추천 카드에 태그 칩 2개(예: "트러블 진정 성분", "향료 미포함")를 그리지만
-// CHECK-01 응답엔 이 데이터가 없어서(reason 문자열 하나뿐) 생략했습니다 — 백엔드 필드 추가
-// 요청 문서(docs/backend-request-shop01-tag-chips.md)를 작성해뒀습니다. 대신 reason 문장을
-// 그대로 보여줍니다.
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-08-17(세션 12) — Hifi-GUI ShopTab(P8CmHDZp7z0dKiHByEzuLx, node 59:6897) 실측 +
+// 관리자 추가 지시 반영. 세션 11의 와이어프레임(193:5724) 기준 구조를 전부 다시 짰습니다.
 //
-// 성분 필터 칩(MATCHED_INGREDIENT 섹션)도 CHECK-01 응답엔 없는 기능이라, USER-02
-// (useIngredientProfile('GOOD'))에서 GOOD 성분 목록을 별도로 불러와 클라이언트에서
-// reason 문자열에 성분명이 포함되는지로 필터링합니다(정확한 매칭은 아니고 근사치 —
-// reason이 "{성분명1}·{성분명2}이 잘 맞는 성분이에요" 형태로 조립되므로 substring
-// 매칭이 대체로 맞습니다).
+// 관리자 결정:
+//   (a) Figma는 섹션 2개지만 ADR 0018 3분류를 그대로 유지합니다.
+//   (b) Figma 칩 문구 "성분 검색" → "제품 검색"(PRODUCT-02). 성분 기반 탐색은 3번째 섹션이
+//       대신합니다.
+//   (c) 잘 맞음/지켜보는 중 배지 도입 — CHECK-01에 등급 필드가 없어 `matchGrade`가 없으면
+//       'SAFE'로 폴백합니다(요청서: docs/backend-request-shop01-match-grade.md).
+//   (d) 레이아웃: 섹션 제목을 카드 밖 큰 글씨로 빼고, 항목 하나하나를 개별 흰 카드로
+//       분리합니다(관리자 제공 참고 이미지 구조).
+//   (e) 카드 텍스트 순서: 제품명(볼드) 위 / 브랜드(작은 회색) 아래.
+//   (f) "내게 잘 맞는 성분이 들어간 제품"만 가로 스크롤, 나머지 두 섹션은 세로 카드 스택.
+//   (g) 우측 상단 장바구니 아이콘 + 담긴 개수 배지. 담기/빼기 버튼은 이 화면에 두지 않고
+//       제품 상세(SHOP-02)에만 둡니다 — 쇼핑 화면을 깔끔하게 유지하려는 결정.
+//   (h) 참고 이미지의 번호 배지(1·2)는 넣지 않습니다(추천은 순위 목록이 아님).
 //
-// 상단 진입 방식(스캔/검색)은 Figma가 버튼 2개 나란히 배치로 그렸지만, 관리자 결정으로
-// 기존 SegmentToggle 인라인 전환 그대로 유지합니다(2026-08-17).
+// Figma/이미지 대비 의도적 차이:
+//   · Figma는 칩 2개가 둘 다 비선택이고 아래 패널이 없습니다. 그 상태를 초기값으로 삼아
+//     findMode 기본값을 null로 뒀습니다(칩을 누르면 열리고, 같은 칩을 다시 누르면 닫힘).
+//     예전처럼 진입 즉시 검색창을 열려면 useState<FindMode | null>('SEARCH')로 바꾸면 됩니다.
+//   · (e)에 따라 카드가 제품명·브랜드 2줄이 되면서 `reason` 문장이 카드에서 빠졌습니다.
+//     추천 근거는 배지와 섹션 부제로만 읽히고, 문장 전체는 탭해서 들어간 제품 상세에서
+//     보입니다(navigate 시 reason을 계속 넘깁니다). 카드에 3번째 줄로 되살리고 싶으면
+//     말씀해주세요.
+//   · "더보기"는 Figma엔 1번 카드에만 있고 목적지가 없어서, 죽은 버튼 대신 "접힌 목록
+//     펼치기"로 구현했습니다. 새 API 없이 동작합니다.
+//   · 브랜드 줄이 Figma는 "브랜드 · 용량"인데 CHECK-01에 용량이 없어 브랜드만 표시합니다.
+//   · 장바구니 아이콘은 42종 아이콘 세트에 없어서 Ionicons 'cart-outline'으로 임시
+//     폴백했습니다(미전달 아이콘은 Ionicons 유지 — Checkpoint 9-B 원칙).
+//     디자인 요청: docs/design-request-cart.md
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,9 +61,10 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useCheckHome } from '@/api/queries/check';
 import { useIngredientProfile } from '@/api/queries/user';
 import { useProductSearch } from '@/api/queries/product';
+import { useCartCount } from '@/store/cartStore';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
-import { color, space, typography } from '@/theme';
+import { color, radius, reportCardShadow, space } from '@/theme/tokens';
 import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import type { ScanMode } from '@/types/product';
 import type { CheckRecommendation } from '@/types/check';
@@ -60,10 +73,6 @@ import { weightFamily, adjustFontSize } from '@/theme/typography';
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
 type FindMode = 'SCAN' | 'SEARCH';
-const FIND_MODE_OPTIONS: { value: FindMode; label: string }[] = [
-  { value: 'SEARCH', label: '검색' },
-  { value: 'SCAN', label: '스캔' },
-];
 
 const SCAN_MODE_OPTIONS: { value: ScanMode; label: string }[] = [
   { value: 'BARCODE', label: '바코드' },
@@ -76,9 +85,23 @@ const HUMIDITY_GRADE_LABEL: Record<string, string> = {
   HUMID: '습도가 높아요',
 };
 
+// Figma Badge/Safe·Badge/Watch 실측값(--ds-status-safe-soft / --ds-status-watch-soft).
+// tokens.ts에 알파 없는 soft 배경 토큰이 아직 없어서 Tag.tsx 선례대로 여기서만 상수로
+// 둡니다. 전경색은 reportColor.safe/amber와 값이 같지만 그 토큰은 "리포트 지표 색"
+// 의미라 여기서 재사용하면 의미가 섞여 별도로 적었습니다.
+const MATCH_BADGE = {
+  SAFE: { bg: '#E1F5EE', fg: '#3FAE8B', label: '잘 맞음', icon: 'check' as const },
+  WATCH: { bg: '#FFF1D8', fg: '#FFB648', label: '지켜보는 중', icon: 'warning' as const },
+};
+
+/** 접힌 상태에서 먼저 보여줄 개수 — 이보다 많을 때만 "더보기"가 나옵니다. */
+const COLLAPSED_COUNT = 2;
+
 export function ShoppingScreen() {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
+
+  const cartCount = useCartCount();
 
   const checkHomeQuery = useCheckHome();
   // MATCHED_INGREDIENT 섹션 필터 칩용 — GOOD 성분만(성분 프로파일 전체 화면과 달리
@@ -86,9 +109,8 @@ export function ShoppingScreen() {
   const goodIngredientsQuery = useIngredientProfile('GOOD');
   const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
 
-  // 관리자님 요청(2026-08-10) — 검색을 먼저 보여줍니다. 스캔은 카메라 권한 요청이 바로
-  // 뜨는데, 화면에 처음 들어왔을 때는 검색이 더 가벼운 진입입니다.
-  const [findMode, setFindMode] = useState<FindMode>('SEARCH');
+  // null = 아무 패널도 열려 있지 않음(Figma 기본 상태). 파일 상단 주석 참고.
+  const [findMode, setFindMode] = useState<FindMode | null>(null);
   const [scanMode, setScanMode] = useState<ScanMode>('BARCODE');
   const cameraRef = useRef<ProductCameraCaptureHandle>(null);
   const [scanError, setScanError] = useState<{ code?: string; message: string } | null>(null);
@@ -98,14 +120,20 @@ export function ShoppingScreen() {
   const debouncedKeyword = useDebouncedValue(keyword, 300);
   const searchQuery = useProductSearch(debouncedKeyword);
 
+  // 섹션별 "더보기" 펼침 상태
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (key: string) =>
+    setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
   // Phase 11-C(관리자 결정, 2026-08-13) — 추천/검색/스캔 3개 진입 경로 모두 SHOP-02
   // 제품 상세(ProductDetail)로 통일. reason은 추천 카드를 탭했을 때만 넘겨줍니다.
   const handleProductSelected = (productId: number, reason?: string) => {
     navigation.navigate(DetailRoutes.ProductDetail, { productId, reason });
   };
 
-  const handleFindModeChange = (mode: FindMode) => {
-    setFindMode(mode);
+  /** 같은 칩을 다시 누르면 패널을 닫습니다. */
+  const handleFindModePress = (mode: FindMode) => {
+    setFindMode((prev) => (prev === mode ? null : mode));
     setScanError(null);
     cameraRef.current?.resetScanned();
   };
@@ -132,7 +160,7 @@ export function ShoppingScreen() {
   );
 
   const goodIngredients = goodIngredientsQuery.data?.ingredients ?? [];
-  // 첫 로드 시 첫 번째 GOOD 성분을 기본 선택(Figma 실측 — 첫 칩이 검정 배경으로 선택돼 있음).
+  // 첫 로드 시 첫 번째 GOOD 성분을 기본 선택(Figma 실측 — 첫 칩이 선택돼 있음).
   const effectiveSelectedIngredient = selectedIngredient ?? goodIngredients[0]?.name ?? null;
   const filteredByIngredient = effectiveSelectedIngredient
     ? matchedIngredient.filter((r) => r.reason.includes(effectiveSelectedIngredient))
@@ -157,19 +185,55 @@ export function ShoppingScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + space[5] }]}
+      style={styles.screen}
+      contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>쇼핑</Text>
-      <Text style={styles.subtitle}>내 피부에 맞는 제품을 찾아드려요</Text>
+      {/* 상단 헤더 — 흰 블록. Figma 59:6899 실측(pt 48 / px 20 / pb 16). */}
+      <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitleBlock}>
+            <Text style={styles.pageTitle}>쇼핑</Text>
+            <Text style={styles.pageSubtitle}>내 피부에 맞는 제품을 찾아보세요</Text>
+          </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>제품 확인하기</Text>
-        <SegmentToggle options={FIND_MODE_OPTIONS} value={findMode} onChange={handleFindModeChange} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              cartCount > 0 ? `장바구니, 담은 제품 ${cartCount}개` : '장바구니, 비어 있음'
+            }
+            hitSlop={8}
+            onPress={() => navigation.navigate(DetailRoutes.Cart)}
+            style={styles.cartButton}
+          >
+            {/* 42종 세트에 장바구니 아이콘이 없어 Ionicons 폴백입니다(파일 상단 주석). */}
+            <AppIcon name="cart-outline" size={24} color={color.textInk} />
+            {cartCount > 0 ? (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
 
-        {findMode === 'SCAN' ? (
-          <View style={styles.scanArea}>
+        <View style={styles.modeChipRow}>
+          <ModeChip
+            label="바코드 스캔"
+            selected={findMode === 'SCAN'}
+            onPress={() => handleFindModePress('SCAN')}
+          />
+          <ModeChip
+            label="제품 검색"
+            selected={findMode === 'SEARCH'}
+            onPress={() => handleFindModePress('SEARCH')}
+          />
+        </View>
+      </View>
+
+      <View style={[styles.body, { paddingBottom: insets.bottom + space[8] }]}>
+        {/* 스캔 / 검색 패널 — 칩을 눌렀을 때만 흰 카드로 열립니다. */}
+        {findMode === 'SCAN' && (
+          <View style={styles.panelCard}>
             <SegmentToggle
               options={SCAN_MODE_OPTIONS}
               value={scanMode}
@@ -221,7 +285,7 @@ export function ShoppingScreen() {
                     <Button
                       label="검색으로 전환"
                       variant="primary"
-                      onPress={() => handleFindModeChange('SEARCH')}
+                      onPress={() => handleFindModePress('SEARCH')}
                       style={styles.scanErrorButton}
                     />
                   ) : null}
@@ -229,169 +293,271 @@ export function ShoppingScreen() {
               </View>
             ) : null}
           </View>
-        ) : (
-          <SearchArea
-          keyword={keyword}
-          onChangeKeyword={setKeyword}
-          query={searchQuery}
-          onSelect={handleProductSelected}
-        />
         )}
-      </View>
 
-      {checkHomeQuery.isLoading ? (
-        <LoadingState variant="skeleton" skeletonLines={4} style={styles.recSkeleton} />
-      ) : checkHomeQuery.isError || !checkHomeQuery.data ? (
-        <ErrorState variant="network" onRetry={() => checkHomeQuery.refetch()} />
-      ) : recommendations.length === 0 ? (
-        <EmptyState
-          icon="celebrate"
-          title="아직 추천할 제품이 없어요"
-          description="기록이 쌓이면 나에게 맞는 제품을 추천해드려요."
-        />
-      ) : (
-        <>
-          {todayNeeded.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>오늘 내 피부에 필요해요</Text>
-              {todaySubtitle ? <Text style={styles.sectionSubtitle}>{todaySubtitle}</Text> : null}
-              <View style={styles.list}>
-                {todayNeeded.map((rec) => (
-                  <RecommendationLargeCard
-                    key={rec.productId}
-                    rec={rec}
-                    onPress={() => handleProductSelected(rec.productId, rec.reason)}
-                  />
-                ))}
-              </View>
-            </View>
-          )}
+        {findMode === 'SEARCH' && (
+          <View style={styles.panelCard}>
+            <SearchArea
+              keyword={keyword}
+              onChangeKeyword={setKeyword}
+              query={searchQuery}
+              onSelect={handleProductSelected}
+            />
+          </View>
+        )}
 
-          {humidityCare.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>보습이 필요한 날</Text>
-              {humiditySubtitle ? <Text style={styles.sectionSubtitle}>{humiditySubtitle}</Text> : null}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miniCardRow}>
-                {humidityCare.map((rec) => (
-                  <RecommendationMiniCard
-                    key={rec.productId}
-                    rec={rec}
-                    onPress={() => handleProductSelected(rec.productId, rec.reason)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {matchedIngredient.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>내게 잘 맞는 성분이 들어간 제품</Text>
-              {goodIngredients.length > 0 && (
-                <View style={styles.ingredientChipRow}>
-                  {goodIngredients.map((ing) => (
-                    <Chip
-                      key={ing.ingredientId}
-                      label={ing.name}
-                      selected={ing.name === effectiveSelectedIngredient}
-                      onPress={() => setSelectedIngredient(ing.name)}
-                    />
-                  ))}
-                </View>
-              )}
-              {filteredByIngredient.length === 0 ? (
-                <Text style={styles.emptyIngredientText}>
-                  {effectiveSelectedIngredient ?? ''} 성분이 들어간 추천 제품이 아직 없어요.
-                </Text>
-              ) : (
-                <View style={styles.list}>
-                  {filteredByIngredient.map((rec) => (
-                    <RecommendationRow
+        {checkHomeQuery.isLoading ? (
+          <View style={styles.panelCard}>
+            <LoadingState variant="skeleton" skeletonLines={4} />
+          </View>
+        ) : checkHomeQuery.isError || !checkHomeQuery.data ? (
+          <View style={styles.panelCard}>
+            <ErrorState variant="network" onRetry={() => checkHomeQuery.refetch()} />
+          </View>
+        ) : recommendations.length === 0 ? (
+          <View style={styles.panelCard}>
+            <EmptyState
+              icon="celebrate"
+              title="아직 추천할 제품이 없어요"
+              description="기록이 쌓이면 나에게 맞는 제품을 추천해드려요."
+            />
+          </View>
+        ) : (
+          <>
+            {todayNeeded.length > 0 && (
+              <View style={styles.section}>
+                <SectionHeader
+                  title="오늘 내 피부에 필요해요"
+                  subtitle={todaySubtitle}
+                  expanded={!!expandedSections.today}
+                  canExpand={todayNeeded.length > COLLAPSED_COUNT}
+                  onToggle={() => toggleSection('today')}
+                />
+                <View style={styles.cardStack}>
+                  {(expandedSections.today
+                    ? todayNeeded
+                    : todayNeeded.slice(0, COLLAPSED_COUNT)
+                  ).map((rec) => (
+                    <RecommendationCard
                       key={rec.productId}
                       rec={rec}
                       onPress={() => handleProductSelected(rec.productId, rec.reason)}
                     />
                   ))}
                 </View>
-              )}
-            </View>
-          )}
-        </>
-      )}
+              </View>
+            )}
+
+            {humidityCare.length > 0 && (
+              <View style={styles.section}>
+                <SectionHeader
+                  title="보습이 필요한 날"
+                  subtitle={humiditySubtitle}
+                  expanded={!!expandedSections.humidity}
+                  canExpand={humidityCare.length > COLLAPSED_COUNT}
+                  onToggle={() => toggleSection('humidity')}
+                />
+                <View style={styles.cardStack}>
+                  {(expandedSections.humidity
+                    ? humidityCare
+                    : humidityCare.slice(0, COLLAPSED_COUNT)
+                  ).map((rec) => (
+                    <RecommendationCard
+                      key={rec.productId}
+                      rec={rec}
+                      onPress={() => handleProductSelected(rec.productId, rec.reason)}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {matchedIngredient.length > 0 && (
+              <View style={styles.section}>
+                {/* 이 섹션만 가로 스크롤이라 "더보기"가 필요 없습니다(관리자 결정 (f)). */}
+                <SectionHeader
+                  title="내게 잘 맞는 성분이 들어간 제품"
+                  subtitle={null}
+                  expanded={false}
+                  canExpand={false}
+                  onToggle={() => undefined}
+                />
+                {goodIngredients.length > 0 && (
+                  // 성분 칩도 개수가 많으면 줄바꿈으로 화면을 밀어내서 가로 스크롤로 둡니다.
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.ingredientChipRow}
+                  >
+                    {goodIngredients.map((ing) => (
+                      <Chip
+                        key={ing.ingredientId}
+                        label={ing.name}
+                        selected={ing.name === effectiveSelectedIngredient}
+                        onPress={() => setSelectedIngredient(ing.name)}
+                      />
+                    ))}
+                  </ScrollView>
+                )}
+                {filteredByIngredient.length === 0 ? (
+                  <Text style={styles.emptyIngredientText}>
+                    {effectiveSelectedIngredient ?? ''} 성분이 들어간 추천 제품이 아직 없어요.
+                  </Text>
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalRow}
+                  >
+                    {filteredByIngredient.map((rec) => (
+                      <RecommendationCard
+                        key={rec.productId}
+                        rec={rec}
+                        horizontal
+                        onPress={() => handleProductSelected(rec.productId, rec.reason)}
+                      />
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            )}
+          </>
+        )}
+      </View>
     </ScrollView>
   );
 }
 
-/** "오늘 내 피부에 필요해요" 큰 카드 (Figma 193:5752 실측). 태그 칩은 CHECK-01에 없는
- * 데이터라 생략 — reason 문장만 표시. */
-function RecommendationLargeCard({ rec, onPress }: { rec: CheckRecommendation; onPress: () => void }) {
+// ---------------------------------------------------------------------------
+// 하위 컴포넌트
+// ---------------------------------------------------------------------------
+
+/** 상단 진입 칩. Figma Chip/Default(89:2) 실측 — 라벤더 배경 pill.
+ * 선택 상태는 Figma에 없어서(둘 다 비선택 목업) 앱 공통 규칙대로 brand500 채움 +
+ * 흰 글씨로 뒀습니다. */
+function ModeChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${rec.name} 확인하기`}
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [styles.largeCard, pressed && styles.cardPressed]}
+      style={[styles.modeChip, selected && styles.modeChipSelected]}
     >
-      <View style={styles.largeCardThumbnail}>
-        <IconImagePlaceholder size={22} color={color.ink300} />
+      <Text style={[styles.modeChipLabel, selected && styles.modeChipLabelSelected]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** 섹션 헤더 — 카드 밖(연보라 배경 위)에 놓이는 큰 제목 + 부제 + 우측 "더보기". */
+function SectionHeader({
+  title,
+  subtitle,
+  expanded,
+  canExpand,
+  onToggle,
+}: {
+  title: string;
+  subtitle: string | null;
+  expanded: boolean;
+  canExpand: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionHeaderText}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
       </View>
-      <View style={styles.largeCardInfo}>
-        <Text style={styles.recBrand}>{rec.brand}</Text>
-        <Text style={styles.recName}>{rec.name}</Text>
-        <View style={styles.statusRow}>
-          <AppIcon name="faceGood" size={16} color={color.statusGood} />
-          <Text style={styles.statusLabel}>잘 맞음</Text>
+      {canExpand ? (
+        <Pressable accessibilityRole="button" onPress={onToggle} hitSlop={8}>
+          <Text style={styles.moreLink}>{expanded ? '접기' : '더보기'}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * 잘 맞음 / 지켜보는 중 배지 (Figma Badge 22:3 · 22:8).
+ *
+ * ⚠️ CHECK-01 응답에 등급 필드가 없습니다. `matchGrade`가 오면 그걸 쓰고, 없으면
+ * 'SAFE'로 폴백합니다 — 백엔드 요청서: docs/backend-request-shop01-match-grade.md
+ */
+function MatchBadge({ rec }: { rec: CheckRecommendation }) {
+  const grade = rec.matchGrade ?? 'SAFE';
+  const meta = MATCH_BADGE[grade];
+  return (
+    <View style={[styles.badge, { backgroundColor: meta.bg }]}>
+      <AppIcon name={meta.icon} size={14} color={meta.fg} />
+      <Text style={[styles.badgeLabel, { color: meta.fg }]}>{meta.label}</Text>
+    </View>
+  );
+}
+
+/**
+ * 추천 제품 카드 하나. 세로 스택(기본)과 가로 스크롤(horizontal) 두 배치를 겸합니다.
+ * 텍스트는 관리자 지시대로 제품명(볼드) 위 / 브랜드(작은 회색) 아래입니다.
+ */
+function RecommendationCard({
+  rec,
+  horizontal = false,
+  onPress,
+}: {
+  rec: CheckRecommendation;
+  horizontal?: boolean;
+  onPress: () => void;
+}) {
+  if (horizontal) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${rec.name} 확인하기`}
+        onPress={onPress}
+        style={({ pressed }) => [styles.hCard, pressed && styles.pressed]}
+      >
+        <View style={styles.hCardThumbnail}>
+          <IconImagePlaceholder size={24} color={color.textMuted} />
         </View>
-        <Text style={styles.recReason}>{rec.reason}</Text>
-        <Text style={styles.recLink}>성분 확인하기 ›</Text>
-      </View>
-    </Pressable>
-  );
-}
+        <Text style={[styles.cardName, styles.cardNameCentered]} numberOfLines={2}>
+          {rec.name}
+        </Text>
+        <Text style={[styles.cardBrand, styles.cardNameCentered]} numberOfLines={1}>
+          {rec.brand}
+        </Text>
+        <MatchBadge rec={rec} />
+      </Pressable>
+    );
+  }
 
-/** "보습이 필요한 날" 가로 미니 카드 (Figma 193:5817 실측). */
-function RecommendationMiniCard({ rec, onPress }: { rec: CheckRecommendation; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${rec.name} 확인하기`}
       onPress={onPress}
-      style={({ pressed }) => [styles.miniCard, pressed && styles.cardPressed]}
+      style={({ pressed }) => [styles.vCard, pressed && styles.pressed]}
     >
-      <View style={styles.miniCardThumbnail}>
-        <IconImagePlaceholder size={18} color={color.ink300} />
+      <View style={styles.vCardThumbnail}>
+        <IconImagePlaceholder size={22} color={color.textMuted} />
       </View>
-      <Text style={styles.miniCardBrand}>{rec.brand}</Text>
-      <Text style={styles.miniCardName} numberOfLines={1}>
-        {rec.name}
-      </Text>
-      <View style={styles.statusRow}>
-        <AppIcon name="faceGood" size={13} color={color.statusGood} />
-        <Text style={styles.miniStatusLabel}>잘 맞음</Text>
+      <View style={styles.vCardInfo}>
+        {/* Figma는 "브랜드 · 용량"이지만 CHECK-01에 용량이 없어 브랜드만 표시합니다. */}
+        <Text style={styles.cardName} numberOfLines={1}>
+          {rec.name}
+        </Text>
+        <Text style={styles.cardBrand} numberOfLines={1}>
+          {rec.brand}
+        </Text>
       </View>
-    </Pressable>
-  );
-}
-
-/** "내게 잘 맞는 성분이 들어간 제품" 리스트 행 (Figma 193:5878 실측). */
-function RecommendationRow({ rec, onPress }: { rec: CheckRecommendation; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${rec.name} 확인하기`}
-      onPress={onPress}
-      style={({ pressed }) => [styles.recRow, pressed && styles.cardPressed]}
-    >
-      <View style={styles.recRowThumbnail}>
-        <IconImagePlaceholder size={18} color={color.ink300} />
-      </View>
-      <View style={styles.recRowInfo}>
-        <Text style={styles.recBrand}>{rec.brand}</Text>
-        <Text style={styles.recName}>{rec.name}</Text>
-      </View>
-      <View style={styles.statusRow}>
-        <AppIcon name="faceGood" size={16} color={color.statusGood} />
-        <Text style={styles.statusLabel}>잘 맞음</Text>
-      </View>
+      <MatchBadge rec={rec} />
     </Pressable>
   );
 }
@@ -425,7 +591,7 @@ function SearchArea({
       ) : query.data.totalCount === 0 ? (
         <EmptyState icon="search" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
       ) : (
-        <View style={styles.list}>
+        <View style={styles.cardStack}>
           {query.data.products.map((product) => (
             <ProductCard
               key={product.productId}
@@ -442,161 +608,232 @@ function SearchArea({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
+    backgroundColor: color.surfaceLavenderPale,
+  },
+  scrollContent: {
+    backgroundColor: color.surfaceLavenderPale,
+  },
+
+  // 헤더(흰 블록)
+  header: {
     backgroundColor: color.bg,
-  },
-  content: {
     paddingHorizontal: space[5],
-    paddingBottom: space[8],
-    gap: space[6],
+    paddingBottom: space[4],
   },
-  title: {
-    ...typography.h1,
-    color: color.ink900,
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: space[3],
   },
-  subtitle: {
-    ...typography.caption,
+  headerTitleBlock: {
+    flex: 1,
+  },
+  pageTitle: {
+    fontSize: adjustFontSize(22),
+    lineHeight: 31,
+    ...weightFamily('bold'),
+    color: color.textInk,
+  },
+  pageSubtitle: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 20,
+    ...weightFamily('medium'),
     color: color.textSub,
-    marginTop: -space[4],
   },
+  cartButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // 아이콘 우상단에 겹치는 개수 배지. minWidth로 한 자리/두 자리 모두 원형에 가깝게.
+  cartBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 0,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 4,
+    borderRadius: radius.pill,
+    backgroundColor: color.brand500,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBadgeText: {
+    fontSize: adjustFontSize(9),
+    lineHeight: 12,
+    ...weightFamily('bold'),
+    color: color.white,
+  },
+  modeChipRow: {
+    flexDirection: 'row',
+    gap: space[2],
+    paddingTop: space[4],
+  },
+  modeChip: {
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderRadius: radius.pill,
+    backgroundColor: color.surfaceLavenderSoft,
+  },
+  modeChipSelected: {
+    backgroundColor: color.brand500,
+  },
+  modeChipLabel: {
+    fontSize: adjustFontSize(12),
+    ...weightFamily('medium'),
+    color: color.textInk,
+  },
+  modeChipLabelSelected: {
+    color: color.white,
+  },
+
+  // 본문(연보라 배경)
+  body: {
+    padding: space[4],
+    gap: space[5],
+  },
+  // 스캔/검색/로딩/에러처럼 "섹션 제목 없이 흰 카드 하나"인 블록용.
+  panelCard: {
+    backgroundColor: color.bg,
+    borderRadius: radius.xl,
+    padding: space[5],
+    gap: space[3],
+    ...reportCardShadow.soft,
+  },
+
   section: {
     gap: space[3],
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: space[2],
+    paddingHorizontal: space[1],
+  },
+  sectionHeaderText: {
+    flex: 1,
+  },
+  // 카드 밖으로 나오면서 카드 안 제목(14)보다 키웠습니다 — 참고 이미지의 "큰 글씨".
   sectionTitle: {
-    ...typography.h2,
-    color: color.ink900,
+    fontSize: adjustFontSize(17),
+    lineHeight: 25,
+    ...weightFamily('bold'),
+    color: color.textInk,
   },
   sectionSubtitle: {
     fontSize: adjustFontSize(11),
+    lineHeight: 16,
     ...weightFamily('medium'),
     color: color.textSub,
-    marginTop: -space[2],
+    marginTop: 2,
   },
-  list: {
-    gap: space[2],
-  },
-  recSkeleton: {
-    marginTop: space[2],
-  },
-  cardPressed: {
-    opacity: 0.7,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statusLabel: {
-    ...typography.caption,
-    ...weightFamily('semibold'),
-    color: color.ink900,
-  },
-  recBrand: {
-    ...typography.caption,
-    color: color.ink600,
-  },
-  recName: {
-    ...typography.bodyStrong,
-    color: color.ink900,
-  },
-  recReason: {
-    ...typography.caption,
-    color: color.brand700,
-  },
-  recLink: {
-    fontSize: adjustFontSize(11),
-    ...weightFamily('medium'),
-    color: color.textSub,
-  },
-  // 오늘 내 피부에 필요해요 — 큰 카드
-  largeCard: {
-    flexDirection: 'row',
-    gap: space[3],
-    borderWidth: 1,
-    borderColor: color.borderDividerFaint,
-    borderRadius: 14,
-    padding: space[4],
-  },
-  largeCardThumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: 10,
-    backgroundColor: color.brand50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  largeCardInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  // 보습이 필요한 날 — 가로 미니 카드
-  miniCardRow: {
-    flexDirection: 'row',
-  },
-  miniCard: {
-    width: 112,
-    marginRight: space[2],
-    borderWidth: 1,
-    borderColor: color.borderDividerFaint,
-    borderRadius: 12,
-    padding: space[2],
-    gap: 4,
-  },
-  miniCardThumbnail: {
-    width: '100%',
-    height: 52,
-    borderRadius: 8,
-    backgroundColor: color.brand50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniCardBrand: {
-    fontSize: adjustFontSize(10),
-    color: color.ink600,
-  },
-  miniCardName: {
+  moreLink: {
     fontSize: adjustFontSize(12),
-    ...weightFamily('semibold'),
-    color: color.ink900,
+    ...weightFamily('medium'),
+    color: color.brand500,
+    paddingTop: 6,
   },
-  miniStatusLabel: {
-    fontSize: adjustFontSize(10),
-    color: color.ink600,
+
+  // 세로 카드 스택
+  cardStack: {
+    gap: space[3],
   },
-  // 내게 잘 맞는 성분이 들어간 제품 — 필터 칩 + 리스트 행
-  ingredientChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[2],
-  },
-  emptyIngredientText: {
-    ...typography.caption,
-    color: color.textSub,
-  },
-  recRow: {
+  vCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[3],
-    paddingVertical: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: color.borderDividerFaint,
+    backgroundColor: color.bg,
+    borderRadius: radius.xl,
+    padding: space[4],
+    ...reportCardShadow.soft,
   },
-  recRowThumbnail: {
+  vCardThumbnail: {
     width: 48,
     height: 48,
-    borderRadius: 10,
-    backgroundColor: color.brand50,
+    borderRadius: radius.sm,
+    backgroundColor: color.surfaceLavenderSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recRowInfo: {
+  vCardInfo: {
     flex: 1,
-    gap: 2,
   },
-  scanArea: {
+
+  // 가로 스크롤 카드
+  horizontalRow: {
     gap: space[3],
+    paddingHorizontal: space[1],
+    paddingBottom: space[1],
   },
+  hCard: {
+    width: 132,
+    alignItems: 'center',
+    gap: space[2],
+    backgroundColor: color.bg,
+    borderRadius: radius.xl,
+    padding: space[3],
+    ...reportCardShadow.soft,
+  },
+  hCardThumbnail: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 14,
+    backgroundColor: color.surfaceLavenderSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // 카드 텍스트 — 제품명 볼드 위 / 브랜드 작은 회색 아래 (관리자 지시)
+  cardName: {
+    fontSize: adjustFontSize(14),
+    lineHeight: 21,
+    ...weightFamily('bold'),
+    color: color.textInk,
+  },
+  cardBrand: {
+    fontSize: adjustFontSize(11),
+    lineHeight: 16,
+    ...weightFamily('medium'),
+    color: color.textSub,
+  },
+  cardNameCentered: {
+    textAlign: 'center',
+  },
+
+  // 배지
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: space[3],
+    paddingVertical: space[1],
+    borderRadius: radius.pill,
+  },
+  badgeLabel: {
+    fontSize: adjustFontSize(10),
+    ...weightFamily('bold'),
+  },
+
+  // 성분 필터 칩
+  ingredientChipRow: {
+    flexDirection: 'row',
+    gap: space[2],
+    paddingHorizontal: space[1],
+  },
+  emptyIngredientText: {
+    fontSize: adjustFontSize(12),
+    ...weightFamily('medium'),
+    color: color.textSub,
+    paddingHorizontal: space[1],
+  },
+
+  // 스캔 / 검색 패널
   scanModeToggle: {
     alignSelf: 'stretch',
   },
@@ -604,8 +841,9 @@ const styles = StyleSheet.create({
     height: 240,
   },
   scanHint: {
-    ...typography.caption,
-    color: color.ink600,
+    fontSize: adjustFontSize(12),
+    ...weightFamily('medium'),
+    color: color.textSub,
     textAlign: 'center',
   },
   scanErrorBox: {
@@ -620,5 +858,9 @@ const styles = StyleSheet.create({
   },
   searchArea: {
     gap: space[3],
+  },
+
+  pressed: {
+    opacity: 0.7,
   },
 });
