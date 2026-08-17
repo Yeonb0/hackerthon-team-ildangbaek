@@ -49,7 +49,7 @@ export function RoutineQuickRecordCard({
   style,
 }: RoutineQuickRecordCardProps) {
   return (
-    <Card padding={4} style={style}>
+    <Card padding={4} style={[styles.card, style]}>
       <View style={styles.top}>
         <AppIcon name={TIME_SLOT_ICON[timeSlot]} size={20} color={color.brand700} style={styles.icon} />
         <Text style={styles.name} numberOfLines={1}>
@@ -73,6 +73,27 @@ export function RoutineQuickRecordCard({
 }
 
 const styles = StyleSheet.create({
+  /**
+   * 카드 윤곽 강조 (관리자 요청, 2026-08-17).
+   *
+   * 공용 Card는 테두리가 없고 그림자도 아주 옅습니다(opacity 0.1 / elevation 2 —
+   * 2026-08-15에 Figma S-05 실측값으로 전역 교체한 값). S-11의 루틴 카드는 흰 배경 위에
+   * 흰 카드가 2열로 나란히 놓이는 배치라 그 정도로는 경계가 거의 안 보였습니다.
+   *
+   * ⚠️ 공용 Card를 고치지 않고 **이 카드에서만** 덮어씁니다 — Card는 앱 전역에서 쓰여서
+   * 전역 값을 건드리면 다른 화면 카드 그림자가 전부 같이 진해집니다.
+   *
+   * Android는 shadowOpacity/shadowRadius를 무시하고 elevation만 봅니다. iOS/Android가
+   * 비슷한 무게로 보이도록 둘 다 올렸습니다.
+   */
+  card: {
+    borderWidth: 1,
+    borderColor: color.borderDivider,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
+  },
   top: {
     gap: 2,
   },

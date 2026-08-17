@@ -9,6 +9,8 @@ import type {
   MetricKey,
   ReportResult,
   InsightDetail,
+  InsightEvent,
+  InsightEventKind,
   MetricScoreSummary,
 } from '@/types/report';
 
@@ -43,7 +45,23 @@ type ReportApiResponse = Omit<ReportResult, 'metric' | 'summary'> & {
   metric: string;
   summary: ReportSummaryApiResponse;
 };
-type InsightDetailApiResponse = Omit<InsightDetail, 'metric'> & { metric: string };
+// events[].eventKind도 서버 enum입니다(INGREDIENT_USAGE/UV_SPIKE, ADR 0027). 값 자체는
+// 이미 앱 타입과 같은 대문자라 변환은 없지만, 백엔드가 유형을 늘렸을 때 화면이 죽지
+// 않도록 여기서 한 번 거릅니다.
+type InsightEventApiResponse = Omit<InsightEvent, 'eventKind'> & { eventKind: string };
+type InsightDetailApiResponse = Omit<InsightDetail, 'metric' | 'events'> & {
+  metric: string;
+  events: InsightEventApiResponse[];
+};
+
+const VALID_EVENT_KINDS: readonly InsightEventKind[] = ['INGREDIENT_USAGE', 'UV_SPIKE'];
+
+/** 모르는 유형은 성분 사용으로 폴백합니다 — 아이콘 분기만 쓰는 값이라 화면이 깨지지 않습니다. */
+function normalizeEventKind(value: string): InsightEventKind {
+  return (VALID_EVENT_KINDS as string[]).includes(value)
+    ? (value as InsightEventKind)
+    : 'INGREDIENT_USAGE';
+}
 
 /**
  * REPORT-01 · 기간별 피부 추이 + 인사이트 + 기간 집계 종합 점수(summary) 조회 (S-19).
@@ -92,7 +110,14 @@ export async function getReportInsight(insightId: number): Promise<InsightDetail
   const result = await unwrap<InsightDetailApiResponse>(
     apiClient.get(`/reports/insights/${insightId}`)
   );
-  return { ...result, metric: normalizeMetric(result.metric) };
+  return {
+    ...result,
+    metric: normalizeMetric(result.metric),
+    events: result.events.map((event) => ({
+      ...event,
+      eventKind: normalizeEventKind(event.eventKind),
+    })),
+  };
 }
 
 export function useReportInsight(insightId: number) {

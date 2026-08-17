@@ -1,18 +1,19 @@
 // FaceCaptureScreen.tsx
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '@/components/base/Button';
-import { IconBack } from '@/components/icons';
+import { IconBack, IconClose } from '@/components/icons';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
 import { LoadingState } from '@/components/state/LoadingState';
 import { FaceGuideOverlay } from '@/components/domain/FaceGuideOverlay';
 import { prepareSkinPhoto } from '@/lib/image';
 import { DetailRoutes, DetailStackParamList, MainTabRoutes } from '@/app/routes';
-import { color, space } from '@/theme/tokens';
+import { color, gradient, gradientDirection, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
 
@@ -22,10 +23,23 @@ type NavProp = NativeStackNavigationProp<DetailStackParamList>;
  * S-16 얼굴 촬영. 두 내부 상태로 구성됩니다 — ① 촬영(카메라 라이브 뷰 + 가이드 오버레이)
  * ② 프리뷰(찍은 사진 + 재촬영/다음).
  *
- * ⚠️ 프론트 임의 해석: 명세서(screen-structure-v3.html §13 "다시 봐야 할 것" 표)에
- * "촬영 미리보기 단계 | 없음 — 명세서 F-07은 재촬영/확인을 요구하는데 화면 없음"이라고
- * 명시돼 있습니다. 별도 화면 번호(S-16-2 등)를 새로 만들지 않고 이 화면의 내부 상태로
- * 흡수해서 구현했습니다. 기획 확인이 필요하면 말씀해주세요.
+ * ✅ 2026-08-17(세션 13) — 촬영 미리보기 단계가 Figma에 `PhotoConfirm`(node 59:6426)
+ * 이라는 별도 프레임으로 확정됐습니다. 다만 **화면을 분리하지 않고 지금처럼 내부 상태로
+ * 유지**하기로 했습니다(관리자 결정) — 화면을 나누면 재촬영할 때마다 CameraView가
+ * 언마운트·재마운트되면서 카메라가 다시 초기화되고, 재촬영이 잦은 화면이라 체감 지연이
+ * 큽니다. 디자인만 Figma에 맞췄습니다.
+ *
+ * Figma 실측 반영(node 59:6387 촬영 / 59:6426 프리뷰):
+ *   - 촬영: 헤더가 좌 X(닫기) + 중앙 "사진을 찍으세요"로 바뀌고, 하단 CTA 버튼이
+ *     원형 셔터(흰 링 + 그라데이션 안쪽 원)로 교체됨
+ *   - 프리뷰: 검정 배경 풀블리드 → **흰 배경 + 라운드 사진 카드**로 전환. 사진 아래
+ *     "이 사진으로 분석할까요?" 안내 2줄, 하단 재촬영(Ghost)/분석 시작(Primary) 2버튼
+ *
+ * ⚠️ Figma 프리뷰 우상단의 "얼굴 감지됨" 초록 배지는 **의도적으로 뺐습니다**(관리자
+ * 결정, 2026-08-17). 프론트엔 얼굴 인식 기능이 없고(FaceGuideOverlay 주석 참고 — 인식은
+ * 서버 SKIN-01이 422 SKIN_FACE_NOT_DETECTED로 판정), 촬영 직후는 아직 서버에 보내기
+ * 전이라 감지 여부를 알 수 없습니다. 무조건 초록 배지를 띄우면 직후 422가 떴을 때
+ * 화면끼리 모순됩니다 — 근거 없는 단정을 만들지 않습니다.
  *
  * 카메라 권한 흐름(F-SKIN-02 예외처리): 최초 진입 시(status === 'undetermined') 1회만
  * 자동으로 권한을 요청합니다. status가 'undetermined'일 때만 요청하도록 조건을 좁힌
@@ -141,19 +155,45 @@ export function FaceCaptureScreen() {
     });
   };
 
-  // ② 프리뷰 상태
+  // ② 프리뷰 상태 (Figma PhotoConfirm 59:6426)
   if (capturedUri) {
     return (
-      <View style={styles.fill}>
-        <Image source={{ uri: capturedUri }} style={styles.previewImage} resizeMode="cover" />
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[5] }]}>
+      <View style={styles.confirmScreen}>
+        <View style={[styles.confirmNav, { paddingTop: insets.top + space[3] }]}>
+          <Pressable
+            onPress={handleRetake}
+            accessibilityRole="button"
+            accessibilityLabel="다시 촬영하기"
+            hitSlop={12}
+          >
+            <IconBack size={18} color={color.textSub} />
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.confirmContent}>
+          <Image
+            source={{ uri: capturedUri }}
+            style={styles.confirmPhoto}
+            resizeMode="cover"
+            accessibilityLabel="촬영한 사진 미리보기"
+          />
+          <Text style={styles.confirmTitle}>이 사진으로 분석할까요?</Text>
+          <Text style={styles.confirmHint}>선명하고 정면을 바라볼수록 분석이 정확해요</Text>
+        </ScrollView>
+
+        <View style={[styles.confirmFooter, { paddingBottom: insets.bottom + space[6] }]}>
           <Button
             label="재촬영"
-            variant="secondary"
+            variant="outline"
             onPress={handleRetake}
             style={styles.halfButton}
           />
-          <Button label="다음" variant="primary" onPress={handleConfirm} style={styles.halfButton} />
+          <Button
+            label="분석 시작"
+            variant="primary"
+            onPress={handleConfirm}
+            style={styles.halfButton}
+          />
         </View>
       </View>
     );
@@ -168,21 +208,23 @@ export function FaceCaptureScreen() {
         <FaceGuideOverlay />
       </View>
 
-      <Pressable
-        onPress={() => navigation.goBack()}
-        accessibilityRole="button"
-        accessibilityLabel="뒤로가기"
-        hitSlop={8}
-        style={[styles.backButton, { top: insets.top + space[3] }]}
-      >
-        <IconBack size={22} color={color.brand700} />
-      </Pressable>
-
+      {/* Figma 59:6388 — 좌 X(닫기) + 중앙 안내 문구. 우측 더미는 문구를 정확히
+          가운데 두기 위한 것입니다(좌측 아이콘과 같은 폭). */}
       <View
         style={[styles.topBar, { paddingTop: insets.top + space[3] }]}
         pointerEvents="box-none"
       >
-        <Text style={styles.guideText}>가이드 안에 얼굴을 맞춰주세요</Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="촬영 닫기"
+          hitSlop={12}
+          style={styles.topBarSide}
+        >
+          <IconClose size={20} color={color.white} />
+        </Pressable>
+        <Text style={styles.guideText}>사진을 찍으세요</Text>
+        <View style={styles.topBarSide} />
       </View>
 
       {captureFailed ? (
@@ -191,14 +233,26 @@ export function FaceCaptureScreen() {
         </View>
       ) : null}
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[5] }]}>
-        <Button
-          label="촬영"
-          variant="primary"
-          loading={capturing}
+      {/* Figma 59:6411 — 원형 셔터(흰 링 + 그라데이션 안쪽 원) + 아래 "촬영" 라벨.
+          누르는 동안 안쪽 원을 흐리게 해서 진행 중임을 표시합니다(별도 스피너 없음 —
+          셔터 위에 스피너를 겹치면 링 안이 답답해집니다). */}
+      <View style={[styles.shutterBar, { paddingBottom: insets.bottom + space[6] }]}>
+        <Pressable
           onPress={handleCapture}
-          style={styles.captureButton}
-        />
+          disabled={capturing}
+          accessibilityRole="button"
+          accessibilityLabel="촬영"
+          accessibilityState={{ disabled: capturing }}
+          style={styles.shutterRing}
+        >
+          <LinearGradient
+            colors={gradient.brand}
+            start={gradientDirection.badge.start}
+            end={gradientDirection.badge.end}
+            style={[styles.shutterInner, capturing && styles.shutterInnerBusy]}
+          />
+        </Pressable>
+        <Text style={styles.shutterLabel}>촬영</Text>
       </View>
     </View>
   );
@@ -226,21 +280,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backButton: {
-    position: 'absolute',
-    left: space[5],
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: color.bg,
-    shadowColor: color.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
   overlayContainer: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
@@ -251,28 +290,96 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: space[5],
+    paddingBottom: space[4],
   },
+  /** 중앙 문구를 정확히 가운데 두기 위한 좌우 동일 폭 슬롯. */
+  topBarSide: { width: 20, alignItems: 'center' },
   guideText: {
-    color: color.white,
-    fontSize: adjustFontSize(14),
-    ...weightFamily('semibold'),
-    textShadowColor: color.scrim40,
-    textShadowRadius: 4,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: adjustFontSize(13),
+    ...weightFamily('medium'),
   },
-  bottomBar: {
+  shutterBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
+    alignItems: 'center',
     gap: space[3],
     paddingHorizontal: space[5],
   },
-  captureButton: { flex: 1 },
+  shutterRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: color.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: color.white,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  shutterInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  shutterInnerBusy: { opacity: 0.5 },
+  shutterLabel: {
+    color: color.white,
+    fontSize: adjustFontSize(13),
+    ...weightFamily('bold'),
+  },
   halfButton: { flex: 1 },
-  previewImage: { flex: 1 },
+
+  // --- ② 프리뷰(PhotoConfirm 59:6426) ---
+  confirmScreen: { flex: 1, backgroundColor: color.bg },
+  confirmNav: {
+    paddingHorizontal: space[5],
+    paddingBottom: space[2],
+  },
+  confirmContent: {
+    flexGrow: 1,
+    paddingHorizontal: space[5],
+    paddingTop: space[4],
+  },
+  confirmPhoto: {
+    width: '100%',
+    aspectRatio: 350 / 525,
+    borderRadius: 20,
+    backgroundColor: color.borderDividerFaint,
+  },
+  confirmTitle: {
+    fontSize: adjustFontSize(17),
+    lineHeight: 24,
+    ...weightFamily('bold'),
+    color: color.textInk,
+    textAlign: 'center',
+    paddingTop: space[6],
+  },
+  confirmHint: {
+    fontSize: adjustFontSize(12),
+    lineHeight: 18,
+    ...weightFamily('medium'),
+    color: color.textSub,
+    textAlign: 'center',
+    paddingTop: space[1],
+    paddingBottom: space[2],
+  },
+  confirmFooter: {
+    flexDirection: 'row',
+    gap: space[3],
+    paddingHorizontal: space[5],
+    paddingTop: space[3],
+  },
   errorBanner: {
     position: 'absolute',
     bottom: 100,

@@ -175,6 +175,25 @@ export const overlayWhite = {
   90: 'rgba(255, 255, 255, 0.9)', // UV·습도 칩 배경
 } as const;
 
+// SHOP-01 추천 카드의 근거 태그 칩(CHECK-01 `tags`, ADR 0027) 전용.
+// 2026-08-17 관리자 결정 — 1번 칩은 `category`별로 색을 갈라 섹션 정체성을 따라가고,
+// 2번 칩("주의 성분 미포함")은 분류와 무관한 안전 근거라 초록 하나로 고정합니다.
+//
+// ⚠️ humidityCare(파랑)는 **Figma 실측값이 아닙니다.** 이 프로젝트 팔레트에 파랑 계열이
+// 아예 없어서 "보습/수분"에 맞춰 새로 잡은 잠정값입니다 — 컬러 토큰 최종본 수령 시
+// 교체 대상입니다.
+//
+// ⚠️ todayNeeded(코랄)는 reportColor.caution(#FF6B5B, 리포트에서 "트러블 = 나쁜 방향")과
+// 인접한 색입니다. 두 화면이 같이 보이지 않아 실사용 혼동은 없다는 판단이지만, 값을
+// 일부러 다르게(#C0442F 계열) 잡아 리포트 지표색과 겹치지 않게 했습니다.
+export const shopTagTint = {
+  todayNeeded: { bg: '#FFE9E5', fg: '#C0442F' },
+  humidityCare: { bg: '#E4F0FA', fg: '#1F6C9E' },
+  matchedIngredient: { bg: '#EFE9FF', fg: '#6250C8' },
+  /** 분류와 무관한 안전 근거 — 어느 섹션에서든 같은 색입니다. */
+  noCaution: { bg: '#E1F5EE', fg: '#2F8A6C' },
+} as const;
+
 // xl(20)은 Figma --ds-radius-xl — CTA 버튼 전용입니다.
 export const radius = { sm: 12, md: 16, xl: 20, lg: 24, pill: 999 } as const;
 

@@ -13,8 +13,11 @@
 //   (a) Figma는 섹션 2개지만 ADR 0018 3분류를 그대로 유지합니다.
 //   (b) Figma 칩 문구 "성분 검색" → "제품 검색"(PRODUCT-02). 성분 기반 탐색은 3번째 섹션이
 //       대신합니다.
-//   (c) 잘 맞음/지켜보는 중 배지 도입 — CHECK-01에 등급 필드가 없어 `matchGrade`가 없으면
-//       'SAFE'로 폴백합니다(요청서: docs/backend-request-shop01-match-grade.md).
+//   (c) [2026-08-17 세션 13에 폐기] 잘 맞음/지켜보는 중 배지 → **추천 근거 태그 칩으로
+//       교체**했습니다. 백엔드가 `matchGrade` 대신 `tags`를 내려줬고(ADR 0027), 배지의
+//       'SAFE' 폴백이 결국 모든 카드에 근거 없는 "잘 맞음"을 띄우고 있었습니다.
+//       tags는 서버가 규칙으로 도출한 값이라 폴백이 필요 없습니다. 1번 칩은 category별로
+//       색이 갈리고(shopTagTint), 2번 "주의 성분 미포함"은 초록 고정입니다.
 //   (d) 레이아웃: 섹션 제목을 카드 밖 큰 글씨로 빼고, 항목 하나하나를 개별 흰 카드로
 //       분리합니다(관리자 제공 참고 이미지 구조).
 //   (e) 카드 텍스트 순서: 제품명(볼드) 위 / 브랜드(작은 회색) 아래.
@@ -64,10 +67,10 @@ import { useProductSearch } from '@/api/queries/product';
 import { useCartCount } from '@/store/cartStore';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
-import { color, radius, reportCardShadow, space } from '@/theme/tokens';
+import { color, radius, reportCardShadow, shopTagTint, space } from '@/theme/tokens';
 import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import type { ScanMode } from '@/types/product';
-import type { CheckRecommendation } from '@/types/check';
+import type { CheckRecommendation, RecommendationCategory } from '@/types/check';
 import { weightFamily, adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
@@ -85,13 +88,16 @@ const HUMIDITY_GRADE_LABEL: Record<string, string> = {
   HUMID: '습도가 높아요',
 };
 
-// Figma Badge/Safe·Badge/Watch 실측값(--ds-status-safe-soft / --ds-status-watch-soft).
-// tokens.ts에 알파 없는 soft 배경 토큰이 아직 없어서 Tag.tsx 선례대로 여기서만 상수로
-// 둡니다. 전경색은 reportColor.safe/amber와 값이 같지만 그 토큰은 "리포트 지표 색"
-// 의미라 여기서 재사용하면 의미가 섞여 별도로 적었습니다.
-const MATCH_BADGE = {
-  SAFE: { bg: '#E1F5EE', fg: '#3FAE8B', label: '잘 맞음', icon: 'check' as const },
-  WATCH: { bg: '#FFF1D8', fg: '#FFB648', label: '지켜보는 중', icon: 'warning' as const },
+// 1번(category) 칩의 색 — 섹션 정체성을 따라갑니다(관리자 결정, 2026-08-17).
+// 2번 칩("주의 성분 미포함")은 분류와 무관한 안전 근거라 shopTagTint.noCaution 고정입니다.
+//
+// 색을 가르는 기준이 "추천 등급"이 아니라 "정보 종류"라는 점이 중요합니다 — 1번은 이
+// 제품이 왜 이 섹션에 있는지 알려주는 분류 라벨이고, 2번은 프로파일 대조 결과입니다.
+// 등급 차이로 읽히면 서버가 내려주지 않는 정보를 암시하게 됩니다.
+const CATEGORY_TAG_TINT: Record<RecommendationCategory, { bg: string; fg: string }> = {
+  TODAY_NEEDED: shopTagTint.todayNeeded,
+  HUMIDITY_CARE: shopTagTint.humidityCare,
+  MATCHED_INGREDIENT: shopTagTint.matchedIngredient,
 };
 
 /** 접힌 상태에서 먼저 보여줄 개수 — 이보다 많을 때만 "더보기"가 나옵니다. */
@@ -487,18 +493,42 @@ function SectionHeader({
 }
 
 /**
- * 잘 맞음 / 지켜보는 중 배지 (Figma Badge 22:3 · 22:8).
+ * 추천 근거 태그 칩 (CHECK-01 `tags`, ADR 0027). 서버가 규칙으로 도출한 값을 그대로
+ * 그립니다 — 문구를 파싱하거나 없는 값을 폴백으로 만들지 않습니다.
  *
- * ⚠️ CHECK-01 응답에 등급 필드가 없습니다. `matchGrade`가 오면 그걸 쓰고, 없으면
- * 'SAFE'로 폴백합니다 — 백엔드 요청서: docs/backend-request-shop01-match-grade.md
+ * 길이는 1 또는 2입니다. 2번 칩("주의 성분 미포함")은 CAUTION 성분이 없을 때만 오므로,
+ * 칩이 1개인 카드는 "주의 성분이 있다"가 아니라 "그 근거를 붙일 수 없다"는 뜻입니다 —
+ * 없는 칩 자리에 대체 문구를 채우지 않습니다.
+ *
+ * 세로 카드는 오른쪽에 세로로, 가로 카드는 아래에 가로로 쌓습니다.
  */
-function MatchBadge({ rec }: { rec: CheckRecommendation }) {
-  const grade = rec.matchGrade ?? 'SAFE';
-  const meta = MATCH_BADGE[grade];
+function TagChips({
+  tags,
+  category,
+  horizontal = false,
+}: {
+  tags: string[];
+  category: RecommendationCategory;
+  horizontal?: boolean;
+}) {
+  if (tags.length === 0) {
+    return null;
+  }
   return (
-    <View style={[styles.badge, { backgroundColor: meta.bg }]}>
-      <AppIcon name={meta.icon} size={14} color={meta.fg} />
-      <Text style={[styles.badgeLabel, { color: meta.fg }]}>{meta.label}</Text>
+    <View style={horizontal ? styles.tagRowHorizontal : styles.tagRowVertical}>
+      {tags.map((tag, index) => {
+        // ⚠️ 칩 문구를 보고 색을 정하지 않습니다 — 그건 ADR 0027이 걷어낸 문자열 파싱을
+        // 다시 들이는 겁니다. CHECK-01 BR8이 "1번은 항상 category 칩, 2번은 조건부 안전
+        // 칩"을 보장하므로 **인덱스**로 가릅니다. 백엔드가 문구를 바꿔도 안 깨집니다.
+        const tint = index === 0 ? CATEGORY_TAG_TINT[category] : shopTagTint.noCaution;
+        return (
+          <View key={tag} style={[styles.tagChip, { backgroundColor: tint.bg }]}>
+            <Text style={[styles.tagChipLabel, { color: tint.fg }]} numberOfLines={1}>
+              {tag}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -533,7 +563,7 @@ function RecommendationCard({
         <Text style={[styles.cardBrand, styles.cardNameCentered]} numberOfLines={1}>
           {rec.brand}
         </Text>
-        <MatchBadge rec={rec} />
+        <TagChips tags={rec.tags} category={rec.category} horizontal />
       </Pressable>
     );
   }
@@ -557,7 +587,7 @@ function RecommendationCard({
           {rec.brand}
         </Text>
       </View>
-      <MatchBadge rec={rec} />
+      <TagChips tags={rec.tags} category={rec.category} />
     </Pressable>
   );
 }
@@ -805,19 +835,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // 배지
-  badge: {
+  // 추천 근거 태그 칩 (CHECK-01 tags)
+  tagRowVertical: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  tagRowHorizontal: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 4,
-    paddingHorizontal: space[3],
-    paddingVertical: space[1],
+  },
+  tagChip: {
+    paddingHorizontal: space[2],
+    paddingVertical: 3,
     borderRadius: radius.pill,
   },
-  badgeLabel: {
+  tagChipLabel: {
     fontSize: adjustFontSize(10),
-    ...weightFamily('bold'),
+    ...weightFamily('medium'),
   },
 
   // 성분 필터 칩

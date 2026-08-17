@@ -30,6 +30,7 @@ import { resetMockRecordSession, resetMockProductCompletion } from '@/api/mock/r
 import { resetMockProductSession, setMockScanScenario } from '@/api/mock/product';
 import { setMockReportScenario } from '@/api/mock/report';
 import { setMockCheckScenario } from '@/api/mock/check';
+import { setMockSkinScenario } from '@/api/mock/skin';
 import { setMockWeatherScenario } from '@/api/mock/home';
 import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
@@ -170,6 +171,22 @@ export function DevResetButton() {
     {
       label: '구매 전 확인 목업 → 성분 데이터 부족',
       onPress: () => runReset(() => setMockCheckScenario('INGREDIENT_INSUFFICIENT')),
+    },
+    {
+      // 2026-08-17(세션 13) 추가 — S-18이 comparison 유무로 두 화면(첫 기록 축하 /
+      // 오늘의 피부)으로 갈리는데, 목업은 항상 comparison을 채워서 첫 기록 화면을
+      // 실기기에서 볼 방법이 없었습니다. 실제로 첫 기록을 만들려면 계정을 새로 파야
+      // 하는데 목업 환경엔 그 경로가 없습니다.
+      //
+      // ⚠️ 전환한 뒤 S-18에 **다시 진입해야** 반영됩니다. SkinResultScreen은
+      // react-query가 아니라 마운트 시 getSkinRecordToday를 직접 호출하는 구조라
+      // 무효화할 캐시가 없습니다 — 화면을 나갔다 들어오면 됩니다.
+      label: '피부 결과 목업 → 첫 기록',
+      onPress: () => runReset(() => setMockSkinScenario('FIRST')),
+    },
+    {
+      label: '피부 결과 목업 → 어제와 비교(기본값)',
+      onPress: () => runReset(() => setMockSkinScenario('COMPARED')),
     },
     {
       // Phase 8 추가 — 위치(GPS/검색 선택)·알림 토글 mock 상태를 초기값(서울 강남구·
