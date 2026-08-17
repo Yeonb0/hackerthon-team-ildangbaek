@@ -112,7 +112,10 @@ export function useLocationSearch(keyword: string) {
 
 export async function updateLocation(input: UpdateLocationInput): Promise<void> {
   if (USE_MOCK) {
-    updateMockLocation(input);
+    // ⚠️ await 필수 — 목업이 platformStorage에 저장하도록 바뀌면서 비동기가 됐습니다.
+    // 기다리지 않으면 저장이 끝나기 전에 onSuccess가 실행되고, 곧바로 무효화된
+    // 쿼리가 아직 옛 값을 읽어와서 "저장이 안 된" 것처럼 보입니다.
+    await updateMockLocation(input);
     return;
   }
   // 응답 result 형태가 명세서에 문서화되어 있지 않아(AUTH-03처럼 null일 가능성이 높음)
@@ -129,6 +132,11 @@ export function useUpdateLocation() {
       // 마이페이지 표시용 location과, 홈 화면 날씨(위치 기반)도 함께 갱신 대상입니다.
       queryClient.invalidateQueries({ queryKey: ['myPage'] });
       queryClient.invalidateQueries({ queryKey: ['home'] });
+      // 2026-08-17(세션 15) 버그 수정 — locationSearch가 빠져 있었습니다.
+      // 이 목록의 `current` 플래그가 "지금 설정된 지역"을 나타내는데, 캐시가 그대로라
+      // 화면을 다시 열면 **이전 지역에 체크가 남아** 저장이 안 된 것처럼 보였습니다.
+      // 선택/저장 가능 여부(canSave)도 이 플래그로 판단하므로 같이 어긋났습니다.
+      queryClient.invalidateQueries({ queryKey: ['locationSearch'] });
     },
   });
 }
@@ -151,7 +159,10 @@ export function useUpdateNotificationSetting() {
   return useMutation({
     mutationFn: (input: NotificationSettingInput) => saveNotificationSetting(input),
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['myPage'] });
+      // ⚠️ 순서가 중요합니다. 예전엔 cancelQueries를 먼저 await 했는데, onMutate가
+      // 그 지점에서 한 번 끊기기 때문에 화면 반영이 최소 한 틱 늦었습니다. 스위치는
+      // 그 지연이 그대로 "눌렀는데 안 움직인다"로 보입니다 — 캐시부터 동기적으로
+      // 바꾸고, 진행 중 요청 취소는 그 뒤에 합니다.
       const previous = queryClient.getQueryData<MyPageResult>(['myPage']);
       if (previous) {
         queryClient.setQueryData<MyPageResult>(['myPage'], {
@@ -159,6 +170,7 @@ export function useUpdateNotificationSetting() {
           notificationEnabled: input.enabled,
         });
       }
+      await queryClient.cancelQueries({ queryKey: ['myPage'] });
       return { previous };
     },
     onError: (_error, _input, context) => {

@@ -18,11 +18,12 @@
 // 바코드/사진으로 채울 수 있어요." — 다만 AI 채움 기능 자체는 이번 범위에 없습니다
 // (문구만 Figma 그대로 옮긴 것 — 관리자님 확인 필요할 수도 있어요).
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppTextInput } from '@/components/base/AppTextInput';
 import { AppIcon, IconCamera } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { Input } from '@/components/base/Input';
@@ -168,7 +169,12 @@ export function ProductManualRegisterScreen() {
     if (!permission.granted) {
       return (
         <View style={[styles.centerFill, { paddingTop: insets.top }]}>
-          <PermissionDenied type="camera" />
+          <PermissionDenied
+            type="camera"
+            stage={permission.canAskAgain ? 'request' : 'guide'}
+            onRequest={permission.canAskAgain ? requestPermission : undefined}
+            description="제품 사진을 카메라로 촬영해요"
+          />
           <Button label="닫기" variant="ghost" onPress={() => setCameraOpen(false)} />
         </View>
       );
@@ -274,7 +280,7 @@ export function ProductManualRegisterScreen() {
 
         <View style={styles.ingredientSection}>
           <Text style={styles.fieldLabel}>성분 입력</Text>
-          <TextInput
+          <AppTextInput
             value={ingredientsText}
             onChangeText={setIngredientsText}
             placeholder="정제수, 글리세린, 나이아신아마이드, 어성초추출물..."

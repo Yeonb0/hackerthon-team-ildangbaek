@@ -12,7 +12,7 @@ import { ErrorState, type ErrorVariant } from '@/components/state/ErrorState';
 import { createSkinRecord } from '@/api/skin';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
-import { DetailRoutes, DetailStackParamList } from '@/app/routes';
+import { DetailRoutes, DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
 import { weightFamily, adjustFontSize } from '@/theme/typography';
 
@@ -195,7 +195,30 @@ export function AnalyzingSkinScreen() {
 
   if (phase === 'error') {
     // 타임아웃/분석 실패/업로드 실패 — 화면 전환 없이 같은 이미지로 재시도합니다.
-    return <ErrorState variant={errorVariant} onRetry={submit} style={styles.centerFill} />;
+    //
+    // 문구를 여기서 주입하는 이유: Figma ErrorServer(59:8140)의 "분석을 완료하지 못했어요"는
+    // 분석 화면에서만 맞는 말입니다. ErrorState의 기본 문구는 마이페이지·제품 상세 등
+    // 분석과 무관한 화면에서도 쓰이므로 범용 표현으로 두고, 이 화면에서만 덮어씁니다.
+    const handleGoHome = () => {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Tabs', state: { routes: [{ name: MainTabRoutes.Home }] } }],
+      });
+    };
+    return (
+      <ErrorState
+        variant={errorVariant}
+        title="분석을 완료하지 못했어요"
+        description={
+          errorVariant === 'network'
+            ? '와이파이 또는 데이터 연결이 필요해요'
+            : '서버에 일시적인 문제가 생겼어요'
+        }
+        onRetry={submit}
+        onGoHome={handleGoHome}
+        style={styles.centerFill}
+      />
+    );
   }
 
   // ── 분석 중 (Figma AIAnalyzing 59:6470) ──

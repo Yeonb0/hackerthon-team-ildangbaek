@@ -194,6 +194,24 @@ export default function CatalogScreen() {
             onPress={() => setChipSelected('c')}
           />
         </Row>
+        <Text style={styles.hint}>
+          아래는 variant=&quot;solid&quot; — 선택 시 보라 배경 + 흰 글씨입니다. 목록을 걸러내는
+          필터 칩(쇼핑 탭 성분 필터)에 쓰고, 온보딩 칩은 기존 outline을 그대로 씁니다.
+        </Text>
+        <Row>
+          <Chip
+            label="나이아신아마이드"
+            variant="solid"
+            selected={chipSelected === 'a'}
+            onPress={() => setChipSelected('a')}
+          />
+          <Chip
+            label="히알루론산"
+            variant="solid"
+            selected={chipSelected === 'b'}
+            onPress={() => setChipSelected('b')}
+          />
+        </Row>
       </Section>
 
       <Section title="Stepper">
@@ -544,35 +562,49 @@ export default function CatalogScreen() {
 
       <Section title="ErrorState (3종)">
         <Card padding={4}>
-          <ErrorState variant="network" onRetry={() => {}} />
+          <ErrorState variant="network" layout="inline" onRetry={() => {}} />
         </Card>
         <Card padding={4}>
-          <ErrorState variant="server" onRetry={() => {}} />
+          <ErrorState variant="server" layout="inline" onRetry={() => {}} />
         </Card>
         <Card padding={4}>
-          <ErrorState variant="notFound" />
+          <ErrorState variant="notFound" layout="inline" />
         </Card>
       </Section>
 
-      <Section title="LoadingState (spinner / skeleton)">
+      <Section title="LoadingState (spinner / skeleton / listRows)">
         <Card padding={4}>
           <LoadingState variant="spinner" />
         </Card>
         <Card padding={4}>
           <LoadingState variant="skeleton" skeletonLines={3} />
         </Card>
+        <Card padding={4}>
+          <LoadingState variant="listRows" rows={3} />
+        </Card>
       </Section>
 
       <Section title="PermissionDenied (3종)">
         <Card padding={4}>
-          <PermissionDenied type="camera" onOpenSettings={() => {}} />
+          <PermissionDenied type="camera" layout="inline" onOpenSettings={() => {}} />
         </Card>
         <Card padding={4}>
-          <PermissionDenied type="location" onOpenSettings={() => {}} />
+          <PermissionDenied type="location" layout="inline" onOpenSettings={() => {}} />
         </Card>
         <Card padding={4}>
-          <PermissionDenied type="notification" onOpenSettings={() => {}} />
+          <PermissionDenied type="notification" layout="inline" onOpenSettings={() => {}} />
         </Card>
+      </Section>
+
+      <Section title="PermissionDenied — guide 단계 (영구 거부)">
+        <Text style={styles.hint}>
+          canAskAgain이 false일 때만 나옵니다. 시스템 팝업을 띄울 수 없는 상태라 설정 앱
+          경로를 직접 안내합니다 — 여기서 &quot;권한 허용하기&quot;를 보여주면 눌러도 아무 일도
+          일어나지 않아 버튼이 고장 난 것처럼 보입니다.
+        </Text>
+        <View style={styles.permissionGuidePreview}>
+          <PermissionDenied type="camera" stage="guide" onOpenSettings={() => {}} />
+        </View>
       </Section>
 
       <Section title="TrendGraph (S-19/S-20 둘 다 선 사용 — 막대는 예비 옵션)">
@@ -764,6 +796,15 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink900,
     borderRadius: 16,
     paddingVertical: space[5],
+  },
+  // guide 단계는 전체화면 전용(flex:1 + 하단 고정 CTA)이라 카탈로그에서는
+  // 높이를 고정한 상자 안에 넣어야 보입니다.
+  permissionGuidePreview: {
+    height: 520,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: color.borderDivider,
   },
   radarPreview: {
     alignItems: 'center',

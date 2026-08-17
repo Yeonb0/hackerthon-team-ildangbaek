@@ -2,7 +2,7 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { AreaTrendChart, weekdayLabel } from '@/components/chart/AreaTrendChart';
-import { IconMinus } from '@/components/icons';
+import { AppIcon, IconMinus } from '@/components/icons';
 import { color, metricAccent, reportColor, space } from '@/theme/tokens';
 import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { MetricKey, ReportPeriod, GraphPoint } from '@/types/report';
@@ -129,10 +129,15 @@ function MetricDelta({ delta }: { delta: number | null }) {
     return <IconMinus size={10} color={color.textSub} />;
   }
   const isUp = delta > 0;
+  const accent = isUp ? reportColor.caution : reportColor.safe;
+  // 2026-08-17(세션 15) — ▲/▼ 문자를 아이콘 세트로 교체(관리자 요청). 화살표를 글리프로
+  // 그리면 글꼴마다 모양·기준선이 달라 숫자와 세로 정렬이 어긋나고, 주아체처럼 기호
+  // 글리프가 비어 있는 글꼴에서는 아예 안 보일 위험이 있습니다(이 파일 상단 주석 참고).
   return (
-    <Text style={[styles.deltaText, { color: isUp ? reportColor.caution : reportColor.safe }]}>
-      {isUp ? '▲' : '▼'} {Math.abs(delta)}
-    </Text>
+    <View style={styles.deltaRow}>
+      <AppIcon name={isUp ? 'arrowUp' : 'arrowDown'} size={10} color={accent} />
+      <Text style={[styles.deltaText, { color: accent }]}>{Math.abs(delta)}</Text>
+    </View>
   );
 }
 
@@ -208,9 +213,14 @@ const styles = StyleSheet.create({
     color: color.textSub,
     paddingBottom: 6,
   },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingBottom: 8,
+  },
   deltaText: {
     fontSize: adjustFontSize(11),
     ...weightFamily('semibold'),
-    paddingBottom: 8,
   },
 });

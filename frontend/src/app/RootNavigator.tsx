@@ -14,6 +14,7 @@ import type { OnboardingNextStep } from '@/types/auth';
 
 import CatalogScreen from '@/screens/dev/CatalogScreen';
 import { SHOW_CATALOG } from '@/lib/devFlags';
+import { useDevUiStore } from '@/store/devUiStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -31,11 +32,14 @@ export function RootNavigator() {
   const onboardingCompleted = useAuthStore((s) => s.onboardingCompleted);
   const onboardingNextStep = useAuthStore((s) => s.onboardingNextStep);
   const { isHydrated, hydrateError, retry } = useAuthBootstrap();
+  // .env(SHOW_CATALOG)는 재시작이 필요해서, 앱 안에서 바로 켜고 끄는 런타임 토글을
+  // 함께 봅니다(DevResetButton 메뉴). 둘 중 하나라도 켜져 있으면 카탈로그를 띄웁니다.
+  const catalogOpen = useDevUiStore((s) => s.catalogOpen);
 
   // SHOW_CATALOG 우회는 그대로 두되, 여기서도 초기화 버튼이 뜨도록 이 분기도 아래 공통 return을 탑니다.
   let content: ReactNode;
 
-  if (SHOW_CATALOG) {
+  if (SHOW_CATALOG || catalogOpen) {
     content = <CatalogScreen />;
   } else if (isHydrated && hydrateError) {
     // 앱 시작 시 GET /users/me/onboarding 자체가 네트워크/서버 오류로 실패한 경우.

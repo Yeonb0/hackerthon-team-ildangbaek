@@ -13,6 +13,10 @@
 //   그대로 유지되고, 다음에 홈에 진입하면 온보딩부터 다시 시작합니다.
 // - 피부 기록 초기화: 오늘 새로 완료한 피부 기록의 목업 세션만 지웁니다. 기록 허브가
 //   다시 "미완료"로 보이게 됩니다. 로그인/온보딩 상태는 그대로입니다.
+// - 컴포넌트 카탈로그: CatalogScreen을 앱 안에서 바로 켜고 끕니다. 예전엔 .env의
+//   EXPO_PUBLIC_SHOW_CATALOG를 바꾸고 dev 서버를 재시작해야 했는데, 컴포넌트를 확인할
+//   때마다 껐다 켜는 게 번거로워서 런타임 토글로 옮겼습니다(관리자님 요청). 카탈로그가
+//   떠 있는 동안에도 이 버튼은 그대로 보이므로 같은 메뉴로 되돌아올 수 있습니다.
 // - 리포트 목업 전환: S-19가 GET /reports 목업으로부터 "기록 있음"(정상 데이터) 또는
 //   "기록 부족"(REPORT_DATA_INSUFFICIENT 409) 중 어떤 응답을 받을지 즉시 바꿉니다.
 //   예전엔 .env의 EXPO_PUBLIC_MOCK_REPORT_INSUFFICIENT + 앱 재시작으로 전환했는데,
@@ -34,6 +38,8 @@ import { setMockSkinScenario } from '@/api/mock/skin';
 import { setMockWeatherScenario } from '@/api/mock/home';
 import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
+import { useDevUiStore } from '@/store/devUiStore';
+import { SHOW_CATALOG } from '@/lib/devFlags';
 import { getWeatherLabel } from '@/lib/weather';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
@@ -60,6 +66,8 @@ const WEATHER_SCENARIO_OPTIONS: WeatherCondition[] = [
 
 export function DevResetButton() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const catalogOpen = useDevUiStore((state) => state.catalogOpen);
+  const toggleCatalog = useDevUiStore((state) => state.toggleCatalog);
   const setTotalStepCount = useOnboardingStore((state) => state.setTotalStepCount);
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
@@ -79,6 +87,16 @@ export function DevResetButton() {
   };
 
   const menuItems = [
+    {
+      // .env로 켜 둔 경우엔 여기서 꺼도 환경값이 계속 true라 카탈로그가 유지됩니다.
+      // 그 상황을 라벨로 알려줘서 "버튼이 안 먹는다"로 읽히지 않게 합니다.
+      label: SHOW_CATALOG
+        ? '카탈로그: .env로 켜짐 (앱에서 끌 수 없음)'
+        : catalogOpen
+          ? '🧩 카탈로그 닫기'
+          : '🧩 컴포넌트 카탈로그 열기',
+      onPress: () => runReset(() => toggleCatalog()),
+    },
     { label: '로그인 초기화', onPress: () => runReset(() => clearAuth()) },
     {
       label: '온보딩 초기화',

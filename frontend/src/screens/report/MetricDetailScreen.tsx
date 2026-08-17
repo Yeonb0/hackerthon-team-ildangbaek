@@ -9,7 +9,7 @@ import { EventBandChart } from '@/components/chart/EventBandChart';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { EmptyState } from '@/components/state/EmptyState';
-import { IconBack } from '@/components/icons';
+import { AppIcon, AppIconName, IconBack } from '@/components/icons';
 import { useReportInsight } from '@/api/queries/report';
 import { DetailStackParamList } from '@/app/routes';
 import {
@@ -42,7 +42,7 @@ const METRIC_INDEX_LABEL: Record<MetricKey, string> = {
  *   1) "{지표} 추이 (최근 N일)" + subtitle 메타 줄 + 평균/현재 + 이벤트 밴드 차트 + 범례
  *   2) AI 분석 요약 (연보라→연핑크 그라데이션 카드, `summary`가 있을 때만)
  *   3) 상관 이벤트 (아이콘 + 날짜·라벨 + impact + 변화량 배지)
- *   4) 💡 관리 팁 (`tip`이 있을 때만)
+ *   4) 관리 팁 (`tip`이 있을 때만)
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * 2026-08-17(세션 12) — 백엔드가 ADR 0027·0028로 필드를 추가해서 **클라이언트 파싱을
@@ -52,13 +52,14 @@ const METRIC_INDEX_LABEL: Record<MetricKey, string> = {
  *     문장 끝의 숫자를 정규식으로 뽑았는데, 백엔드가 문구를 바꾸면 깨지는 구조였습니다.
  *     `delta`는 `impact`와 **같은 판정을 공유**해서(REPORT-02 BR7) 문구가 "확인 중"인데
  *     배지에 수치가 뜨는 조합이 나오지 않습니다.
- *   - 이벤트 아이콘 → `event.eventKind`로 분기합니다(🧴 성분 첫 사용 / ☀️ 자외선 급증).
+ *   - 이벤트 아이콘 → `event.eventKind`로 분기합니다(productBottle 성분 첫 사용 /
+ *     sunny 자외선 급증). 2026-08-17(세션 15) 이모지에서 42종 아이콘 세트로 교체.
  *     예전의 "배지가 숫자면 🧴, 아니면 ✅" 근사는 지웠습니다 — ✅에 해당하던 "안정 구간"
  *     이벤트는 애초에 서버가 도출하지 않는 유형이었습니다(ADR 0013 §2).
  *   - AI 분석 요약 → `summary`. 예전엔 `subtitle`을 썼는데, ADR 0027이 `subtitle`을
  *     메타 문구("최근 30일 · 이벤트와 상관관계")로 확정해서 자리가 갈렸습니다.
  *     `subtitle`은 관리자 결정으로 차트 카드 제목 아래 메타 줄에 표시합니다.
- *   - 💡 관리 팁 → `tip`. ai-server 생성이라 실패 시 null이고, 그때 섹션이 사라집니다.
+ *   - 관리 팁 → `tip`. ai-server 생성이라 실패 시 null이고, 그때 섹션이 사라집니다.
  *
  * 여전히 클라이언트가 계산하는 값: **기간 변화(+3) / 평균 / 현재.** 백엔드가 필드 추가를
  * 거절했습니다(ADR 0027 "만들지 않기로 한 것") — 서버가 같은 값을 다시 계산하면 모닝·
@@ -127,7 +128,11 @@ export function MetricDetailScreen() {
           <View style={styles.headerBody}>
             <View style={styles.headerTitleBlock}>
               <View style={styles.headerTitleRow}>
-                <Text style={styles.headerEmoji}>{data.type === 'ENVIRONMENT' ? '☀️' : '⚠️'}</Text>
+                <AppIcon
+                  name={data.type === 'ENVIRONMENT' ? 'sunny' : 'warning'}
+                  size={20}
+                  color={data.type === 'ENVIRONMENT' ? reportColor.amber : reportColor.caution}
+                />
                 <Text style={styles.headerTitle}>{data.title}</Text>
               </View>
               <Text style={styles.headerSubtitle}>
@@ -238,7 +243,10 @@ export function MetricDetailScreen() {
         {data.tip ? (
           <View style={styles.cardWrap}>
             <View style={styles.tipCard}>
-              <Text style={styles.tipLabel}>💡 관리 팁</Text>
+              <View style={styles.tipLabelRow}>
+                <AppIcon name="tip" size={13} color={color.brand500} />
+                <Text style={styles.tipLabel}>관리 팁</Text>
+              </View>
               <Text style={styles.tipText}>{data.tip}</Text>
             </View>
           </View>
@@ -249,9 +257,9 @@ export function MetricDetailScreen() {
 }
 
 /** 아이콘은 도출 유형으로만 정합니다 — 배지 수치 유무로 추정하지 않습니다(ADR 0027). */
-const EVENT_KIND_ICON: Record<InsightEventKind, string> = {
-  INGREDIENT_USAGE: '🧴',
-  UV_SPIKE: '☀️',
+const EVENT_KIND_ICON: Record<InsightEventKind, AppIconName> = {
+  INGREDIENT_USAGE: 'productBottle',
+  UV_SPIKE: 'sunny',
 };
 
 function EventRow({ event, isLast }: { event: InsightEvent; isLast: boolean }) {
@@ -260,7 +268,7 @@ function EventRow({ event, isLast }: { event: InsightEvent; isLast: boolean }) {
     <View style={styles.eventRow}>
       <View style={styles.eventIconColumn}>
         <View style={[styles.eventIconBox, { backgroundColor: tint(badge.accent) }]}>
-          <Text style={styles.eventIcon}>{EVENT_KIND_ICON[event.eventKind]}</Text>
+          <AppIcon name={EVENT_KIND_ICON[event.eventKind]} size={16} color={badge.accent} />
         </View>
         {!isLast && <View style={styles.eventConnector} />}
       </View>
@@ -381,9 +389,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
-  },
-  headerEmoji: {
-    fontSize: adjustFontSize(18),
   },
   headerTitle: {
     fontSize: adjustFontSize(20),
@@ -529,9 +534,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eventIcon: {
-    fontSize: adjustFontSize(16),
-  },
   eventConnector: {
     width: 1,
     height: 16,
@@ -569,11 +571,16 @@ const styles = StyleSheet.create({
     paddingVertical: space[4],
     ...reportCardShadow.soft,
   },
+  tipLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
   tipLabel: {
     fontSize: adjustFontSize(11),
     ...weightFamily('bold'),
     color: color.brand500,
-    marginBottom: 8,
   },
   tipText: {
     fontSize: adjustFontSize(13),

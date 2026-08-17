@@ -89,7 +89,12 @@ export function ProductScanScreen() {
   if (!permission.granted) {
     return (
       <View style={[styles.centerFill, { paddingTop: insets.top }]}>
-        <PermissionDenied type="camera" />
+        <PermissionDenied
+          type="camera"
+          stage={permission.canAskAgain ? 'request' : 'guide'}
+          onRequest={permission.canAskAgain ? requestPermission : undefined}
+          description="제품 바코드를 카메라로 인식해요"
+        />
       </View>
     );
   }

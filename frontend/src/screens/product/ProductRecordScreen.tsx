@@ -409,10 +409,10 @@ function HomeSection({
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   if (homeQuery.isLoading) {
-    return <LoadingState variant="skeleton" skeletonLines={4} />;
+    return <LoadingState variant="listRows" rows={3} />;
   }
   if (homeQuery.isError || !homeQuery.data) {
-    return <ErrorState variant="network" onRetry={onRetryHome} />;
+    return <ErrorState variant="network" layout="inline" onRetry={onRetryHome} />;
   }
 
   const { routines, savedProducts, alreadyRecorded } = homeQuery.data;
@@ -575,7 +575,7 @@ function SearchResultsSection({
     return (
       <View style={styles.sections}>
         {searchBar}
-        <LoadingState variant="skeleton" skeletonLines={4} />
+        <LoadingState variant="listRows" rows={3} caption={null} />
       </View>
     );
   }
@@ -583,7 +583,7 @@ function SearchResultsSection({
     return (
       <View style={styles.sections}>
         {searchBar}
-        <ErrorState variant="network" onRetry={onRetry} />
+        <ErrorState variant="network" layout="inline" onRetry={onRetry} />
       </View>
     );
   }

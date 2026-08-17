@@ -43,6 +43,7 @@ function countByStatus(status: IngredientStatus): number {
  * Figma MyPage 부제("26세 · 여성 · …")와 값을 맞췄습니다.
  */
 export async function buildMockProfile(): Promise<ProfileResult> {
+  await hydrateMockLocation();
   const notificationEnabled = await getMockNotificationEnabled();
   return {
     name: '김민지',
@@ -66,6 +67,9 @@ export async function withdrawMockAccount(): Promise<void> {
 }
 
 export async function buildMockMyPage(): Promise<MyPageResult> {
+  // 저장된 지역을 메모리로 끌어올린 뒤에 읽어야 합니다 — 아래 location이 동기
+  // 함수(getMockCurrentLocation)라 hydrate 전에 읽으면 기본값이 나옵니다.
+  await hydrateMockLocation();
   const notificationEnabled = await getMockNotificationEnabled();
   return {
     name: '김민지',
@@ -173,15 +177,42 @@ export async function setMockNotificationEnabled(enabled: boolean): Promise<void
   await setItem(MOCK_NOTIFICATION_KEY, String(enabled));
 }
 
-// 세션 한정 메모리 — 앱 재시작 시 초기화, DevResetButton에서 resetMockUserSession()으로 되돌립니다.
-// (같은 패턴: api/mock/product.ts의 세션 메모리와 동일)
-let currentLocationId: number | null = 1; // 데모 기본값: 서울 강남구 (USER-01 응답 예시와 동일)
+// ⚠️ 2026-08-17(세션 15) 수정 — 원래는 모듈 최상단 `let` 하나였는데, 바로 위 알림
+// 설정이 겪었던 문제가 그대로 재발했습니다: JS 런타임이 재시작되면(Fast Refresh,
+// 새로고침, 앱 재시작) 모듈이 다시 평가되면서 초기값(서울 강남구)으로 돌아가,
+// 지역을 바꿔도 되돌아간 것처럼 보였습니다(관리자 제보 — "위치 설정이 제대로 동작
+// 안함"). 알림과 같은 방식으로 platformStorage에 저장합니다.
+//
+// 읽기가 비동기인데 searchMockLocations는 동기라, 메모리 캐시를 함께 둡니다:
+// 저장소 값은 hydrate에서 한 번 읽어 캐시에 채우고, 이후에는 캐시를 씁니다.
+const MOCK_LOCATION_KEY = 'skinteller.mock.currentLocationId';
+const DEFAULT_LOCATION_ID = 1; // 데모 기본값: 서울 강남구 (USER-01 응답 예시와 동일)
+
+let currentLocationId: number | null = DEFAULT_LOCATION_ID;
+let locationHydrated = false;
+
+/**
+ * 저장된 지역을 메모리 캐시로 끌어올립니다. 마이페이지·위치 검색 목업이 호출하기
+ * 전에 한 번만 실행되면 되고, 그 뒤로는 동기 함수들이 캐시를 그대로 씁니다.
+ */
+async function hydrateMockLocation(): Promise<void> {
+  if (locationHydrated) return;
+  locationHydrated = true;
+  const stored = await getItem(MOCK_LOCATION_KEY);
+  if (stored !== null) {
+    const parsed = Number(stored);
+    if (Number.isFinite(parsed)) {
+      currentLocationId = parsed;
+    }
+  }
+}
 
 function getMockCurrentLocation(): MockLocationSeed | undefined {
   return LOCATION_SEED.find((item) => item.locationId === currentLocationId);
 }
 
-export function searchMockLocations(keyword: string): LocationItem[] {
+export async function searchMockLocations(keyword: string): Promise<LocationItem[]> {
+  await hydrateMockLocation();
   const trimmed = keyword.trim();
   const pool = trimmed
     ? LOCATION_SEED.filter((item) => item.name.includes(trimmed))
@@ -214,21 +245,23 @@ function pseudoReverseGeocode(latitude: number, longitude: number): MockLocation
   return nearest;
 }
 
-export function updateMockLocation(input: UpdateLocationInput): { location: string } {
-  if ('locationId' in input) {
-    const found = LOCATION_SEED.find((item) => item.locationId === input.locationId);
-    if (!found) {
-      throw new ApiError(ErrorCode.USER_LOCATION_NOT_FOUND, '설정하려는 지역을 찾을 수 없어요.');
-    }
-    currentLocationId = found.locationId;
-    return { location: found.name };
+export async function updateMockLocation(input: UpdateLocationInput): Promise<{ location: string }> {
+  await hydrateMockLocation();
+  const target =
+    'locationId' in input
+      ? LOCATION_SEED.find((item) => item.locationId === input.locationId)
+      : pseudoReverseGeocode(input.latitude, input.longitude);
+  if (!target) {
+    throw new ApiError(ErrorCode.USER_LOCATION_NOT_FOUND, '설정하려는 지역을 찾을 수 없어요.');
   }
-  const geocoded = pseudoReverseGeocode(input.latitude, input.longitude);
-  currentLocationId = geocoded.locationId;
-  return { location: geocoded.name };
+  currentLocationId = target.locationId;
+  await setItem(MOCK_LOCATION_KEY, String(target.locationId));
+  return { location: target.name };
 }
 
 export async function resetMockUserSession(): Promise<void> {
-  currentLocationId = 1;
+  currentLocationId = DEFAULT_LOCATION_ID;
+  locationHydrated = true; // 방금 초기값으로 맞췄으므로 저장소를 다시 읽지 않습니다.
+  await setItem(MOCK_LOCATION_KEY, String(DEFAULT_LOCATION_ID));
   await setMockNotificationEnabled(true);
 }
