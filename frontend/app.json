@@ -16,7 +16,8 @@
     },
     "android": {
       "package": "com.ildangbaek.skinteller",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/favicon.png"
