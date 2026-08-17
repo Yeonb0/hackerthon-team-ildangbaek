@@ -1,27 +1,27 @@
 // ReportScreen.tsx
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQueries } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SegmentToggle } from '@/components/base/SegmentToggle';
-import { Chip } from '@/components/base/Chip';
 import { Popup } from '@/components/base/Popup';
-import { TrendGraph } from '@/components/chart/TrendGraph';
 import { InsightCard } from '@/components/domain/InsightCard';
+import { MetricTrendCard } from '@/components/domain/MetricTrendCard';
 import { ReportSummaryCard } from '@/components/domain/ReportSummaryCard';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { EmptyState } from '@/components/state/EmptyState';
-import { useReport, useReportSummary } from '@/api/queries/report';
+import { useReport, getReportInsight } from '@/api/queries/report';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { useReportUiStore } from '@/store/reportUiStore';
 import { DetailRoutes, DetailStackParamList, MainTabParamList, MainTabRoutes } from '@/app/routes';
-import { color, space, typography } from '@/theme';
-import type { MetricKey, ReportPeriod } from '@/types/report';
+import { color, reportCardShadow, reportColor, space } from '@/theme/tokens';
+import { weightFamily, adjustFontSize } from '@/theme/typography';
+import type { MetricKey, ReportPeriod, InsightDetail } from '@/types/report';
 
 // ReportScreen은 Tabs 안에 있지만 인사이트 카드를 누르면 그 밖의(부모) Stack에 있는
 // S-20으로 이동해야 합니다 — RecordHubScreen과 동일한 이유로 컴포지트 타입이 필요합니다.
@@ -30,75 +30,97 @@ type ReportNavigationProp = CompositeNavigationProp<
   NativeStackNavigationProp<DetailStackParamList>
 >;
 
-const METRIC_TABS: { key: MetricKey; label: string }[] = [
-  { key: 'trouble', label: '트러블' },
-  { key: 'redness', label: '홍조' },
-  { key: 'pores', label: '모공' },
-  { key: 'pigmentation', label: '색소침착' },
+const PERIOD_OPTIONS: { value: '7' | '30'; label: string }[] = [
+  { value: '7', label: '7일' },
+  { value: '30', label: '30일' },
 ];
 
 /**
- * S-19 피부 리포트.
+ * S-19 피부 리포트 (Figma 컬러 최종본 P8CmHDZp7z0dKiHByEzuLx, node 210:1829/210:2138 실측).
  *
- * ⚠️ 로드맵 Phase 6 원안은 레이더 차트였지만, 실제 REPORT-01 응답은 "지표 하나(metric)를
- * 골라 기간별 추이"를 주는 구조라 레이더에 필요한 데이터를 받을 수 없습니다(관리자
- * 확인, 2026-08-10). 그래서 기간 토글(7/14/30) + 지표 탭 4개 + 추이 그래프 + 인사이트
- * 카드 목록으로 구현합니다. RadarChart는 카탈로그에만 등록돼 있습니다.
+ * 화면 구조: 연보라(#F5F2FF) 배경 위에 흰 섹션 3개가 쌓입니다 —
+ *   1) 헤더 + 종합 피부 점수 + 총점 추이 그래프 (ReportSummaryCard)
+ *   2) 항목별 추이 — 지표 탭 4개 + 지표별 지수·증감 + 지표색 그래프 (MetricTrendCard)
+ *   3) AI 인사이트 — 구분선으로 나뉜 인사이트 행 목록 (InsightCard)
  *
- * - 추이 그래프는 선(line)으로 그립니다. REPORT-01 명세의 기본값은 막대지만 관리자님
- *   요청(2026-08-10)으로 선으로 바꿨습니다 — TrendGraph 컴포넌트가 둘 다 지원해서
- *   variant prop만 바꾸면 됩니다.
- * - ⚠️ 밤/낮(모닝/나이트)을 구분해서 표시하는 건 아직 못 합니다. REPORT-01의 graph는
- *   하루당 점수 하나만 내려주고(TBD-12 "나이트 우선, 없으면 모닝" 대표값 산출 —
- *   명세서에 "서버 내부 로직 · 응답 구조 영향 없음"이라고 명시돼 있어 프론트가 모닝/
- *   나이트를 구분해서 받을 방법이 없음), 이 부분은 백엔드 응답 구조 확장 확인 후
- *   진행하기로 했습니다(관리자 확인, 2026-08-10 — 아래 "지금 바로 요청해야 할 것"
- *   블로커에 추가 예정).
+ * - 기간은 7일 또는 30일. REPORT-01의 `period` 쿼리도 정확히 이 두 값만 유효해서
+ *   (다른 값은 422 `REPORT_INVALID_PERIOD`) 화면 토글과 실제 요청 기간이 항상 1:1입니다.
+ *   (2026-08-17 — 관리자 요청으로 14일 옵션 제거.)
+ *
+ * - 그래프 점(2026-08-17, 관리자 요청) — 7일 뷰는 매일 점을 찍고, 30일 뷰는 "이벤트가
+ *   있는 날"만 점을 찍습니다. "이벤트"는 새로 만든 게 아니라 REPORT-02(요인 상세, S-20이
+ *   이미 쓰던 `useReportInsight`)를 그대로 재사용합니다 — `data.insights`의 각 인사이트에
+ *   대해 상세를 추가로 조회해서 `events[].date`를 모읍니다. 종합 점수 그래프는 모든
+ *   인사이트의 이벤트를 합쳐서 쓰고, 항목별 추이 그래프는 선택된 지표(`metric`)와
+ *   일치하는 인사이트의 이벤트만 걸러 씁니다. 쿼리 키(`['reportInsight', insightId]`)가
+ *   S-20과 동일해서 인사이트 카드를 눌러 들어가면 캐시를 그대로 씁니다.
  *
  * - REPORT_DATA_INSUFFICIENT(409)는 types/errorCodes.ts의 EMPTY_STATE_CODES에 이미
  *   속한 코드입니다(빨간 에러 UI 금지 — 신규 사용자의 "정상" 상태). 그래서 ErrorState가
  *   아니라 EmptyState + Popup 조합으로 안내합니다: 이 화면에 머무는 동안 Popup을 딱
- *   한 번만 띄우고(reportUiStore — 기간·지표 조합별로 따로 기억하면 탭을 바꿀 때마다
- *   다시 떠서 관리자님 확인 후 전역 1회로 바꿨습니다, 2026-08-10), 닫으면 뒤에
- *   EmptyState가 남아 화면이 비어 보이지 않게 합니다. 문구는 기획 확정 전 placeholder입니다.
- *
- * - 기간은 7/14/30일 중 고를 수 있습니다(관리자님 요청, 2026-08-10). 그런데 REPORT-01의
- *   `period` 쿼리는 **7 또는 30만 유효**합니다(다른 값은 422 `REPORT_INVALID_PERIOD`) —
- *   그래서 14일을 고르면 서버엔 30일치를 요청하고, 받은 `graph`에서 최근 14일만
- *   `slice(-14)`로 잘라 보여줍니다. 백엔드 응답 구조 변경이 필요 없는 방식이라 바로
- *   구현했습니다. 다만 `insights`는 실제 요청한 기간(7 또는 30) 기준 그대로라, 14일
- *   화면에서도 30일 분석 기준 인사이트가 그대로 보일 수 있습니다 — 인사이트 자체는
- *   날짜가 찍힌 데이터가 아니라 걸러낼 기준이 없어서 그렇습니다.
+ *   한 번만 띄우고(reportUiStore), 닫으면 뒤에 EmptyState가 남아 화면이 비어 보이지
+ *   않게 합니다. 문구는 기획 확정 전 placeholder입니다.
  */
 export function ReportScreen() {
   const navigation = useNavigation<ReportNavigationProp>();
   const insets = useSafeAreaInsets();
 
-  // SegmentToggle은 T extends string만 받아서(base 컴포넌트 공용 제약), 기간은
-  // 문자열로 들고 있다가 쓸 때 숫자로 바꿉니다.
-  const [periodOption, setPeriodOption] = useState<'7' | '14' | '30'>('7');
-  const displayPeriod = Number(periodOption) as 7 | 14 | 30;
-  // REPORT-01의 period 파라미터는 7 또는 30만 유효합니다 — 14일을 고르면 서버엔
-  // 30일치를 요청하고 아래에서 최근 14일만 잘라서 보여줍니다.
-  const callPeriod: ReportPeriod = displayPeriod === 7 ? 7 : 30;
+  const [periodOption, setPeriodOption] = useState<'7' | '30'>('7');
+  const period: ReportPeriod = Number(periodOption) as ReportPeriod;
   const [metric, setMetric] = useState<MetricKey>('trouble');
 
   const insufficientPopupSeen = useReportUiStore((state) => state.insufficientPopupSeen);
   const markInsufficientPopupSeen = useReportUiStore((state) => state.markInsufficientPopupSeen);
 
-  const { data, isLoading, isError, error, refetch } = useReport(callPeriod, metric);
-  const displayedGraph = data ? data.graph.slice(-displayPeriod) : [];
+  const { data, isLoading, isError, error, refetch } = useReport(period, metric);
+  const displayedGraph = useMemo(() => data?.graph ?? [], [data]);
+  const displayedSummary = data?.summary;
+  const selectedMetricSummary = displayedSummary?.metrics.find((item) => item.metric === metric);
 
-  // 종합 점수 카드(Figma 210:2437) — ⚠️ 목업 전용, types/report.ts의
-  // ReportSummaryResult 주석 참고. 표시 기간은 화면의 다른 부분과 같은 토글을
-  // 공유합니다(Figma는 카드마다 토글이 따로 있었지만 실제로는 한 화면 안 두 상태를
-  // 각각 캡처해둔 것뿐이라, 토글 자체를 중복시키지 않았습니다 — 관리자 확인, 2026-08-17).
-  // ReportSummaryResult.period도 REPORT-01처럼 7|30만 유효 — 14일은 callPeriod(30)로
-  // 요청 후 그래프만 최근 14일로 잘라 보여줍니다(위 REPORT-01과 동일 패턴).
-  const { data: summaryData, isLoading: isSummaryLoading } = useReportSummary(callPeriod);
-  const displayedSummary = summaryData
-    ? { ...summaryData, graph: summaryData.graph.slice(-displayPeriod) }
-    : undefined;
+  // 그래프 점 — REPORT-02(useReportInsight)를 재사용해 이벤트 날짜를 모읍니다.
+  // useQueries를 쓰는 이유: 인사이트가 몇 개인지 미리 알 수 없어서 훅을 반복문 안에서
+  // 호출할 수 없습니다(Rules of Hooks) — queryKey는 useReportInsight와 완전히 동일하게
+  // 맞춰서 캐시를 공유합니다.
+  const insightIds = data?.insights.map((insight) => insight.insightId) ?? [];
+  const insightDetailQueries = useQueries({
+    queries: insightIds.map((insightId) => ({
+      queryKey: ['reportInsight', insightId],
+      queryFn: () => getReportInsight(insightId),
+    })),
+  });
+  const insightDetails = insightDetailQueries
+    .map((q) => q.data)
+    .filter((detail): detail is InsightDetail => detail !== undefined);
+
+  // 표시 중인 그래프 시작일 이전 이벤트는 화면 밖 데이터라 제외합니다.
+  const earliestVisibleDate = data?.graph[0]?.date;
+
+  const allEventDates = useMemo(() => {
+    const set = new Set<string>();
+    insightDetails.forEach((detail) =>
+      detail.events.forEach((event) => {
+        if (!earliestVisibleDate || event.date >= earliestVisibleDate) set.add(event.date);
+      })
+    );
+    return Array.from(set);
+  }, [insightDetails, earliestVisibleDate]);
+
+  const metricEventDates = useMemo(() => {
+    const set = new Set<string>();
+    insightDetails
+      .filter((detail) => detail.metric === metric)
+      .forEach((detail) =>
+        detail.events.forEach((event) => {
+          if (!earliestVisibleDate || event.date >= earliestVisibleDate) set.add(event.date);
+        })
+      );
+    return Array.from(set);
+  }, [insightDetails, metric, earliestVisibleDate]);
+
+  // 7일 뷰는 매일 점, 30일 뷰는 이벤트가 있는 날만 점(관리자 요청, 2026-08-17).
+  const summaryDotDates =
+    period === 7 ? (displayedSummary?.graph.map((p) => p.date) ?? []) : allEventDates;
+  const trendDotDates = period === 7 ? displayedGraph.map((p) => p.date) : metricEventDates;
 
   const isDataInsufficient = error instanceof ApiError && error.code === ErrorCode.REPORT_DATA_INSUFFICIENT;
   const showPopup = isDataInsufficient && !insufficientPopupSeen;
@@ -112,74 +134,110 @@ export function ReportScreen() {
     navigation.navigate(DetailRoutes.MetricDetail, { insightId });
   };
 
+  const header = (
+    <View style={[styles.headerSection, { paddingTop: insets.top + space[3] }]}>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>리포트</Text>
+        <View style={styles.periodTrack}>
+          {PERIOD_OPTIONS.map((option) => {
+            const selected = option.value === periodOption;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                onPress={() => setPeriodOption(option.value)}
+                style={[styles.periodPill, selected && styles.periodPillSelected]}
+              >
+                <Text style={[styles.periodLabel, selected && styles.periodLabelSelected]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+
   if (isLoading) {
-    return <LoadingState variant="spinner" style={styles.centerFill} />;
+    return (
+      <View style={styles.container}>
+        {header}
+        <LoadingState variant="spinner" style={styles.centerFill} />
+      </View>
+    );
   }
 
   // REPORT_DATA_INSUFFICIENT 외의 진짜 오류(네트워크·서버)만 ErrorState로 처리합니다.
   if (isError && !isDataInsufficient) {
-    return <ErrorState variant="network" onRetry={() => refetch()} style={styles.centerFill} />;
+    return (
+      <View style={styles.container}>
+        {header}
+        <ErrorState variant="network" onRetry={() => refetch()} style={styles.centerFill} />
+      </View>
+    );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + space[5] }]}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>피부 리포트</Text>
+    <View style={styles.container}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        {header}
 
-        <ReportSummaryCard data={displayedSummary} isLoading={isSummaryLoading} period={displayPeriod} />
-
-        <SegmentToggle
-          options={[
-            { value: '7', label: '7일' },
-            { value: '14', label: '14일' },
-            { value: '30', label: '30일' },
-          ]}
-          value={periodOption}
-          onChange={setPeriodOption}
+        <ReportSummaryCard
+          data={displayedSummary}
+          isLoading={isLoading}
+          period={period}
+          dotDates={summaryDotDates}
         />
 
-        <View style={styles.metricRow}>
-          {METRIC_TABS.map((tab) => (
-            <Chip
-              key={tab.key}
-              label={tab.label}
-              selected={metric === tab.key}
-              onPress={() => setMetric(tab.key)}
-            />
-          ))}
-        </View>
-
         {isDataInsufficient ? (
-          <EmptyState
-            icon="navReport"
-            title="아직 리포트를 만들 수 없어요"
-            description="피부 기록이 조금 더 쌓이면 리포트를 확인할 수 있어요."
-            actionLabel="기록하러 가기"
-            onAction={handleGoToRecordHub}
-          />
+          <View style={styles.whiteSection}>
+            <EmptyState
+              icon="navReport"
+              title="아직 리포트를 만들 수 없어요"
+              description="피부 기록이 조금 더 쌓이면 리포트를 확인할 수 있어요."
+              actionLabel="기록하러 가기"
+              onAction={handleGoToRecordHub}
+            />
+          </View>
         ) : (
           data && (
             <>
-              <TrendGraph points={displayedGraph} variant="line" style={styles.graph} />
+              <View style={styles.sectionGap} />
+              <MetricTrendCard
+                metric={metric}
+                onChangeMetric={setMetric}
+                graph={displayedGraph}
+                score={selectedMetricSummary?.score}
+                delta={selectedMetricSummary?.delta}
+                period={period}
+                dotDates={trendDotDates}
+              />
 
-              {data.insights.length > 0 ? (
-                <View style={styles.insightList}>
-                  <Text style={styles.sectionTitle}>인사이트</Text>
-                  {data.insights.map((insight) => (
-                    <InsightCard
-                      key={insight.insightId}
-                      insight={insight}
-                      onPress={() => handleOpenInsight(insight.insightId)}
-                    />
-                  ))}
-                </View>
-              ) : (
-                <EmptyState
-                  icon="tip"
-                  title="아직 발견된 인사이트가 없어요"
-                  description="기록이 더 쌓이면 성분·환경별 패턴을 알려드려요."
-                />
-              )}
+              <View style={styles.sectionGap} />
+              <View style={styles.whiteSection}>
+                <Text style={styles.sectionTitle}>AI 인사이트</Text>
+                {data.insights.length > 0 ? (
+                  <View style={styles.insightList}>
+                    {data.insights.map((insight, index) => (
+                      <View key={insight.insightId}>
+                        <InsightCard
+                          insight={insight}
+                          onPress={() => handleOpenInsight(insight.insightId)}
+                        />
+                        {index < data.insights.length - 1 && <View style={styles.insightDivider} />}
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <EmptyState
+                    icon="tip"
+                    title="아직 발견된 인사이트가 없어요"
+                    description="기록이 더 쌓이면 성분·환경별 패턴을 알려드려요."
+                  />
+                )}
+              </View>
             </>
           )
         )}
@@ -202,34 +260,86 @@ export function ReportScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: color.bg,
+    // Figma 배경 — 흰 섹션들이 이 연보라 위에 블록으로 쌓입니다.
+    backgroundColor: color.surfaceLavenderPale,
   },
   centerFill: {
     flex: 1,
   },
+  // 스크롤 영역 자체는 흰색입니다 — 마지막 섹션(AI 인사이트) 아래로 스크롤이 남을 때
+  // 연보라 배경이 빈 띠처럼 보이던 문제를 없앱니다(관리자 제보, 2026-08-17).
+  // 섹션 사이 연보라 띠는 sectionGap이 직접 칠합니다.
+  scroll: {
+    backgroundColor: color.bg,
+  },
   content: {
-    padding: space[5],
-    paddingBottom: space[8],
-    gap: space[4],
+    flexGrow: 1,
+    backgroundColor: color.bg,
+  },
+  headerSection: {
+    backgroundColor: color.bg,
+    paddingHorizontal: space[5],
+    paddingBottom: space[1],
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[3],
   },
   title: {
-    ...typography.display,
-    color: color.ink900,
+    fontSize: adjustFontSize(20),
+    lineHeight: 30,
+    ...weightFamily('bold'),
+    color: color.textInk,
+    flexShrink: 1,
   },
-  metricRow: {
+  periodTrack: {
     flexDirection: 'row',
-    gap: space[2],
-    flexWrap: 'wrap',
+    backgroundColor: color.surfaceLavenderPale,
+    borderRadius: 999,
+    padding: 2,
   },
-  graph: {
-    marginTop: space[2],
+  periodPill: {
+    paddingHorizontal: space[4],
+    paddingVertical: 6,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  insightList: {
-    gap: space[3],
-    marginTop: space[2],
+  periodPillSelected: {
+    backgroundColor: color.bg,
+    ...reportCardShadow.soft,
+  },
+  periodLabel: {
+    fontSize: adjustFontSize(12.5),
+    ...weightFamily('semibold'),
+    color: color.textSub,
+  },
+  periodLabelSelected: {
+    color: reportColor.purpleDeep,
+  },
+  // 흰 섹션 사이 연보라 띠 (Figma 210:1950 — 12px).
+  sectionGap: {
+    height: 12,
+    backgroundColor: color.surfaceLavenderPale,
+  },
+  whiteSection: {
+    backgroundColor: color.bg,
+    paddingHorizontal: space[5],
+    paddingTop: space[5],
+    paddingBottom: space[6],
   },
   sectionTitle: {
-    ...typography.h2,
-    color: color.ink900,
+    fontSize: adjustFontSize(14),
+    ...weightFamily('bold'),
+    color: color.textInk,
+  },
+  insightList: {
+    marginTop: space[2],
+  },
+  insightDivider: {
+    height: 1,
+    backgroundColor: color.surfaceLavenderPale,
   },
 });

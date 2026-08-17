@@ -47,14 +47,16 @@ export interface ReportResult {
   insights: InsightSummary[];
   /** 부분 실패 영역. 실패 없으면 빈 배열 — 필드 자체는 항상 존재 (F-HOME 쪽 failedSections와 동일 패턴) */
   failedSections: string[];
+  /** 기간 집계 종합 점수(리포트 홈 상단 카드, Figma 210:2437). `metric` 파라미터와
+   * 무관하게 항상 지표 4종 전체를 담아 옵니다 — REPORT-01 응답에 같이 실려 옵니다
+   * (백엔드 2026-08-17 추가, docs/api_명세서.md REPORT-01 BR6~9). */
+  summary: ReportSummaryResult;
 }
 
-// ⚠️ 백엔드 미확정 — REPORT-01(GET /reports) 명세엔 "지표 하나(metric)당 기간별
-// 그래프"만 있고, 이 타입이 필요로 하는 "기간(7/30일) 집계 종합 점수 + 지표 4개
-// 요약"에 해당하는 필드가 없습니다. SKIN-01/02의 totalScore/scores/comparison은
-// "오늘 하루" 스냅샷이라 용도가 다릅니다 (관리자 확인, 2026-08-17 — 백엔드에 REPORT-01
-// 필드 추가 요청 예정, docs/decisions 아래 요청 문서 참고). 그 전까지는 무조건 목업만
-// 반환합니다 — src/api/queries/report.ts의 useReportSummary 참고.
+// 2026-08-17 — 백엔드가 REPORT-01 응답에 summary 필드를 추가했습니다
+// (docs/api_명세서.md REPORT-01 BR6~9, ADR 0008 기간 단위 확장). 이제 ReportResult.summary로
+// 실 API에서 받습니다 — api/queries/report.ts의 getReport 참고. 이 타입 자체는
+// 그대로 재사용합니다(목업 시절과 필드 구조 동일).
 export interface MetricScoreSummary {
   metric: MetricKey;
   score: number;
@@ -90,4 +92,11 @@ export interface InsightDetail {
   graph: GraphPoint[];
   /** 날짜 오름차순 (REPORT-02 BR1) */
   events: InsightEvent[];
+  /**
+   * 💡 관리 팁 (Figma 281:917). ⚠️ REPORT-02 응답엔 아직 없는 필드라 현재는 목업만
+   * 값을 채웁니다 — 실서버 연동 시 undefined로 와서 화면이 섹션을 자동으로 숨깁니다.
+   * 백엔드 필드 추가 요청: docs/backend-request-report02-detail-fields.md
+   * (ADR 0025 aiComment처럼 ai-server 생성 + 실패 시 null 방식 제안).
+   */
+  tip?: string | null;
 }

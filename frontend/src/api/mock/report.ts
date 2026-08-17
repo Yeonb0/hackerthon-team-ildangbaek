@@ -10,6 +10,7 @@ import type {
   GraphPoint,
   ReportSummaryResult,
   MetricScoreSummary,
+  Confidence,
 } from '@/types/report';
 
 export type MockReportScenario = 'sufficient' | 'insufficient';
@@ -38,21 +39,32 @@ const METRIC_BASE_SCORE: Record<MetricKey, number> = {
 /**
  * 3일에 한 번은 두 슬롯 모두 결측(null)을 섞고, 4일에 한 번은 나이트만 비워서
  * 화면이 "하루 중 한쪽만 기록한 날"까지 늘 마주치도록 합니다 (ADR 0012·0013).
+ *
+ * dayCount는 REPORT-01의 period(7|30)뿐 아니라 REPORT-02의 인사이트 창(14일)에도
+ * 쓰이므로 ReportPeriod가 아니라 number를 받습니다.
+ *
+ * ⚠️ 첫날·마지막날은 항상 값을 채웁니다(2026-08-17). 곡선은 유효한 점끼리만 잇기
+ * 때문에 양 끝이 결측이면 그만큼 안쪽에서 시작·끝나서, 화면마다 그래프 가로 폭이
+ * 제각각으로 보였습니다(관리자 제보). 데모에서 "오늘"과 "기간 시작일"엔 기록이 있는
+ * 게 자연스러운 기본 상태라 목업에서만 보정합니다 — 차트 쪽 로직(결측은 안 그림)은
+ * 실데이터 규칙 그대로 둡니다.
  */
-function buildMockGraph(period: ReportPeriod, base: number): GraphPoint[] {
+function buildMockGraph(dayCount: number, base: number): GraphPoint[] {
   const points: GraphPoint[] = [];
   const today = new Date();
-  for (let i = period - 1; i >= 0; i--) {
+  for (let i = dayCount - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
       d.getDate()
     ).padStart(2, '0')}`;
-    const score = i % 3 === 0 ? null : Math.max(40, Math.min(95, base + Math.round(Math.sin(i) * 12)));
+    const isEdge = i === dayCount - 1 || i === 0;
+    const score =
+      !isEdge && i % 3 === 0 ? null : Math.max(40, Math.min(95, base + Math.round(Math.sin(i) * 12)));
     points.push({
       date,
       morningScore: score === null ? null : Math.max(40, Math.min(95, score - 4)),
-      nightScore: score === null || i % 4 === 0 ? null : score,
+      nightScore: score === null || (!isEdge && i % 4 === 0) ? null : score,
     });
   }
   return points;
@@ -62,22 +74,22 @@ const MOCK_INSIGHTS: InsightSummary[] = [
   {
     insightId: 101,
     type: 'INGREDIENT',
-    title: '레티놀',
-    description: '레티놀 세럼 사용 후 2일 뒤 트러블이 반복적으로 증가해요',
+    title: '레티놀 세럼',
+    description: '레티놀 세럼 사용 후 2일 트러블이 반복적으로 증가해요',
     confidence: 'OBSERVED',
   },
   {
     insightId: 102,
     type: 'ENVIRONMENT',
-    title: '자외선',
-    description: '자외선 높은 날 다음 날 홍조 수치가 높아져요',
+    title: '자외선 지수',
+    description: '자외선 높은 날 다음 날 홍조 수치가 평균 12% 높아져요',
     confidence: 'OBSERVED',
   },
   {
     insightId: 103,
     type: 'INGREDIENT',
-    title: '나이아신아마이드',
-    description: '재시작 후 트러블 개선 추세를 확인하는 중이에요',
+    title: '히알루론산',
+    description: '히알루론산 세럼 연속 사용 시 모공 점수가 개선돼요',
     confidence: 'OBSERVING',
   },
 ];
@@ -96,6 +108,7 @@ export function buildMockReport(period: ReportPeriod, metric: MetricKey): Report
     graph: buildMockGraph(period, METRIC_BASE_SCORE[metric]),
     insights: MOCK_INSIGHTS,
     failedSections: [],
+    summary: buildMockReportSummary(period),
   };
 }
 
@@ -119,16 +132,18 @@ function buildMockTotalGraph(period: ReportPeriod): { date: string; score: numbe
     ).padStart(2, '0')}`;
     // 마지막 점을 78(Figma 실측)로 맞추고 그 앞은 완만한 사인 곡선으로 채웁니다.
     const score = i === 0 ? 78 : Math.max(50, Math.min(90, 78 + Math.round(Math.sin(i * 0.9) * 10)));
-    points.push({ date, score: i % 5 === 4 ? null : score });
+    // 첫날·마지막날은 항상 값을 채웁니다 — buildMockGraph의 같은 주석 참고
+    // (양 끝 결측이면 그래프 가로 폭이 화면마다 달라 보임).
+    const isEdge = i === period - 1 || i === 0;
+    points.push({ date, score: !isEdge && i % 5 === 4 ? null : score });
   }
   return points;
 }
 
 /**
- * REPORT-01 "기간 집계 종합 점수" 목업 — ⚠️ 백엔드 필드 미확정(types/report.ts
- * ReportSummaryResult 주석 참고). USE_MOCK 토글과 무관하게 항상 이 함수만 씁니다 —
- * 백엔드 필드가 실제로 생기기 전까지는 실서버를 호출할 수 없기 때문입니다.
- * 백엔드 확정 후 api/queries/report.ts의 getReportSummary에서 실 API 분기를 추가하세요.
+ * REPORT-01 "기간 집계 종합 점수" 목업. buildMockReport가 항상 같이 호출해서
+ * ReportResult.summary로 넣습니다(실 API도 같은 응답 안에 함께 옵니다 — 2026-08-17
+ * 백엔드 REPORT-01에 필드 추가 완료, api/queries/report.ts의 getReport 참고).
  */
 export function buildMockReportSummary(period: ReportPeriod): ReportSummaryResult {
   return {
@@ -140,35 +155,121 @@ export function buildMockReportSummary(period: ReportPeriod): ReportSummaryResul
   };
 }
 
-/** REPORT-02 목업. insightId로 MOCK_INSIGHTS에서 찾아 상세를 구성합니다. */
-export function buildMockInsightDetail(insightId: number): InsightDetail {
-  const source = MOCK_INSIGHTS.find((item) => item.insightId === insightId) ?? MOCK_INSIGHTS[0];
-  return {
-    insightId: source.insightId,
-    type: source.type,
+/** REPORT-02 목업 — 인사이트별로 지표·이벤트를 다르게 매핑합니다(2026-08-17, 종합
+ * 점수/항목별 추이 그래프에 "이벤트 있는 날" 점을 찍는 기능 실측용). 예전엔 모든
+ * insightId가 metric:'trouble' 고정 + 이벤트 3개 전부 동일했는데, 그러면 리포트 홈에서
+ * 다른 지표 탭을 선택했을 때 이벤트 점이 하나도 안 찍혀서 데모가 어색했습니다.
+ * 이벤트 날짜는 "오늘" 기준 상대값(daysAgo)으로 만들어서 언제 실행하든 7일/30일
+ * 윈도우 안에 자연스럽게 들어오게 했습니다 — 101(2일 전)은 7일 뷰에도 보이고,
+ * 102(9일 전)·103(20일 전)은 30일 뷰에서만 보입니다. */
+const INSIGHT_DETAIL_SEED: Record<
+  number,
+  {
+    metric: MetricKey;
+    /** AI 분석 요약(화면의 subtitle 자리) — Figma 281:873 문구 형식. */
+    summary: string;
+    /** 💡 관리 팁 — Figma 281:921. REPORT-02에 없는 필드라 목업만 값을 갖습니다. */
+    tip: string;
+    events: { daysAgo: number; label: string; impact: string; confidence: Confidence }[];
+  }
+> = {
+  101: {
     metric: 'trouble',
-    title: `${source.title} 추이`,
-    subtitle: '최근 30일 · 이벤트와 상관관계',
-    graph: buildMockGraph(30, METRIC_BASE_SCORE.trouble),
+    summary: '레티놀 세럼 사용 후 평균 2일 뒤 트러블 수치가 반복적으로 올라가는 패턴이 감지됐어요.',
+    tip: '레티놀은 처음에 피부 장벽을 약화시킬 수 있어요. 주 2–3회로 줄이거나, 보습제를 함께 쓰는 버퍼링 방식을 시도해 보세요.',
     events: [
       {
-        date: '2026-07-10',
-        label: '독도어성초크림 첫 사용',
-        impact: '이후 2일 뒤 트러블 수치 +18',
+        daysAgo: 11,
+        label: '레티놀 세럼 첫 사용',
+        impact: '사용 2일 뒤 트러블 수치 +16',
         confidence: 'OBSERVED',
       },
       {
-        date: '2026-07-22',
-        label: '자외선 지수 9 이상 3일 연속',
-        impact: '이후 홍조 수치 +12',
+        daysAgo: 4,
+        label: '레티놀 세럼 재사용',
+        impact: '사용 2일 뒤 트러블 수치 +18',
         confidence: 'OBSERVED',
       },
       {
-        date: '2026-08-01',
-        label: '나이아신아마이드 세럼 재시작',
-        impact: '트러블 개선 추세 확인 중',
+        daysAgo: 8,
+        label: '레티놀 미사용 기간',
+        impact: '수치가 꾸준히 내려갔어요',
+        confidence: 'OBSERVED',
+      },
+    ],
+  },
+  102: {
+    metric: 'redness',
+    summary: '자외선 지수가 7 이상인 날의 다음 날, 홍조 수치가 평균 12포인트 높아지는 패턴이 반복돼요.',
+    tip: 'SPF 50+ 선크림을 외출 30분 전에 바르고, 자외선 지수가 높은 날은 자외선 차단 의류나 모자를 함께 사용하는 게 좋아요.',
+    events: [
+      {
+        daysAgo: 11,
+        label: '자외선 지수 8–9',
+        impact: '다음 날 홍조 수치 +13',
+        confidence: 'OBSERVED',
+      },
+      {
+        daysAgo: 5,
+        label: '자외선 지수 9–10',
+        impact: '다음 날 홍조 수치 +13',
+        confidence: 'OBSERVED',
+      },
+      {
+        daysAgo: 9,
+        label: '흐린 날',
+        impact: '홍조 수치가 낮게 유지됐어요',
         confidence: 'OBSERVING',
       },
     ],
+  },
+  103: {
+    metric: 'pores',
+    summary: '히알루론산 세럼을 연속으로 사용한 기간에 모공 점수가 개선되는 추세를 확인하는 중이에요.',
+    tip: '히알루론산은 건조한 환경에서 오히려 수분을 뺏길 수 있어요. 토너로 피부를 적신 뒤 바르고, 위에 크림으로 덮어 마무리해 보세요.',
+    events: [
+      {
+        daysAgo: 20,
+        label: '히알루론산 세럼 재시작',
+        impact: '모공 점수 개선 추세 확인 중',
+        confidence: 'OBSERVING',
+      },
+    ],
+  },
+};
+
+function daysAgoDate(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(
+    2,
+    '0'
+  )}`;
+}
+
+/** REPORT-02 목업. insightId로 MOCK_INSIGHTS에서 찾아 상세를 구성합니다. */
+export function buildMockInsightDetail(insightId: number): InsightDetail {
+  const source = MOCK_INSIGHTS.find((item) => item.insightId === insightId) ?? MOCK_INSIGHTS[0];
+  const seed = INSIGHT_DETAIL_SEED[source.insightId] ?? INSIGHT_DETAIL_SEED[101];
+  return {
+    insightId: source.insightId,
+    type: source.type,
+    metric: seed.metric,
+    // 화면 헤더는 요인명(=REPORT-01 title)을 그대로 씁니다 — Figma 281:815 "레티놀 세럼".
+    title: source.title,
+    subtitle: seed.summary,
+    // Figma는 "최근 14일" 창을 씁니다(리포트 홈의 7/30일 토글과 별개 — REPORT-02엔
+    // period 파라미터 자체가 없고 인사이트가 만들어진 창을 그대로 내려줍니다).
+    graph: buildMockGraph(14, METRIC_BASE_SCORE[seed.metric]),
+    events: seed.events
+      .map((event) => ({
+        date: daysAgoDate(event.daysAgo),
+        label: event.label,
+        impact: event.impact,
+        confidence: event.confidence,
+      }))
+      // REPORT-02 BR1 — events는 날짜 오름차순.
+      .sort((a, b) => a.date.localeCompare(b.date)),
+    tip: seed.tip,
   };
 }

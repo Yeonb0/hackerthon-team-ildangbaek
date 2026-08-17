@@ -16,6 +16,11 @@ type AreaTrendChartProps = {
   /** 요일/일자 라벨을 전부 보여줄지(7일 뷰) 첫/끝만 보여줄지(30일 뷰 — Figma도
    * 5/10/15/20/25/30만 보여줍니다, 30개를 다 넣으면 겹쳐서 못 읽습니다). */
   labelMode?: 'all' | 'edges';
+  /** 이 날짜와 일치하는 점에 작은 원을 찍습니다(2026-08-17 — 리포트 홈 실측 요청).
+   * 7일 뷰는 호출부가 전체 날짜를 넘겨 매일 점을 찍고, 30일 뷰는 REPORT-02 이벤트
+   * 날짜만 넘겨 이벤트가 있는 날만 점을 찍습니다(TrendGraph의 eventDates와 동일
+   * 패턴). 마지막 점은 이미 자체 배지가 있어 중복으로 그리지 않습니다. */
+  dotDates?: string[];
   formatLabel?: (date: string) => string;
   width?: number;
   height?: number;
@@ -25,7 +30,12 @@ type AreaTrendChartProps = {
 const SCORE_MIN = 0;
 const SCORE_MAX = 100;
 const PADDING_X = 8;
-const PADDING_Y = 14;
+// 마지막 점 배지를 점 위 가운데에 앉히려면 크기가 고정이어야 합니다(RN transform은
+// translateX에 %를 못 써서 marginLeft로 절반을 당깁니다).
+const BADGE_WIDTH = 30;
+const BADGE_HEIGHT = 17;
+// 배지가 위로 삐져나갈 자리를 위쪽 패딩에 확보합니다.
+const PADDING_Y = 26;
 
 function buildSmoothPath(pts: { x: number; y: number }[]): string {
   if (pts.length < 2) return '';
@@ -58,6 +68,7 @@ export function AreaTrendChart({
   points,
   accentColor = color.brand500,
   labelMode = 'edges',
+  dotDates,
   formatLabel,
   width = s(320),
   height = s(100),
@@ -74,6 +85,8 @@ export function AreaTrendChart({
   const validPoints = points
     .map((point, i) => ({ date: point.date, i, score: point.score }))
     .filter((point): point is { date: string; i: number; score: number } => point.score !== null);
+
+  const dotDateSet = dotDates ? new Set(dotDates) : null;
 
   const gradientId = `area-${accentColor.replace('#', '')}`;
   const linePath =
@@ -116,6 +129,21 @@ export function AreaTrendChart({
           <Circle cx={xAt(validPoints[0].i)} cy={yAt(validPoints[0].score)} r={5} fill={accentColor} />
         )}
 
+        {dotDateSet &&
+          validPoints
+            .filter((point) => point.i !== lastPoint?.i && dotDateSet.has(point.date))
+            .map((point) => (
+              <Circle
+                key={`dot-${point.date}`}
+                cx={xAt(point.i)}
+                cy={yAt(point.score)}
+                r={3}
+                fill={accentColor}
+                stroke={color.bg}
+                strokeWidth={1.5}
+              />
+            ))}
+
         {lastPoint && (
           <Circle
             cx={xAt(lastPoint.i)}
@@ -134,8 +162,13 @@ export function AreaTrendChart({
             styles.lastPointBadge,
             {
               backgroundColor: accentColor,
+              // 점 바로 "위"에 가운데 정렬로 띄웁니다(2026-08-17 관리자 제보 — 예전엔
+              // left가 점의 왼쪽 끝에 붙어 배지가 오른쪽으로 뻗었고, top엔 퍼센트로
+              // 계산한 값을 px 자리에 넘겨서 세로 위치도 어긋났습니다).
+              // left는 %(뷰박스가 가로로 늘어나므로), top은 px(Svg height가 실제 px).
               left: `${(xAt(lastPoint.i) / width) * 100}%`,
-              top: (yAt(lastPoint.score) / height) * 100 - 8,
+              marginLeft: -BADGE_WIDTH / 2,
+              top: Math.max(0, yAt(lastPoint.score) - BADGE_HEIGHT - 6),
             },
           ]}
         >
@@ -204,9 +237,8 @@ const styles = StyleSheet.create({
   },
   lastPointBadge: {
     position: 'absolute',
-    minWidth: 22,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    width: BADGE_WIDTH,
+    height: BADGE_HEIGHT,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
