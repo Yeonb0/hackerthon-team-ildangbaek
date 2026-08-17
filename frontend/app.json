@@ -16,8 +16,7 @@
     },
     "android": {
       "package": "com.ildangbaek.skinteller",
-      "predictiveBackGestureEnabled": false,
-      "versionCode": 4
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -43,7 +42,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/Skinteller-logo.png",
+          "image": "./assets/skinteller-logo.png",
           "imageWidth": 240,
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
