@@ -90,6 +90,13 @@ public class UserService {
     }
 
     @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        user.withdraw();
+    }
+
+    @Transactional
     public void updateLocation(Long userId, LocationUpdateRequest request) {
         UserProfile profile = userProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

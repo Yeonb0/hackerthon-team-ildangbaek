@@ -44,7 +44,7 @@ public class CurrentUserIdArgumentResolver implements HandlerMethodArgumentResol
     }
 
     /**
-     * {@code Long}이면 토큰의 사용자 ID를, {@code User}면 그 ID로 조회한 엔티티를 넣는다.
+     * {@code Long}이면 활성 사용자 ID를, {@code User}면 조회한 활성 엔티티를 넣는다.
      * 엔티티가 필요한 컨트롤러도 인증을 메서드 본문에서 직접 부르지 않게 하려는 것이다 —
      * 한 줄을 빠뜨리면 인증 없이 뚫리는 형태를 남기지 않는다.
      */
@@ -55,10 +55,13 @@ public class CurrentUserIdArgumentResolver implements HandlerMethodArgumentResol
         Long userId = mockAccessToken.parseUserId(header)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMON_UNAUTHORIZED));
 
-        if (Long.class.isAssignableFrom(parameter.getParameterType())) {
-            return userId;
-        }
-        return userRepository.findById(userId)
+        User user = userRepository.findById(userId)
+                .filter(User::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_USER_NOT_FOUND));
+
+        if (Long.class.isAssignableFrom(parameter.getParameterType())) {
+            return user.getId();
+        }
+        return user;
     }
 }

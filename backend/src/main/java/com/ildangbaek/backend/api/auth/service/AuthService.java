@@ -32,6 +32,8 @@ public class AuthService {
                     .providerUserId(providerUserId)
                     .email(mockEmail(request, providerUserId))
                     .build());
+        } else if (!user.isActive()) {
+            throw new BusinessException(ErrorCode.AUTH_LOGIN_FAILED);
         }
 
         return new LoginResponse(
@@ -48,6 +50,7 @@ public class AuthService {
         Long userId = mockAccessToken.parseRefreshUserId(refreshTokenHeader)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_INVALID_TOKEN));
         userRepository.findById(userId)
+                .filter(User::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_USER_NOT_FOUND));
         return new RefreshTokenResponse(mockAccessToken.issueAccessToken(userId));
     }

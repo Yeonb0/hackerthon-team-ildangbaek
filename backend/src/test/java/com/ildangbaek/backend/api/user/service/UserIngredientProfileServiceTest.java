@@ -93,6 +93,7 @@ class UserIngredientProfileServiceTest {
         assertThat(response.ingredients())
                 .singleElement()
                 .satisfies(item -> {
+                    assertThat(item.description()).isEqualTo("피부 보습에 도움을 주는 성분");
                     assertThat(item.reason()).isNull();
                     assertThat(item.recordCount()).isEqualTo(1);
                 });
@@ -139,7 +140,10 @@ class UserIngredientProfileServiceTest {
 
     private IngredientProfile profile(Long ingredientId, String koreanName, ReactionType reactionType,
                                        int observationCount, String reasonSummary) {
-        Ingredient ingredient = Ingredient.builder().koreanName(koreanName).build();
+        Ingredient ingredient = Ingredient.builder()
+                .koreanName(koreanName)
+                .description("피부 보습에 도움을 주는 성분")
+                .build();
         ReflectionTestUtils.setField(ingredient, "id", ingredientId);
 
         IngredientProfile profile = IngredientProfile.builder().user(user).ingredient(ingredient).build();
