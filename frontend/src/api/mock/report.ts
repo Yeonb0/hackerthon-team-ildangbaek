@@ -8,6 +8,8 @@ import type {
   InsightDetail,
   InsightSummary,
   GraphPoint,
+  ReportSummaryResult,
+  MetricScoreSummary,
 } from '@/types/report';
 
 export type MockReportScenario = 'sufficient' | 'insufficient';
@@ -94,6 +96,47 @@ export function buildMockReport(period: ReportPeriod, metric: MetricKey): Report
     graph: buildMockGraph(period, METRIC_BASE_SCORE[metric]),
     insights: MOCK_INSIGHTS,
     failedSections: [],
+  };
+}
+
+// Figma 컬러 최종본(210:2437) 실측값을 그대로 씁니다 — 관리자가 화면에서 직접
+// 대조할 수 있도록 목업 숫자를 임의로 바꾸지 않았습니다.
+const MOCK_SUMMARY_METRICS: MetricScoreSummary[] = [
+  { metric: 'trouble', score: 38, delta: -1 },
+  { metric: 'redness', score: 34, delta: 1 },
+  { metric: 'pigmentation', score: 47, delta: -2 },
+  { metric: 'pores', score: 40, delta: 3 },
+];
+
+function buildMockTotalGraph(period: ReportPeriod): { date: string; score: number | null }[] {
+  const today = new Date();
+  const points: { date: string; score: number | null }[] = [];
+  for (let i = period - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`;
+    // 마지막 점을 78(Figma 실측)로 맞추고 그 앞은 완만한 사인 곡선으로 채웁니다.
+    const score = i === 0 ? 78 : Math.max(50, Math.min(90, 78 + Math.round(Math.sin(i * 0.9) * 10)));
+    points.push({ date, score: i % 5 === 4 ? null : score });
+  }
+  return points;
+}
+
+/**
+ * REPORT-01 "기간 집계 종합 점수" 목업 — ⚠️ 백엔드 필드 미확정(types/report.ts
+ * ReportSummaryResult 주석 참고). USE_MOCK 토글과 무관하게 항상 이 함수만 씁니다 —
+ * 백엔드 필드가 실제로 생기기 전까지는 실서버를 호출할 수 없기 때문입니다.
+ * 백엔드 확정 후 api/queries/report.ts의 getReportSummary에서 실 API 분기를 추가하세요.
+ */
+export function buildMockReportSummary(period: ReportPeriod): ReportSummaryResult {
+  return {
+    period,
+    totalScore: 78,
+    totalDelta: -2,
+    metrics: MOCK_SUMMARY_METRICS,
+    graph: buildMockTotalGraph(period),
   };
 }
 

@@ -3,8 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
-import { buildMockReport, buildMockInsightDetail } from '@/api/mock/report';
-import type { ReportPeriod, MetricKey, ReportResult, InsightDetail } from '@/types/report';
+import { buildMockReport, buildMockInsightDetail, buildMockReportSummary } from '@/api/mock/report';
+import type {
+  ReportPeriod,
+  MetricKey,
+  ReportResult,
+  InsightDetail,
+  ReportSummaryResult,
+} from '@/types/report';
 
 // 서버 쿼리 파라미터/응답 필드는 대문자 enum입니다. 앱 내부(METRIC_LABELS 등)는
 // 소문자로 통일해서 쓰므로, API 경계인 이 파일에서만 변환합니다.
@@ -43,6 +49,24 @@ export function useReport(period: ReportPeriod, metric: MetricKey) {
     queryFn: () => getReport(period, metric),
     // REPORT_DATA_INSUFFICIENT(409)는 재시도로 해결되는 상태가 아니라서 자동 재시도를 끕니다.
     retry: false,
+  });
+}
+
+/**
+ * "기간 집계 종합 점수" 조회 (리포트 홈 상단 카드). ⚠️ 백엔드 필드 미확정 —
+ * types/report.ts의 ReportSummaryResult 주석 참고. USE_MOCK 토글과 무관하게 항상
+ * 목업만 반환합니다 — 실 엔드포인트가 없어서 분기할 live 경로 자체가 아직 없습니다.
+ * 백엔드가 REPORT-01에 필드를 추가하면(또는 별도 엔드포인트를 주면) 여기에
+ * `if (!USE_MOCK) { ... }` 분기를 추가하세요.
+ */
+export async function getReportSummary(period: ReportPeriod): Promise<ReportSummaryResult> {
+  return buildMockReportSummary(period);
+}
+
+export function useReportSummary(period: ReportPeriod) {
+  return useQuery({
+    queryKey: ['reportSummary', period],
+    queryFn: () => getReportSummary(period),
   });
 }
 

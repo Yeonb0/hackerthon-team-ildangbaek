@@ -49,6 +49,31 @@ export interface ReportResult {
   failedSections: string[];
 }
 
+// ⚠️ 백엔드 미확정 — REPORT-01(GET /reports) 명세엔 "지표 하나(metric)당 기간별
+// 그래프"만 있고, 이 타입이 필요로 하는 "기간(7/30일) 집계 종합 점수 + 지표 4개
+// 요약"에 해당하는 필드가 없습니다. SKIN-01/02의 totalScore/scores/comparison은
+// "오늘 하루" 스냅샷이라 용도가 다릅니다 (관리자 확인, 2026-08-17 — 백엔드에 REPORT-01
+// 필드 추가 요청 예정, docs/decisions 아래 요청 문서 참고). 그 전까지는 무조건 목업만
+// 반환합니다 — src/api/queries/report.ts의 useReportSummary 참고.
+export interface MetricScoreSummary {
+  metric: MetricKey;
+  score: number;
+  /** 이전 기간 대비 증감. 트러블/홍조/색소잡티/모공은 낮을수록 좋음 — 방향 해석은
+   * 화면(ReportSummaryCard)이 담당하고 이 타입은 부호 있는 원값만 갖습니다. */
+  delta: number | null;
+}
+
+export interface ReportSummaryResult {
+  period: ReportPeriod;
+  totalScore: number;
+  /** 총점은 높을수록 좋음(SKIN-01 totalScore와 동일 방향). */
+  totalDelta: number | null;
+  metrics: MetricScoreSummary[]; // 4개(trouble/redness/pigmentation/pores) 고정
+  /** 기간 동안의 총점 추이. 결측 규칙은 GraphPoint와 다르게 단일값입니다(총점은
+   * 모닝/나이트 구분 없이 그날의 대표 총점 하나만 필요 — Figma 실측 기준). */
+  graph: { date: string; score: number | null }[];
+}
+
 export interface InsightEvent {
   date: string;
   label: string;

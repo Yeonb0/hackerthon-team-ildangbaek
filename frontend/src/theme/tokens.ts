@@ -118,6 +118,30 @@ export const navIcon = {
   active: '#9B8CF5',
 } as const;
 
+// 리포트 홈(종합 점수 카드/항목별 추이) 전용 색상.
+// 2026-08-17 — Figma 컬러 최종본(P8CmHDZp7z0dKiHByEzuLx, node 210:2437 "Frame 11")
+// 실측값. 기존 공용 statusCaution(#E8785B)/statusGood(#4FB79A)와 값이 달라 — 그
+// 토큰들은 SHOP-02 위험도 뱃지·마이페이지 성분 반응 뱃지 등 다른 화면에서 이미 쓰고
+// 있어서 값을 바꾸면 그 화면들 색도 같이 바뀝니다(관리자 확인, 2026-08-17: 리포트
+// 전용 새 토큰으로 분리, 기존 화면 영향 없음).
+export const reportColor = {
+  caution: '#FF6B5B', // --ds-status-caution (트러블/홍조 등 나쁜 방향)
+  safe: '#3FAE8B', // --ds-status-safe (개선 방향)
+  amber: '#FFB648', // --ds-status-amber (색소잡티 등)
+  purple: '#9B8CF5', // --ds-brand-purple (모공 등) — brand500과 값은 같지만 의미가 달라 별도 키
+  purpleDeep: '#7C6AE8', // --ds-brand-purple-deep (선택된 pill 텍스트 등)
+  pink: '#FF8FC7', // --ds-brand-pink (홍조 등) — brandPink와 값은 같음
+} as const;
+
+// 리포트 지표별 accent 색상 매핑. Figma가 지표마다 고정 색을 씁니다(트러블=caution,
+// 홍조=pink, 색소잡티=amber, 모공=purple) — 값의 좋고나쁨과 무관한 "지표 정체성" 색입니다.
+export const metricAccent: Record<'trouble' | 'redness' | 'pigmentation' | 'pores', string> = {
+  trouble: reportColor.caution,
+  redness: reportColor.pink,
+  pigmentation: reportColor.amber,
+  pores: reportColor.purple,
+} as const;
+
 // UV·습도 배지 / 환경 팁 카드 전용.
 // 2026-08-16 — Figma Home-Day(229:2571, 최신본) 실측값으로 교체. 기존 값(Checkpoint 9-D)은
 // 히어로 이미지가 생기기 전, 카드 배경 위에 배지가 있던 시절 값이라 지금은 안 맞습니다.
