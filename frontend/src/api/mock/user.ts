@@ -8,6 +8,7 @@ import type {
   IngredientStatus,
   LocationItem,
   MyPageResult,
+  ProfileResult,
   UpdateLocationInput,
 } from '@/types/user';
 
@@ -35,6 +36,33 @@ const MOCK_COMPLETION_RATE = 65;
 
 function countByStatus(status: IngredientStatus): number {
   return MOCK_INGREDIENTS.filter((item) => item.status === status).length;
+}
+
+/**
+ * GET /users/me/profile 목업. 나이·성별은 USER-01에 없어서 이 엔드포인트로 받습니다.
+ * Figma MyPage 부제("26세 · 여성 · …")와 값을 맞췄습니다.
+ */
+export async function buildMockProfile(): Promise<ProfileResult> {
+  const notificationEnabled = await getMockNotificationEnabled();
+  return {
+    name: '김민지',
+    gender: 'FEMALE',
+    age: 26,
+    skinTypes: ['OILY', 'SENSITIVE'],
+    hormoneStatus: null,
+    lastPeriodStartDate: null,
+    averageCycleDays: null,
+    location: getMockCurrentLocation()?.name ?? null,
+    notificationEnabled,
+  };
+}
+
+/**
+ * 회원 탈퇴 목업. 실제 엔드포인트가 없어(2026-08-17 백엔드 확인) 성공만 반환합니다.
+ * 세션 정리는 화면에서 로그아웃과 같은 경로를 태웁니다.
+ */
+export async function withdrawMockAccount(): Promise<void> {
+  await resetMockUserSession();
 }
 
 export async function buildMockMyPage(): Promise<MyPageResult> {

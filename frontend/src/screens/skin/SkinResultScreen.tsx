@@ -17,7 +17,7 @@ import { getSkinRecordToday } from '@/api/skin';
 import { ApiError } from '@/api/unwrap';
 import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, metricAccent, reportCardShadow, reportColor, space } from '@/theme/tokens';
-import { weightFamily, adjustFontSize } from '@/theme/typography';
+import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { SkinRecordResult } from '@/types/skin';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
@@ -45,11 +45,14 @@ function gradeOf(score: number): { label: string; accent: string } {
 }
 
 /** Figma 118:9504 등의 지표별 한 줄 설명. 등급에 따라 문구가 바뀝니다. */
+// 카드 제목에 이미 지표명이 있으므로 주어를 반복하지 않습니다 — 2열 카드에서 숫자와
+// 나란히 놓이면 문구 폭이 100px 남짓이라, 주어를 넣으면 대부분 두 줄로 접힙니다
+// (실기기 확인, 2026-08-17).
 const METRIC_PHRASE: Record<string, [good: string, normal: string, caution: string]> = {
-  trouble: ['트러블이 거의 없어요', '트러블이 조금 있어요', '트러블이 많은 편이에요'],
-  redness: ['홍조가 거의 없어요', '홍조가 약간 있어요', '홍조가 뚜렷해요'],
-  pores: ['모공이 눈에 띄지 않아요', '모공이 보통 수준이에요', '모공이 넓은 편이에요'],
-  pigmentation: ['잡티가 거의 없어요', '잡티가 중간 수준이에요', '잡티가 많은 편이에요'],
+  trouble: ['거의 없어요', '조금 있어요', '많은 편이에요'],
+  redness: ['거의 없어요', '약간 있어요', '뚜렷해요'],
+  pores: ['눈에 안 띄어요', '보통 수준이에요', '넓은 편이에요'],
+  pigmentation: ['거의 없어요', '중간 수준이에요', '많은 편이에요'],
 };
 
 function phraseOf(item: MetricListItem): string {
@@ -164,7 +167,12 @@ export function SkinResultScreen() {
           contentContainerStyle={[styles.firstContent, { paddingTop: insets.top + space[6] }]}
         >
           <Text style={styles.firstTitle}>첫 기록이에요! 🎉</Text>
-          <GradientNumber value={result.totalScore} fontSize={28} size={160} style={styles.firstScoreCircle} />
+          <GradientNumber
+            value={result.totalScore}
+            fontSize={56}
+            size={160}
+            style={styles.firstScoreCircle}
+          />
           <Text style={styles.firstLead}>이 결과가 기준 데이터로 저장돼요</Text>
           <Text style={styles.firstCaption}>앞으로 변화를 이 점수와 비교해드려요</Text>
 
@@ -380,9 +388,15 @@ const styles = StyleSheet.create({
     paddingBottom: space[1],
   },
   firstGridScore: {
-    fontSize: adjustFontSize(28),
+    // 주아체 자리에는 adjustFontSize를 쓰지 않습니다(typography.ts 규약) —
+    // 사용자 글꼴 확대 설정과 무관하게 고정되어야 하는 디스플레이 숫자입니다.
+    fontSize: 28,
     lineHeight: 39,
-    ...weightFamily('bold'),
+    // 주아체는 디스플레이 숫자 전용입니다(관리자 요청, 2026-08-17). weightFamily와
+    // 함께 쓰면 fontFamily가 서로 덮어써서 어느 쪽이 이길지 순서에 의존하게 되므로
+    // bold를 빼고 pinDisplayFont만 둡니다 — 주아체는 단일 weight라 굵기 지정이
+    // 의미가 없기도 합니다.
+    ...pinDisplayFont('bmjua'),
   },
   firstFooter: {
     paddingHorizontal: space[6],
@@ -424,9 +438,10 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   totalValue: {
-    fontSize: adjustFontSize(56),
+    // 주아체 자리 — adjustFontSize를 쓰지 않습니다(typography.ts 규약).
+    fontSize: 56,
     lineHeight: 60,
-    ...weightFamily('bold'),
+    ...pinDisplayFont('bmjua'),
     color: color.brand500,
   },
   totalUnit: {
@@ -514,9 +529,10 @@ const styles = StyleSheet.create({
     color: color.textSub,
   },
   metricScore: {
-    fontSize: adjustFontSize(22),
+    // 주아체 자리 — adjustFontSize를 쓰지 않습니다(typography.ts 규약).
+    fontSize: 22,
     lineHeight: 30,
-    ...weightFamily('bold'),
+    ...pinDisplayFont('bmjua'),
   },
   fallbackCard: {
     marginHorizontal: space[4],

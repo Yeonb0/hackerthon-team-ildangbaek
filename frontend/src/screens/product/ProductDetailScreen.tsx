@@ -61,6 +61,11 @@ import type { IngredientStatus } from '@/types/product';
 import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
+import {
+  INGREDIENT_STATUS_COLOR,
+  INGREDIENT_STATUS_ICON,
+  INGREDIENT_STATUS_LABEL,
+} from '@/lib/ingredientStatus';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -83,31 +88,19 @@ const RISK_ICON: Record<RiskLevel, AppIconName> = {
 // 성분별 상태 — Figma 문구를 그대로 따름(Tag 컴포넌트의 기본 라벨 "맞음"/"주의"와는 다름).
 // SHOP-02는 알약형 배지가 아니라 배경 없는 아이콘+텍스트라 Tag를 그대로 안 쓰고 로컬로 둡니다.
 // 2026-08-16 관리자 요청 — 작은 아이콘(성분별 행)도 큰 아이콘과 같은 얼굴 일러스트 세트로
-// 통일하고 STATUS_COLOR로 색을 입힙니다. GOOD은 "잘 맞음"이라 faceGood, CAUTION은
-// "지켜보는 중"(STATUS_COLOR가 statusWatch — 요약 카드의 MEDIUM과 같은 톤)이라 faceNeutral로
-// 매핑했습니다(faceCaution이 아님 — 여기 CAUTION은 요약 카드의 HIGH만큼 심각한 상태가
-// 아니라 "지켜보는" 중간 단계라서). INSUFFICIENT("정보 부족")는 표정으로 표현할 성질이
-// 아니라서 기존 helpCircle을 그대로 둡니다.
-const STATUS_ICON: Record<IngredientStatus, AppIconName> = {
-  GOOD: 'faceGood',
-  CAUTION: 'faceNeutral',
-  INSUFFICIENT: 'helpCircle',
-};
-// 2026-08-16 — 관리자 요청: 얼굴 아이콘 3종만 더 키우고, 물음표(정보 부족)는 그대로 둡니다.
+// 라벨·아이콘·색은 lib/ingredientStatus.ts 단일 정의를 씁니다(2026-08-17 전 화면 통일).
+//
+// ⚠️ 이 화면은 예전에 CAUTION을 "지켜보는 중"(statusWatch)이라고 불렀습니다. 그 이름이
+// 이번에 INSUFFICIENT의 표기로 확정되면서 한 이름에 두 상태가 걸려, CAUTION은 원래
+// 이름인 "주의"(statusCaution)로 되돌렸습니다. 경위는 ingredientStatus.ts 주석 참고.
+const STATUS_ICON = INGREDIENT_STATUS_ICON;
+const STATUS_LABEL = INGREDIENT_STATUS_LABEL;
+const STATUS_COLOR = INGREDIENT_STATUS_COLOR;
+
 const STATUS_ICON_SIZE: Record<IngredientStatus, number> = {
   GOOD: 22,
   CAUTION: 22,
-  INSUFFICIENT: 16,
-};
-const STATUS_LABEL: Record<IngredientStatus, string> = {
-  GOOD: '잘 맞음',
-  CAUTION: '지켜보는 중',
-  INSUFFICIENT: '정보 부족',
-};
-const STATUS_COLOR: Record<IngredientStatus, string> = {
-  GOOD: color.statusGood,
-  CAUTION: color.statusWatch,
-  INSUFFICIENT: color.ink600,
+  INSUFFICIENT: 22,
 };
 
 type Phase = 'loading' | 'result' | 'empty' | 'error';

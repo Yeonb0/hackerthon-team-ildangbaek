@@ -53,6 +53,13 @@ export const color = {
   surfaceLavenderSoft: '#EFE9FF',
   // Figma S-05(ProfileComplete) 페이지 배경 — surfaceLavenderSoft보다 더 옅은 별도 실측값.
   surfaceLavenderPale: '#F5F2FF',
+  // 마이페이지 헤더 그라데이션 시작색 (Figma 59:7183 실측, #EDE8FF → surfaceLavenderPale).
+  surfaceLavenderHeader: '#EDE8FF',
+  // 촬영 전 사진 자리표시자 회색 (S-15 PhotoGuide / S-17 FaceNotFound).
+  // ⚠️ 세션 13에서 추가했다고 인계 문서에 적혀 있었지만 실제 커밋에는 빠져 있어
+  // main이 tsc를 통과하지 못하는 상태였습니다(2026-08-17 세션 14에서 복구).
+  surfacePhotoPlaceholder: '#F1EFF7',
+  surfacePhotoPlaceholderDim: '#DCD7E8',
 
   // S-16 얼굴 촬영처럼 카메라 화면을 풀블리드로 덮는 화면 전용.
   black: '#000000',
@@ -164,6 +171,16 @@ export const metricAccent: Record<'trouble' | 'redness' | 'pigmentation' | 'pore
 // UV·습도 배지 / 환경 팁 카드 전용.
 // 2026-08-16 — Figma Home-Day(229:2571, 최신본) 실측값으로 교체. 기존 값(Checkpoint 9-D)은
 // 히어로 이미지가 생기기 전, 카드 배경 위에 배지가 있던 시절 값이라 지금은 안 맞습니다.
+// 마이페이지 성분 프로파일 pill (Figma MyPage 59:7243 / 59:7264 실측).
+// Tag 컴포넌트를 쓰지 않는 이유: Figma의 이 pill은 아이콘 없이 성분명만 담고, 묶음
+// 제목("✓ 잘 맞는 성분 목록")이 이미 상태를 말해줍니다. Tag는 아이콘이 항상 붙는
+// 판정 배지라 여기 쓰면 한 줄에 체크 아이콘이 5개씩 반복됩니다.
+export const ingredientPillTint = {
+  good: { bg: '#E1F5EE', fg: '#3FAE8B' },
+  caution: { bg: '#FFE6E1', fg: '#FF6B5B' },
+  watching: { bg: '#FFF1D8', fg: '#FFB648' },
+} as const;
+
 export const environmentTint = {
   tipBg: '#FFF1D8', // --ds-status-amber-soft
   tipText: '#B4600A', // --ds-status-amber-text

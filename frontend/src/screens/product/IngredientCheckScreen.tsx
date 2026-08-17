@@ -12,7 +12,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppIcon, AppIconName, IconBack, IconImagePlaceholder } from '@/components/icons';
+import { AppIcon, IconBack, IconImagePlaceholder } from '@/components/icons';
 import { Button } from '@/components/base/Button';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
@@ -25,33 +25,24 @@ import { color, radius, space, typography } from '@/theme';
 import type { IngredientStatus } from '@/types/product';
 import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import { weightFamily } from '@/theme/typography';
+import {
+  INGREDIENT_STATUS_COLOR,
+  INGREDIENT_STATUS_ICON,
+  INGREDIENT_STATUS_LABEL,
+} from '@/lib/ingredientStatus';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
-// 2026-08-16 — 관리자 요청: ProductDetailScreen(SHOP-02)과 같은 얼굴 일러스트 세트로 통일.
-// 이 화면은 STATUS_COLOR가 statusCaution(진한 경고톤)이고 라벨도 "주의"라서(ProductDetailScreen의
-// "지켜보는 중"/statusWatch보다 심각한 뉘앙스), CAUTION은 faceNeutral이 아니라 faceCaution으로
-// 매핑했습니다. INSUFFICIENT("데이터부족")는 표정으로 표현할 성질이 아니라 helpCircle 유지.
-const STATUS_ICON: Record<IngredientStatus, AppIconName> = {
-  GOOD: 'faceGood',
-  CAUTION: 'faceCaution',
-  INSUFFICIENT: 'helpCircle',
-};
-// 2026-08-16 — 관리자 요청: 얼굴 아이콘 3종만 더 키우고, 물음표(정보 부족)는 그대로 둡니다.
+// 라벨·아이콘·색은 lib/ingredientStatus.ts 단일 정의를 씁니다(2026-08-17 전 화면 통일).
+// 아이콘 크기만 이 화면 고유값입니다 — 성분 카드가 커서 다른 화면보다 크게 그립니다.
+const STATUS_ICON = INGREDIENT_STATUS_ICON;
+const STATUS_COLOR = INGREDIENT_STATUS_COLOR;
+const STATUS_LABEL = INGREDIENT_STATUS_LABEL;
+
 const STATUS_ICON_SIZE: Record<IngredientStatus, number> = {
   GOOD: 34,
   CAUTION: 34,
-  INSUFFICIENT: 28,
-};
-const STATUS_COLOR: Record<IngredientStatus, string> = {
-  GOOD: color.statusGood,
-  CAUTION: color.statusCaution,
-  INSUFFICIENT: color.ink600,
-};
-const STATUS_LABEL: Record<IngredientStatus, string> = {
-  GOOD: '맞음',
-  CAUTION: '주의',
-  INSUFFICIENT: '데이터부족',
+  INSUFFICIENT: 34,
 };
 
 export function IngredientCheckScreen() {

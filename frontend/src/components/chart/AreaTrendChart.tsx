@@ -4,7 +4,7 @@ import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
-import { weightFamily, adjustFontSize } from '@/theme/typography';
+import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 
 type AreaPoint = { date: string; score: number | null };
 
@@ -244,8 +244,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   lastPointText: {
-    fontSize: adjustFontSize(9),
-    ...weightFamily('bold'),
+    // 주아체 자리 — adjustFontSize를 쓰지 않습니다(typography.ts 규약). 배지가
+    // 30×17 고정이라 글자만 커지면 원 밖으로 삐져나옵니다.
+    // 9 → 11로 올렸습니다: 주아체는 본문 글꼴보다 x-height가 낮아 같은 pt에서 더
+    // 작아 보이는데, 9pt 흰 글씨로는 두 자리가 읽히지 않습니다.
+    fontSize: 11,
+    ...pinDisplayFont('bmjua'),
     color: color.white,
   },
 });
