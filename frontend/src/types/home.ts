@@ -1,25 +1,13 @@
 // src/types/home.ts
 // 명세서 §6 Home API(HOME-01) 기준. GET /home 하나가 S-07(낮)/S-08(밤)을 전부 커버하는 BFF 응답입니다.
 //
-// weather 값은 로드맵 문서 기준 7종(맑음·구름·흐림·비·눈·황사·천둥번개)을 씁니다.
-// ⚠️ 백엔드 엔티티 코드(WeatherCondition.java)는 현재 SUNNY/CLOUDY/RAIN/SNOW/FOG 5종만
-// 있고, 그중 SUNNY/CLOUDY/RAIN/SNOW 4개만 아래 7종과 이름이 겹칩니다. OVERCAST(흐림) ·
-// YELLOW_DUST(황사) · THUNDERSTORM(천둥번개)은 백엔드에 아직 없는 값이라 키 이름을
-// 임의로 정한 상태입니다 — 실제 API 연동 전에 백엔드 확정이 필요합니다(안 바뀌는 값 이름 요청 리스트에 추가 필요).
-// FOG(안개)는 로드맵 7종엔 없지만 백엔드가 실제로 보낼 수 있는 값이라 폴백 방지용으로 같이 매핑해뒀습니다.
-export type WeatherCondition =
-  | 'SUNNY' // 맑음
-  | 'CLOUDY' // 구름
-  | 'OVERCAST' // 흐림 — 백엔드 키 이름 미확정
-  | 'RAIN' // 비
-  | 'SNOW' // 눈
-  | 'YELLOW_DUST' // 황사 — 백엔드 키 이름 미확정
-  | 'THUNDERSTORM' // 천둥번개 — 백엔드 키 이름 미확정
-  | 'FOG'; // 안개 — 로드맵 7종엔 없지만 실제 백엔드 엔티티에 존재
+//
+// 날씨·자외선·습도 등급 3종은 `types/environment.ts`로 옮겼습니다(2026-08-18) —
+// 구매 전 확인(check.ts)과 공유하는 값인데 양쪽이 따로 선언하다가 HumidityGrade가
+// 서로 다른 값으로 두 벌이 됐던 이력이 있습니다. 여기서는 re-export만 합니다.
+import type { WeatherCondition, UvGrade, HumidityGrade } from '@/types/environment';
 
-export type UvGrade = 'LOW' | 'MODERATE' | 'HIGH' | 'VERY_HIGH' | 'EXTREME';
-
-export type HumidityGrade = 'LOW' | 'NORMAL' | 'HIGH';
+export type { WeatherCondition, UvGrade, HumidityGrade };
 
 export type HomeType = 'DAY' | 'NIGHT';
 

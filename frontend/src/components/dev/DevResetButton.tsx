@@ -51,8 +51,8 @@ import type { WeatherCondition } from '@/types/home';
 // 최대 높이를 잡아서, 그 이상은 ScrollView로 스크롤하게 합니다.
 const MENU_MAX_HEIGHT = Dimensions.get('window').height * 0.55;
 
-// 2026-08-16 — 날씨 배경 dev 전환 버튼 목록. WeatherCondition 8종 전부(로드맵 7종 +
-// 백엔드 실제 폴백값 FOG) 순서대로 노출합니다.
+// 2026-08-16 — 날씨 배경 dev 전환 버튼 목록. WeatherCondition 7종 전부를 순서대로
+// 노출합니다. 2026-08-18 — FOG는 백엔드 enum에서 사라져 제거했습니다(7종 확정).
 const WEATHER_SCENARIO_OPTIONS: WeatherCondition[] = [
   'SUNNY',
   'CLOUDY',
@@ -61,7 +61,6 @@ const WEATHER_SCENARIO_OPTIONS: WeatherCondition[] = [
   'SNOW',
   'YELLOW_DUST',
   'THUNDERSTORM',
-  'FOG',
 ];
 
 export function DevResetButton() {
@@ -220,9 +219,8 @@ export function DevResetButton() {
         }),
     },
     // 2026-08-16 — 낮 홈 히어로 배경(날씨별 화장대 일러스트)을 실기기에서 골라서 볼 수
-    // 있게 추가했습니다. YELLOW_DUST는 아직 에셋이 없어서 CLOUDY로 대체 표시되지만
-    // (lib/weather.ts getWeatherBackground 폴백), 버튼 자체는 남겨뒀습니다 — 에셋
-    // 도착하면 자동으로 반영됩니다.
+    // 있게 추가했습니다. 2026-08-18 — YELLOW_DUST 에셋이 도착해 7종 전부 실제 배경이
+    // 채워졌습니다(예전엔 황사만 CLOUDY로 대체 표시됐습니다).
     ...WEATHER_SCENARIO_OPTIONS.map((weather) => ({
       label: `날씨 배경 → ${getWeatherLabel(weather)}`,
       onPress: () =>

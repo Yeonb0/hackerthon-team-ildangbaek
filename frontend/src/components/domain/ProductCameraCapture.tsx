@@ -12,7 +12,6 @@ import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { LoadingState } from '@/components/state/LoadingState';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
-import { prepareProductPhoto } from '@/lib/image';
 import { useScanProduct } from '@/api/queries/product';
 import { ApiError } from '@/api/unwrap';
 import { color, radius } from '@/theme/tokens';
@@ -21,7 +20,10 @@ import type { ScanMode, ScanResult } from '@/types/product';
 const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128'] as const;
 
 export type ProductCameraCaptureHandle = {
-  /** PRODUCT_IMAGE 모드 수동 셔터 버튼에서 호출합니다. */
+  /**
+   * PRODUCT_IMAGE 모드 수동 셔터 버튼용.
+   * ⚠️ 2026-08-18 — 백엔드 미지원이라 현재는 안내 에러만 냅니다(구현부 주석 참고).
+   */
   capture: () => void;
   /** 에러 안내를 닫고 "다시 스캔"할 때, 부모가 바코드 재인식을 다시 허용하도록 호출합니다. */
   resetScanned: () => void;
@@ -52,22 +54,12 @@ export const ProductCameraCapture = forwardRef<
     }
   }, [permission, requestPermission]);
 
-  const runScan = async () => {
-    if (!cameraRef.current || processing) return;
+  const runScan = async (barcode: string) => {
+    if (processing) return;
     setProcessing(true);
     onCaptureStart?.();
     try {
-      const photo = await cameraRef.current.takePictureAsync();
-      if (!photo?.uri) {
-        onError({ message: '사진을 만드는 데 실패했어요. 다시 시도해 주세요.' });
-        scannedRef.current = false;
-        return;
-      }
-      const processed = await prepareProductPhoto(photo.uri, {
-        width: photo.width,
-        height: photo.height,
-      });
-      const result = await scanMutation.mutateAsync({ imageUri: processed.uri, scanMode });
+      const result = await scanMutation.mutateAsync({ scanMode: 'BARCODE', barcode });
       onSuccess(result);
     } catch (e) {
       if (e instanceof ApiError) {
@@ -82,16 +74,29 @@ export const ProductCameraCapture = forwardRef<
   };
 
   useImperativeHandle(ref, () => ({
-    capture: runScan,
+    // 2026-08-18 — PRODUCT_IMAGE 수동 셔터는 백엔드에 인식 로직이 없어 동작하지 않습니다.
+    // 부모(S-21)가 셔터 버튼을 감췄지만, 다른 경로로 호출돼도 무의미한 촬영이 일어나지
+    // 않도록 여기서 안내 에러로 막습니다. 백엔드가 구현하면 촬영 경로를 되살리면 됩니다.
+    capture: () =>
+      onError({
+        message:
+          '상품 사진으로 찾는 기능은 아직 준비 중이에요. 바코드를 스캔하거나 제품명으로 검색해 주세요.',
+      }),
     resetScanned: () => {
       scannedRef.current = false;
     },
   }));
 
-  const handleBarcodeDetected = (_result: BarcodeScanningResult) => {
+  /**
+   * ⚠️ 2026-08-18 — S-13과 같은 수정. 예전엔 인식 결과를 버리고 사진을 찍어 업로드했는데,
+   * 백엔드 multipart 경로는 SCAN_SERVICE_UNAVAILABLE만 던집니다. `result.data`가 실제
+   * 조회에 쓰이는 바코드 문자열입니다.
+   */
+  const handleBarcodeDetected = (result: BarcodeScanningResult) => {
     if (scannedRef.current || processing) return;
+    if (!result.data) return;
     scannedRef.current = true;
-    runScan();
+    runScan(result.data);
   };
 
   if (!permission) {

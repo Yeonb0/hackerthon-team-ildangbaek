@@ -106,7 +106,12 @@ export type DetailStackParamList = {
   [DetailRoutes.FaceCapture]: { timeSlot: TimeSlot };
   // imageUri: S-16에서 촬영을 마친 로컬 파일 URI. S-17이 이 값을 압축·업로드합니다.
   [DetailRoutes.AnalyzingSkin]: { timeSlot: TimeSlot; imageUri: string };
-  [DetailRoutes.SkinResult]: { timeSlot?: TimeSlot };
+  // date: 월간 기록(RecordCalendar) 바텀시트의 "자세히 보기"로 들어왔을 때만 실립니다.
+  // 있으면 REPORT-03(GET /reports/daily)으로 그 날짜 기록을 읽고, 없으면 기존대로
+  // SKIN-02(오늘)를 읽습니다. 지난 날짜로 들어온 화면은 하단 CTA가 "닫기" 하나로
+  // 바뀌어 캘린더로 돌아갑니다 — "홈으로 가기"는 방금 기록을 마친 직후 흐름에 맞는
+  // 문구라 지난 날짜 조회에는 맞지 않습니다(관리자 결정 A안, 2026-08-18).
+  [DetailRoutes.SkinResult]: { timeSlot?: TimeSlot; date?: string };
   // REPORT-02(GET /reports/insights/{insightId}) 기준 — 화면 이름(MetricDetail)은
   // Phase 0 명명을 그대로 두지만, 실제로는 지표가 아니라 인사이트 단위로 조회합니다.
   [DetailRoutes.MetricDetail]: { insightId: number };
