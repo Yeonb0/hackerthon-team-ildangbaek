@@ -25,6 +25,7 @@ import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.storage.ImageStorage;
+import com.ildangbaek.backend.global.storage.ImageUrlResolver;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +56,7 @@ class ProductRegisterTest {
     @Mock private UserProductRepository userProductRepository;
     @Mock private IngredientProfileRepository ingredientProfileRepository;
     @Mock private ImageStorage imageStorage;
+    @Mock private ImageUrlResolver imageUrlResolver;
 
     @InjectMocks private ProductService productService;
 

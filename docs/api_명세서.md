@@ -715,6 +715,7 @@ json
 **Business Rule**
 
 1. USER-01(마이페이지 요약)과 별개로 계정·프로필 원본 필드를 그대로 반환한다.
+2. 구현 DTO 이름은 `AccountResponse`다. USER-01의 `MyPageResponse`와 필드 구성이 달라 혼동을 막기 위해 분리한다.
 
 ---
 
@@ -1012,9 +1013,11 @@ json
 
 **Business Rule**
 
-1. `locationId`와 좌표가 동시에 전달되면 `locationId`를 우선한다. 사용자의 명시적 선택이 자동 감지보다 우선이다.
-2. 저장 후 다음 환경 조회부터 이 위치를 기준으로 동작한다.
-3. 좌표로 저장한 경우 서버가 역지오코딩해 표시용 지역명을 함께 저장한다.
+1. `locationId`와 좌표가 동시에 전달되면 표시용 지역명은 `locationId`를 우선한다. 사용자의 명시적 선택이 자동 감지보다 우선이다.
+2. 좌표가 전달되면 `latitude`/`longitude`를 함께 저장한다.
+3. `locationId`만 전달되면 6개 대표 지역의 중심 좌표를 저장한다.
+4. GPS 좌표만 전달되면 서버가 6개 대표 지역(서울/경기/인천/부산/대구/광주) 중 가장 가까운 지역명을 저장한다. 외부 역지오코딩 API는 아직 사용하지 않는다.
+5. 저장 후 다음 환경 조회부터 이 위치를 기준으로 사용할 수 있다. 단, 실제 날씨 API 연동은 별도 작업이다.
 
 **Error**
 
@@ -1588,6 +1591,7 @@ json
 5. 결과 0건은 빈 배열 + `totalCount: 0`이며 **오류가 아니다.**
 6. `category`는 `TONER`, `ESSENCE`, `SERUM`, `AMPOULE`, `GEL`, `LOTION`, `CREAM`, `BALM`, `OIL`, `SUNCREAM`, `CLEANSING`, `MASK` 중 하나만 반환한다.
 7. 목록 응답의 `imageUrl`은 문자열 또는 `null`이며, 값이 없으면 클라이언트가 placeholder를 표시한다.
+8. `PUBLIC_BASE_URL`이 설정된 배포 환경에서는 `/images/...` 같은 상대 이미지 경로를 절대 URL로 보정해 반환한다.
 
 **Error**
 
@@ -1647,6 +1651,7 @@ json
 3. `ingredientCount`는 전체 개수이며 S-14의 "총 N개 성분" 표시에 사용한다.
 4. 성분 데이터가 없는 제품은 `ingredientCount: 0` + 빈 배열로 반환한다. 오류가 아니며 클라이언트가 "성분 데이터 부족" 안내를 표시한다.
 5. `imageUrl`은 문자열 또는 `null`이다. S-14 상단 제품 이미지 표시 영역에서 사용한다.
+6. `PUBLIC_BASE_URL`이 설정된 배포 환경에서는 `/images/...` 같은 상대 이미지 경로를 절대 URL로 보정해 반환한다.
 
 **Error**
 
@@ -2069,7 +2074,7 @@ json
     "name": "홈메이드세럼",
     "brand": "우리집",
     "category": "SERUM",
-    "imageUrl": "/images/xxxx.jpg"
+    "imageUrl": "https://api.example.com/images/xxxx.jpg"
   }
 }
 ```
@@ -2077,10 +2082,11 @@ json
 **Business Rule**
 
 1. 등록된 제품은 `dataSource=USER`, `active=true`로 즉시 저장되며 다른 사용자에게도 검색·매칭·스캔에 동일하게 노출된다. 등록자 전용 비공개 상태는 없다.
-2. `ingredientNames`에 카탈로그에 없는 성분명이 있으면 새 `Ingredient`로 생성해 연결한다. 이미 있는 이름이면 기존 성분을 재사용한다. 농도·핵심 성분 여부는 입력받지 않는다(`keyIngredient=false`로 저장).
+2. `ingredientNames`에 카탈로그에 없는 성분명이 있으면 새 `Ingredient`로 생성해 연결한다. 이미 있는 이름이면 기존 성분을 재사용한다. 농도는 입력받지 않는다.
 3. 이름·브랜드 중복을 서버가 막지 않는다. 클라이언트가 등록 전 PRODUCT-09(`GET /products/match`)로 조회해 중복 여부를 사용자에게 안내한다.
 4. `image`를 생략하면 `imageUrl`은 `null`이다. 보내는 경우 형식·크기 규칙은 공통 이미지 규칙(9.3)과 같다.
 5. 같은 성분명이 여러 번 들어오면(앞뒤 공백 차이 포함) 첫 번째 것만 연결한다. 오류가 아니라 무시이며, `displayOrder`는 중복을 걸러낸 뒤의 순서로 1부터 매긴다.
+6. 직접 등록 제품은 입력 순서 상위 10개 성분을 주요 성분(`keyIngredient=true`)으로 저장한다.
 
 **Error**
 
@@ -2355,7 +2361,7 @@ json
    `reason`은 매칭된 성분명을 모두 모아 `"{성분명1}·{성분명2}이 잘 맞는 성분이에요"` 형태로 조립한다.
 4. `profileCompletion`은 F-ANALYSIS-05 값을 그대로 쓰며, USER-01·USER-02와 동일한 값이어야 한다
    (`ProfileCompletionCalculator` 단독 계산, ADR 0011 BR 4).
-5. `failedSections`는 추천 여부·순서를 좌우하는 조회가 전부 내부 DB 조회이므로 현재는 항상 빈
+5. `failedSections`는 `{ "section", "code", "message" }` 형태의 공통 부분 실패 객체 배열이다. 추천 여부·순서를 좌우하는 조회가 전부 내부 DB 조회이므로 현재는 항상 빈
    배열이다. 1.8절의 외부 API 부분 실패 알림 용도다. ai-server AI 코멘트 호출(BR 7)은 실패해도
    추천 자체를 막지 않는 부가 기능이라 `failedSections`에 반영하지 않는다.
 6. **3분류 · 오늘 컨텍스트(ADR 0018)**: `recommendations[].category`는

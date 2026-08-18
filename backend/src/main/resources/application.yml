@@ -27,6 +27,7 @@ app:
     local:
       directory: ${STORAGE_LOCAL_DIR:./uploads/images}
       url-prefix: ${STORAGE_LOCAL_URL_PREFIX:/images/}
+      public-base-url: ${PUBLIC_BASE_URL:}
   skin:
     analysis:
       # mock | local-vision. OpenAI Vision은 local-vision(ai-server) 내부에서 2차 확정
