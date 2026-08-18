@@ -22,7 +22,7 @@
 //       분리합니다(관리자 제공 참고 이미지 구조).
 //   (e) 카드 텍스트 순서: 제품명(볼드) 위 / 브랜드(작은 회색) 아래.
 //   (f) "내게 잘 맞는 성분이 들어간 제품"만 가로 스크롤, 나머지 두 섹션은 세로 카드 스택.
-//   (g) 우측 상단 장바구니 아이콘 + 담긴 개수 배지. 담기/빼기 버튼은 이 화면에 두지 않고
+//   (g) 우측 상단 위시리스트 아이콘 + 저장 개수 배지. 추가/삭제 버튼은 이 화면에 두지 않고
 //       제품 상세(SHOP-02)에만 둡니다 — 쇼핑 화면을 깔끔하게 유지하려는 결정.
 //   (h) 참고 이미지의 번호 배지(1·2)는 넣지 않습니다(추천은 순위 목록이 아님).
 //
@@ -37,9 +37,10 @@
 //   · "더보기"는 Figma엔 1번 카드에만 있고 목적지가 없어서, 죽은 버튼 대신 "접힌 목록
 //     펼치기"로 구현했습니다. 새 API 없이 동작합니다.
 //   · 브랜드 줄이 Figma는 "브랜드 · 용량"인데 CHECK-01에 용량이 없어 브랜드만 표시합니다.
-//   · 장바구니 아이콘은 42종 아이콘 세트에 없어서 Ionicons 'cart-outline'으로 임시
+//   · 위시리스트 아이콘은 42종 아이콘 세트에 없어서 Ionicons 'heart-outline'으로 임시
 //     폴백했습니다(미전달 아이콘은 Ionicons 유지 — Checkpoint 9-B 원칙).
-//     디자인 요청: docs/design-request-cart.md
+//     ※ 2026-08-18 장바구니 → 위시리스트 개명에 따라 'cart-outline' → 'heart-outline'으로
+//       교체했습니다. 확정 하트 아이콘은 아직 미수령입니다.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -64,13 +65,15 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useCheckHome } from '@/api/queries/check';
 import { useIngredientProfile } from '@/api/queries/user';
 import { useProductSearch } from '@/api/queries/product';
-import { useCartCount } from '@/store/cartStore';
+import { useWishlistCount } from '@/store/wishlistStore';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, reportCardShadow, shopTagTint, space } from '@/theme/tokens';
 import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { MetricGradeChip } from '@/components/domain/MetricGradeChip';
 import type { ScanMode } from '@/types/product';
 import type { CheckRecommendation, RecommendationCategory } from '@/types/check';
+import type { HumidityGrade } from '@/types/environment';
 import { weightFamily, adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
@@ -82,7 +85,12 @@ const SCAN_MODE_OPTIONS: { value: ScanMode; label: string }[] = [
   { value: 'PRODUCT_IMAGE', label: '상품 사진' },
 ];
 
-const HUMIDITY_GRADE_LABEL: Record<string, string> = {
+// 이 화면 전용 문장형 라벨입니다 — lib/weather.ts의 getHumidityGradeLabel은
+// "건조/보통/습함" 단어형이라 용도가 다릅니다(그쪽은 환경 카드의 값 표기용).
+// 2026-08-18 — Record<string, string>이던 걸 HumidityGrade로 좁혔습니다.
+// 키가 백엔드 값과 어긋나면 tsc가 잡도록 하기 위해서입니다(홈 쪽이 정확히 그렇게
+// 어긋난 채로 오래 방치됐던 이력이 있습니다).
+const HUMIDITY_GRADE_LABEL: Record<HumidityGrade, string> = {
   DRY: '실내 건조 주의',
   NORMAL: '쾌적한 습도예요',
   HUMID: '습도가 높아요',
@@ -107,7 +115,7 @@ export function ShoppingScreen() {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
 
-  const cartCount = useCartCount();
+  const wishlistCount = useWishlistCount();
 
   const checkHomeQuery = useCheckHome();
   // MATCHED_INGREDIENT 섹션 필터 칩용 — GOOD 성분만(성분 프로파일 전체 화면과 달리
@@ -120,6 +128,11 @@ export function ShoppingScreen() {
   const [scanMode, setScanMode] = useState<ScanMode>('BARCODE');
   const cameraRef = useRef<ProductCameraCaptureHandle>(null);
   const [scanError, setScanError] = useState<{ code?: string; message: string } | null>(null);
+  // 2026-08-18 — 촬영 버튼을 안내 문구로 바꾸면서 이 값을 읽는 곳이 없어졌습니다.
+  // 상태 자체는 남겨둡니다(setter만 사용) — 촬영 경로가 되살아나면 버튼 loading에
+  // 그대로 다시 물리면 되고, 지우면 onCaptureStart/onSuccess/onError 3곳을 함께
+  // 고쳐야 해서 되돌리기가 번거로워집니다.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [capturing, setCapturing] = useState(false);
 
   const [keyword, setKeyword] = useState('');
@@ -173,15 +186,39 @@ export function ShoppingScreen() {
     : matchedIngredient;
 
   const todayContext = checkHomeQuery.data?.todayContext;
+  // 2026-08-18 — "트러블 38 · 홍조 62 기준 추천"처럼 숫자만 나열하면 그 값이 좋은
+  // 상태인지 나쁜 상태인지 알 수 없습니다. 방향이 "높을수록 좋음"으로 확정됐어도
+  // 사용자는 그 규칙을 모르고, 바로 아래 습도 부제("실내 건조 주의")는 이미 해석을
+  // 달아주고 있어 두 줄의 정보량이 어긋나 있었습니다.
+  //
+  // 지표명·점수를 통째로 색 칩에 넣고 **등급 단어는 쓰지 않습니다**(관리자 결정) —
+  // 부제는 작은 회색 글씨라 "보통"·"주의" 글자를 덧붙이면 줄만 길어지고, 색만으로
+  // 충분히 읽힙니다. 경계·색은 lib/metricGrade.ts가 단독으로 갖습니다
+  // (S-18 등급 배지와 동일 기준).
+  const todayMetricChips =
+    todayContext === undefined
+      ? []
+      : ([
+          todayContext.troubleScore !== null
+            ? { key: 'trouble', label: '트러블', score: todayContext.troubleScore }
+            : null,
+          todayContext.rednessScore !== null
+            ? { key: 'redness', label: '홍조', score: todayContext.rednessScore }
+            : null,
+        ].filter(Boolean) as { key: string; label: string; score: number }[]);
+
   const todaySubtitle =
-    todayContext && (todayContext.troubleScore !== null || todayContext.rednessScore !== null)
-      ? [
-          todayContext.troubleScore !== null ? `트러블 ${todayContext.troubleScore}` : null,
-          todayContext.rednessScore !== null ? `홍조 ${todayContext.rednessScore}` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ') + ' 기준 추천'
-      : null;
+    todayMetricChips.length > 0 ? (
+      // 칩과 꼬리말이 같은 줄에 섞이므로 flexWrap을 켭니다 — 소형 화면에서 두 지표가
+      // 다 있으면 한 줄을 넘깁니다(줄이 바뀌어도 칩이 잘리지 않게).
+      // 칩끼리는 배경색으로 이미 나뉘어 보여서 가운뎃점(·) 구분자를 넣지 않았습니다.
+      <View style={styles.todaySubtitleRow}>
+        {todayMetricChips.map((item) => (
+          <MetricGradeChip key={item.key} label={item.label} score={item.score} />
+        ))}
+        <Text style={styles.subtitleInline}>기준 추천</Text>
+      </View>
+    ) : null;
   const humiditySubtitle =
     todayContext && todayContext.humidity !== null
       ? `오늘 습도 ${todayContext.humidity}%${
@@ -206,17 +243,17 @@ export function ShoppingScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
-              cartCount > 0 ? `장바구니, 담은 제품 ${cartCount}개` : '장바구니, 비어 있음'
+              wishlistCount > 0 ? `위시리스트, 저장한 제품 ${wishlistCount}개` : '위시리스트, 비어 있음'
             }
             hitSlop={8}
-            onPress={() => navigation.navigate(DetailRoutes.Cart)}
-            style={styles.cartButton}
+            onPress={() => navigation.navigate(DetailRoutes.Wishlist)}
+            style={styles.wishlistButton}
           >
-            {/* 42종 세트에 장바구니 아이콘이 없어 Ionicons 폴백입니다(파일 상단 주석). */}
-            <AppIcon name="cart-outline" size={24} color={color.textInk} />
-            {cartCount > 0 ? (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+            {/* 42종 세트에 위시리스트 아이콘이 없어 Ionicons 폴백입니다(파일 상단 주석). */}
+            <AppIcon name="heart-outline" size={24} color={color.textInk} />
+            {wishlistCount > 0 ? (
+              <View style={styles.wishlistBadge}>
+                <Text style={styles.wishlistBadgeText}>{wishlistCount > 99 ? '99+' : wishlistCount}</Text>
               </View>
             ) : null}
           </Pressable>
@@ -265,12 +302,14 @@ export function ShoppingScreen() {
               style={styles.cameraBox}
             />
             {scanMode === 'PRODUCT_IMAGE' ? (
-              <Button
-                label="촬영"
-                variant="primary"
-                loading={capturing}
-                onPress={() => cameraRef.current?.capture()}
-              />
+              // 2026-08-18 — 상품 사진 인식은 백엔드에 비전 로직이 없어 동작하지 않습니다.
+              // 촬영 버튼을 그대로 두면 눌러야 실패를 알게 되므로, 준비 중임을 먼저 알리고
+              // 검색으로 유도합니다(관리자 결정 B안). 백엔드가 구현하면 아래 Button을
+              // 원래의 촬영(capture) 버튼으로 되돌리면 됩니다.
+              <Text style={styles.scanHint}>
+                상품 사진으로 찾는 기능은 아직 준비 중이에요. 바코드를 스캔하거나 제품명으로
+                검색해 주세요.
+              </Text>
             ) : (
               <Text style={styles.scanHint}>바코드를 뷰파인더 안에 맞춰주세요</Text>
             )}
@@ -318,7 +357,7 @@ export function ShoppingScreen() {
           </View>
         ) : checkHomeQuery.isError || !checkHomeQuery.data ? (
           <View style={styles.panelCard}>
-            <ErrorState variant="network" onRetry={() => checkHomeQuery.refetch()} />
+            <ErrorState variant="network" layout="inline" onRetry={() => checkHomeQuery.refetch()} />
           </View>
         ) : recommendations.length === 0 ? (
           <View style={styles.panelCard}>
@@ -399,6 +438,7 @@ export function ShoppingScreen() {
                       <Chip
                         key={ing.ingredientId}
                         label={ing.name}
+                        variant="solid"
                         selected={ing.name === effectiveSelectedIngredient}
                         onPress={() => setSelectedIngredient(ing.name)}
                       />
@@ -472,7 +512,12 @@ function SectionHeader({
   onToggle,
 }: {
   title: string;
-  subtitle: string | null;
+  /**
+   * 문자열이면 그대로 부제 스타일로 그리고, 노드면 호출부가 만든 것을 그대로 씁니다.
+   * "오늘 내 피부에 필요해요"만 등급 칩이 섞인 노드를 넘깁니다 — 나머지 섹션은
+   * 여전히 단순 문자열이라 호출부마다 View를 조립하게 만들 이유가 없습니다.
+   */
+  subtitle: React.ReactNode;
   expanded: boolean;
   canExpand: boolean;
   onToggle: () => void;
@@ -481,7 +526,11 @@ function SectionHeader({
     <View style={styles.sectionHeader}>
       <View style={styles.sectionHeaderText}>
         <Text style={styles.sectionTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+        {typeof subtitle === 'string' ? (
+          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+        ) : (
+          subtitle
+        )}
       </View>
       {canExpand ? (
         <Pressable accessibilityRole="button" onPress={onToggle} hitSlop={8}>
@@ -617,7 +666,7 @@ function SearchArea({
       {trimmed.length === 0 ? null : query.isLoading ? (
         <LoadingState variant="skeleton" skeletonLines={3} />
       ) : query.isError || !query.data ? (
-        <ErrorState variant="network" onRetry={() => query.refetch()} />
+        <ErrorState variant="network" layout="inline" onRetry={() => query.refetch()} />
       ) : query.data.totalCount === 0 ? (
         <EmptyState icon="search" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
       ) : (
@@ -673,14 +722,14 @@ const styles = StyleSheet.create({
     ...weightFamily('medium'),
     color: color.textSub,
   },
-  cartButton: {
+  wishlistButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   // 아이콘 우상단에 겹치는 개수 배지. minWidth로 한 자리/두 자리 모두 원형에 가깝게.
-  cartBadge: {
+  wishlistBadge: {
     position: 'absolute',
     top: 2,
     right: 0,
@@ -692,7 +741,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cartBadgeText: {
+  wishlistBadgeText: {
     fontSize: adjustFontSize(9),
     lineHeight: 12,
     ...weightFamily('bold'),
@@ -754,6 +803,21 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     ...weightFamily('bold'),
     color: color.textInk,
+  },
+  todaySubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 2,
+  },
+  // sectionSubtitle과 같은 서체지만 marginTop이 없습니다 — 위 행이 이미 marginTop을
+  // 갖고 있고, 자식에 또 주면 칩과 세로 중앙 정렬이 어긋납니다.
+  subtitleInline: {
+    fontSize: adjustFontSize(11),
+    lineHeight: 16,
+    ...weightFamily('medium'),
+    color: color.textSub,
   },
   sectionSubtitle: {
     fontSize: adjustFontSize(11),

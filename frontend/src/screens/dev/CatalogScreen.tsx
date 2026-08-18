@@ -15,6 +15,7 @@ import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { ProductSearchBar } from '@/components/domain/ProductSearchBar';
 import { RoutineQuickRecordCard } from '@/components/domain/RoutineQuickRecordCard';
+import { MetricGradeChip } from '@/components/domain/MetricGradeChip';
 import { SkinRecordSuggestionCard } from '@/components/domain/SkinRecordSuggestionCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { MetricScoreList } from '@/components/domain/MetricScoreList';
@@ -194,6 +195,24 @@ export default function CatalogScreen() {
             onPress={() => setChipSelected('c')}
           />
         </Row>
+        <Text style={styles.hint}>
+          아래는 variant=&quot;solid&quot; — 선택 시 보라 배경 + 흰 글씨입니다. 목록을 걸러내는
+          필터 칩(쇼핑 탭 성분 필터)에 쓰고, 온보딩 칩은 기존 outline을 그대로 씁니다.
+        </Text>
+        <Row>
+          <Chip
+            label="나이아신아마이드"
+            variant="solid"
+            selected={chipSelected === 'a'}
+            onPress={() => setChipSelected('a')}
+          />
+          <Chip
+            label="히알루론산"
+            variant="solid"
+            selected={chipSelected === 'b'}
+            onPress={() => setChipSelected('b')}
+          />
+        </Row>
       </Section>
 
       <Section title="Stepper">
@@ -322,6 +341,21 @@ export default function CatalogScreen() {
         </View>
       </Section>
 
+      <Section title="MetricGradeChip — 지표 등급 칩 (2026-08-18)">
+        {/* 경계값은 lib/metricGrade.ts (좋음 ≥70 / 보통 40~69 / 주의 <40).
+            임계값이 기획 확정으로 바뀌면 이 미리보기도 같이 움직입니다. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            { label: '트러블', score: 82 },
+            { label: '홍조', score: 62 },
+            { label: '모공', score: 40 },
+            { label: '색소잡티', score: 38 },
+          ].map((item) => (
+            <MetricGradeChip key={item.label} label={item.label} score={item.score} />
+          ))}
+        </View>
+      </Section>
+
       <Section title="SkinRecordSuggestionCard (Phase 7-B)">
         <SkinRecordSuggestionCard onPress={() => {}} />
       </Section>
@@ -337,14 +371,21 @@ export default function CatalogScreen() {
 
       <Section title="MetricScoreList">
         <Text style={styles.hint}>
-          score/delta 방향은 백엔드 정규화 확정 대기 중 — 지금은 &ldquo;높을수록 좋음&rdquo; 가정
+          score/delta는 &ldquo;높을수록 좋음&rdquo; (2026-08-18 확정 — 앱 전체 동일 규칙).
+          라벨은 lib/metricLabels.ts의 item 슬롯(넓은 자리 = 긍정 라벨)을 씁니다.
         </Text>
         <MetricScoreList
           items={[
-            { key: 'trouble', label: '트러블', score: 72, delta: 5 },
-            { key: 'redness', label: '홍조', score: 58, delta: -3 },
-            { key: 'pores', label: '모공', score: 80, delta: null },
-            { key: 'pigmentation', label: '색소침착', score: 64, delta: 0 },
+            { key: 'trouble', label: '트러블 안정도', shortLabel: '트러블', score: 72, delta: 5 },
+            { key: 'redness', label: '홍조 안정도', shortLabel: '홍조', score: 58, delta: -3 },
+            { key: 'pores', label: '모공 컨디션', shortLabel: '모공', score: 80, delta: null },
+            {
+              key: 'pigmentation',
+              label: '색소 컨디션',
+              shortLabel: '색소침착',
+              score: 64,
+              delta: 0,
+            },
           ]}
         />
       </Section>
@@ -389,7 +430,8 @@ export default function CatalogScreen() {
             uvIndex: 3,
             uvGrade: 'MODERATE',
             humidity: 25,
-            humidityGrade: 'LOW',
+            // 2026-08-18 — 'LOW'는 백엔드에 없는 값이었습니다. 건조 팁이 뜨는 조건은 'DRY'입니다.
+            humidityGrade: 'DRY',
           }}
         />
         <Text style={[styles.hint, styles.progressSpacing]}>
@@ -544,35 +586,49 @@ export default function CatalogScreen() {
 
       <Section title="ErrorState (3종)">
         <Card padding={4}>
-          <ErrorState variant="network" onRetry={() => {}} />
+          <ErrorState variant="network" layout="inline" onRetry={() => {}} />
         </Card>
         <Card padding={4}>
-          <ErrorState variant="server" onRetry={() => {}} />
+          <ErrorState variant="server" layout="inline" onRetry={() => {}} />
         </Card>
         <Card padding={4}>
-          <ErrorState variant="notFound" />
+          <ErrorState variant="notFound" layout="inline" />
         </Card>
       </Section>
 
-      <Section title="LoadingState (spinner / skeleton)">
+      <Section title="LoadingState (spinner / skeleton / listRows)">
         <Card padding={4}>
           <LoadingState variant="spinner" />
         </Card>
         <Card padding={4}>
           <LoadingState variant="skeleton" skeletonLines={3} />
         </Card>
+        <Card padding={4}>
+          <LoadingState variant="listRows" rows={3} />
+        </Card>
       </Section>
 
       <Section title="PermissionDenied (3종)">
         <Card padding={4}>
-          <PermissionDenied type="camera" onOpenSettings={() => {}} />
+          <PermissionDenied type="camera" layout="inline" onOpenSettings={() => {}} />
         </Card>
         <Card padding={4}>
-          <PermissionDenied type="location" onOpenSettings={() => {}} />
+          <PermissionDenied type="location" layout="inline" onOpenSettings={() => {}} />
         </Card>
         <Card padding={4}>
-          <PermissionDenied type="notification" onOpenSettings={() => {}} />
+          <PermissionDenied type="notification" layout="inline" onOpenSettings={() => {}} />
         </Card>
+      </Section>
+
+      <Section title="PermissionDenied — guide 단계 (영구 거부)">
+        <Text style={styles.hint}>
+          canAskAgain이 false일 때만 나옵니다. 시스템 팝업을 띄울 수 없는 상태라 설정 앱
+          경로를 직접 안내합니다 — 여기서 &quot;권한 허용하기&quot;를 보여주면 눌러도 아무 일도
+          일어나지 않아 버튼이 고장 난 것처럼 보입니다.
+        </Text>
+        <View style={styles.permissionGuidePreview}>
+          <PermissionDenied type="camera" stage="guide" onOpenSettings={() => {}} />
+        </View>
       </Section>
 
       <Section title="TrendGraph (S-19/S-20 둘 다 선 사용 — 막대는 예비 옵션)">
@@ -764,6 +820,15 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink900,
     borderRadius: 16,
     paddingVertical: space[5],
+  },
+  // guide 단계는 전체화면 전용(flex:1 + 하단 고정 CTA)이라 카탈로그에서는
+  // 높이를 고정한 상자 안에 넣어야 보입니다.
+  permissionGuidePreview: {
+    height: 520,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: color.borderDivider,
   },
   radarPreview: {
     alignItems: 'center',

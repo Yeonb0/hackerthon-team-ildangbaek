@@ -1,6 +1,7 @@
 // src/components/chart/AreaTrendChart.tsx
-import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { color, space } from '@/theme/tokens';
 import { s } from '@/lib/scale';
@@ -35,7 +36,20 @@ const PADDING_X = 8;
 const BADGE_WIDTH = 30;
 const BADGE_HEIGHT = 17;
 // 배지가 위로 삐져나갈 자리를 위쪽 패딩에 확보합니다.
-const PADDING_Y = 26;
+const PADDING_TOP = 26;
+// 2026-08-18 — 아래쪽은 26 → 10. 위쪽과 달리 여기엔 아무것도 그리지 않습니다(날짜
+// 라벨은 Svg 바깥의 labelRow에 따로 있습니다). 대칭으로 둘 이유가 없어서 줄이고,
+// 그만큼을 곡선이 쓰는 높이로 넘겼습니다.
+const PADDING_BOTTOM = 10;
+
+// ── 스크러빙(그래프를 짚어 그 날 점수 보기) 관련 상수 ──
+// 꾹 눌러야 시작합니다. 리포트 홈이 ScrollView 안이라, 터치 즉시 잡으면 세로 스크롤이
+// 그래프 위에서 먹히지 않습니다(관리자 결정, 2026-08-18).
+const SCRUB_LONG_PRESS_MS = 200;
+const TOOLTIP_WIDTH = 62;
+const TOOLTIP_HEIGHT = 34;
+/** 말풍선이 점 위로 뜰 자리가 없을 때(점수가 높아 곡선이 천장에 붙을 때) 아래로 뒤집습니다. */
+const TOOLTIP_GAP = 8;
 
 function buildSmoothPath(pts: { x: number; y: number }[]): string {
   if (pts.length < 2) return '';
@@ -71,16 +85,20 @@ export function AreaTrendChart({
   dotDates,
   formatLabel,
   width = s(320),
-  height = s(100),
+  // 2026-08-18(관리자 요청) — 100 → 124 → 150. 위아래 패딩을 빼면 곡선이 실제로 쓰는
+  // 높이는 처음엔 48px뿐이었습니다. 아래쪽 패딩 축소(26→10)까지 더해 지금은 114px로,
+  // 최초 대비 2.4배입니다. (Svg는 preserveAspectRatio="none"이라 이 값이 곧 실제
+  // 렌더 높이입니다.)
+  height = s(150),
   style,
 }: AreaTrendChartProps) {
   const chartW = width - PADDING_X * 2;
-  const chartH = height - PADDING_Y * 2;
+  const chartH = height - PADDING_TOP - PADDING_BOTTOM;
   const n = points.length;
 
   const xAt = (i: number) => PADDING_X + (n <= 1 ? chartW / 2 : (chartW / (n - 1)) * i);
   const yAt = (score: number) =>
-    PADDING_Y + chartH - ((score - SCORE_MIN) / (SCORE_MAX - SCORE_MIN)) * chartH;
+    PADDING_TOP + chartH - ((score - SCORE_MIN) / (SCORE_MAX - SCORE_MIN)) * chartH;
 
   const validPoints = points
     .map((point, i) => ({ date: point.date, i, score: point.score }))
@@ -95,108 +113,215 @@ export function AreaTrendChart({
       : '';
   const areaPath =
     validPoints.length >= 2
-      ? `${linePath} L ${xAt(validPoints[validPoints.length - 1].i)},${PADDING_Y + chartH} L ${xAt(
-          validPoints[0].i
-        )},${PADDING_Y + chartH} Z`
+      ? `${linePath} L ${xAt(validPoints[validPoints.length - 1].i)},${PADDING_TOP + chartH} L ${xAt(
+          validPoints[0].i,
+        )},${PADDING_TOP + chartH} Z`
       : '';
 
   const lastPoint = validPoints[validPoints.length - 1];
 
+  // ───────────────────────── 스크러빙 ─────────────────────────
+  // Svg가 width="100%" + preserveAspectRatio="none"라, 위 좌표들은 전부 viewBox 기준이고
+  // 실제 렌더 폭은 런타임에만 압니다. 손가락 x는 실제 px로 들어오므로 폭을 재서 환산합니다.
+  // (세로는 Svg height와 viewBox height가 같아 1:1이라 환산이 필요 없습니다.)
+  const [layoutW, setLayoutW] = useState(0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    setLayoutW(event.nativeEvent.layout.width);
+  };
+
+  // 손가락에서 가장 가까운 "기록이 있는" 점으로 스냅합니다. 결측일(score null)에 멈춰서
+  // 빈 말풍선이 뜨는 걸 막습니다 — 그래프도 결측은 건너뛰고 그리고 있습니다.
+  const pickIndex = (touchX: number): number | null => {
+    if (layoutW <= 0 || validPoints.length === 0) return null;
+    const viewBoxX = (touchX / layoutW) * width;
+    let nearest = validPoints[0];
+    let nearestDistance = Infinity;
+    for (const point of validPoints) {
+      const distance = Math.abs(xAt(point.i) - viewBoxX);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = point;
+      }
+    }
+    return nearest.i;
+  };
+
+  const scrubGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        // 제스처 콜백에서 setState를 부르므로 워클릿이 아니라 JS 스레드로 돌립니다.
+        // 인덱스가 바뀔 때만 리렌더라 30점 기준으로도 부담이 없습니다.
+        .runOnJS(true)
+        // onBegin이 아니라 onStart입니다 — onBegin은 터치 즉시라 롱프레스 대기가 무의미해집니다.
+        .activateAfterLongPress(SCRUB_LONG_PRESS_MS)
+        .shouldCancelWhenOutside(false)
+        .onStart((event) => setActiveIndex(pickIndex(event.x)))
+        .onUpdate((event) => setActiveIndex(pickIndex(event.x)))
+        .onFinalize(() => setActiveIndex(null)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layoutW, width, n, validPoints.length],
+  );
+
+  const activePoint =
+    activeIndex === null ? null : (validPoints.find((point) => point.i === activeIndex) ?? null);
+
+  // 말풍선/세로선 위치는 실제 px로 계산합니다. %로 두면 양 끝에서 화면 밖으로 나가는데,
+  // 폭을 이미 재고 있으니 px로 잡아야 가장자리 보정을 할 수 있습니다.
+  const activeX = activePoint ? (xAt(activePoint.i) / width) * layoutW : 0;
+  const activeY = activePoint ? yAt(activePoint.score) : 0;
+  const tooltipBelow = activeY - TOOLTIP_HEIGHT - TOOLTIP_GAP < 0;
+  const tooltipLeft = Math.max(0, Math.min(layoutW - TOOLTIP_WIDTH, activeX - TOOLTIP_WIDTH / 2));
+
   return (
-    <View style={[styles.container, style]}>
-      <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-        <Defs>
-          <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={accentColor} stopOpacity={0.22} />
-            <Stop offset="1" stopColor={accentColor} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-
-        {areaPath !== '' && <Path d={areaPath} fill={`url(#${gradientId})`} />}
-
-        {linePath !== '' && (
-          <Path
-            d={linePath}
-            fill="none"
-            stroke={accentColor}
-            strokeWidth={2.5}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
-        )}
-
-        {validPoints.length === 1 && (
-          <Circle cx={xAt(validPoints[0].i)} cy={yAt(validPoints[0].score)} r={5} fill={accentColor} />
-        )}
-
-        {dotDateSet &&
-          validPoints
-            .filter((point) => point.i !== lastPoint?.i && dotDateSet.has(point.date))
-            .map((point) => (
-              <Circle
-                key={`dot-${point.date}`}
-                cx={xAt(point.i)}
-                cy={yAt(point.score)}
-                r={3}
-                fill={accentColor}
-                stroke={color.bg}
-                strokeWidth={1.5}
-              />
-            ))}
-
-        {lastPoint && (
-          <Circle
-            cx={xAt(lastPoint.i)}
-            cy={yAt(lastPoint.score)}
-            r={4}
-            fill={accentColor}
-            stroke={color.bg}
-            strokeWidth={2}
-          />
-        )}
-      </Svg>
-
-      {lastPoint && (
-        <View
-          style={[
-            styles.lastPointBadge,
-            {
-              backgroundColor: accentColor,
-              // 점 바로 "위"에 가운데 정렬로 띄웁니다(2026-08-17 관리자 제보 — 예전엔
-              // left가 점의 왼쪽 끝에 붙어 배지가 오른쪽으로 뻗었고, top엔 퍼센트로
-              // 계산한 값을 px 자리에 넘겨서 세로 위치도 어긋났습니다).
-              // left는 %(뷰박스가 가로로 늘어나므로), top은 px(Svg height가 실제 px).
-              left: `${(xAt(lastPoint.i) / width) * 100}%`,
-              marginLeft: -BADGE_WIDTH / 2,
-              top: Math.max(0, yAt(lastPoint.score) - BADGE_HEIGHT - 6),
-            },
-          ]}
+    <GestureDetector gesture={scrubGesture}>
+      <View style={[styles.container, style]} onLayout={handleLayout}>
+        <Svg
+          width="100%"
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="none"
         >
-          <Text style={styles.lastPointText}>{lastPoint.score}</Text>
-        </View>
-      )}
+          <Defs>
+            <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={accentColor} stopOpacity={0.22} />
+              <Stop offset="1" stopColor={accentColor} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
 
-      {validPoints.length === 0 && <Text style={styles.emptyHint}>표시할 기록이 없어요</Text>}
+          {areaPath !== '' && <Path d={areaPath} fill={`url(#${gradientId})`} />}
 
-      {n > 0 && (
-        <View style={styles.labelRow}>
-          {labelMode === 'all'
-            ? points.map((point) => (
+          {linePath !== '' && (
+            <Path
+              d={linePath}
+              fill="none"
+              stroke={accentColor}
+              strokeWidth={2.5}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          )}
+
+          {validPoints.length === 1 && (
+            <Circle
+              cx={xAt(validPoints[0].i)}
+              cy={yAt(validPoints[0].score)}
+              r={5}
+              fill={accentColor}
+            />
+          )}
+
+          {dotDateSet &&
+            validPoints
+              .filter((point) => point.i !== lastPoint?.i && dotDateSet.has(point.date))
+              .map((point) => (
+                <Circle
+                  key={`dot-${point.date}`}
+                  cx={xAt(point.i)}
+                  cy={yAt(point.score)}
+                  r={3}
+                  fill={accentColor}
+                  stroke={color.bg}
+                  strokeWidth={1.5}
+                />
+              ))}
+
+          {lastPoint && (
+            <Circle
+              cx={xAt(lastPoint.i)}
+              cy={yAt(lastPoint.score)}
+              r={4}
+              fill={accentColor}
+              stroke={color.bg}
+              strokeWidth={2}
+            />
+          )}
+        </Svg>
+
+        {lastPoint && activePoint === null && (
+          <View
+            style={[
+              styles.lastPointBadge,
+              {
+                backgroundColor: accentColor,
+                // 점 바로 "위"에 가운데 정렬로 띄웁니다(2026-08-17 관리자 제보 — 예전엔
+                // left가 점의 왼쪽 끝에 붙어 배지가 오른쪽으로 뻗었고, top엔 퍼센트로
+                // 계산한 값을 px 자리에 넘겨서 세로 위치도 어긋났습니다).
+                // left는 %(뷰박스가 가로로 늘어나므로), top은 px(Svg height가 실제 px).
+                left: `${(xAt(lastPoint.i) / width) * 100}%`,
+                marginLeft: -BADGE_WIDTH / 2,
+                top: Math.max(0, yAt(lastPoint.score) - BADGE_HEIGHT - 6),
+              },
+            ]}
+          >
+            <Text style={styles.lastPointText}>{lastPoint.score}</Text>
+          </View>
+        )}
+
+        {activePoint && (
+          <>
+            {/* 세로 기준선 — 곡선 영역(PADDING_TOP ~ 바닥)만 덮습니다. */}
+            <View
+              style={[
+                styles.scrubLine,
+                {
+                  left: activeX,
+                  top: PADDING_TOP,
+                  height: chartH,
+                  backgroundColor: accentColor,
+                },
+              ]}
+              pointerEvents="none"
+            />
+            <View
+              style={[
+                styles.scrubDot,
+                { left: activeX - 6, top: activeY - 6, borderColor: accentColor },
+              ]}
+              pointerEvents="none"
+            />
+            <View
+              style={[
+                styles.scrubTooltip,
+                {
+                  left: tooltipLeft,
+                  top: tooltipBelow
+                    ? activeY + TOOLTIP_GAP
+                    : activeY - TOOLTIP_HEIGHT - TOOLTIP_GAP,
+                  backgroundColor: accentColor,
+                },
+              ]}
+              pointerEvents="none"
+            >
+              <Text style={styles.scrubTooltipDate}>{labelFor(activePoint.date, formatLabel)}</Text>
+              <Text style={styles.scrubTooltipScore}>{activePoint.score}</Text>
+            </View>
+          </>
+        )}
+
+        {validPoints.length === 0 && <Text style={styles.emptyHint}>표시할 기록이 없어요</Text>}
+
+        {n > 0 && (
+          <View style={styles.labelRow}>
+            {labelMode === 'all' ? (
+              points.map((point) => (
                 <Text key={point.date} style={styles.labelText}>
                   {labelFor(point.date, formatLabel)}
                 </Text>
               ))
-            : (
-                <>
-                  <Text style={styles.labelText}>{labelFor(points[0].date, formatLabel)}</Text>
-                  {n > 1 && (
-                    <Text style={styles.labelText}>{labelFor(points[n - 1].date, formatLabel)}</Text>
-                  )}
-                </>
-              )}
-        </View>
-      )}
-    </View>
+            ) : (
+              <>
+                <Text style={styles.labelText}>{labelFor(points[0].date, formatLabel)}</Text>
+                {n > 1 && (
+                  <Text style={styles.labelText}>{labelFor(points[n - 1].date, formatLabel)}</Text>
+                )}
+              </>
+            )}
+          </View>
+        )}
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -216,7 +341,18 @@ function labelFor(date: string, formatLabel?: (date: string) => string) {
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
+    // 2026-08-18(관리자 요청) — 그래프 가로를 양쪽에서 8px씩 좁힙니다. 카드 안에서
+    // 선이 가장자리까지 꽉 차 있어 여백이 부족해 보였습니다.
+    //
+    // ⚠️ `width: '100%'`를 두면 안 됩니다. 폭이 부모 100%로 먼저 고정된 뒤 왼쪽 margin이
+    // 통째로 밀어내서, 왼쪽만 들어가고 오른쪽은 8px 넘쳐 나갑니다(관리자 제보). 세로
+    // 방향 부모의 기본 stretch에 맡기면 margin만큼 양쪽이 같이 줄어듭니다.
+    //
+    // ⚠️ padding이 아니라 margin인 이유: 마지막 점 배지가 이 컨테이너 기준
+    // position:absolute + left:'%'로 앉는데, padding을 주면 배지의 % 기준(패딩 박스)과
+    // Svg의 실제 폭이 어긋나 배지가 점에서 밀려납니다.
+    alignSelf: 'stretch',
+    marginHorizontal: space[2],
     gap: space[1],
   },
   labelRow: {
@@ -242,6 +378,41 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scrubLine: {
+    position: 'absolute',
+    width: 1,
+    opacity: 0.45,
+  },
+  scrubDot: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2.5,
+    backgroundColor: color.bg,
+  },
+  scrubTooltip: {
+    position: 'absolute',
+    width: TOOLTIP_WIDTH,
+    height: TOOLTIP_HEIGHT,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrubTooltipDate: {
+    fontSize: adjustFontSize(9),
+    ...weightFamily('medium'),
+    color: color.white,
+    opacity: 0.85,
+  },
+  scrubTooltipScore: {
+    // 주아체 자리 — 마지막 점 배지와 같은 이유로 adjustFontSize를 쓰지 않습니다
+    // (말풍선이 62×34 고정이라 글자만 커지면 넘칩니다).
+    fontSize: 13,
+    lineHeight: 17,
+    ...pinDisplayFont('bmjua'),
+    color: color.white,
   },
   lastPointText: {
     // 주아체 자리 — adjustFontSize를 쓰지 않습니다(typography.ts 규약). 배지가

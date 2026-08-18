@@ -1,9 +1,8 @@
 // src/api/queries/user.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { ApiError, unwrap } from '@/api/unwrap';
+import { unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
-import { ErrorCode } from '@/types/errorCodes';
 import { saveNotificationSetting } from '@/api/notification';
 import {
   buildMockIngredientProfile,
@@ -112,7 +111,10 @@ export function useLocationSearch(keyword: string) {
 
 export async function updateLocation(input: UpdateLocationInput): Promise<void> {
   if (USE_MOCK) {
-    updateMockLocation(input);
+    // ⚠️ await 필수 — 목업이 platformStorage에 저장하도록 바뀌면서 비동기가 됐습니다.
+    // 기다리지 않으면 저장이 끝나기 전에 onSuccess가 실행되고, 곧바로 무효화된
+    // 쿼리가 아직 옛 값을 읽어와서 "저장이 안 된" 것처럼 보입니다.
+    await updateMockLocation(input);
     return;
   }
   // 응답 result 형태가 명세서에 문서화되어 있지 않아(AUTH-03처럼 null일 가능성이 높음)
@@ -129,6 +131,11 @@ export function useUpdateLocation() {
       // 마이페이지 표시용 location과, 홈 화면 날씨(위치 기반)도 함께 갱신 대상입니다.
       queryClient.invalidateQueries({ queryKey: ['myPage'] });
       queryClient.invalidateQueries({ queryKey: ['home'] });
+      // 2026-08-17(세션 15) 버그 수정 — locationSearch가 빠져 있었습니다.
+      // 이 목록의 `current` 플래그가 "지금 설정된 지역"을 나타내는데, 캐시가 그대로라
+      // 화면을 다시 열면 **이전 지역에 체크가 남아** 저장이 안 된 것처럼 보였습니다.
+      // 선택/저장 가능 여부(canSave)도 이 플래그로 판단하므로 같이 어긋났습니다.
+      queryClient.invalidateQueries({ queryKey: ['locationSearch'] });
     },
   });
 }
@@ -151,7 +158,10 @@ export function useUpdateNotificationSetting() {
   return useMutation({
     mutationFn: (input: NotificationSettingInput) => saveNotificationSetting(input),
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['myPage'] });
+      // ⚠️ 순서가 중요합니다. 예전엔 cancelQueries를 먼저 await 했는데, onMutate가
+      // 그 지점에서 한 번 끊기기 때문에 화면 반영이 최소 한 틱 늦었습니다. 스위치는
+      // 그 지연이 그대로 "눌렀는데 안 움직인다"로 보입니다 — 캐시부터 동기적으로
+      // 바꾸고, 진행 중 요청 취소는 그 뒤에 합니다.
       const previous = queryClient.getQueryData<MyPageResult>(['myPage']);
       if (previous) {
         queryClient.setQueryData<MyPageResult>(['myPage'], {
@@ -159,6 +169,7 @@ export function useUpdateNotificationSetting() {
           notificationEnabled: input.enabled,
         });
       }
+      await queryClient.cancelQueries({ queryKey: ['myPage'] });
       return { previous };
     },
     onError: (_error, _input, context) => {
@@ -207,14 +218,14 @@ export function useLogout() {
 }
 
 // ---------------------------------------------------------------------------
-// 회원 탈퇴 (S-23)
+// USER-01-D · 회원 탈퇴 (S-23) · DELETE /users/me
 //
-// ⚠️ 백엔드에 엔드포인트가 없습니다(2026-08-17 확인). User 엔티티에 withdraw()와
-// AccountStatus.WITHDRAWN은 이미 있어서 컨트롤러만 열면 됩니다 —
-// docs/backend-request-account-withdraw.md로 요청했습니다.
+// 2026-08-18 백엔드 구현 완료(커밋 03283f8)로 실호출로 교체했습니다.
+// 그 전까지는 엔드포인트가 없어 ApiError를 직접 던지고 있었습니다.
 //
-// 실서버 모드에서는 지금 호출하면 404가 납니다. 경로가 열리면 아래 주석 처리된
-// 한 줄로 교체하면 되고, 화면 코드는 손대지 않아도 됩니다.
+// 물리 삭제가 아니라 AccountStatus.WITHDRAWN 전환입니다(명세 BR1). 전환 후에는
+// CurrentUserIdArgumentResolver의 isActive 필터에 걸려 남은 토큰으로 어떤 API도
+// 통과하지 못하므로, 아래 onSuccess의 clearAuth()가 반드시 함께 돌아야 합니다.
 // ---------------------------------------------------------------------------
 
 export async function withdrawAccount(): Promise<void> {
@@ -222,8 +233,7 @@ export async function withdrawAccount(): Promise<void> {
     await withdrawMockAccount();
     return;
   }
-  // TODO(백엔드 응답 후): return unwrap<void>(apiClient.delete('/users/me'));
-  throw new ApiError(ErrorCode.COMMON_SERVER_ERROR, '탈퇴 기능은 아직 준비 중이에요.');
+  await unwrap<null>(apiClient.delete('/users/me'));
 }
 
 export function useWithdrawAccount() {

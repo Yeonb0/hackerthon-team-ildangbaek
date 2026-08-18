@@ -19,16 +19,14 @@ type RecordDayDetailSheetProps = {
   visible: boolean;
   detail: RecordDayDetailResponse | null;
   onRequestClose: () => void;
-  // 관리자 요청(2026-08-15) — "피부 기록"/"제품 기록" 수정 버튼. 이 바텀시트는 지난
-  // 날짜를 조회하는 화면이라 실제 수정 화면이 아직 정해지지 않았습니다(오늘 기록은
-  // 기록 허브에서 수정하지만, 지난 날짜 기록을 고치는 흐름은 명세에 없음) — 지정 안
-  // 하면 버튼만 보이고 탭해도 아무 동작 안 합니다. 목적지 정해지면 연결하겠습니다.
-  onEditSkin?: () => void;
-  onEditProduct?: () => void;
-  /** "자세히 보기" — 리포트 요인 상세(S-20) 연결 여부가 아직 안 정해져서 실제 이동은
-   * onPress가 없으면 아무 동작 안 하지만, 버튼 자체는 Figma대로 항상 보여줍니다
-   * (2026-08-15 — 이전엔 onPress 없으면 버튼도 숨겼는데, 관리자님이 Figma 기준
-   * 항상 있어야 한다고 확인). */
+  /**
+   * "자세히 보기" — 그 날짜의 피부 결과 화면(S-18)으로 이동합니다.
+   * REPORT-03(`GET /reports/daily`)이 이 경로 전용으로 백엔드에 이미 있습니다.
+   *
+   * ℹ️ 2026-08-18 — 이 시트에 있던 "수정" 버튼 2개(피부·제품)는 제거됐습니다.
+   * 사유는 본문 렌더 부분의 주석을 참고하세요. 되살릴 때 `onEditSkin`·`onEditProduct`
+   * prop을 여기 다시 추가하면 됩니다.
+   */
   onViewSkinDetail?: () => void;
   /** 타이틀 우측 점 2개(모닝/나이트) — 캘린더 셀과 같은 상태를 보여줍니다(Figma
    * 210:1103 실측, 2026-08-15 추가). 부모가 캘린더 데이터에서 그 날짜를 찾아 넘깁니다. */
@@ -88,8 +86,6 @@ export function RecordDayDetailSheet({
   visible,
   detail,
   onRequestClose,
-  onEditSkin,
-  onEditProduct,
   onViewSkinDetail,
   dayStatus,
 }: RecordDayDetailSheetProps) {
@@ -172,12 +168,14 @@ export function RecordDayDetailSheet({
               </View>
             </GestureDetector>
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>피부 기록</Text>
-              <Pressable accessibilityRole="button" onPress={onEditSkin} hitSlop={8}>
-                <Text style={styles.editLabel}>수정</Text>
-              </Pressable>
-            </View>
+            {/* 2026-08-18 — Figma에는 여기에도 "수정" 버튼이 있지만 제거했습니다(관리자
+                결정 A안). 지난 날짜 피부 기록은 **고칠 수 있는 방법이 없습니다** — 백엔드에
+                수정 API가 없고, 다시 POST하면 슬롯당 1회 제약에 걸립니다
+                (`ErrorCode.SKIN_ALREADY_RECORDED_IN_SLOT`, 409). 애초에 지난 날짜 피부를
+                고치려면 그날 얼굴을 다시 찍어야 하는데 성립하지 않습니다. 누를 수 있어
+                보이는 걸 눌렀다가 거절당하는 것보다 없는 편이 낫다는 판단입니다.
+                되돌리려면 이 자리에 sectionHeader 행을 되살리면 됩니다. */}
+            <Text style={styles.sectionTitle}>피부 기록</Text>
             <View style={styles.skinCard}>
               {detail.skinScore !== null ? (
                 <View style={styles.skinCardRow}>
@@ -202,12 +200,14 @@ export function RecordDayDetailSheet({
               )}
             </View>
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>제품 기록</Text>
-              <Pressable accessibilityRole="button" onPress={onEditProduct} hitSlop={8}>
-                <Text style={styles.editLabel}>수정</Text>
-              </Pressable>
-            </View>
+            {/* 2026-08-18 — 제품 기록 "수정" 버튼도 제거했습니다(관리자 결정). 피부 쪽과
+                달리 백엔드에는 `PATCH /product-records/{recordId}`(PRODUCT-06)가 있지만,
+                이 시트가 쓰는 `RecordDayDetailResponse`에 `recordId`가 없어 어느 기록을
+                고칠지 지정할 수가 없습니다. 목적지 없는 버튼을 남겨두면 눌렀다가 아무 일도
+                안 일어나는 경험이라, 연결 준비가 될 때까지 감춥니다.
+                되살리려면 recordId를 응답·목업에 싣고 이 자리에 sectionHeader 행을
+                되돌린 뒤 onEditProduct를 연결하면 됩니다. */}
+            <Text style={styles.sectionTitle}>제품 기록</Text>
             <View style={styles.productCard}>
               {(['morning', 'night'] as const).map((slot, index) => {
                 const data = slot === 'morning' ? detail.morningProducts : detail.nightProducts;
@@ -300,20 +300,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 4,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  // sectionHeader/editLabel — "수정" 버튼 2개를 제거하면서 함께 삭제했습니다
+  // (2026-08-18). 버튼을 되살리려면 이 두 스타일도 같이 되돌려야 합니다.
   sectionTitle: {
     ...weightFamily('bold'),
     fontSize: 13,
     color: color.textInk,
-  },
-  editLabel: {
-    ...weightFamily('medium'),
-    fontSize: 12,
-    color: color.brand500,
   },
   skinCard: {
     backgroundColor: color.surfaceLavenderPale,

@@ -16,16 +16,22 @@ import type {
 // USER-01/02 · 마이페이지 · 성분 프로파일
 // ---------------------------------------------------------------------------
 
+// description은 성분 자체의 일반 설명이고, reason은 "이 사용자에게 왜 이 판정인지"라
+// 성격이 다릅니다 — 둘을 같은 문장으로 채우면 화면에서 구분이 안 되니 주의하세요.
+//
+// ⚠️ 실서버는 당분간 description이 대부분 null입니다(백엔드 성분 사전 시드 미비).
+// 그래서 일부러 **일부만 채우고 나머지는 null로 뒀습니다** — 목업만 전부 채워두면
+// "값이 없을 때 레이아웃이 어떻게 되는지"를 못 보고 넘어가게 됩니다.
 const MOCK_INGREDIENTS: IngredientListItem[] = [
-  { ingredientId: 3, name: '나이아신아마이드', status: 'GOOD', reason: '피부 톤 개선 이력', recordCount: 12 },
-  { ingredientId: 8, name: '히알루론산', status: 'GOOD', reason: '수분 반응 양호', recordCount: 9 },
-  { ingredientId: 15, name: '판테놀', status: 'GOOD', reason: '진정 반응 확인됨', recordCount: 6 },
-  { ingredientId: 21, name: '레티놀', status: 'CAUTION', reason: '사용 후 홍조 반복 관찰', recordCount: 5 },
-  { ingredientId: 27, name: '향료', status: 'CAUTION', reason: '과거 홍조 반응 있음', recordCount: 7 },
-  { ingredientId: 33, name: 'AHA', status: 'CAUTION', reason: '자극 반응 1회 관찰', recordCount: 2 },
-  { ingredientId: 44, name: '스쿠알란', status: 'INSUFFICIENT', reason: null, recordCount: 1 },
-  { ingredientId: 45, name: '세라마이드', status: 'INSUFFICIENT', reason: null, recordCount: 1 },
-  { ingredientId: 46, name: '티트리오일', status: 'INSUFFICIENT', reason: null, recordCount: 0 },
+  { ingredientId: 3, name: '나이아신아마이드', description: '피부 장벽 강화와 톤 개선에 쓰이는 비타민B3 유도체예요.', status: 'GOOD', reason: '피부 톤 개선 이력', recordCount: 12 },
+  { ingredientId: 8, name: '히알루론산', description: '수분을 끌어당겨 머금는 대표적인 보습 성분이에요.', status: 'GOOD', reason: '수분 반응 양호', recordCount: 9 },
+  { ingredientId: 15, name: '판테놀', description: '진정과 보습을 돕는 프로비타민B5예요.', status: 'GOOD', reason: '진정 반응 확인됨', recordCount: 6 },
+  { ingredientId: 21, name: '레티놀', description: 'turnover를 촉진하는 비타민A 계열로, 처음엔 자극이 있을 수 있어요.', status: 'CAUTION', reason: '사용 후 홍조 반복 관찰', recordCount: 5 },
+  { ingredientId: 27, name: '향료', description: null, status: 'CAUTION', reason: '과거 홍조 반응 있음', recordCount: 7 },
+  { ingredientId: 33, name: 'AHA', description: '각질을 부드럽게 정리하는 수용성 산성 성분이에요.', status: 'CAUTION', reason: '자극 반응 1회 관찰', recordCount: 2 },
+  { ingredientId: 44, name: '스쿠알란', description: null, status: 'INSUFFICIENT', reason: null, recordCount: 1 },
+  { ingredientId: 45, name: '세라마이드', description: '피부 장벽을 이루는 지질 성분이에요.', status: 'INSUFFICIENT', reason: null, recordCount: 1 },
+  { ingredientId: 46, name: '티트리오일', description: null, status: 'INSUFFICIENT', reason: null, recordCount: 0 },
 ];
 
 // USER-01 BR5: completionRate는 F-ANALYSIS-05 값을 그대로 쓰고, 구매 전 확인(Phase7 CHECK)
@@ -43,6 +49,7 @@ function countByStatus(status: IngredientStatus): number {
  * Figma MyPage 부제("26세 · 여성 · …")와 값을 맞췄습니다.
  */
 export async function buildMockProfile(): Promise<ProfileResult> {
+  await hydrateMockLocation();
   const notificationEnabled = await getMockNotificationEnabled();
   return {
     name: '김민지',
@@ -66,6 +73,9 @@ export async function withdrawMockAccount(): Promise<void> {
 }
 
 export async function buildMockMyPage(): Promise<MyPageResult> {
+  // 저장된 지역을 메모리로 끌어올린 뒤에 읽어야 합니다 — 아래 location이 동기
+  // 함수(getMockCurrentLocation)라 hydrate 전에 읽으면 기본값이 나옵니다.
+  await hydrateMockLocation();
   const notificationEnabled = await getMockNotificationEnabled();
   return {
     name: '김민지',
@@ -80,7 +90,12 @@ export async function buildMockMyPage(): Promise<MyPageResult> {
       // "요약 노출용 최대 8건" — GOOD → CAUTION → INSUFFICIENT 순으로 앞 8개(USER-02 정렬 규칙과 동일하게 맞춤).
       topIngredients: sortedIngredients()
         .slice(0, 8)
-        .map(({ ingredientId, name, status }) => ({ ingredientId, name, status })),
+        .map(({ ingredientId, name, description, status }) => ({
+          ingredientId,
+          name,
+          description,
+          status,
+        })),
     },
     location: getMockCurrentLocation()?.name ?? null,
     notificationEnabled,
@@ -173,15 +188,42 @@ export async function setMockNotificationEnabled(enabled: boolean): Promise<void
   await setItem(MOCK_NOTIFICATION_KEY, String(enabled));
 }
 
-// 세션 한정 메모리 — 앱 재시작 시 초기화, DevResetButton에서 resetMockUserSession()으로 되돌립니다.
-// (같은 패턴: api/mock/product.ts의 세션 메모리와 동일)
-let currentLocationId: number | null = 1; // 데모 기본값: 서울 강남구 (USER-01 응답 예시와 동일)
+// ⚠️ 2026-08-17(세션 15) 수정 — 원래는 모듈 최상단 `let` 하나였는데, 바로 위 알림
+// 설정이 겪었던 문제가 그대로 재발했습니다: JS 런타임이 재시작되면(Fast Refresh,
+// 새로고침, 앱 재시작) 모듈이 다시 평가되면서 초기값(서울 강남구)으로 돌아가,
+// 지역을 바꿔도 되돌아간 것처럼 보였습니다(관리자 제보 — "위치 설정이 제대로 동작
+// 안함"). 알림과 같은 방식으로 platformStorage에 저장합니다.
+//
+// 읽기가 비동기인데 searchMockLocations는 동기라, 메모리 캐시를 함께 둡니다:
+// 저장소 값은 hydrate에서 한 번 읽어 캐시에 채우고, 이후에는 캐시를 씁니다.
+const MOCK_LOCATION_KEY = 'skinteller.mock.currentLocationId';
+const DEFAULT_LOCATION_ID = 1; // 데모 기본값: 서울 강남구 (USER-01 응답 예시와 동일)
+
+let currentLocationId: number | null = DEFAULT_LOCATION_ID;
+let locationHydrated = false;
+
+/**
+ * 저장된 지역을 메모리 캐시로 끌어올립니다. 마이페이지·위치 검색 목업이 호출하기
+ * 전에 한 번만 실행되면 되고, 그 뒤로는 동기 함수들이 캐시를 그대로 씁니다.
+ */
+async function hydrateMockLocation(): Promise<void> {
+  if (locationHydrated) return;
+  locationHydrated = true;
+  const stored = await getItem(MOCK_LOCATION_KEY);
+  if (stored !== null) {
+    const parsed = Number(stored);
+    if (Number.isFinite(parsed)) {
+      currentLocationId = parsed;
+    }
+  }
+}
 
 function getMockCurrentLocation(): MockLocationSeed | undefined {
   return LOCATION_SEED.find((item) => item.locationId === currentLocationId);
 }
 
-export function searchMockLocations(keyword: string): LocationItem[] {
+export async function searchMockLocations(keyword: string): Promise<LocationItem[]> {
+  await hydrateMockLocation();
   const trimmed = keyword.trim();
   const pool = trimmed
     ? LOCATION_SEED.filter((item) => item.name.includes(trimmed))
@@ -214,21 +256,23 @@ function pseudoReverseGeocode(latitude: number, longitude: number): MockLocation
   return nearest;
 }
 
-export function updateMockLocation(input: UpdateLocationInput): { location: string } {
-  if ('locationId' in input) {
-    const found = LOCATION_SEED.find((item) => item.locationId === input.locationId);
-    if (!found) {
-      throw new ApiError(ErrorCode.USER_LOCATION_NOT_FOUND, '설정하려는 지역을 찾을 수 없어요.');
-    }
-    currentLocationId = found.locationId;
-    return { location: found.name };
+export async function updateMockLocation(input: UpdateLocationInput): Promise<{ location: string }> {
+  await hydrateMockLocation();
+  const target =
+    'locationId' in input
+      ? LOCATION_SEED.find((item) => item.locationId === input.locationId)
+      : pseudoReverseGeocode(input.latitude, input.longitude);
+  if (!target) {
+    throw new ApiError(ErrorCode.USER_LOCATION_NOT_FOUND, '설정하려는 지역을 찾을 수 없어요.');
   }
-  const geocoded = pseudoReverseGeocode(input.latitude, input.longitude);
-  currentLocationId = geocoded.locationId;
-  return { location: geocoded.name };
+  currentLocationId = target.locationId;
+  await setItem(MOCK_LOCATION_KEY, String(target.locationId));
+  return { location: target.name };
 }
 
 export async function resetMockUserSession(): Promise<void> {
-  currentLocationId = 1;
+  currentLocationId = DEFAULT_LOCATION_ID;
+  locationHydrated = true; // 방금 초기값으로 맞췄으므로 저장소를 다시 읽지 않습니다.
+  await setItem(MOCK_LOCATION_KEY, String(DEFAULT_LOCATION_ID));
   await setMockNotificationEnabled(true);
 }

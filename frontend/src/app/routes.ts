@@ -60,10 +60,10 @@ export const DetailRoutes = {
   // Phase 11-D(2번 체크포인트) — F-RECORD-02 월간 기록(Frame 10, 210:835). RecordHub의
   // 캘린더 아이콘 버튼에서 진입, 날짜 탭하면 그 날 기록 바텀시트가 뜹니다.
   RecordCalendar: 'RecordCalendar',
-  // 2026-08-17(세션 12) — S-25 장바구니(관리자님 요청). 쇼핑 화면(S-21) 우측 상단
-  // 아이콘에서 진입합니다. 백엔드 API가 없어 cartStore(클라이언트 저장) 전용이고,
-  // Figma에도 시안이 없습니다(요청서: docs/design-request-cart.md).
-  Cart: 'Cart',
+  // 2026-08-17(세션 12) — S-25 위시리스트(관리자님 요청). 쇼핑 화면(S-21) 우측 상단
+  // 아이콘에서 진입합니다. 백엔드 API가 없어 wishlistStore(클라이언트 저장) 전용이고,
+  // Figma에도 시안이 없습니다. 라우트 이름은 2026-08-18에 Cart → Wishlist로 바꿨습니다.
+  Wishlist: 'Wishlist',
 } as const;
 
 export type TimeSlot = 'MORNING' | 'NIGHT';
@@ -106,7 +106,12 @@ export type DetailStackParamList = {
   [DetailRoutes.FaceCapture]: { timeSlot: TimeSlot };
   // imageUri: S-16에서 촬영을 마친 로컬 파일 URI. S-17이 이 값을 압축·업로드합니다.
   [DetailRoutes.AnalyzingSkin]: { timeSlot: TimeSlot; imageUri: string };
-  [DetailRoutes.SkinResult]: { timeSlot?: TimeSlot };
+  // date: 월간 기록(RecordCalendar) 바텀시트의 "자세히 보기"로 들어왔을 때만 실립니다.
+  // 있으면 REPORT-03(GET /reports/daily)으로 그 날짜 기록을 읽고, 없으면 기존대로
+  // SKIN-02(오늘)를 읽습니다. 지난 날짜로 들어온 화면은 하단 CTA가 "닫기" 하나로
+  // 바뀌어 캘린더로 돌아갑니다 — "홈으로 가기"는 방금 기록을 마친 직후 흐름에 맞는
+  // 문구라 지난 날짜 조회에는 맞지 않습니다(관리자 결정 A안, 2026-08-18).
+  [DetailRoutes.SkinResult]: { timeSlot?: TimeSlot; date?: string };
   // REPORT-02(GET /reports/insights/{insightId}) 기준 — 화면 이름(MetricDetail)은
   // Phase 0 명명을 그대로 두지만, 실제로는 지표가 아니라 인사이트 단위로 조회합니다.
   [DetailRoutes.MetricDetail]: { insightId: number };
@@ -130,8 +135,8 @@ export type DetailStackParamList = {
   };
   // Phase 11-D(2번 체크포인트) — F-RECORD-02 월간 기록. RecordHub 캘린더 아이콘에서 진입.
   [DetailRoutes.RecordCalendar]: undefined;
-  // 2026-08-17(세션 12) — S-25 장바구니. 목록은 cartStore가 들고 있어서 파라미터가 없습니다.
-  [DetailRoutes.Cart]: undefined;
+  // 2026-08-17(세션 12) — S-25 위시리스트. 목록은 wishlistStore가 들고 있어서 파라미터가 없습니다.
+  [DetailRoutes.Wishlist]: undefined;
 };
 
 // Root: Auth ↔ Onboarding ↔ Main 전체 교체 (뒤로가기로 못 돌아감)

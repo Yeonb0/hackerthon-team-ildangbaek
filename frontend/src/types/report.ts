@@ -9,6 +9,8 @@
 // 등록해두고, 실제 S-19/S-20은 이 파일의 타입대로 "추이 그래프 + 인사이트 카드" /
 // "추이 그래프 + 이벤트 목록"으로 구현합니다.
 
+import type { SkinRecordResult } from '@/types/skin';
+
 export type ReportPeriod = 7 | 30;
 
 // 앱 내부에서는 소문자로 통일합니다 (adapters.ts의 METRIC_LABELS 키와 동일 규칙).
@@ -60,8 +62,9 @@ export interface ReportResult {
 export interface MetricScoreSummary {
   metric: MetricKey;
   score: number;
-  /** 이전 기간 대비 증감. 트러블/홍조/색소잡티/모공은 낮을수록 좋음 — 방향 해석은
-   * 화면(ReportSummaryCard)이 담당하고 이 타입은 부호 있는 원값만 갖습니다. */
+  /** 이전 기간 대비 증감. 지표 4종은 **높을수록 좋음**이라 양수가 개선입니다
+   * (2026-08-18 확정). 방향 해석은 화면(ReportSummaryCard)이 담당하고
+   * 이 타입은 부호 있는 원값만 갖습니다. */
   delta: number | null;
 }
 
@@ -134,4 +137,21 @@ export interface InsightDetail {
    * 화면이 섹션을 감춥니다(REPORT-02 BR9).
    */
   tip: string | null;
+}
+
+/**
+ * REPORT-03 · 일자별 리포트 조회(`GET /reports/daily`) 응답.
+ *
+ * 월간 기록 캘린더에서 지난 날짜를 여는 경로 전용입니다(백엔드 `ReportDailyResponse`
+ * javadoc이 이 화면을 명시적으로 지목합니다). `records`는 SKIN-01/02와 **같은 구조**라
+ * `SkinRecordResult`를 그대로 재사용합니다 — 하루 2건(모닝·나이트)을 대표값으로 접지
+ * 않고 각각 원소로 싣습니다(ADR 0012).
+ *
+ * ⚠️ 기록이 없으면 **빈 배열**입니다. 404가 아니라 정상 응답이므로 호출부가 에러로
+ * 다루면 안 됩니다.
+ */
+export interface ReportDailyResult {
+  date: string; // 'YYYY-MM-DD'
+  /** 모닝 → 나이트 순. 요청에 timeSlot을 주면 해당 슬롯만 담깁니다. */
+  records: SkinRecordResult[];
 }

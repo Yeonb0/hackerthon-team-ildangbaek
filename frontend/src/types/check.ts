@@ -3,11 +3,16 @@
 // Check API(api_명세서.md §10) 반영. "여기서 조회한 제품은 사용 기록으로 저장하지 않는다"
 // (F-CHECK-02 BR3) — Product 도메인과 API 자체는 별개입니다.
 import type { IngredientStatus } from '@/types/product';
+// 습도 등급은 홈(HOME-01)과 공유하는 값이라 types/environment.ts가 정본입니다(2026-08-18).
+// 예전엔 이 파일과 types/home.ts가 각자 선언했고, home 쪽이 백엔드에 없는 값(LOW|HIGH)을
+// 갖고 있어 건조 팁이 영원히 안 뜨는 버그가 있었습니다.
+import type { HumidityGrade } from '@/types/environment';
+
+export type { HumidityGrade };
 
 // SHOP-01 3분류(ADR 0018, 2026-08-17 백엔드 구현 완료) — 제품은 항상 정확히 1개 분류만
 // 받습니다. 우선순위 TODAY_NEEDED > HUMIDITY_CARE > MATCHED_INGREDIENT.
 export type RecommendationCategory = 'TODAY_NEEDED' | 'HUMIDITY_CARE' | 'MATCHED_INGREDIENT';
-export type HumidityGrade = 'DRY' | 'NORMAL' | 'HUMID';
 
 export interface CheckRecommendation {
   productId: number;

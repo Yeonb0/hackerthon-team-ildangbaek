@@ -1,6 +1,5 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/authStore';
-import { DEV_USER_ID } from '@/lib/devFlags';
 import { ErrorCode } from '@/types/errorCodes';
 
 // ⚠️ EXPO_PUBLIC_API_BASE_URL에는 '/api/v1'까지 포함합니다.
@@ -16,19 +15,18 @@ export const apiClient = axios.create({
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 // 요청 인터셉터: 매 요청마다 accessToken을 Authorization 헤더에 자동으로 붙입니다.
+//
+// ⚠️ 2026-08-18(백엔드 연동일) — `X-User-Id` 헤더를 제거했습니다.
+//    백엔드가 ADR 0017로 임시 인증을 토큰 하나로 통합하면서
+//    CurrentUserIdArgumentResolver가 **Authorization 헤더만** 읽도록 바뀌었습니다.
+//    형식: `Bearer mock-access-{userId}-{nonce}.{signature}` — 서버 비밀키(MockTokenSigner)
+//    서명이 맞는 토큰만 신뢰하므로, X-User-Id를 아무리 붙여도 서버는 보지 않습니다.
+//    즉 로그인 없이 .env 값만으로 API를 찔러보던 경로는 더 이상 동작하지 않습니다
+//    (반드시 POST /auth/login을 먼저 통과해야 합니다).
 apiClient.interceptors.request.use((config) => {
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
-  }
-
-  // ⚠️ 임시 (백엔드 ADR 0006) — 백엔드에 아직 JWT/Spring Security가 없어서 현재 서버는
-  // Authorization이 아니라 `X-User-Id` 헤더로 사용자를 식별합니다. 이 헤더가 없으면
-  // 실서버로 붙는 순간 skin/report/user 엔드포인트가 전부 인증 실패합니다.
-  // .env에 EXPO_PUBLIC_DEV_USER_ID를 넣었을 때만 붙으며, 백엔드 JWT가 들어오면
-  // .env에서 값을 비우기만 하면 됩니다(코드 수정 불필요).
-  if (DEV_USER_ID) {
-    config.headers['X-User-Id'] = DEV_USER_ID;
   }
   return config;
 });

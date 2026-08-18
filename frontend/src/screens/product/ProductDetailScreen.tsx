@@ -21,13 +21,15 @@
 // 불릿 1개만 그립니다(나머지 2개는 지어낼 근거가 없어 생략).
 //
 // 구매하러 가기: API 명세서·기능명세서 전체에 이 기능이 없는 걸 확인했습니다
-// (관리자님 확인, 2026-08-13) — 완전히 프론트 목업이며 실제 이동 없이 Toast만 띄웁니다.
+// (관리자님 확인, 2026-08-13). 2026-08-18(세션 18)부터 목업 Toast 대신 **올리브영 검색
+// 결과 페이지를 외부 브라우저/앱으로 엽니다**(관리자 결정). 백엔드 API는 여전히 관여하지
+// 않습니다 — URL만 만들어 Linking으로 넘깁니다. 제약·근거는 src/lib/externalShop.ts 상단 주석.
 //
-// 장바구니에 담기: 2026-08-17(세션 12)부터 실제로 동작합니다(관리자님 요청). 백엔드 API는
-// 여전히 없어서 cartStore(SecureStore/localStorage 클라이언트 저장)에만 담기고, 담긴 상태면
-// 같은 버튼이 "장바구니에서 빼기"로 바뀝니다. 관리자 결정에 따라 담기 버튼은 이 화면에만
-// 두고 쇼핑 화면 추천 카드에는 넣지 않습니다. 제약은 src/store/cartStore.ts 상단 주석과
-// docs/design-request-cart.md 참고.
+// 위시리스트: 2026-08-17(세션 12)부터 실제로 동작합니다(관리자님 요청). 백엔드 API는
+// 여전히 없어서 wishlistStore(SecureStore/localStorage 클라이언트 저장)에만 남고, 이미 추가된
+// 상태면 같은 버튼이 "위시리스트에서 삭제"로 바뀝니다. 관리자 결정에 따라 이 버튼은 이 화면
+// 에만 두고 쇼핑 화면 추천 카드에는 넣지 않습니다. 제약은 src/store/wishlistStore.ts 상단 주석
+// 참고. (2026-08-18 세션 18에 "장바구니" → "위시리스트"로 개명 — 사유는 그 주석에 있습니다.)
 //
 // Figma 배치 맞춤(관리자님 요청, 2026-08-13) — SHOP-02(node 193:5932) 구조를 그대로 따름:
 //   Nav(← + 제목) → 구분선 → 제품 헤더(사진 80x80 + 브랜드/이름/카테고리) → 요약 카드
@@ -53,7 +55,8 @@ import { useProductDetail } from '@/api/queries/product';
 import { computeCheck } from '@/api/queries/check';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
-import { useCartStore, useIsInCart } from '@/store/cartStore';
+import { useWishlistStore, useIsInWishlist } from '@/store/wishlistStore';
+import { openOliveYoungSearch } from '@/lib/externalShop';
 import { DetailStackParamList } from '@/app/routes';
 import { color, space, typography } from '@/theme';
 import type { CheckResult, RiskLevel } from '@/types/check';
@@ -155,29 +158,35 @@ export function ProductDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 구매는 목업이라 실패할 일이 없어서 별도 mutation 없이 즉시 Toast만 띄웁니다.
-  const handlePurchase = () => setToastMessage('데모에서는 실제 구매로 연결되지 않아요.');
+  // 구매하러 가기 — 올리브영 검색 결과를 외부 브라우저/앱으로 엽니다(파일 상단 주석 참고).
+  // 검색어는 제품명만 씁니다(관리자 결정) — 브랜드까지 붙이면 결과 0건이 늘어납니다.
+  const handlePurchase = async () => {
+    const product = detailQuery.data;
+    if (!product) return;
+    const opened = await openOliveYoungSearch(product.name);
+    if (!opened) setToastMessage('올리브영을 여는 데 실패했어요.');
+  };
 
-  // 장바구니는 cartStore(클라이언트 저장)에 실제로 담깁니다 — 파일 상단 주석 참고.
-  const isInCart = useIsInCart(productId);
-  const addToCart = useCartStore((s) => s.add);
-  const removeFromCart = useCartStore((s) => s.remove);
+  // 위시리스트는 wishlistStore(클라이언트 저장)에 실제로 쌓입니다 — 파일 상단 주석 참고.
+  const isInWishlist = useIsInWishlist(productId);
+  const addToWishlist = useWishlistStore((s) => s.add);
+  const removeFromWishlist = useWishlistStore((s) => s.remove);
 
-  const handleToggleCart = () => {
-    if (isInCart) {
-      removeFromCart(productId);
-      setToastMessage('장바구니에서 빼냈어요.');
+  const handleToggleWishlist = () => {
+    if (isInWishlist) {
+      removeFromWishlist(productId);
+      setToastMessage('위시리스트에서 삭제했어요.');
       return;
     }
     // 이름·브랜드는 상세 조회 결과에서 가져옵니다. 아직 로딩 중이면 버튼 자체가 안 보이는
     // 상태(로딩 화면)라 여기 올 수 없지만, 방어적으로 막아둡니다.
     const product = detailQuery.data;
     if (!product) return;
-    const overflow = addToCart({ productId, name: product.name, brand: product.brand });
+    const overflow = addToWishlist({ productId, name: product.name, brand: product.brand });
     setToastMessage(
       overflow > 0
-        ? '장바구니가 가득 차서 가장 오래 담아둔 제품을 뺐어요.'
-        : '장바구니에 담았어요.'
+        ? '위시리스트가 가득 차서 가장 먼저 추가한 제품을 뺐어요.'
+        : '위시리스트에 추가했어요.'
     );
   };
 
@@ -322,9 +331,9 @@ export function ProductDetailScreen() {
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[3] }]}>
         <Button label="구매하러 가기" variant="primary" onPress={handlePurchase} style={styles.bottomButton} />
         <Button
-          label={isInCart ? '장바구니에서 빼기' : '장바구니에 담기'}
+          label={isInWishlist ? '위시리스트에서 삭제' : '위시리스트에 추가'}
           variant="ghost"
-          onPress={handleToggleCart}
+          onPress={handleToggleWishlist}
           style={styles.bottomButton}
         />
       </View>

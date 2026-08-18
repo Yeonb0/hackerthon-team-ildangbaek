@@ -24,7 +24,7 @@ import { ErrorState } from '@/components/state/ErrorState';
 import { useRecordCalendar, useRecordDayDetail } from '@/api/queries/record';
 import { formatYearMonthString, isFutureDateString } from '@/lib/date';
 import { useWeekStartStore } from '@/store/weekStartStore';
-import { DetailStackParamList } from '@/app/routes';
+import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space, weightFamily } from '@/theme';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
@@ -65,6 +65,24 @@ export function RecordCalendarScreen() {
     } else {
       setMonth((m) => m + 1);
     }
+  };
+
+  /**
+   * 바텀시트 "자세히 보기" → 그 날짜의 피부 결과(S-18).
+   *
+   * 시트를 **먼저 닫습니다.** 안 닫으면 뒤로 돌아왔을 때 시트가 열린 채로 남아 있어,
+   * 사용자가 닫기를 두 번 눌러야 캘린더가 보입니다. selectedDate를 비우면 시트의
+   * visible이 false가 되면서 자연스럽게 정리됩니다.
+   *
+   * S-18은 date가 있으면 REPORT-03으로 그 날짜를 읽고 하단 CTA도 "닫기"로 바뀝니다.
+   * timeSlot은 넘기지 않습니다 — 시트가 종합 점수 하나만 보여주는 구조라 슬롯을
+   * 고르는 UI가 없고, 서버가 모닝 → 나이트 순으로 주므로 첫 원소(모닝 우선)를 씁니다.
+   */
+  const handleViewSkinDetail = () => {
+    const date = selectedDate;
+    if (!date) return;
+    setSelectedDate(null);
+    navigation.navigate(DetailRoutes.SkinResult, { date });
   };
 
   return (
@@ -170,6 +188,7 @@ export function RecordCalendarScreen() {
             : undefined
         }
         onRequestClose={() => setSelectedDate(null)}
+        onViewSkinDetail={handleViewSkinDetail}
       />
     </View>
   );

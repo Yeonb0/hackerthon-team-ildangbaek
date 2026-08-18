@@ -24,6 +24,14 @@ export type IngredientStatus = 'GOOD' | 'CAUTION' | 'INSUFFICIENT';
 export interface TopIngredientItem {
   ingredientId: number;
   name: string;
+  /**
+   * 성분 설명 — 백엔드가 2026-08-16(`03283f8`)에 추가한 필드입니다. 세션 16까지
+   * 프론트 타입에 없어서 **파싱 단계에서 그냥 버려지고 있었습니다.**
+   *
+   * ⚠️ 당분간 대부분 null입니다. 백엔드 `Ingredient.description`이 `@Lob`인데
+   * 성분 사전 시드 데이터가 아직 없습니다 — 값이 있을 때만 그리세요.
+   */
+  description: string | null;
   status: IngredientStatus;
 }
 
@@ -79,6 +87,14 @@ export interface ProfileResult {
 export interface IngredientListItem {
   ingredientId: number;
   name: string;
+  /**
+   * 성분 설명 — 백엔드가 2026-08-16(`03283f8`)에 추가한 필드입니다. 세션 16까지
+   * 프론트 타입에 없어서 **파싱 단계에서 그냥 버려지고 있었습니다.**
+   *
+   * ⚠️ 당분간 대부분 null입니다. 백엔드 `Ingredient.description`이 `@Lob`인데
+   * 성분 사전 시드 데이터가 아직 없습니다 — 값이 있을 때만 그리세요.
+   */
+  description: string | null;
   status: IngredientStatus;
   /** INSUFFICIENT면 항상 null — 데이터 부족한 성분에 근거를 지어내지 않는다(BR1). */
   reason: string | null;
@@ -120,11 +136,20 @@ export interface UpdateProfileInput {
 }
 
 // ---------------------------------------------------------------------------
-// 회원 탈퇴 (엔드포인트 미구현 — docs/backend-request-account-withdraw.md 참고)
+// 회원 탈퇴 · DELETE /users/me
 //
-// 백엔드 User 엔티티에 withdraw()와 AccountStatus.WITHDRAWN이 이미 있지만
-// UserController에 대응 엔드포인트가 없습니다(2026-08-17 확인). 프론트는 mock으로
-// 두고, 실제 경로가 열리면 queries/user.ts의 withdrawAccount만 바꾸면 됩니다.
+// ⚠️ 2026-08-18 정정 — 예전 주석은 "UserController에 대응 엔드포인트가 없다(2026-08-17
+// 확인)"였는데 **지금은 있습니다.** `UserController.withdraw()`가 열려 있고
+// `queries/user.ts`의 withdrawAccount도 이미 실API를 호출하고 있습니다 —
+// 주석만 옛 상태로 남아 있었습니다.
+//
+// 물리 삭제가 아니라 AccountStatus.WITHDRAWN 전환입니다(명세 BR1). 전환 후에는
+// CurrentUserIdArgumentResolver의 isActive 필터에 걸려 남은 토큰으로 어떤 API도
+// 통과하지 못합니다.
+//
+// 아래 WithdrawInput은 아직 어디에도 전달하지 않습니다 — 백엔드가 요청 본문을 받지
+// 않습니다(@DeleteMapping에 @RequestBody 없음). 탈퇴 사유 수집이 확정되면 그때
+// 본문 스펙을 요청하면 됩니다.
 // ---------------------------------------------------------------------------
 
 export interface WithdrawInput {

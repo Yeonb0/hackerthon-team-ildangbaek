@@ -21,19 +21,25 @@
 //   · **"미확인" 칩 미채택** — Figma 필터 칩은 5개(전체/잘 맞음/지켜보는 중/주의/미확인)
 //     인데 서버 상태는 3종뿐이라 "미확인"에 대응할 값이 없습니다. 넣으면 눌러도 항상
 //     빈 목록이 나오는 죽은 칩이 됩니다(Figma 리스트 본문에도 미확인 배지가 없습니다).
-//   · **성분 효능 설명 없음** — Figma는 성분명 아래 "미백·모공 축소 효과" 같은 사전
-//     정보를 답니다. USER-02에는 그런 필드가 없고, 있는 `reason`은 "내 피부에서 이랬다"는
-//     개인 판정 근거라 성격이 다릅니다. 지금은 reason을 그 자리에 쓰고, 성분 설명
-//     필드는 docs/backend-request-ingredient-description.md로 요청했습니다.
+//   · **성분 효능 설명 + 개인 판정 근거를 2줄로** — Figma는 성분명 아래 "미백·모공 축소
+//     효과" 같은 사전 정보 **한 줄**만 답니다. 예전에는 그 필드가 API에 없어서 그 자리에
+//     `reason`(개인 판정 근거)을 대신 넣어뒀는데, 요청했던 `description` 필드가 백엔드에
+//     추가되면서(2026-08-16) 둘 다 갖게 됐습니다. 성격이 다른 정보라 합치지 않고 2줄로
+//     나눴습니다(관리자 결정 B안, 2026-08-18) — `reason`은 "내 피부에서 이랬다"는 개인
+//     근거라 이 앱의 차별점이고, 사전 설명으로 대체하면 사라집니다.
+//     `description`은 백엔드 성분 사전 시드가 아직 없어 대부분 null이고, null이면 그 줄을
+//     통째로 생략하므로 **당분간 실서버에선 예전과 똑같이 2줄로 보입니다.**
+//     ⚠️ 두 줄이 된 뒤의 행 높이·색 위계는 Figma 미확정입니다.
 //   · **구분선 실선** — Figma는 점선(border-dashed)인데 RN은 View에 점선 테두리를 주면
 //     안드로이드에서 렌더가 불안정합니다(borderStyle: 'dashed'가 무시되거나 모서리가
 //     깨짐). 1px 실선으로 둡니다.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppTextInput } from '@/components/base/AppTextInput';
 import { Tag, TagVariant } from '@/components/base/Tag';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { LoadingState } from '@/components/state/LoadingState';
@@ -63,12 +69,17 @@ const STATUS_OPTIONS: IngredientStatus[] = ['GOOD', 'INSUFFICIENT', 'CAUTION'];
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
 /**
- * 성분명 아래 설명 한 줄.
+ * 성분명 아래 **개인 판정 근거** 한 줄.
  *
  * `reason`이 있으면 그대로 쓰고, 없으면(= INSUFFICIENT, BR1) 기록 횟수를 보여줍니다 —
  * "왜 아직 판정이 안 났는지"를 가늠할 수 있는 유일한 단서라서입니다(BR2).
+ *
+ * ⚠️ 2026-08-18 — 이 함수는 이제 **성분 사전 설명(description)이 아닙니다.** 백엔드가
+ * `description` 필드를 추가해주면서 둘이 분리됐습니다. 여기는 "내 피부에서 이랬다"는
+ * 개인 판정 근거 전용이고, 일반 설명은 `item.description`이 따로 담습니다.
+ * 항상 값이 있으므로 이 줄은 절대 비지 않습니다.
  */
-function descriptionOf(item: IngredientListItem): string {
+function reasonOf(item: IngredientListItem): string {
   if (item.reason) return item.reason;
   return item.recordCount > 0
     ? `기록 ${item.recordCount}회 · 판단하기엔 아직 부족해요`
@@ -116,7 +127,7 @@ export function IngredientListScreen() {
             없음) 대신 여기서 직접 구성합니다. */}
         <View style={styles.searchBox}>
           <IconSearch size={14} color={color.textMuted} />
-          <TextInput
+          <AppTextInput
             value={keyword}
             onChangeText={setKeyword}
             placeholder="성분 검색"
@@ -169,8 +180,15 @@ export function IngredientListScreen() {
                   <Text style={styles.name} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={styles.description} numberOfLines={1}>
-                    {descriptionOf(item)}
+                  {/* 성분 사전 설명 — 백엔드 시드가 아직 없어 대부분 null입니다.
+                      값이 있을 때만 줄을 만들어서, 없으면 기존과 똑같이 2줄로 보입니다. */}
+                  {item.description ? (
+                    <Text style={styles.ingredientDescription} numberOfLines={2}>
+                      {item.description}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.reason} numberOfLines={1}>
+                    {reasonOf(item)}
                   </Text>
                 </View>
                 <Tag variant={STATUS_TO_TAG_VARIANT[item.status]} />
@@ -246,6 +264,9 @@ const styles = StyleSheet.create({
   },
   textArea: {
     flex: 1,
+    // 두 줄이 붙어 보이지 않도록 최소 간격만 줍니다. description이 없으면 이 gap도
+    // 무의미해져서(자식이 2개뿐) 기존 레이아웃과 동일하게 보입니다.
+    gap: 2,
   },
   name: {
     fontSize: adjustFontSize(14),
@@ -253,7 +274,19 @@ const styles = StyleSheet.create({
     ...weightFamily('bold'),
     color: color.textInk,
   },
-  description: {
+  /**
+   * 성분 사전 설명(item.description) — 일반 정보라 아래 reason보다 한 톤 옅게 둡니다.
+   * ⚠️ 색·간격은 Figma 미확정 상태의 잠정값입니다. Figma에는 이 자리에 설명 한 줄만
+   * 있고 개인 판정 근거는 없어서, 두 줄이 된 지금의 위계는 확인이 필요합니다.
+   */
+  ingredientDescription: {
+    fontSize: adjustFontSize(12),
+    lineHeight: 18,
+    ...weightFamily('medium'),
+    color: color.textMuted,
+  },
+  /** 개인 판정 근거(reason) — 이 앱의 핵심 정보라 기존 스타일을 그대로 유지합니다. */
+  reason: {
     fontSize: adjustFontSize(12),
     lineHeight: 18,
     ...weightFamily('medium'),

@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import { Pressable, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
+import { AppTextInput } from '@/components/base/AppTextInput';
 import { IconBarcode, IconClose, IconSearch } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
@@ -30,7 +31,7 @@ export const ProductSearchBar = forwardRef<TextInput, ProductSearchBarProps>(fun
   return (
     <View style={[styles.container, style]}>
       <IconSearch size={18} color={color.ink300} style={styles.leadingIcon} />
-      <TextInput
+      <AppTextInput
         ref={ref}
         value={value}
         onChangeText={onChangeText}

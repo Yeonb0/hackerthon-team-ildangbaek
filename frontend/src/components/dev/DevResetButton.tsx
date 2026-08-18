@@ -13,6 +13,10 @@
 //   그대로 유지되고, 다음에 홈에 진입하면 온보딩부터 다시 시작합니다.
 // - 피부 기록 초기화: 오늘 새로 완료한 피부 기록의 목업 세션만 지웁니다. 기록 허브가
 //   다시 "미완료"로 보이게 됩니다. 로그인/온보딩 상태는 그대로입니다.
+// - 컴포넌트 카탈로그: CatalogScreen을 앱 안에서 바로 켜고 끕니다. 예전엔 .env의
+//   EXPO_PUBLIC_SHOW_CATALOG를 바꾸고 dev 서버를 재시작해야 했는데, 컴포넌트를 확인할
+//   때마다 껐다 켜는 게 번거로워서 런타임 토글로 옮겼습니다(관리자님 요청). 카탈로그가
+//   떠 있는 동안에도 이 버튼은 그대로 보이므로 같은 메뉴로 되돌아올 수 있습니다.
 // - 리포트 목업 전환: S-19가 GET /reports 목업으로부터 "기록 있음"(정상 데이터) 또는
 //   "기록 부족"(REPORT_DATA_INSUFFICIENT 409) 중 어떤 응답을 받을지 즉시 바꿉니다.
 //   예전엔 .env의 EXPO_PUBLIC_MOCK_REPORT_INSUFFICIENT + 앱 재시작으로 전환했는데,
@@ -34,6 +38,12 @@ import { setMockSkinScenario } from '@/api/mock/skin';
 import { setMockWeatherScenario } from '@/api/mock/home';
 import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
+import { useDevUiStore } from '@/store/devUiStore';
+import {
+  useMetricLabelStore,
+  METRIC_LABEL_MODE_TITLE,
+} from '@/store/metricLabelStore';
+import { SHOW_CATALOG } from '@/lib/devFlags';
 import { getWeatherLabel } from '@/lib/weather';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
@@ -45,8 +55,8 @@ import type { WeatherCondition } from '@/types/home';
 // 최대 높이를 잡아서, 그 이상은 ScrollView로 스크롤하게 합니다.
 const MENU_MAX_HEIGHT = Dimensions.get('window').height * 0.55;
 
-// 2026-08-16 — 날씨 배경 dev 전환 버튼 목록. WeatherCondition 8종 전부(로드맵 7종 +
-// 백엔드 실제 폴백값 FOG) 순서대로 노출합니다.
+// 2026-08-16 — 날씨 배경 dev 전환 버튼 목록. WeatherCondition 7종 전부를 순서대로
+// 노출합니다. 2026-08-18 — FOG는 백엔드 enum에서 사라져 제거했습니다(7종 확정).
 const WEATHER_SCENARIO_OPTIONS: WeatherCondition[] = [
   'SUNNY',
   'CLOUDY',
@@ -55,11 +65,16 @@ const WEATHER_SCENARIO_OPTIONS: WeatherCondition[] = [
   'SNOW',
   'YELLOW_DUST',
   'THUNDERSTORM',
-  'FOG',
 ];
 
 export function DevResetButton() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const catalogOpen = useDevUiStore((state) => state.catalogOpen);
+  const toggleCatalog = useDevUiStore((state) => state.toggleCatalog);
+  // 라벨 개명안 비교(2026-08-18) — 카탈로그를 닫은 상태에서도 실제 화면 위에서 바로
+  // 전환할 수 있어야 회의 중 S-19/S-18을 번갈아 보여줄 수 있습니다. 확정 후 제거합니다.
+  const labelMode = useMetricLabelStore((state) => state.mode);
+  const cycleLabelMode = useMetricLabelStore((state) => state.cycleMode);
   const setTotalStepCount = useOnboardingStore((state) => state.setTotalStepCount);
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
@@ -79,6 +94,20 @@ export function DevResetButton() {
   };
 
   const menuItems = [
+    {
+      // .env로 켜 둔 경우엔 여기서 꺼도 환경값이 계속 true라 카탈로그가 유지됩니다.
+      // 그 상황을 라벨로 알려줘서 "버튼이 안 먹는다"로 읽히지 않게 합니다.
+      label: SHOW_CATALOG
+        ? '카탈로그: .env로 켜짐 (앱에서 끌 수 없음)'
+        : catalogOpen
+          ? '🧩 카탈로그 닫기'
+          : '🧩 컴포넌트 카탈로그 열기',
+      onPress: () => runReset(() => toggleCatalog()),
+    },
+    {
+      label: `🏷️ 지표 라벨 → ${METRIC_LABEL_MODE_TITLE[labelMode]}`,
+      onPress: () => runReset(() => cycleLabelMode()),
+    },
     { label: '로그인 초기화', onPress: () => runReset(() => clearAuth()) },
     {
       label: '온보딩 초기화',
@@ -202,9 +231,8 @@ export function DevResetButton() {
         }),
     },
     // 2026-08-16 — 낮 홈 히어로 배경(날씨별 화장대 일러스트)을 실기기에서 골라서 볼 수
-    // 있게 추가했습니다. YELLOW_DUST는 아직 에셋이 없어서 CLOUDY로 대체 표시되지만
-    // (lib/weather.ts getWeatherBackground 폴백), 버튼 자체는 남겨뒀습니다 — 에셋
-    // 도착하면 자동으로 반영됩니다.
+    // 있게 추가했습니다. 2026-08-18 — YELLOW_DUST 에셋이 도착해 7종 전부 실제 배경이
+    // 채워졌습니다(예전엔 황사만 CLOUDY로 대체 표시됐습니다).
     ...WEATHER_SCENARIO_OPTIONS.map((weather) => ({
       label: `날씨 배경 → ${getWeatherLabel(weather)}`,
       onPress: () =>

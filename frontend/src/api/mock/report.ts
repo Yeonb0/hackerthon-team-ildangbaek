@@ -41,8 +41,8 @@ const METRIC_BASE_SCORE: Record<MetricKey, number> = {
  * 3일에 한 번은 두 슬롯 모두 결측(null)을 섞고, 4일에 한 번은 나이트만 비워서
  * 화면이 "하루 중 한쪽만 기록한 날"까지 늘 마주치도록 합니다 (ADR 0012·0013).
  *
- * dayCount는 REPORT-01의 period(7|30)뿐 아니라 REPORT-02의 인사이트 창(14일)에도
- * 쓰이므로 ReportPeriod가 아니라 number를 받습니다.
+ * dayCount는 REPORT-01의 period(7|30)와 REPORT-02의 인사이트 창(30일) 양쪽에 쓰이므로
+ * ReportPeriod가 아니라 number를 받습니다.
  *
  * ⚠️ 첫날·마지막날은 항상 값을 채웁니다(2026-08-17). 곡선은 유효한 점끼리만 잇기
  * 때문에 양 끝이 결측이면 그만큼 안쪽에서 시작·끝나서, 화면마다 그래프 가로 폭이
@@ -113,13 +113,16 @@ export function buildMockReport(period: ReportPeriod, metric: MetricKey): Report
   };
 }
 
-// Figma 컬러 최종본(210:2437) 실측값을 그대로 씁니다 — 관리자가 화면에서 직접
-// 대조할 수 있도록 목업 숫자를 임의로 바꾸지 않았습니다.
+// 2026-08-18 — 점수 방향 "높을수록 좋음" 확정에 맞춰 Figma 실측값(210:2437)을 100에서
+// 뺀 대칭값으로 옮기고 delta 부호를 뒤집었습니다. mock/skin.ts와 같은 처리입니다.
+//   Figma 값: 트러블 38 ▼1 · 홍조 34 ▲1 · 색소잡티 47 ▼2 · 모공 40 ▲3
+// ⚠️ 따라서 Figma와 숫자를 직접 대조하면 어긋납니다(그 화면은 반대 방향 전제).
+//    레이아웃·색 규칙 대조에는 문제없습니다.
 const MOCK_SUMMARY_METRICS: MetricScoreSummary[] = [
-  { metric: 'trouble', score: 38, delta: -1 },
-  { metric: 'redness', score: 34, delta: 1 },
-  { metric: 'pigmentation', score: 47, delta: -2 },
-  { metric: 'pores', score: 40, delta: 3 },
+  { metric: 'trouble', score: 62, delta: 1 },
+  { metric: 'redness', score: 66, delta: -1 },
+  { metric: 'pigmentation', score: 53, delta: 2 },
+  { metric: 'pores', score: 60, delta: -3 },
 ];
 
 function buildMockTotalGraph(period: ReportPeriod): { date: string; score: number | null }[] {
@@ -164,8 +167,13 @@ export function buildMockReportSummary(period: ReportPeriod): ReportSummaryResul
  * 윈도우 안에 자연스럽게 들어오게 했습니다 — 101(2일 전)은 7일 뷰에도 보이고,
  * 102(9일 전)·103(20일 전)은 30일 뷰에서만 보입니다. */
 /** REPORT-02는 period 파라미터가 없고 인사이트가 만들어진 창을 그대로 내려줍니다.
- * 목업은 그 창을 14일로 고정하고, subtitle 메타 문구도 같은 값에서 만듭니다. */
-const MOCK_DETAIL_WINDOW_DAYS = 14;
+ * 목업은 그 창을 고정값으로 두고, subtitle 메타 문구와 그래프를 같은 값에서 만듭니다.
+ *
+ * 2026-08-18 — 14 → 30. api_명세서.md의 REPORT-02 응답 예시가 "최근 30일 · 이벤트와
+ * 상관관계"라서 목업만 14일로 어긋나 있었습니다(관리자 제보). 30일로 맞추면 20일 전
+ * 이벤트(insightId 103)도 창 안에 들어와 밴드가 정상적으로 그려집니다 — 14일 창에서는
+ * 그래프 밖이라 이벤트가 사라져 있었습니다. */
+const MOCK_DETAIL_WINDOW_DAYS = 30;
 
 const INSIGHT_DETAIL_SEED: Record<
   number,
@@ -194,9 +202,11 @@ const INSIGHT_DETAIL_SEED: Record<
       {
         daysAgo: 11,
         label: '레티놀 이 기간 첫 사용',
-        impact: '이후 2일 뒤 트러블 수치 +16',
+        // 2026-08-18 방향 확정 — 점수가 높을수록 좋으므로, "레티놀 사용 후 트러블이
+        // 나빠졌다"는 기존 시나리오를 유지하려면 delta가 음수여야 합니다.
+        impact: '이후 2일 뒤 트러블 수치 -16',
         confidence: 'OBSERVED',
-        delta: 16,
+        delta: -16,
         eventKind: 'INGREDIENT_USAGE',
       },
       // 성분 인사이트의 신뢰도는 그 성분에 대한 것이라, 자외선 이벤트는 항상 OBSERVING입니다
@@ -279,8 +289,8 @@ export function buildMockInsightDetail(insightId: number): InsightDetail {
     // 올 때 요약 카드에 메타 문구가 떠서 어긋납니다.
     subtitle: `최근 ${MOCK_DETAIL_WINDOW_DAYS}일 · 이벤트와 상관관계`,
     summary: seed.summary,
-    // Figma는 "최근 14일" 창을 씁니다(리포트 홈의 7/30일 토글과 별개 — REPORT-02엔
-    // period 파라미터 자체가 없고 인사이트가 만들어진 창을 그대로 내려줍니다).
+    // 리포트 홈의 7/30일 토글과 별개입니다 — REPORT-02엔 period 파라미터 자체가 없고
+    // 인사이트가 만들어진 창을 서버가 그대로 내려줍니다. 목업은 명세 예시대로 30일.
     graph: buildMockGraph(MOCK_DETAIL_WINDOW_DAYS, METRIC_BASE_SCORE[seed.metric]),
     events: seed.events
       .map((event) => ({

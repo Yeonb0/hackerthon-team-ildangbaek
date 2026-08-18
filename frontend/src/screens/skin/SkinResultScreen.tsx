@@ -1,6 +1,7 @@
 // SkinResultScreen.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,12 +14,19 @@ import { MetricScoreList } from '@/components/domain/MetricScoreList';
 import { RadarChart } from '@/components/chart/RadarChart';
 import { IconBack } from '@/components/icons';
 import { toMetricList, type MetricListItem } from '@/api/adapters';
-import { getSkinRecordToday } from '@/api/skin';
+import { getSkinRecordByDate, getSkinRecordToday } from '@/api/skin';
 import { ApiError } from '@/api/unwrap';
 import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, metricAccent, reportCardShadow, reportColor, space } from '@/theme/tokens';
 import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { SkinRecordResult } from '@/types/skin';
+import {
+  metricGradeOf,
+  metricGradeLabel,
+  metricGradeAccent,
+  type MetricGrade,
+} from '@/lib/metricGrade';
+import { metricPhrase } from '@/lib/metricLabels';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -29,38 +37,29 @@ type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 const BASELINE_SCORE = 50;
 
 /**
- * 지표 점수 등급. 지표 4종은 모두 **낮을수록 좋음**입니다(REPORT-01 BR7, Figma TodaySkin).
+ * 지표 점수 등급. 지표 4종은 모두 **높을수록 좋음**입니다(2026-08-18 확정).
  *
- * 경계값은 Figma 118:9423 실측에서 역산했습니다 — 트러블 38·모공 44·색소잡티 55가 전부
- * "보통", 홍조 62가 "주의"입니다. 따라서 좋음 경계는 30, 주의 경계는 60입니다.
- * ⚠️ 기획이 정한 임계값이 아니라 화면 한 장에서 역산한 값이라 확인이 필요합니다.
+ * 임계값과 판정은 `lib/metricGrade.ts`가 단독으로 갖습니다 — 쇼핑 홈의
+ * "오늘 내 피부에 필요해요" 부제가 같은 경계를 쓰기 때문에, 여기서 따로 상수를
+ * 들고 있으면 한쪽만 바뀌었을 때 같은 점수가 화면마다 다른 등급으로 보입니다.
+ * 방향 확정 근거와 임계값 미확정 사유는 그 파일 주석을 참고하세요.
  */
-const GRADE_GOOD_BELOW = 30;
-const GRADE_CAUTION_FROM = 60;
-
 function gradeOf(score: number): { label: string; accent: string } {
-  if (score < GRADE_GOOD_BELOW) return { label: '좋음', accent: reportColor.safe };
-  if (score < GRADE_CAUTION_FROM) return { label: '보통', accent: reportColor.amber };
-  return { label: '주의', accent: reportColor.caution };
+  return { label: metricGradeLabel(score), accent: metricGradeAccent(score) };
 }
 
 /** Figma 118:9504 등의 지표별 한 줄 설명. 등급에 따라 문구가 바뀝니다. */
 // 카드 제목에 이미 지표명이 있으므로 주어를 반복하지 않습니다 — 2열 카드에서 숫자와
 // 나란히 놓이면 문구 폭이 100px 남짓이라, 주어를 넣으면 대부분 두 줄로 접힙니다
 // (실기기 확인, 2026-08-17).
-const METRIC_PHRASE: Record<string, [good: string, normal: string, caution: string]> = {
-  trouble: ['거의 없어요', '조금 있어요', '많은 편이에요'],
-  redness: ['거의 없어요', '약간 있어요', '뚜렷해요'],
-  pores: ['눈에 안 띄어요', '보통 수준이에요', '넓은 편이에요'],
-  pigmentation: ['거의 없어요', '중간 수준이에요', '많은 편이에요'],
-};
+//
+// 2026-08-18 — 지표별 증상 문구(「거의 없어요」/「뚜렷해요」 등)를 걷어냈습니다.
+// 카드 제목이 「트러블 안정도」로 바뀌면서(개명 A) 「트러블 안정도 · 거의 없어요」가
+// 무엇이 없다는 건지 정반대로 읽히기 때문입니다. 문구는 lib/metricLabels.ts에 있습니다.
+const PHRASE_INDEX: Record<MetricGrade, 0 | 1 | 2> = { good: 0, normal: 1, caution: 2 };
 
 function phraseOf(item: MetricListItem): string {
-  const set = METRIC_PHRASE[item.key];
-  if (!set) return '';
-  if (item.score < GRADE_GOOD_BELOW) return set[0];
-  if (item.score < GRADE_CAUTION_FROM) return set[1];
-  return set[2];
+  return metricPhrase(PHRASE_INDEX[metricGradeOf(item.score)]);
 }
 
 /**
@@ -98,13 +97,12 @@ function phraseOf(item: MetricListItem): string {
  * 기존 "닫기 / 리포트 보러가기" 2버튼 구성을 교체했습니다. 기록은 SKIN-01 POST 시점에
  * 이미 저장이 끝난 상태라 둘 다 추가 저장은 하지 않습니다(TBD-10b A안).
  *
- * ⚠️ **지표 점수 방향 주의.** 이 화면은 `scores`를 "낮을수록 좋음"으로 해석합니다 —
- * REPORT-01 BR7과 Figma TodaySkin(홍조 62 = "주의") 둘 다 그 방향입니다. 다만 SKIN-01
- * 명세 예시는 반대로 읽힙니다(trouble 74·redness 66인데 totalScore 78). 백엔드
- * `calculateTotalScore`가 4지표 단순 평균(ADR 0008)이라, 지표가 "낮을수록 좋음"이면
- * 총점도 "낮을수록 좋음"이 되어 명세의 "totalScore는 높을수록 좋다"와 충돌합니다.
- * 백엔드 확인이 필요한 항목입니다 — 방향이 뒤집히면 gradeOf/phraseOf만 반대로 바꾸면
- * 되도록 임계값을 상수로 빼뒀습니다.
+ * ✅ **지표 점수 방향 확정(2026-08-18).** `scores`는 **높을수록 좋음**입니다.
+ * 관리자 확정이며 백엔드도 같은 방향입니다(`ai-server/app/metrics.py`·`schema.py`·
+ * `vision.py`). 이로써 SKIN-01 명세 예시(trouble 74·redness 66에 totalScore 78)와
+ * `calculateTotalScore`의 4지표 단순 평균(ADR 0008)이 서로 맞아떨어집니다 —
+ * 예전에 "낮을수록 좋음"으로 읽었을 때 생기던 총점과의 충돌이 사라졌습니다.
+ * 임계값은 여전히 상수로 빼둬서 기획 확정 시 두 줄만 고치면 됩니다.
  *
  * ⚠️ 기록이 아예 없는 상태로 이 화면에 들어오는 건(SKIN_RECORD_NOT_FOUND) 정상 흐름상
  * 발생하지 않습니다 — 기록 허브가 completed일 때만 이 화면으로 보내기 때문입니다.
@@ -115,18 +113,32 @@ export function SkinResultScreen() {
   const route = useRoute<RouteProp<DetailStackParamList, 'SkinResult'>>();
   const insets = useSafeAreaInsets();
 
+  // 월간 기록 캘린더에서 지난 날짜를 열어 들어온 경우에만 실립니다(없으면 오늘).
+  const viewingDate = route.params.date ?? null;
+  const isPastRecord = viewingDate !== null;
+
   const [result, setResult] = useState<SkinRecordResult | null>(null);
   const [loadError, setLoadError] = useState<'network' | 'server' | null>(null);
+  // 그 날짜에 피부 기록이 없는 상태. REPORT-03은 이걸 빈 배열로 주므로 에러가
+  // 아닙니다 — loadError와 분리해서 "재시도" 버튼이 뜨지 않게 합니다.
+  const [isEmpty, setIsEmpty] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
+    setIsEmpty(false);
     try {
-      const data = await getSkinRecordToday(route.params.timeSlot);
+      const data = viewingDate
+        ? await getSkinRecordByDate(viewingDate, route.params.timeSlot)
+        : await getSkinRecordToday(route.params.timeSlot);
+      if (data === null) {
+        setIsEmpty(true);
+        return;
+      }
       setResult(data);
     } catch (e) {
       setLoadError(e instanceof ApiError ? 'server' : 'network');
     }
-  }, [route.params.timeSlot]);
+  }, [viewingDate, route.params.timeSlot]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -148,8 +160,48 @@ export function SkinResultScreen() {
     });
   };
 
+  /**
+   * 지난 날짜로 들어왔을 땐 하단을 "닫기" 하나로 바꿔 캘린더로 돌아갑니다
+   * (관리자 결정 A안, 2026-08-18). 기존 두 버튼은 둘 다 `navigation.reset`이라
+   * 스택을 통째로 갈아치우기 때문에, 그대로 두면 캘린더로 **돌아갈 방법이 없습니다.**
+   * "홈으로 가기"라는 문구 자체도 방금 기록을 마친 직후 흐름 전제입니다.
+   */
+  const renderFooter = (footerStyle: StyleProp<ViewStyle>) =>
+    isPastRecord ? (
+      <View style={footerStyle}>
+        <Button label="닫기" variant="primary" onPress={() => navigation.goBack()} />
+      </View>
+    ) : (
+      <View style={footerStyle}>
+        <Button label="전체 리포트 보기" variant="primary" onPress={handleGoToReport} />
+        <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
+          <Text style={styles.textButton}>홈으로 가기</Text>
+        </Pressable>
+      </View>
+    );
+
   if (loadError) {
     return <ErrorState variant={loadError} onRetry={load} />;
+  }
+
+  // 그 날짜에 피부 기록이 없는 경우(REPORT-03 빈 배열). 시트가 skinScore null인 날은
+  // "자세히 보기"를 안 그리므로 정상 흐름에선 안 오지만, 실서버에서 시트 조회와 이
+  // 조회 사이에 상태가 어긋날 수 있어 방어적으로 둡니다. 에러가 아니므로 재시도
+  // 버튼 대신 닫기만 줍니다.
+  if (isEmpty) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.emptyBody, { paddingTop: insets.top + space[6] }]}>
+          <Text style={styles.emptyTitle}>이 날은 피부 기록이 없어요</Text>
+          <Text style={styles.emptyDescription}>
+            사진을 찍은 날만 분석 결과를 볼 수 있어요.
+          </Text>
+        </View>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + space[5] }]}>
+          <Button label="닫기" variant="primary" onPress={() => navigation.goBack()} />
+        </View>
+      </View>
+    );
   }
 
   if (!result) {
@@ -158,6 +210,11 @@ export function SkinResultScreen() {
 
   const metrics = toMetricList(result.scores, result.comparison?.changes ?? null);
   const isFirstRecord = result.comparison === null;
+
+  // 헤더 타이틀 — 지난 날짜면 "오늘의 피부"가 거짓말이 됩니다.
+  const headerTitle = viewingDate
+    ? `${Number(viewingDate.split('-')[1])}월 ${Number(viewingDate.split('-')[2])}일 피부`
+    : '오늘의 피부';
 
   // ─────────────────────────────── ① 첫 기록 ───────────────────────────────
   if (isFirstRecord) {
@@ -180,7 +237,9 @@ export function SkinResultScreen() {
             <View style={styles.firstGrid}>
               {metrics.map((item) => (
                 <View key={item.key} style={styles.firstGridCell}>
-                  <Text style={styles.firstGridLabel}>{item.label}</Text>
+                  <Text style={styles.firstGridLabel} numberOfLines={1}>
+                    {item.shortLabel}
+                  </Text>
                   <Text
                     style={[styles.firstGridScore, { color: metricAccent[asMetricKey(item.key)] }]}
                   >
@@ -192,12 +251,18 @@ export function SkinResultScreen() {
           </View>
         </ScrollView>
 
-        <View style={[styles.firstFooter, { paddingBottom: insets.bottom + space[6] }]}>
-          <Button label="자세한 피부 결과 보기" variant="primary" onPress={handleGoToReport} />
-          <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
-            <Text style={styles.textButton}>홈으로 가기</Text>
-          </Pressable>
-        </View>
+        {/* 지난 날짜의 첫 기록(비교 대상 없음)일 수도 있습니다 — 이 화면엔 헤더 뒤로가기가
+            없어서, 푸터를 "닫기"로 바꾸지 않으면 캘린더로 못 돌아가고 갇힙니다. */}
+        {isPastRecord ? (
+          renderFooter([styles.firstFooter, { paddingBottom: insets.bottom + space[6] }])
+        ) : (
+          <View style={[styles.firstFooter, { paddingBottom: insets.bottom + space[6] }]}>
+            <Button label="자세한 피부 결과 보기" variant="primary" onPress={handleGoToReport} />
+            <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
+              <Text style={styles.textButton}>홈으로 가기</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     );
   }
@@ -215,7 +280,8 @@ export function SkinResultScreen() {
 
   const radarItems = metrics.map((item) => ({
     key: item.key,
-    label: item.label,
+    // 축 라벨은 도형 바깥 좁은 자리라 짧은 이름을 씁니다(RadarChart 주석 참고).
+    label: item.shortLabel,
     score: item.score,
     accent: metricAccent[asMetricKey(item.key)],
   }));
@@ -233,7 +299,7 @@ export function SkinResultScreen() {
             >
               <IconBack size={18} color={color.textInk} />
             </Pressable>
-            <Text style={styles.headerTitle}>오늘의 피부</Text>
+            <Text style={styles.headerTitle}>{headerTitle}</Text>
           </View>
 
           <View style={styles.totalBlock}>
@@ -266,7 +332,9 @@ export function SkinResultScreen() {
             return (
               <View key={item.key} style={styles.metricCard}>
                 <View style={styles.metricCardHead}>
-                  <Text style={styles.metricCardName}>{item.label}</Text>
+                  <Text style={styles.metricCardName} numberOfLines={1}>
+                    {item.label}
+                  </Text>
                   <View style={[styles.gradeBadge, { backgroundColor: tint(grade.accent) }]}>
                     <Text style={[styles.gradeBadgeText, { color: grade.accent }]}>
                       {grade.label}
@@ -301,12 +369,7 @@ export function SkinResultScreen() {
         ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + space[5] }]}>
-        <Button label="전체 리포트 보기" variant="primary" onPress={handleGoToReport} />
-        <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
-          <Text style={styles.textButton}>홈으로 가기</Text>
-        </Pressable>
-      </View>
+      {renderFooter([styles.footer, { paddingBottom: insets.bottom + space[5] }])}
     </View>
   );
 }
@@ -545,6 +608,28 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   textButton: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 20,
+    ...weightFamily('medium'),
+    color: color.textSub,
+    textAlign: 'center',
+  },
+
+  // --- 기록 없는 날(REPORT-03 빈 배열) ---
+  emptyBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space[6],
+    gap: space[2],
+  },
+  emptyTitle: {
+    fontSize: adjustFontSize(16),
+    ...weightFamily('bold'),
+    color: color.textInk,
+    textAlign: 'center',
+  },
+  emptyDescription: {
     fontSize: adjustFontSize(13),
     lineHeight: 20,
     ...weightFamily('medium'),

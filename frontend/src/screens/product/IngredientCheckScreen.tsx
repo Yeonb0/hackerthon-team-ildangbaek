@@ -110,9 +110,10 @@ export function IngredientCheckScreen() {
     return (
       <View style={styles.container}>
         {navBar}
-        <View style={styles.content}>
-          <LoadingState variant="skeleton" skeletonLines={6} />
-        </View>
+        {/* ⚠️ styles.content로 감싸지 않습니다 — content에는 flex가 없어(패딩·gap만)
+            flex:1인 LoadingState/ErrorState가 높이 0으로 접힙니다. 상태 컴포넌트가
+            layout='fullScreen'(기본값)에서 스스로 남은 높이를 채웁니다. */}
+        <LoadingState variant="skeleton" skeletonLines={6} />
       </View>
     );
   }
@@ -123,12 +124,10 @@ export function IngredientCheckScreen() {
     return (
       <View style={styles.container}>
         {navBar}
-        <View style={styles.content}>
-          <ErrorState
-            variant={isNotFound ? 'notFound' : 'network'}
-            onRetry={isNotFound ? undefined : () => detailQuery.refetch()}
-          />
-        </View>
+        <ErrorState
+          variant={isNotFound ? 'notFound' : 'network'}
+          onRetry={isNotFound ? undefined : () => detailQuery.refetch()}
+        />
       </View>
     );
   }

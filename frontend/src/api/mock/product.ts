@@ -297,8 +297,10 @@ export function buildMockProductRecordHome(timeSlot: TimeSlot): ProductRecordHom
   const saved: SavedProductSummary[] = Array.from(savedProducts.entries())
     .map(([id, lastUsedAt]) => toSavedProductSummary(id, lastUsedAt))
     .filter((p): p is SavedProductSummary => p !== null)
-    // BR3: lastUsedAt 내림차순
-    .sort((a, b) => (a.lastUsedAt < b.lastUsedAt ? 1 : -1));
+    // BR3: lastUsedAt 내림차순. 목업은 항상 값을 채우지만 타입이 nullable이라
+    // (저장만 하고 미사용인 제품은 서버가 null을 줍니다 — types/product.ts 주석 참고)
+    // 없는 값은 맨 뒤로 보냅니다.
+    .sort((a, b) => (b.lastUsedAt ?? '').localeCompare(a.lastUsedAt ?? ''));
 
   return {
     timeSlot,
@@ -538,12 +540,25 @@ export function getMockScanScenario(): MockScanScenario {
 
 // 모드별로 다른 제품을 인식한 것처럼 보여줘서 두 모드가 실제로 다르게 동작한다는 걸
 // 확인할 수 있게 했습니다. BARCODE 쪽은 api_명세서.md PRODUCT-04 예시와 같은 productId(15)를 씁니다.
+//
+// ⚠️ 2026-08-18 — PRODUCT_IMAGE는 **실서버에서 동작하지 않습니다**(백엔드에 인식 로직
+// 없음). 목업만 성공을 돌려주면 "목업에선 되는데 실서버에선 안 되는" 상태가 되어,
+// 스캔이 100% 실패했던 이번 버그가 연동 전까지 안 드러났던 것과 똑같은 함정이 됩니다.
+// 그래서 목업도 실서버와 같은 에러를 냅니다. 화면은 이 모드를 서버로 보내기 전에
+// 안내로 막고 있어 정상 흐름에선 도달하지 않지만, 카탈로그 등에서 직접 호출할 때를
+// 대비한 안전망입니다. 백엔드가 구현하면 이 분기를 지우면 됩니다.
 const SCAN_DEMO_PRODUCT_ID: Record<ScanMode, number> = {
   BARCODE: 15,
   PRODUCT_IMAGE: 18,
 };
 
 export function scanMockProduct(scanMode: ScanMode): ScanResult {
+  if (scanMode === 'PRODUCT_IMAGE') {
+    throw new ApiError(
+      ErrorCode.SCAN_SERVICE_UNAVAILABLE,
+      '상품 사진으로 찾는 기능은 아직 준비 중이에요. 바코드를 스캔하거나 제품명으로 검색해 주세요.'
+    );
+  }
   if (scanScenario === 'NOT_DETECTED') {
     throw new ApiError(ErrorCode.SCAN_PRODUCT_NOT_DETECTED, '제품을 인식하지 못했어요.');
   }

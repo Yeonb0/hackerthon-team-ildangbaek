@@ -4,11 +4,11 @@ import {
   StyleProp,
   StyleSheet,
   Text,
-  TextInput,
   TextInputProps,
   View,
   ViewStyle,
 } from 'react-native';
+import { AppTextInput } from './AppTextInput';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
 import { adjustFontSize } from '@/theme/typography';
@@ -24,7 +24,9 @@ export function Input({ label, error, style, ...textInputProps }: InputProps) {
   return (
     <View style={[styles.container, style]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <TextInput
+      {/* 안드로이드에서 placeholder만 기기 기본 글꼴로 나오는 RN 버그 때문에
+          AppTextInput을 씁니다 (해당 파일 주석 참고). */}
+      <AppTextInput
         style={[styles.input, error ? styles.inputError : null]}
         placeholderTextColor={color.textMuted}
         {...textInputProps}

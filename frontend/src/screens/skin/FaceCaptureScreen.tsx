@@ -86,9 +86,12 @@ export function FaceCaptureScreen() {
             <IconBack size={22} color={color.ink900} />
           </Pressable>
         </View>
-        <View style={styles.centerFill}>
-          <PermissionDenied type="camera" />
-        </View>
+        <PermissionDenied
+          type="camera"
+          stage={permission.canAskAgain ? 'request' : 'guide'}
+          onRequest={permission.canAskAgain ? requestPermission : undefined}
+          description="피부 기록은 카메라 촬영으로 이루어져요"
+        />
       </View>
     );
   }

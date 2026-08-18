@@ -169,6 +169,12 @@ export function MyPageScreen() {
   /** 확인 팝업 대기 중인 선택값. null이면 팝업이 닫힌 상태입니다. */
   const [pendingFontChoice, setPendingFontChoice] = useState<FontChoice | null>(null);
 
+  // 알림 스위치는 누르는 즉시 움직여야 합니다. 쿼리 캐시만 낙관적으로 고치면
+  // onMutate가 비동기라 반영이 한 틱 늦고, 그 사이 RN Switch가 원래 자리로
+  // 되돌아갔다 다시 움직여서 "버벅"으로 보입니다(관리자 제보, 2026-08-17).
+  // 여기서 화면용 값을 따로 들고 즉시 바꾸고, 저장이 실패하면 되돌립니다.
+  const [pendingNotification, setPendingNotification] = useState<boolean | null>(null);
+
   // 글꼴을 바꾸면 앱이 재시작됩니다(번들을 다시 평가해야 화면 글꼴이 바뀜 — typography.ts
   // 주석 참고). 사용자 입장에선 갑자기 앱이 튕긴 것처럼 보이므로 먼저 확인을 받습니다.
   // 여기서 바로 저장하지 않기 때문에, "아니오"를 누르면 토글 선택 표시도 원래대로 남습니다.
@@ -331,8 +337,16 @@ export function MyPageScreen() {
                 흰 동그라미 + 보라 트랙 조합으로 고정합니다.
                 ios_backgroundColor는 iOS 꺼짐 상태 트랙 색입니다. */}
             <Switch
-              value={data.notificationEnabled}
-              onValueChange={(enabled) => updateNotification.mutate({ enabled })}
+              value={pendingNotification ?? data.notificationEnabled}
+              onValueChange={(enabled) => {
+                setPendingNotification(enabled);
+                updateNotification.mutate(
+                  { enabled },
+                  // 실패했을 때만 되돌립니다. 성공 시 pending을 지우면, 서버 값이
+                  // 아직 안 온 순간에 이전 값으로 잠깐 튀어 보입니다.
+                  { onError: () => setPendingNotification(null) }
+                );
+              }}
               trackColor={{ false: color.ink300, true: color.brand500 }}
               thumbColor={color.bg}
               ios_backgroundColor={color.ink300}

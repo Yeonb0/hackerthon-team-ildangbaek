@@ -2,24 +2,15 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { AreaTrendChart, weekdayLabel } from '@/components/chart/AreaTrendChart';
-import { IconMinus } from '@/components/icons';
+import { AppIcon, IconMinus } from '@/components/icons';
+import { metricLabel } from '@/lib/metricLabels';
 import { color, metricAccent, reportColor, space } from '@/theme/tokens';
 import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { MetricKey, ReportPeriod, GraphPoint } from '@/types/report';
 
-const METRIC_TABS: { key: MetricKey; label: string }[] = [
-  { key: 'trouble', label: '트러블' },
-  { key: 'redness', label: '홍조' },
-  { key: 'pigmentation', label: '색소잡티' },
-  { key: 'pores', label: '모공' },
-];
-
-const METRIC_INDEX_LABEL: Record<MetricKey, string> = {
-  trouble: '트러블 지수',
-  redness: '홍조 지수',
-  pigmentation: '색소잡티 지수',
-  pores: '모공 지수',
-};
+// 탭 순서는 고정입니다. 라벨 문자열은 lib/metricLabels.ts가 갖습니다 —
+// 탭은 한 줄에 4개(flex:1)라 개명 대상에서 제외된 자리입니다(개명 A, 2026-08-18).
+const METRIC_TAB_ORDER: MetricKey[] = ['trouble', 'redness', 'pigmentation', 'pores'];
 
 type MetricTrendCardProps = {
   metric: MetricKey;
@@ -40,14 +31,14 @@ type MetricTrendCardProps = {
  * 리포트 홈 "항목별 추이" 섹션 (Figma 컬러 최종본 210:1951 실측).
  *
  * 지표 탭 4개(선택 시 지표 고유색으로 채움) + "{지표} 지수" 큰 숫자·증감 +
- * "낮을수록 좋아요" 안내 + 지표 색 영역 차트로 구성됩니다.
+ * "높을수록 좋아요" 안내 + 지표 색 영역 차트로 구성됩니다.
  *
- * ⚠️ 지표 4종은 전부 "낮을수록 좋음"이라 증감 색이 반대입니다(▲=caution/▼=safe) —
- * 종합 점수(높을수록 좋음)와 규칙이 다르니 ReportSummaryCard의 DeltaText와 별도로
- * 둡니다.
+ * ✅ 2026-08-18 방향 확정 — 지표 4종은 전부 "높을수록 좋음"이라 증감 색이 종합 점수와
+ * 같은 규칙입니다(▲=safe/▼=caution). 예전엔 지표만 반대라 별도 규칙을 뒀는데,
+ * 이제 ReportSummaryCard의 DeltaText와 판정이 동일합니다.
  *
  * 2026-08-17(세션 12) — 지수 큰 숫자만 배달의민족 주아체(BMJUA)로 고정했습니다
- * (관리자 결정). 탭 라벨·증감·"낮을수록 좋아요"는 본문 글꼴 그대로입니다.
+ * (관리자 결정). 탭 라벨·증감·"높을수록 좋아요"는 본문 글꼴 그대로입니다.
  * ⚠️ 주아체는 Regular 단일 weight라 fontWeight/weightFamily를 같이 주면 안드로이드가
  * 합성 볼드를 얹어 획이 뭉개집니다 — 굵기 지정을 뺐습니다.
  * ⚠️ 주아체는 기호 글리프가 비어 있는 게 있어(°/℃ 확인됨), 점수가 없을 때 쓰는
@@ -76,21 +67,24 @@ export function MetricTrendCard({
       <Text style={styles.sectionTitle}>항목별 추이</Text>
 
       <View style={styles.tabRow}>
-        {METRIC_TABS.map((tab) => {
-          const selected = tab.key === metric;
+        {METRIC_TAB_ORDER.map((key) => {
+          const selected = key === metric;
           return (
             <Pressable
-              key={tab.key}
+              key={key}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
-              onPress={() => onChangeMetric(tab.key)}
+              onPress={() => onChangeMetric(key)}
               style={[
                 styles.tab,
-                selected ? { backgroundColor: metricAccent[tab.key] } : styles.tabIdle,
+                selected ? { backgroundColor: metricAccent[key] } : styles.tabIdle,
               ]}
             >
-              <Text style={[styles.tabLabel, selected ? styles.tabLabelSelected : null]}>
-                {tab.label}
+              <Text
+                style={[styles.tabLabel, selected ? styles.tabLabelSelected : null]}
+                numberOfLines={1}
+              >
+                {metricLabel('tab', key)}
               </Text>
             </Pressable>
           );
@@ -99,7 +93,7 @@ export function MetricTrendCard({
 
       <View style={styles.scoreRow}>
         <View style={styles.scoreBlock}>
-          <Text style={styles.scoreLabel}>{METRIC_INDEX_LABEL[metric]}</Text>
+          <Text style={styles.scoreLabel}>{metricLabel('index', metric)}</Text>
           <View style={styles.scoreValueRow}>
             {score === undefined ? (
               <Text style={[styles.scoreValueEmpty, { color: accent }]}>–</Text>
@@ -109,7 +103,7 @@ export function MetricTrendCard({
             <MetricDelta delta={delta ?? null} />
           </View>
         </View>
-        <Text style={styles.scoreHint}>낮을수록 좋아요</Text>
+        <Text style={styles.scoreHint}>높을수록 좋아요</Text>
       </View>
 
       <AreaTrendChart
@@ -123,16 +117,21 @@ export function MetricTrendCard({
   );
 }
 
-/** 지표 4종은 "낮을수록 좋음"이라 ▼가 초록(safe), ▲가 빨강(caution)입니다. */
+/** 지표 4종은 "높을수록 좋음"이라 ▲가 초록(safe), ▼가 빨강(caution)입니다(2026-08-18 확정). */
 function MetricDelta({ delta }: { delta: number | null }) {
   if (delta === null || delta === 0) {
     return <IconMinus size={10} color={color.textSub} />;
   }
   const isUp = delta > 0;
+  const accent = isUp ? reportColor.safe : reportColor.caution;
+  // 2026-08-17(세션 15) — ▲/▼ 문자를 아이콘 세트로 교체(관리자 요청). 화살표를 글리프로
+  // 그리면 글꼴마다 모양·기준선이 달라 숫자와 세로 정렬이 어긋나고, 주아체처럼 기호
+  // 글리프가 비어 있는 글꼴에서는 아예 안 보일 위험이 있습니다(이 파일 상단 주석 참고).
   return (
-    <Text style={[styles.deltaText, { color: isUp ? reportColor.caution : reportColor.safe }]}>
-      {isUp ? '▲' : '▼'} {Math.abs(delta)}
-    </Text>
+    <View style={styles.deltaRow}>
+      <AppIcon name={isUp ? 'arrowUp' : 'arrowDown'} size={10} color={accent} />
+      <Text style={[styles.deltaText, { color: accent }]}>{Math.abs(delta)}</Text>
+    </View>
   );
 }
 
@@ -208,9 +207,14 @@ const styles = StyleSheet.create({
     color: color.textSub,
     paddingBottom: 6,
   },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingBottom: 8,
+  },
   deltaText: {
     fontSize: adjustFontSize(11),
     ...weightFamily('semibold'),
-    paddingBottom: 8,
   },
 });

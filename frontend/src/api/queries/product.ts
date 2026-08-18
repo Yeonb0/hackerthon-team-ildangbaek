@@ -4,7 +4,7 @@
 // Phase 7-B 추가: PRODUCT-03(상세) · PRODUCT-04(스캔) · PRODUCT-05(개별 저장).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { unwrap } from '@/api/unwrap';
+import { ApiError, unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
 import {
   addProductToRoutine,
@@ -21,6 +21,7 @@ import {
 } from '@/api/mock/product';
 import type { CatalogProduct } from '@/api/mock/product';
 import { recordMockProductCompletion } from '@/api/mock/record';
+import { ErrorCode } from '@/types/errorCodes';
 import type { TimeSlot } from '@/app/routes';
 import type {
   ProductDetailResult,
@@ -125,12 +126,45 @@ export function useProductDetail(productId: number) {
 }
 
 /**
- * PRODUCT-08 · 제품 직접 등록 (F-PRODUCT-08, TBD-07). 백엔드에 대응 엔드포인트가 없어서
- * (api_명세서.md 전수 확인, 2026-08-13) 다른 함수들과 달리 USE_MOCK 분기가 없습니다 — 항상
- * 목업입니다. 실제 API가 생기면 그때 분기를 추가하면 됩니다.
+ * PRODUCT-08 · 제품 직접 등록 (F-PRODUCT-08). `POST /products`.
+ *
+ * 2026-08-18 — 실API에 연결했습니다. 예전 주석은 *"백엔드에 대응 엔드포인트가 없어서
+ * USE_MOCK 분기 없이 항상 목업"* 이었는데, 백엔드에 `POST /products`(multipart)가
+ * 생겼습니다. 요청 필드는 처음부터 맞아떨어져서 전송 형식만 바꾸면 됐습니다.
+ *
+ * ⚠️ **`@ModelAttribute`라 JSON body가 아니라 multipart 폼 필드로 보내야 합니다.**
+ * `@RequestPart("image")`는 선택이고(촬영 건너뛰면 생략), 나머지 필드는 폼 값입니다.
+ * `ingredientNames`는 배열이라 **같은 키를 반복해서 append** 합니다 — Spring이
+ * `List<String>`으로 바인딩하는 방식입니다. JSON 문자열로 넣으면 안 됩니다.
+ *
+ * 응답 `ProductRegisterResponse`는 `{ productId, name, brand, category, imageUrl }`이라
+ * `CatalogProduct`(productId/name/brand/category)를 그대로 만족합니다 — 화면이 등록 직후
+ * 이 값으로 상세·루틴 추가로 넘어가므로 형태를 유지했습니다.
  */
 export async function registerProduct(input: RegisterProductInput): Promise<CatalogProduct> {
-  return registerMockProduct(input);
+  if (USE_MOCK) {
+    return registerMockProduct(input);
+  }
+
+  const form = new FormData();
+  form.append('name', input.name);
+  form.append('brand', input.brand);
+  form.append('category', input.category);
+  // 빈 문자열이 섞이면 백엔드에서 빈 성분이 만들어지므로 화면단 파싱 결과를 한 번 더 거릅니다.
+  input.ingredientNames
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .forEach((name) => form.append('ingredientNames', name));
+
+  if (input.imageUri) {
+    form.append('image', {
+      uri: input.imageUri,
+      name: 'product.jpg',
+      type: 'image/jpeg',
+    } as unknown as Blob);
+  }
+
+  return unwrap<CatalogProduct>(apiClient.post('/products', form));
 }
 
 export function useRegisterProduct() {
@@ -164,29 +198,48 @@ export function useAddProductToRoutine() {
 }
 
 /**
- * PRODUCT-04 · POST /products/scan (S-13). scan.ts가 아니라 이 파일에 그대로 둔 이유는
- * product 도메인 전체가 지금까지 이 한 파일 구조를 유지해왔기 때문입니다(report.ts 등과
- * 같은 컨벤션). skin.ts의 createSkinRecord와 같은 이유로 USE_MOCK 분기 안에서 직접
- * FormData를 만듭니다 — multipart 요청이라 GET류 쿼리들과 패턴이 다릅니다.
+ * PRODUCT-04 · POST /products/scan (S-13).
+ *
+ * ⚠️ **2026-08-18 전면 수정.** 백엔드에 이 경로가 **두 개**입니다.
+ *
+ * | Content-Type | 동작 |
+ * | --- | --- |
+ * | `application/json` (`{ scanMode, barcode }`) | 실제로 제품을 조회 |
+ * | `multipart/form-data` (이미지) | **무조건 `SCAN_SERVICE_UNAVAILABLE`** |
+ *
+ * 이전 구현은 모드와 무관하게 **이미지 쪽**으로 보내고 있어서, 실서버에서는 스캔이
+ * 100% 실패했습니다(목업에서는 정상이라 드러나지 않았습니다). 백엔드
+ * `ProductService.scan(ScanMode, MultipartFile)`은 *"이미지에서 바코드를 디코딩하거나
+ * 상품을 인식하는 비전 로직이 아직 없다"* 며 예외만 던집니다.
+ *
+ * 바코드 문자열은 이미 클라이언트가 갖고 있습니다 — `expo-camera`의 `onBarcodeScanned`가
+ * 디코딩된 값을 주는데, 예전엔 그걸 버리고 굳이 사진을 찍어 올렸습니다. 이제 그 문자열을
+ * 그대로 JSON으로 보냅니다. **촬영·리사이즈 단계가 사라져 스캔이 눈에 띄게 빨라집니다.**
+ *
+ * `PRODUCT_IMAGE` 모드는 백엔드에 인식 로직 자체가 없어 **연동해도 동작하지 않습니다.**
+ * 호출부(S-13)가 이 모드를 서버로 보내지 않고 화면에서 안내로 막습니다 — 여기서도
+ * 방어적으로 거부해서, 다른 진입점이 생겨도 무의미한 요청이 나가지 않게 합니다.
  */
 export async function scanProduct(params: {
-  imageUri: string;
   scanMode: ScanMode;
+  /** BARCODE 모드에서 `expo-camera`가 디코딩한 문자열. PRODUCT_IMAGE에는 없습니다. */
+  barcode?: string;
 }): Promise<ScanResult> {
-  const { imageUri, scanMode } = params;
+  const { scanMode, barcode } = params;
   if (USE_MOCK) {
     return scanMockProduct(scanMode);
   }
 
-  const form = new FormData();
-  form.append('image', {
-    uri: imageUri,
-    name: 'product.jpg',
-    type: 'image/jpeg',
-  } as unknown as Blob);
-  form.append('scanMode', scanMode);
+  if (scanMode !== 'BARCODE' || !barcode) {
+    // 백엔드가 명시적으로 미지원 선언한 조합. 서버까지 갔다가 같은 코드로 돌아올 뿐이라
+    // 왕복을 아끼고 여기서 같은 에러를 만듭니다(화면 처리 경로는 동일).
+    throw new ApiError(
+      ErrorCode.SCAN_SERVICE_UNAVAILABLE,
+      '이 방식은 아직 준비 중이에요. 바코드로 스캔하거나 검색을 이용해 주세요.'
+    );
+  }
 
-  return unwrap<ScanResult>(apiClient.post('/products/scan', form));
+  return unwrap<ScanResult>(apiClient.post('/products/scan', { scanMode, barcode }));
 }
 
 export function useScanProduct() {
