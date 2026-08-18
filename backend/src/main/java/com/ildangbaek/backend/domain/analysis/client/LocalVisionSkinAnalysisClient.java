@@ -50,6 +50,9 @@ public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
     private static final int CONNECT_TIMEOUT_MILLIS = 5_000;
     private static final int READ_TIMEOUT_MILLIS = 15_000;
 
+    // 색소침착 지표가 실제보다 과도하게 낮게 나오는 경향이 있어 최소 점수를 보정한다.
+    private static final int PIGMENTATION_MIN_SCORE = 50;
+
     private final RestClient restClient;
     private final Path storageDirectory;
     private final String urlPrefix;
@@ -180,15 +183,21 @@ public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
                 log.error("자체 분석 서버 응답에 지표 누락: {} body={}", type, responseBody);
                 throw new BusinessException(ErrorCode.SKIN_ANALYSIS_FAILED);
             }
-            scores.put(type, clamp(value.asInt()));
+            int score = clamp(value.asInt());
+            if (type == SkinMetricType.PIGMENTATION) {
+                score = Math.max(PIGMENTATION_MIN_SCORE, score);
+            }
+            scores.put(type, score);
         }
 
         Map<SkinMetricType, Double> rawValues = parseRawValues(responseBody.path("raw"));
         Map<SkinMetricType, String> confidence = parseConfidence(responseBody);
         String algorithmVersion = textOrNull(responseBody.get("algorithm_version"));
         String normalizationVersion = textOrNull(responseBody.get("normalization_version"));
+        String skinComment = textOrNull(responseBody.get("skin_comment"));
 
-        return new SkinAnalysisResult(scores, rawValues, confidence, algorithmVersion, normalizationVersion);
+        return new SkinAnalysisResult(
+                scores, rawValues, confidence, algorithmVersion, normalizationVersion, skinComment);
     }
 
     /**

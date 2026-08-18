@@ -53,6 +53,9 @@ public class SkinRecord {
     @Column(name = "overall_score", precision = 5, scale = 2)
     private BigDecimal overallScore;
 
+    @Column(name = "skin_comment", length = 200)
+    private String skinComment;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "analysis_status", nullable = false, length = 20)
     private AnalysisStatus analysisStatus;
@@ -79,8 +82,9 @@ public class SkinRecord {
         this.capturedAt = capturedAt;
     }
 
-    public void completeAnalysis(BigDecimal overallScore) {
+    public void completeAnalysis(BigDecimal overallScore, String skinComment) {
         this.overallScore = overallScore;
+        this.skinComment = skinComment;
         this.analysisStatus = AnalysisStatus.COMPLETED;
         this.analyzedAt = LocalDateTime.now();
     }

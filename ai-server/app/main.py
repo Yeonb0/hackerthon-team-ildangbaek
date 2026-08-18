@@ -57,6 +57,7 @@ async def analyze(image: UploadFile = File(...)) -> AnalyzeResponse:
         pores_reliability=result.pores_reliability,
         algorithm_version=result.algorithm_version,
         normalization_version=result.normalization_version,
+        skin_comment=result.skin_comment,
     )
 
 

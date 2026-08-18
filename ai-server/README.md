@@ -122,7 +122,7 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 | 메서드 | 경로 | 설명 |
 | --- | --- | --- |
 | GET | `/health` | 헬스 체크 |
-| POST | `/analyze` | `image` multipart 파일을 받아 지표 4종 점수와 1차 원시 측정값 반환 |
+| POST | `/analyze` | `image` multipart 파일을 받아 지표 4종 점수·1차 원시 측정값·피부 상태 코멘트 반환 |
 | POST | `/product-comments` | 추천 제품 목록을 받아 제품별 AI 코멘트를 배치로 반환(ADR 0025) |
 | POST | `/insight-tips` | 인사이트 근거를 받아 관리 팁 한 단락을 반환(ADR 0028) |
 
@@ -130,11 +130,16 @@ Python 3.14 기준으로 의존성 설치를 확인했다. `mediapipe`는 0.10.x
 curl -X POST http://127.0.0.1:8000/analyze -F "image=@face.jpg"
 # {"scores":{"TROUBLE":81,"REDNESS":62,"PORES":47,"PIGMENTATION":90},
 #  "raw":{"TROUBLE":120.5,"REDNESS":10.2,"PORES":7.1,"PIGMENTATION":20.3},
-#  "pores_reliability":"NORMAL","algorithm_version":"cielab-v1","normalization_version":"to-score-v1"}
+#  "pores_reliability":"NORMAL","algorithm_version":"cielab-v1","normalization_version":"to-score-v1",
+#  "skin_comment":"트러블이 살짝 보이니 저자극 진정 케어를 더해보세요."}
 ```
 
 `raw`는 OpenAI 확정 이전의 1차(CIELAB 규칙 기반) 측정값이다. OpenAI가 최종 `scores`를 덮어써도
 `raw`는 그대로 유지되므로, `score`가 항상 `raw`에서 정확히 재현되지는 않는다(ADR 0026).
+
+`skin_comment`는 OpenAI Vision이 사진을 보고 함께 쓰는 40~70자 코멘트다(ADR 0029). 규칙 기반
+1차 단계는 사진을 보지 않아 근거가 없으므로, OpenAI 확정이 실패해 1차 점수로 폴백하면
+`skin_comment`는 응답에서 `null`이다.
 
 실패는 422와 본문 `code`로 알린다. HTTP 상태만으로는 사유를 구분할 수 없어 코드로 분기한다.
 

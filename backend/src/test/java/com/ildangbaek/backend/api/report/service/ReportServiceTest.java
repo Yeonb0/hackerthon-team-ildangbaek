@@ -113,7 +113,7 @@ class ReportServiceTest {
                 .analysisMethod(AnalysisMethod.MOCK)
                 .capturedAt(LocalDateTime.of(date.getYear(), date.getMonthValue(), date.getDayOfMonth(), 8, 0))
                 .build();
-        record.completeAnalysis(BigDecimal.valueOf(70));
+        record.completeAnalysis(BigDecimal.valueOf(70), null);
         ReflectionTestUtils.setField(record, "id", id);
         return record;
     }
@@ -369,8 +369,8 @@ class ReportServiceTest {
         LocalDate today = LocalDate.now();
         SkinRecord morning = record(1L, today, TimeSlot.MORNING);
         SkinRecord night = record(2L, today, TimeSlot.NIGHT);
-        morning.completeAnalysis(BigDecimal.valueOf(60));
-        night.completeAnalysis(BigDecimal.valueOf(40));
+        morning.completeAnalysis(BigDecimal.valueOf(60), null);
+        night.completeAnalysis(BigDecimal.valueOf(40), null);
 
         when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
                 eq(1L), eq(today.minusDays(6)), eq(today)))
@@ -401,6 +401,7 @@ class ReportServiceTest {
                 record.getCapturedAt().atZone(java.time.ZoneId.of("Asia/Seoul")).toOffsetDateTime(),
                 70,
                 new SkinScoresResponse(74, 66, 71, 69),
+                null,
                 null);
     }
 
