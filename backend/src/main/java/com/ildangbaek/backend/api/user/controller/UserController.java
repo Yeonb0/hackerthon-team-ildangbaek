@@ -5,6 +5,7 @@ import com.ildangbaek.backend.api.user.dto.MyPageResponse;
 import com.ildangbaek.backend.api.user.dto.request.LocationUpdateRequest;
 import com.ildangbaek.backend.api.user.dto.request.NotificationSettingRequest;
 import com.ildangbaek.backend.api.user.dto.request.ProfileUpdateRequest;
+import com.ildangbaek.backend.api.user.dto.response.AccountResponse;
 import com.ildangbaek.backend.api.user.dto.response.NotificationSettingResponse;
 import com.ildangbaek.backend.api.user.dto.response.ProfileResponse;
 import com.ildangbaek.backend.api.user.dto.response.SavedProductResponse;
@@ -45,7 +46,7 @@ public class UserController {
     }
 
     @GetMapping("/account")
-    public ApiResponse<com.ildangbaek.backend.api.user.dto.response.MyPageResponse> getAccount(
+    public ApiResponse<AccountResponse> getAccount(
             @CurrentUserId User user
     ) {
         return ApiResponse.success(userService.getMe(user));

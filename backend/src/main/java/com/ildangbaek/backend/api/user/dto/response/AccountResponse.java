@@ -2,7 +2,7 @@ package com.ildangbaek.backend.api.user.dto.response;
 
 import java.util.List;
 
-public record MyPageResponse(
+public record AccountResponse(
         Long userId,
         String email,
         String name,

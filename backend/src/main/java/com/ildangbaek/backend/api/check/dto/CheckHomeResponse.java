@@ -1,5 +1,6 @@
 package com.ildangbaek.backend.api.check.dto;
 
+import com.ildangbaek.backend.api.home.dto.FailedSectionResponse;
 import java.util.List;
 
 /**
@@ -15,6 +16,6 @@ public record CheckHomeResponse(
         int profileCompletion,
         List<CheckRecommendationResponse> recommendations,
         TodayContextResponse todayContext,
-        List<Object> failedSections
+        List<FailedSectionResponse> failedSections
 ) {
 }

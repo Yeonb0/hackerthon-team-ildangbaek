@@ -29,6 +29,7 @@ import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.storage.ImageStorage;
+import com.ildangbaek.backend.global.storage.ImageUrlResolver;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.List;
@@ -54,6 +55,7 @@ public class ProductService {
     private final UserProductRepository userProductRepository;
     private final IngredientProfileRepository ingredientProfileRepository;
     private final ImageStorage imageStorage;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional(readOnly = true)
     public ProductSearchResponse search(User user, String keyword) {
@@ -94,7 +96,7 @@ public class ProductService {
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                product.getImageUrl(),
+                imageUrlResolver.resolve(product.getImageUrl()),
                 isSaved(user, product),
                 ingredients.size(),
                 keyIngredients,
@@ -129,7 +131,7 @@ public class ProductService {
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                product.getImageUrl(),
+                imageUrlResolver.resolve(product.getImageUrl()),
                 1.0
         );
     }
@@ -197,7 +199,7 @@ public class ProductService {
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                product.getImageUrl()
+                imageUrlResolver.resolve(product.getImageUrl())
         );
     }
 
@@ -247,7 +249,7 @@ public class ProductService {
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                product.getImageUrl(),
+                imageUrlResolver.resolve(product.getImageUrl()),
                 isSaved(user, product)
         );
     }

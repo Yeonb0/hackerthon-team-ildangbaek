@@ -74,6 +74,12 @@ public class UserProfile extends BaseTimeEntity {
     @Column(name = "region_name", length = 100)
     private String regionName;
 
+    @Column
+    private Double latitude;
+
+    @Column
+    private Double longitude;
+
     @Builder
     private UserProfile(User user, String nickname, Short birthYear, Gender gender) {
         this.user = user;
@@ -104,6 +110,12 @@ public class UserProfile extends BaseTimeEntity {
 
     public void updateRegion(String regionName) {
         this.regionName = regionName;
+    }
+
+    public void updateLocation(String regionName, Double latitude, Double longitude) {
+        this.regionName = regionName;
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 
     public void clearHormoneInfo() {
