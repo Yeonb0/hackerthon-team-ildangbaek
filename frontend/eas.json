@@ -18,6 +18,13 @@
         "buildType": "apk"
       }
     },
+    "testflight": {
+      "environment": "preview",
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release"
+      }
+    },
     "production": {
       "autoIncrement": true
     }
