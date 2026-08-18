@@ -9,8 +9,16 @@
 export const SHOW_CATALOG = process.env.EXPO_PUBLIC_SHOW_CATALOG === 'true';
 
 /**
- * ⚠️ 임시 (백엔드 ADR 0006 — 임시 인증)
- * 백엔드에 아직 JWT가 없어서 서버는 `X-User-Id` 헤더로 사용자를 식별합니다.
- * 값이 있을 때만 client.ts가 헤더를 붙이므로, JWT가 들어오면 .env에서 비우면 됩니다.
+ * ⚠️ 임시 (백엔드 ADR 0006 · 0017 — 임시 인증)
+ *
+ * POST /auth/login에 보낼 OAuth 토큰 자리의 값입니다. 카카오/구글 실제 SDK가 붙기 전까지
+ * api/auth.ts의 getOAuthToken()이 이 값을 그대로 씁니다.
+ *
+ * **계정을 가르는 값입니다.** 백엔드 AuthService는 `{provider}-{oauthAccessToken}`으로
+ * 사용자를 식별하므로(mockProviderUserId), 이 값이 같으면 로그아웃해도 항상 같은 계정으로
+ * 다시 붙습니다. 온보딩을 처음부터 다시 타려면 .env에서 이 값만 바꾸면 새 계정이 생깁니다.
+ *
+ * 비워두면 기존과 동일하게 'MOCK_OAUTH_TOKEN' 고정값을 씁니다.
+ * 실제 OAuth SDK가 붙으면 getOAuthToken() 내부만 교체하면 되고 이 상수는 사라집니다.
  */
-export const DEV_USER_ID = process.env.EXPO_PUBLIC_DEV_USER_ID ?? '';
+export const DEV_OAUTH_TOKEN = process.env.EXPO_PUBLIC_DEV_OAUTH_TOKEN ?? '';

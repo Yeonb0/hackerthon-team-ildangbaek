@@ -109,10 +109,10 @@ export function MetricDetailScreen() {
 
   const accent = metricAccent[data.metric];
   const stats = deriveStats(data);
-  // Figma 헤더 배지 — 값이 오르면 caution(빨강), 내리면 safe(초록). 지표 4종은
-  // "낮을수록 좋음"이라 상승이 나쁜 방향입니다.
+  // Figma 헤더 배지 — 지표 4종은 "높을수록 좋음"이므로(2026-08-18 확정) 값이 오르면
+  // safe(초록), 내리면 caution(빨강)입니다. Figma는 반대 방향을 전제로 그려졌습니다.
   const changeUp = stats.change !== null && stats.change > 0;
-  const changeAccent = changeUp ? reportColor.caution : reportColor.safe;
+  const changeAccent = changeUp ? reportColor.safe : reportColor.caution;
 
   const eventDates = data.events.map((event) => event.date);
   const points = data.graph.map((point) => ({
@@ -316,16 +316,17 @@ function deriveStats(detail: InsightDetail): {
  * "확인 중" 문구가 되므로(REPORT-02 BR7) 배지에도 수치 대신 "확인 중"을 씁니다. 자외선
  * 이벤트는 변화량 근거 자체가 없어 항상 이쪽입니다.
  *
- * 지표 4종은 "낮을수록 좋음"이라 delta가 양수면 악화(caution), 음수면 개선(safe)입니다.
+ * 지표 4종은 "높을수록 좋음"이므로(2026-08-18 확정) delta가 양수면 개선(safe),
+ * 음수면 악화(caution)입니다.
  */
 function deriveEventBadge(event: InsightEvent): { text: string; accent: string } {
   if (event.delta === null) {
     return { text: '확인 중', accent: color.textMuted };
   }
-  const worsened = event.delta > 0;
+  const improved = event.delta > 0;
   return {
-    text: `${worsened ? '+' : ''}${event.delta}`,
-    accent: worsened ? reportColor.caution : reportColor.safe,
+    text: `${improved ? '+' : ''}${event.delta}`,
+    accent: improved ? reportColor.safe : reportColor.caution,
   };
 }
 

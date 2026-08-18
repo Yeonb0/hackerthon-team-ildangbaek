@@ -19,6 +19,12 @@ import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, metricAccent, reportCardShadow, reportColor, space } from '@/theme/tokens';
 import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { SkinRecordResult } from '@/types/skin';
+import {
+  metricGradeOf,
+  metricGradeLabel,
+  metricGradeAccent,
+  type MetricGrade,
+} from '@/lib/metricGrade';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -29,25 +35,24 @@ type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 const BASELINE_SCORE = 50;
 
 /**
- * 지표 점수 등급. 지표 4종은 모두 **낮을수록 좋음**입니다(REPORT-01 BR7, Figma TodaySkin).
+ * 지표 점수 등급. 지표 4종은 모두 **높을수록 좋음**입니다(2026-08-18 확정).
  *
- * 경계값은 Figma 118:9423 실측에서 역산했습니다 — 트러블 38·모공 44·색소잡티 55가 전부
- * "보통", 홍조 62가 "주의"입니다. 따라서 좋음 경계는 30, 주의 경계는 60입니다.
- * ⚠️ 기획이 정한 임계값이 아니라 화면 한 장에서 역산한 값이라 확인이 필요합니다.
+ * 임계값과 판정은 `lib/metricGrade.ts`가 단독으로 갖습니다 — 쇼핑 홈의
+ * "오늘 내 피부에 필요해요" 부제가 같은 경계를 쓰기 때문에, 여기서 따로 상수를
+ * 들고 있으면 한쪽만 바뀌었을 때 같은 점수가 화면마다 다른 등급으로 보입니다.
+ * 방향 확정 근거와 임계값 미확정 사유는 그 파일 주석을 참고하세요.
  */
-const GRADE_GOOD_BELOW = 30;
-const GRADE_CAUTION_FROM = 60;
-
 function gradeOf(score: number): { label: string; accent: string } {
-  if (score < GRADE_GOOD_BELOW) return { label: '좋음', accent: reportColor.safe };
-  if (score < GRADE_CAUTION_FROM) return { label: '보통', accent: reportColor.amber };
-  return { label: '주의', accent: reportColor.caution };
+  return { label: metricGradeLabel(score), accent: metricGradeAccent(score) };
 }
 
 /** Figma 118:9504 등의 지표별 한 줄 설명. 등급에 따라 문구가 바뀝니다. */
 // 카드 제목에 이미 지표명이 있으므로 주어를 반복하지 않습니다 — 2열 카드에서 숫자와
 // 나란히 놓이면 문구 폭이 100px 남짓이라, 주어를 넣으면 대부분 두 줄로 접힙니다
 // (실기기 확인, 2026-08-17).
+//
+// 배열은 [좋음, 보통, 주의] 순으로 그대로 둡니다 — 문구가 뜻하는 "증상 정도"는
+// 방향 확정과 무관하고, 어떤 점수에 어떤 문구를 붙이는지만 phraseOf에서 바뀝니다.
 const METRIC_PHRASE: Record<string, [good: string, normal: string, caution: string]> = {
   trouble: ['거의 없어요', '조금 있어요', '많은 편이에요'],
   redness: ['거의 없어요', '약간 있어요', '뚜렷해요'],
@@ -55,12 +60,12 @@ const METRIC_PHRASE: Record<string, [good: string, normal: string, caution: stri
   pigmentation: ['거의 없어요', '중간 수준이에요', '많은 편이에요'],
 };
 
+const PHRASE_INDEX: Record<MetricGrade, 0 | 1 | 2> = { good: 0, normal: 1, caution: 2 };
+
 function phraseOf(item: MetricListItem): string {
   const set = METRIC_PHRASE[item.key];
   if (!set) return '';
-  if (item.score < GRADE_GOOD_BELOW) return set[0];
-  if (item.score < GRADE_CAUTION_FROM) return set[1];
-  return set[2];
+  return set[PHRASE_INDEX[metricGradeOf(item.score)]];
 }
 
 /**
@@ -98,13 +103,12 @@ function phraseOf(item: MetricListItem): string {
  * 기존 "닫기 / 리포트 보러가기" 2버튼 구성을 교체했습니다. 기록은 SKIN-01 POST 시점에
  * 이미 저장이 끝난 상태라 둘 다 추가 저장은 하지 않습니다(TBD-10b A안).
  *
- * ⚠️ **지표 점수 방향 주의.** 이 화면은 `scores`를 "낮을수록 좋음"으로 해석합니다 —
- * REPORT-01 BR7과 Figma TodaySkin(홍조 62 = "주의") 둘 다 그 방향입니다. 다만 SKIN-01
- * 명세 예시는 반대로 읽힙니다(trouble 74·redness 66인데 totalScore 78). 백엔드
- * `calculateTotalScore`가 4지표 단순 평균(ADR 0008)이라, 지표가 "낮을수록 좋음"이면
- * 총점도 "낮을수록 좋음"이 되어 명세의 "totalScore는 높을수록 좋다"와 충돌합니다.
- * 백엔드 확인이 필요한 항목입니다 — 방향이 뒤집히면 gradeOf/phraseOf만 반대로 바꾸면
- * 되도록 임계값을 상수로 빼뒀습니다.
+ * ✅ **지표 점수 방향 확정(2026-08-18).** `scores`는 **높을수록 좋음**입니다.
+ * 관리자 확정이며 백엔드도 같은 방향입니다(`ai-server/app/metrics.py`·`schema.py`·
+ * `vision.py`). 이로써 SKIN-01 명세 예시(trouble 74·redness 66에 totalScore 78)와
+ * `calculateTotalScore`의 4지표 단순 평균(ADR 0008)이 서로 맞아떨어집니다 —
+ * 예전에 "낮을수록 좋음"으로 읽었을 때 생기던 총점과의 충돌이 사라졌습니다.
+ * 임계값은 여전히 상수로 빼둬서 기획 확정 시 두 줄만 고치면 됩니다.
  *
  * ⚠️ 기록이 아예 없는 상태로 이 화면에 들어오는 건(SKIN_RECORD_NOT_FOUND) 정상 흐름상
  * 발생하지 않습니다 — 기록 허브가 completed일 때만 이 화면으로 보내기 때문입니다.

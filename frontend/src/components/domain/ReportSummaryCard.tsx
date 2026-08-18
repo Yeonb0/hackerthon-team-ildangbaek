@@ -50,10 +50,11 @@ type ReportSummaryCardProps = {
  * 지금 그대로"라는 관리자 결정에 따라 기존 adjustFontSize(48)를 유지했습니다.
  * (사용자 글꼴을 나눔스퀘어네오로 바꾸면 이 숫자도 같이 작아집니다 — 의도된 유지)
  *
- * 총점(totalScore)은 "높을수록 좋음" 방향(SKIN-01과 동일)이라 델타 색이 일반
- * 방향(▲=safe/▼=caution)입니다. 반면 지표 4개 미니 스코어는 "낮을수록 좋음"이라
- * 델타 색이 반대(▲=caution/▼=safe)입니다 — Figma 실측값(트러블 38 ▼1 초록,
- * 홍조 34 ▲1 빨강) 그대로입니다.
+ * ✅ 2026-08-18 방향 확정 — 총점과 지표 4개 **모두 "높을수록 좋음"** 입니다.
+ * 따라서 델타 색 규칙이 하나로 통일됐습니다(▲=safe/▼=caution).
+ * ⚠️ Figma 실측값(트러블 38 ▼1 초록, 홍조 34 ▲1 빨강)은 "낮을수록 좋음"을 전제로
+ * 그려진 화면이라 **더 이상 색이 일치하지 않습니다.** 목업 숫자도 같이 뒤집었으니
+ * Figma와 대조할 때는 이 점을 감안해 주세요.
  */
 export function ReportSummaryCard({ data, isLoading, period, dotDates, style }: ReportSummaryCardProps) {
   if (isLoading || !data) {
@@ -73,7 +74,7 @@ export function ReportSummaryCard({ data, isLoading, period, dotDates, style }: 
           <Text style={styles.label}>종합 피부 점수</Text>
           <View style={styles.totalNumberRow}>
             <Text style={styles.totalNumber}>{data.totalScore}</Text>
-            <DeltaText delta={data.totalDelta} invert={false} style={styles.totalDelta} />
+            <DeltaText delta={data.totalDelta} style={styles.totalDelta} />
           </View>
           <Text style={styles.label}>지난 {period}일 기준</Text>
         </View>
@@ -86,7 +87,7 @@ export function ReportSummaryCard({ data, isLoading, period, dotDates, style }: 
               <View key={metric} style={styles.miniScoreCard}>
                 <Text style={styles.miniScoreLabel}>{METRIC_LABELS[metric]}</Text>
                 <Text style={[styles.miniScoreValue, { color: metricAccent[metric] }]}>{item.score}</Text>
-                <DeltaText delta={item.delta} invert style={styles.miniScoreDelta} />
+                <DeltaText delta={item.delta} style={styles.miniScoreDelta} />
               </View>
             );
           })}
@@ -106,21 +107,25 @@ export function ReportSummaryCard({ data, isLoading, period, dotDates, style }: 
 }
 
 /**
- * ▲/▼ 증감 텍스트. invert=true면 "낮을수록 좋음" 지표용으로 색을 뒤집습니다
+ * ▲/▼ 증감 텍스트. 오르면 초록(safe), 내리면 빨강(caution)입니다.
+ *
+ * 2026-08-18 — 기존 `invert` prop을 제거했습니다. 지표 4종을 "낮을수록 좋음"으로
+ * 읽던 시절엔 미니 스코어만 색을 뒤집어야 해서 필요했는데, 방향이 "높을수록 좋음"으로
+ * 확정되면서 총점과 지표가 같은 규칙이 됐습니다. prop을 남겨두면 다음에 누가 `invert`를
+ * 다시 켜서 한쪽만 반대가 될 여지가 있어 아예 없앴습니다.
+ *
  * (MetricScoreList.DeltaBadge와 별도입니다 — 그쪽은 아이콘+"변화 없음"/"첫 기록"
  * 문구까지 포함한 다른 화면(S-18) 전용 컴포넌트라, 이 카드의 더 작고 인라인인
- * Figma 스타일(▲/▼ 글리프+숫자만, 별도 아이콘 없음)과 재사용하기엔 서로 안 맞았습니다).
+ * Figma 스타일(화살표+숫자만)과 재사용하기엔 서로 안 맞았습니다).
  *
- * ⚠️ 여기는 주아체를 쓰지 않습니다 — ▲/▼ 글리프가 비어 있을 위험이 있어 본문
- * 글꼴을 그대로 둡니다(관리자 결정, 2026-08-17 세션 12).
+ * ⚠️ 여기는 주아체를 쓰지 않습니다 — 숫자가 작고 화살표와 세로 정렬을 맞춰야 해서
+ * 본문 글꼴을 그대로 둡니다(관리자 결정, 2026-08-17 세션 12).
  */
 function DeltaText({
   delta,
-  invert,
   style,
 }: {
   delta: number | null;
-  invert: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   if (delta === null || delta === 0) {
@@ -131,8 +136,7 @@ function DeltaText({
     );
   }
   const isUp = delta > 0;
-  const good = invert ? !isUp : isUp;
-  const deltaColor = good ? reportColor.safe : reportColor.caution;
+  const deltaColor = isUp ? reportColor.safe : reportColor.caution;
   return (
     <View style={[styles.deltaRow, style]}>
       {/* ▲/▼ 문자 → 아이콘 세트 (2026-08-17 세션 15, 관리자 요청).

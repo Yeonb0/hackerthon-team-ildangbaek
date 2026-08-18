@@ -15,8 +15,9 @@ type MetricScoreListProps = {
 
 /**
  * 지표 점수 리스트. 배열 길이(3개/4개/6개)와 무관하게 동작합니다.
- * ⚠️ score는 0~100 · 높을수록 좋음을 가정합니다 — 백엔드 정규화 방향 확정 대기 중인
- * 항목이라(로드맵 "지금 바로 요청해야 할 것" 참고), 확정되면 이 파일의 방향(▲/▼ 색상)만 손보면 됩니다.
+ * ✅ score는 0~100 · **높을수록 좋음**입니다(2026-08-18 확정 — 관리자 확정 및 백엔드
+ * ai-server/app/metrics.py 일치). 이 컴포넌트는 원래부터 이 방향을 가정하고 있었고,
+ * 확정으로 앱 전체가 같은 규칙이 됐습니다.
  */
 export function MetricScoreList({ items, style }: MetricScoreListProps) {
   return (

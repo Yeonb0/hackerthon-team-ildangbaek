@@ -15,6 +15,7 @@ import { WheelPicker } from '@/components/base/WheelPicker';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { ProductSearchBar } from '@/components/domain/ProductSearchBar';
 import { RoutineQuickRecordCard } from '@/components/domain/RoutineQuickRecordCard';
+import { MetricGradeChip } from '@/components/domain/MetricGradeChip';
 import { SkinRecordSuggestionCard } from '@/components/domain/SkinRecordSuggestionCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
 import { MetricScoreList } from '@/components/domain/MetricScoreList';
@@ -340,6 +341,21 @@ export default function CatalogScreen() {
         </View>
       </Section>
 
+      <Section title="MetricGradeChip — 지표 등급 칩 (2026-08-18)">
+        {/* 경계값은 lib/metricGrade.ts (좋음 ≥70 / 보통 40~69 / 주의 <40).
+            임계값이 기획 확정으로 바뀌면 이 미리보기도 같이 움직입니다. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            { label: '트러블', score: 82 },
+            { label: '홍조', score: 62 },
+            { label: '모공', score: 40 },
+            { label: '색소잡티', score: 38 },
+          ].map((item) => (
+            <MetricGradeChip key={item.label} label={item.label} score={item.score} />
+          ))}
+        </View>
+      </Section>
+
       <Section title="SkinRecordSuggestionCard (Phase 7-B)">
         <SkinRecordSuggestionCard onPress={() => {}} />
       </Section>
@@ -355,7 +371,7 @@ export default function CatalogScreen() {
 
       <Section title="MetricScoreList">
         <Text style={styles.hint}>
-          score/delta 방향은 백엔드 정규화 확정 대기 중 — 지금은 &ldquo;높을수록 좋음&rdquo; 가정
+          score/delta는 &ldquo;높을수록 좋음&rdquo; (2026-08-18 확정 — 앱 전체 동일 규칙)
         </Text>
         <MetricScoreList
           items={[

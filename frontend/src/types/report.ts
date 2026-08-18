@@ -60,8 +60,9 @@ export interface ReportResult {
 export interface MetricScoreSummary {
   metric: MetricKey;
   score: number;
-  /** 이전 기간 대비 증감. 트러블/홍조/색소잡티/모공은 낮을수록 좋음 — 방향 해석은
-   * 화면(ReportSummaryCard)이 담당하고 이 타입은 부호 있는 원값만 갖습니다. */
+  /** 이전 기간 대비 증감. 지표 4종은 **높을수록 좋음**이라 양수가 개선입니다
+   * (2026-08-18 확정). 방향 해석은 화면(ReportSummaryCard)이 담당하고
+   * 이 타입은 부호 있는 원값만 갖습니다. */
   delta: number | null;
 }
 

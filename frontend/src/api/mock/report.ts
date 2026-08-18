@@ -113,13 +113,16 @@ export function buildMockReport(period: ReportPeriod, metric: MetricKey): Report
   };
 }
 
-// Figma 컬러 최종본(210:2437) 실측값을 그대로 씁니다 — 관리자가 화면에서 직접
-// 대조할 수 있도록 목업 숫자를 임의로 바꾸지 않았습니다.
+// 2026-08-18 — 점수 방향 "높을수록 좋음" 확정에 맞춰 Figma 실측값(210:2437)을 100에서
+// 뺀 대칭값으로 옮기고 delta 부호를 뒤집었습니다. mock/skin.ts와 같은 처리입니다.
+//   Figma 값: 트러블 38 ▼1 · 홍조 34 ▲1 · 색소잡티 47 ▼2 · 모공 40 ▲3
+// ⚠️ 따라서 Figma와 숫자를 직접 대조하면 어긋납니다(그 화면은 반대 방향 전제).
+//    레이아웃·색 규칙 대조에는 문제없습니다.
 const MOCK_SUMMARY_METRICS: MetricScoreSummary[] = [
-  { metric: 'trouble', score: 38, delta: -1 },
-  { metric: 'redness', score: 34, delta: 1 },
-  { metric: 'pigmentation', score: 47, delta: -2 },
-  { metric: 'pores', score: 40, delta: 3 },
+  { metric: 'trouble', score: 62, delta: 1 },
+  { metric: 'redness', score: 66, delta: -1 },
+  { metric: 'pigmentation', score: 53, delta: 2 },
+  { metric: 'pores', score: 60, delta: -3 },
 ];
 
 function buildMockTotalGraph(period: ReportPeriod): { date: string; score: number | null }[] {
@@ -194,9 +197,11 @@ const INSIGHT_DETAIL_SEED: Record<
       {
         daysAgo: 11,
         label: '레티놀 이 기간 첫 사용',
-        impact: '이후 2일 뒤 트러블 수치 +16',
+        // 2026-08-18 방향 확정 — 점수가 높을수록 좋으므로, "레티놀 사용 후 트러블이
+        // 나빠졌다"는 기존 시나리오를 유지하려면 delta가 음수여야 합니다.
+        impact: '이후 2일 뒤 트러블 수치 -16',
         confidence: 'OBSERVED',
-        delta: 16,
+        delta: -16,
         eventKind: 'INGREDIENT_USAGE',
       },
       // 성분 인사이트의 신뢰도는 그 성분에 대한 것이라, 자외선 이벤트는 항상 OBSERVING입니다
