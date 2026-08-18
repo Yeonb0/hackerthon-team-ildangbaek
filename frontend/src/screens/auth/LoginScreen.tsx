@@ -86,8 +86,6 @@ export function LoginScreen() {
         <Text style={styles.signupLinkText}>이메일로 회원가입</Text>
       </Pressable>
 
-      {/* 데모/개발 안내 — 다음 주 실제 SDK 연동 후 제거 예정 */}
-      <Text style={styles.mockNotice}>지금은 목업 로그인으로 동작합니다</Text>
     </View>
   );
 }

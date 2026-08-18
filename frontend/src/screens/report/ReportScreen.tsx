@@ -246,7 +246,7 @@ export function ReportScreen() {
       <Popup
         visible={showPopup}
         title="아직 리포트를 만들 수 없어요"
-        description="피부 기록이 조금 더 쌓이면 리포트를 확인할 수 있어요. (문구 확정 전 placeholder)"
+        description="피부 기록이 조금 더 쌓이면 리포트를 확인할 수 있어요."
         primaryLabel="기록하러 가기"
         onPrimaryPress={handleGoToRecordHub}
         secondaryLabel="닫기"
