@@ -8,10 +8,13 @@
 //
 // ⚠️ 매핑에 없는 코드가 와도 화면이 죽으면 안 됩니다(로드맵 4-2 경고).
 // 그래서 세 함수 모두 case를 못 찾으면 '알 수 없음' 같은 안전한 기본값으로 폴백합니다.
-import type { HomeEnvironment, HumidityGrade, UvGrade, WeatherCondition } from '@/types/home';
+import type { HomeEnvironment } from '@/types/home';
+import type { HumidityGrade, UvGrade, WeatherCondition } from '@/types/environment';
 
-// 로드맵 문서 기준 7종 + 안전망으로 FOG(실제 백엔드 엔티티에 있는 값) 추가.
-// OVERCAST/YELLOW_DUST/THUNDERSTORM 3개는 백엔드에 아직 없는 키 이름이라 확정 전까지 임시입니다.
+// 2026-08-18 — 백엔드 WeatherCondition.java와 전수 대조 완료. 7종 전부 일치합니다.
+// 예전 주석이 "OVERCAST/YELLOW_DUST/THUNDERSTORM은 백엔드에 없는 임의 키"라고 했는데
+// 확정됐고, 반대로 안전망으로 넣어뒀던 FOG는 백엔드 enum에서 사라져 제거했습니다.
+// (매칭 실패 시 아래 함수들이 '알 수 없음'으로 폴백하므로 예상 못 한 값이 와도 안 죽습니다.)
 const WEATHER_LABELS: Record<WeatherCondition, string> = {
   SUNNY: '맑음',
   CLOUDY: '구름 많음',
@@ -20,7 +23,6 @@ const WEATHER_LABELS: Record<WeatherCondition, string> = {
   SNOW: '눈',
   YELLOW_DUST: '황사',
   THUNDERSTORM: '천둥번개',
-  FOG: '안개',
 };
 
 const UV_GRADE_LABELS: Record<UvGrade, string> = {
@@ -31,10 +33,13 @@ const UV_GRADE_LABELS: Record<UvGrade, string> = {
   EXTREME: '위험',
 };
 
+// 2026-08-18 — 키를 백엔드 값(DRY/NORMAL/HUMID)으로 교체했습니다. 예전엔 LOW/NORMAL/HIGH라
+// 서버 값과 하나도 안 맞아 **항상 '알 수 없음'으로 폴백**하고 있었습니다.
+// 라벨은 자외선("낮음/보통/높음")과 구분되게 습도 어휘를 씁니다.
 const HUMIDITY_GRADE_LABELS: Record<HumidityGrade, string> = {
-  LOW: '낮음',
+  DRY: '건조',
   NORMAL: '보통',
-  HIGH: '높음',
+  HUMID: '습함',
 };
 
 const FALLBACK_LABEL = '알 수 없음';
@@ -57,9 +62,10 @@ export function getHumidityGradeLabel(code: string): string {
 // 시각 효과를 냅니다(DayHomeScreen 참고) — 배경색과 그라데이션 도착색이 완전히 같아서
 // 실제 마스킹과 결과물이 동일합니다.
 //
-// YELLOW_DUST(황사)는 디자이너가 아직 전달 전이라 자리표시자로 CLOUDY를 씁니다 — 실제
-// 에셋 오면 이 맵에 한 줄만 추가하면 됩니다. FOG도 로드맵 7종엔 없는 값이라 같은 이유로
-// CLOUDY를 씁니다.
+// 2026-08-18 — YELLOW_DUST(황사) 실제 에셋이 도착해 자리표시자(cloudy.jpg)를 교체했습니다.
+// 원본은 1195×1316 PNG였고, 기존 6종과 같은 규격(760px 폭 · RGB JPEG)으로 변환했습니다 —
+// 원본 비율(0.9081)이 기존 에셋(0.9091)과 거의 같아 잘라내기 없이 그대로 줄였습니다.
+// 이로써 7종 전부 실제 에셋이 채워졌습니다.
 const WEATHER_BACKGROUNDS: Record<WeatherCondition, number> = {
   SUNNY: require('../../assets/weather/sunny.jpg'),
   CLOUDY: require('../../assets/weather/cloudy.jpg'),
@@ -67,8 +73,7 @@ const WEATHER_BACKGROUNDS: Record<WeatherCondition, number> = {
   RAIN: require('../../assets/weather/rain.jpg'),
   SNOW: require('../../assets/weather/snow.jpg'),
   THUNDERSTORM: require('../../assets/weather/thunderstorm.jpg'),
-  YELLOW_DUST: require('../../assets/weather/cloudy.jpg'), // TODO: 황사 에셋 도착하면 교체
-  FOG: require('../../assets/weather/cloudy.jpg'),
+  YELLOW_DUST: require('../../assets/weather/yellow_dust.jpg'),
 };
 
 export function getWeatherBackground(code: string): number {
@@ -96,7 +101,8 @@ export function getEnvironmentTip(environment: HomeEnvironment): EnvironmentTip 
       description: '선크림을 먼저 챙기고 저자극 제품 위주로 사용해보세요.',
     };
   }
-  if (environment.humidityGrade === 'LOW') {
+  // 2026-08-18 — 'LOW'로 비교하고 있어 **이 팁이 영원히 뜨지 않았습니다**(서버는 'DRY'를 보냄).
+  if (environment.humidityGrade === 'DRY') {
     return {
       title: '습도가 낮아요',
       description: '수분 공급 제품으로 마무리해서 건조해지지 않게 관리해보세요.',

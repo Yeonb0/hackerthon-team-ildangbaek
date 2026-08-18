@@ -120,9 +120,11 @@ export interface IngredientItem {
 }
 
 /**
- * PRODUCT-08 · 제품 직접 등록 (F-PRODUCT-08, TBD-07). 백엔드에 이 기능 자체가 없어서
- * (api_명세서.md 전수 확인, 로그인 방식 3종에도 등록 엔드포인트 없음) 완전히 프론트 목업
- * 전용 타입입니다 — 실제 API가 생기면 그때 필드를 맞추면 됩니다.
+ * PRODUCT-08 · 제품 직접 등록 (F-PRODUCT-08). `POST /products` (multipart).
+ *
+ * 2026-08-18 — 백엔드 `ProductRegisterRequest`와 필드가 **전부 일치**하는 걸 확인하고
+ * 실API에 연결했습니다(예전 주석은 "백엔드에 이 기능 자체가 없다"였습니다).
+ * `category`도 백엔드 `ProductCategory` enum 12종과 정확히 같습니다.
  */
 export interface RegisterProductInput {
   name: string;
@@ -147,8 +149,12 @@ export interface ProductDetailResult {
   ingredients: IngredientItem[];
   /**
    * 제품 사진 URL — 관리자님 요청(2026-08-10)으로 S-14에 사진 자리를 만들었습니다.
-   * ⚠️ 현재 api_명세서.md PRODUCT-03 응답 예시에는 이 필드가 없습니다. 백엔드 확정 전까지는
-   * 항상 null로 취급하고 자리표시자만 보여줍니다 — 확정되면 필드명만 맞춰주면 됩니다.
+   *
+   * 2026-08-18 — 백엔드 `ProductDetailResponse.imageUrl`이 **실제로 존재하고 값도
+   * 채웁니다**(`ProductService:84`가 `product.getImageUrl()`을 그대로 싣습니다).
+   * 예전 주석은 "명세 예시에 없어서 항상 null로 취급"이었는데 사실이 아닙니다.
+   * 제품 등록 시 이미지를 안 올렸으면 여전히 null일 수 있으므로 자리표시자 분기는
+   * 그대로 두되, null 아님을 전제로 화면이 사진을 보여줍니다.
    */
   imageUrl?: string | null;
 }

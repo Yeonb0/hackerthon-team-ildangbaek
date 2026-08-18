@@ -1,14 +1,21 @@
 // ProductScanScreen.tsx — S-13 제품 스캔
 //
 // 바코드/상품 사진 두 모드를 하나의 CameraView로 처리합니다(브리프 가이드: "CameraView는
-// 하나만 두고 barcodeScannerSettings 활성 여부만 바꾸는 방식"). 후면 카메라를 씁니다
-// (facing='back') — 얼굴 촬영(S-16)과 달리 좌우반전 보정이 필요 없어서 prepareProductPhoto는
-// flip을 하지 않습니다(lib/image.ts 참고).
+// 하나만 두고 barcodeScannerSettings 활성 여부만 바꾸는 방식"). 후면 카메라를 씁니다.
 //
-// BARCODE 모드는 onBarcodeScanned로 자동 인식되면 그 즉시 사진을 찍어 업로드합니다 —
-// PRODUCT-04 API가 스캔 모드와 무관하게 항상 이미지 파일을 받기 때문에(바코드 디코딩은
-// 서버가 담당), 클라이언트는 "바코드가 프레임 안에 들어왔다"는 신호로 촬영 타이밍만
-// 잡아줍니다. onBarcodeScanned는 초당 수십 번 발화할 수 있어 첫 인식 이후 즉시 차단합니다
+// ⚠️ **2026-08-18 전면 수정 — 더 이상 사진을 찍지 않습니다.**
+// 예전 구현은 "PRODUCT-04가 항상 이미지 파일을 받는다(바코드 디코딩은 서버가 담당)"는
+// 전제로, 바코드가 인식되면 그 신호를 촬영 타이밍으로만 쓰고 사진을 업로드했습니다.
+// 실제 백엔드는 반대입니다 — multipart 경로는 SCAN_SERVICE_UNAVAILABLE만 던지고,
+// 실제 조회는 **JSON + 바코드 문자열**로만 됩니다. 그래서 실서버에서 스캔이 100%
+// 실패했습니다(목업은 정상이라 드러나지 않았습니다).
+// 이제 onBarcodeScanned가 주는 `result.data`(디코딩된 문자열)를 그대로 보냅니다 —
+// 촬영·리사이즈 단계가 사라져 인식이 눈에 띄게 빨라집니다.
+//
+// PRODUCT_IMAGE 모드는 백엔드에 인식 로직이 없어 동작하지 않습니다. 토글은 Figma대로
+// 남기되 고른 즉시 준비 중임을 안내하고 검색으로 유도합니다(관리자 결정 B안).
+//
+// onBarcodeScanned는 초당 수십 번 발화할 수 있어 첫 인식 이후 즉시 차단합니다
 // (로드맵 데모 리스크 가이드).
 //
 // ⚠️ 이 차단 플래그는 useState가 아니라 useRef여야 합니다(관리자님 실기기 확인, 2026-08-10 —
@@ -28,7 +35,6 @@ import { IconBack } from '@/components/icons';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
 import { LoadingState } from '@/components/state/LoadingState';
 import { SegmentToggle } from '@/components/base/SegmentToggle';
-import { prepareProductPhoto } from '@/lib/image';
 import { useScanProduct } from '@/api/queries/product';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
@@ -47,7 +53,9 @@ const MODE_OPTIONS: { value: ScanMode; label: string }[] = [
 
 const GUIDE_TEXT: Record<ScanMode, string> = {
   BARCODE: '바코드를 네모 안에 맞춰주세요',
-  PRODUCT_IMAGE: '제품 전면이 보이게 촬영해주세요',
+  // 2026-08-18 — 백엔드에 상품 사진 인식 로직이 없어 이 모드는 아직 동작하지 않습니다.
+  // 문구를 "촬영해주세요"로 두면 될 것처럼 보여서 준비 중임을 먼저 알립니다.
+  PRODUCT_IMAGE: '상품 사진 인식은 준비 중이에요',
 };
 
 // 유통·화장품 제품에서 흔한 바코드 규격 위주로 골랐습니다.
@@ -65,7 +73,6 @@ export function ProductScanScreen() {
   const { timeSlot } = route.params;
 
   const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
   // 위 상단 주석 참고 — 반드시 ref여야 연속 촬영 버그가 안 생깁니다.
   const scannedRef = useRef(false);
 
@@ -102,25 +109,26 @@ export function ProductScanScreen() {
   const handleModeChange = (mode: ScanMode) => {
     setScanMode(mode);
     scannedRef.current = false;
-    setErrorInfo(null);
+    // 2026-08-18 — 상품 사진 인식은 백엔드에 비전 로직이 없어 동작하지 않습니다
+    // (ProductService.scan(ScanMode, MultipartFile)이 SCAN_SERVICE_UNAVAILABLE만 던짐).
+    // 토글은 Figma대로 남겨두되, 고른 즉시 준비 중임을 알리고 검색으로 유도합니다
+    // (관리자 결정 B안). 백엔드가 구현하면 이 분기와 아래 하단 버튼만 되돌리면 됩니다.
+    setErrorInfo(
+      mode === 'PRODUCT_IMAGE'
+        ? {
+            message:
+              '상품 사진으로 찾는 기능은 아직 준비 중이에요. 바코드를 스캔하거나 제품명으로 검색해 주세요.',
+          }
+        : null
+    );
   };
 
-  const runScan = async () => {
-    if (!cameraRef.current || processing) return;
+  const runScan = async (barcode: string) => {
+    if (processing) return;
     setProcessing(true);
     setErrorInfo(null);
     try {
-      const photo = await cameraRef.current.takePictureAsync();
-      if (!photo?.uri) {
-        setErrorInfo({ message: '사진을 만드는 데 실패했어요. 다시 시도해 주세요.' });
-        scannedRef.current = false;
-        return;
-      }
-      const processed = await prepareProductPhoto(photo.uri, {
-        width: photo.width,
-        height: photo.height,
-      });
-      const result = await scanMutation.mutateAsync({ imageUri: processed.uri, scanMode });
+      const result = await scanMutation.mutateAsync({ scanMode: 'BARCODE', barcode });
       // replace를 씁니다 — 인식된 카메라 화면으로 뒤로가기가 자연스럽지 않아서(FaceCaptureScreen의
       // handleConfirm과 같은 이유), S-13을 스택에서 빼고 S-14로 바로 넘어갑니다.
       navigation.replace(DetailRoutes.IngredientCheck, { productId: result.productId, timeSlot });
@@ -136,10 +144,16 @@ export function ProductScanScreen() {
     }
   };
 
-  const handleBarcodeDetected = (_result: BarcodeScanningResult) => {
+  /**
+   * ⚠️ 2026-08-18 — 예전엔 인식 결과를 `_result`로 **버리고** 사진을 찍어 업로드했습니다.
+   * 백엔드는 multipart 경로에서 `SCAN_SERVICE_UNAVAILABLE`만 던지고, 실제 조회는
+   * JSON + 바코드 문자열로만 됩니다. `result.data`가 바로 그 문자열입니다.
+   */
+  const handleBarcodeDetected = (result: BarcodeScanningResult) => {
     if (scannedRef.current || processing) return;
+    if (!result.data) return;
     scannedRef.current = true;
-    runScan();
+    runScan(result.data);
   };
 
   const handleSwitchToSearch = () => navigation.goBack();
@@ -151,7 +165,6 @@ export function ProductScanScreen() {
   return (
     <View style={styles.fill}>
       <CameraView
-        ref={cameraRef}
         style={styles.cameraFill}
         facing="back"
         barcodeScannerSettings={
@@ -225,12 +238,12 @@ export function ProductScanScreen() {
       ) : null}
 
       {scanMode === 'PRODUCT_IMAGE' ? (
+        // 촬영 버튼 자리 — 눌러도 서버가 거부하므로 검색 진입으로 바꿨습니다(위 handleModeChange 주석).
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[5] }]}>
           <Button
-            label="촬영"
+            label="제품 검색하기"
             variant="primary"
-            loading={processing}
-            onPress={runScan}
+            onPress={handleSwitchToSearch}
             style={styles.captureButton}
           />
         </View>

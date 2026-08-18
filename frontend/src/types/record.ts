@@ -19,10 +19,20 @@ export interface RecordMonthlySummary {
   skinRecordCount: number;
 }
 
-/** 월간 기록 화면(F-RECORD-02, Frame 10 210:1505) 날짜 탭 바텀시트용.
- * ⚠️ 백엔드 API 명세서에 대응 엔드포인트가 없습니다 — 목업 전용(관리자 확인 필요,
- * 2026-08-15). 기존 제품 등록(ProductManualRegister)·이메일 인증 흐름과 같은 패턴으로
- * 우선 프론트만 구현했습니다. */
+/**
+ * 월간 기록 화면(F-RECORD-02, Frame 10 210:1505) 날짜 탭 바텀시트용.
+ *
+ * 2026-08-18 — "대응 엔드포인트가 없다"던 예전 주석은 **절반만 맞았습니다.**
+ * - **피부 점수**: `GET /reports/daily`(REPORT-03)가 있습니다. javadoc이 이 화면을
+ *   명시적으로 지목하고 있어서, "자세히 보기" 경로는 이미 실API에 연결했습니다
+ *   (`api/skin.ts`의 `getSkinRecordByDate`).
+ * - **제품 목록**: 아직 없습니다. `/product-records/home`은 오늘 기준이고
+ *   `/records/calendar`는 점 상태만 줍니다. 백엔드에 요청해 둔 상태입니다
+ *   (`docs/backend-request-2026-08-18.md` P2-3).
+ *
+ * 그래서 이 타입은 **당분간 목업 유지**입니다. 제품 기록 API가 생기면 skinScore는
+ * REPORT-03에서, 제품은 새 엔드포인트에서 각각 채우면 됩니다.
+ */
 export interface RecordDayProductItem {
   name: string;
 }

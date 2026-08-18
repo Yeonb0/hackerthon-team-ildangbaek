@@ -423,7 +423,8 @@ export default function CatalogScreen() {
             uvIndex: 3,
             uvGrade: 'MODERATE',
             humidity: 25,
-            humidityGrade: 'LOW',
+            // 2026-08-18 — 'LOW'는 백엔드에 없는 값이었습니다. 건조 팁이 뜨는 조건은 'DRY'입니다.
+            humidityGrade: 'DRY',
           }}
         />
         <Text style={[styles.hint, styles.progressSpacing]}>

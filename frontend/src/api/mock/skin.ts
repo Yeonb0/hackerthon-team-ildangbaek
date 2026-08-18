@@ -63,6 +63,58 @@ export function buildMockSkinRecordResult(timeSlot: TimeSlot): SkinRecordResult 
   };
 }
 
+/**
+ * REPORT-03 목업 — 월간 기록 바텀시트 "자세히 보기"로 지난 날짜를 열었을 때.
+ *
+ * ⚠️ **바텀시트가 보여주는 총점과 반드시 같아야 합니다.** 시트에 "종합 점수 72"라고
+ * 적혀 있는데 자세히 보기를 눌렀더니 50이 뜨면 데모에서 바로 티가 납니다. 그래서
+ * `mock/record.ts`의 `buildMockRecordDayDetail`이 쓰는 것과 **같은 식**(`68 + 일자 % 20`)으로
+ * 총점을 만들고, 지표 4종은 그 총점을 중심으로 흩뿌립니다.
+ *
+ * 지표 편차는 `buildMockSkinRecordResult`의 상대 관계(홍조가 가장 나쁘고 트러블이 가장
+ * 좋음)를 그대로 유지합니다 — 오늘 것과 지난 날짜가 서로 다른 이야기를 하면 안 됩니다.
+ * 4지표 평균이 총점과 맞도록 편차 합이 0입니다(ADR 0008 단순 평균).
+ *
+ * 기록이 없는 날은 `null`입니다(실서버의 빈 배열에 대응) — 시트가 `skinScore: null`인
+ * 날은 "자세히 보기" 자체를 안 그리므로 정상 흐름에선 도달하지 않지만, 방어적으로 둡니다.
+ */
+export function buildMockSkinRecordResultForDate(
+  date: string,
+  timeSlot: TimeSlot,
+): SkinRecordResult | null {
+  const day = Number(date.slice(-2));
+  if (Number.isNaN(day)) return null;
+
+  const totalScore = 68 + (day % 20);
+  // 합이 0인 편차 — 평균이 totalScore와 정확히 일치합니다.
+  const OFFSETS: Record<string, number> = {
+    trouble: 12,
+    redness: -12,
+    pores: 6,
+    pigmentation: -6,
+  };
+  const clamp = (n: number) => Math.max(0, Math.min(100, n));
+
+  return {
+    skinRecordId: day,
+    timeSlot,
+    capturedAt: `${date}T${timeSlot === 'MORNING' ? '08:20' : '22:40'}:00.000Z`,
+    totalScore,
+    scores: {
+      trouble: clamp(totalScore + OFFSETS.trouble),
+      redness: clamp(totalScore + OFFSETS.redness),
+      pores: clamp(totalScore + OFFSETS.pores),
+      pigmentation: clamp(totalScore + OFFSETS.pigmentation),
+    },
+    comparison: {
+      comparedTo: `이전 ${timeSlot === 'MORNING' ? '모닝' : '나이트'}`,
+      previousTotalScore: totalScore - 2,
+      // 지표는 높을수록 좋으므로 양수가 개선입니다(2026-08-18 확정).
+      changes: { trouble: 3, redness: -1, pores: 2, pigmentation: 0 },
+    },
+  };
+}
+
 /** 지연 시뮬레이션 — S-17의 단계 문구 순환이 데모에서도 실제로 보이도록 살짝 기다립니다. */
 export function mockSkinAnalysisDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 1800));

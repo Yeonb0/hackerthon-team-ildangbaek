@@ -24,6 +24,14 @@ export type IngredientStatus = 'GOOD' | 'CAUTION' | 'INSUFFICIENT';
 export interface TopIngredientItem {
   ingredientId: number;
   name: string;
+  /**
+   * 성분 설명 — 백엔드가 2026-08-16(`03283f8`)에 추가한 필드입니다. 세션 16까지
+   * 프론트 타입에 없어서 **파싱 단계에서 그냥 버려지고 있었습니다.**
+   *
+   * ⚠️ 당분간 대부분 null입니다. 백엔드 `Ingredient.description`이 `@Lob`인데
+   * 성분 사전 시드 데이터가 아직 없습니다 — 값이 있을 때만 그리세요.
+   */
+  description: string | null;
   status: IngredientStatus;
 }
 
@@ -79,6 +87,14 @@ export interface ProfileResult {
 export interface IngredientListItem {
   ingredientId: number;
   name: string;
+  /**
+   * 성분 설명 — 백엔드가 2026-08-16(`03283f8`)에 추가한 필드입니다. 세션 16까지
+   * 프론트 타입에 없어서 **파싱 단계에서 그냥 버려지고 있었습니다.**
+   *
+   * ⚠️ 당분간 대부분 null입니다. 백엔드 `Ingredient.description`이 `@Lob`인데
+   * 성분 사전 시드 데이터가 아직 없습니다 — 값이 있을 때만 그리세요.
+   */
+  description: string | null;
   status: IngredientStatus;
   /** INSUFFICIENT면 항상 null — 데이터 부족한 성분에 근거를 지어내지 않는다(BR1). */
   reason: string | null;

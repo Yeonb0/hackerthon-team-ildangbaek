@@ -72,6 +72,7 @@ import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import { MetricGradeChip } from '@/components/domain/MetricGradeChip';
 import type { ScanMode } from '@/types/product';
 import type { CheckRecommendation, RecommendationCategory } from '@/types/check';
+import type { HumidityGrade } from '@/types/environment';
 import { weightFamily, adjustFontSize } from '@/theme/typography';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
@@ -83,7 +84,12 @@ const SCAN_MODE_OPTIONS: { value: ScanMode; label: string }[] = [
   { value: 'PRODUCT_IMAGE', label: '상품 사진' },
 ];
 
-const HUMIDITY_GRADE_LABEL: Record<string, string> = {
+// 이 화면 전용 문장형 라벨입니다 — lib/weather.ts의 getHumidityGradeLabel은
+// "건조/보통/습함" 단어형이라 용도가 다릅니다(그쪽은 환경 카드의 값 표기용).
+// 2026-08-18 — Record<string, string>이던 걸 HumidityGrade로 좁혔습니다.
+// 키가 백엔드 값과 어긋나면 tsc가 잡도록 하기 위해서입니다(홈 쪽이 정확히 그렇게
+// 어긋난 채로 오래 방치됐던 이력이 있습니다).
+const HUMIDITY_GRADE_LABEL: Record<HumidityGrade, string> = {
   DRY: '실내 건조 주의',
   NORMAL: '쾌적한 습도예요',
   HUMID: '습도가 높아요',
@@ -121,6 +127,11 @@ export function ShoppingScreen() {
   const [scanMode, setScanMode] = useState<ScanMode>('BARCODE');
   const cameraRef = useRef<ProductCameraCaptureHandle>(null);
   const [scanError, setScanError] = useState<{ code?: string; message: string } | null>(null);
+  // 2026-08-18 — 촬영 버튼을 안내 문구로 바꾸면서 이 값을 읽는 곳이 없어졌습니다.
+  // 상태 자체는 남겨둡니다(setter만 사용) — 촬영 경로가 되살아나면 버튼 loading에
+  // 그대로 다시 물리면 되고, 지우면 onCaptureStart/onSuccess/onError 3곳을 함께
+  // 고쳐야 해서 되돌리기가 번거로워집니다.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [capturing, setCapturing] = useState(false);
 
   const [keyword, setKeyword] = useState('');
@@ -290,12 +301,14 @@ export function ShoppingScreen() {
               style={styles.cameraBox}
             />
             {scanMode === 'PRODUCT_IMAGE' ? (
-              <Button
-                label="촬영"
-                variant="primary"
-                loading={capturing}
-                onPress={() => cameraRef.current?.capture()}
-              />
+              // 2026-08-18 — 상품 사진 인식은 백엔드에 비전 로직이 없어 동작하지 않습니다.
+              // 촬영 버튼을 그대로 두면 눌러야 실패를 알게 되므로, 준비 중임을 먼저 알리고
+              // 검색으로 유도합니다(관리자 결정 B안). 백엔드가 구현하면 아래 Button을
+              // 원래의 촬영(capture) 버튼으로 되돌리면 됩니다.
+              <Text style={styles.scanHint}>
+                상품 사진으로 찾는 기능은 아직 준비 중이에요. 바코드를 스캔하거나 제품명으로
+                검색해 주세요.
+              </Text>
             ) : (
               <Text style={styles.scanHint}>바코드를 뷰파인더 안에 맞춰주세요</Text>
             )}

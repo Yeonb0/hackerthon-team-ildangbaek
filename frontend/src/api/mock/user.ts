@@ -16,16 +16,22 @@ import type {
 // USER-01/02 · 마이페이지 · 성분 프로파일
 // ---------------------------------------------------------------------------
 
+// description은 성분 자체의 일반 설명이고, reason은 "이 사용자에게 왜 이 판정인지"라
+// 성격이 다릅니다 — 둘을 같은 문장으로 채우면 화면에서 구분이 안 되니 주의하세요.
+//
+// ⚠️ 실서버는 당분간 description이 대부분 null입니다(백엔드 성분 사전 시드 미비).
+// 그래서 일부러 **일부만 채우고 나머지는 null로 뒀습니다** — 목업만 전부 채워두면
+// "값이 없을 때 레이아웃이 어떻게 되는지"를 못 보고 넘어가게 됩니다.
 const MOCK_INGREDIENTS: IngredientListItem[] = [
-  { ingredientId: 3, name: '나이아신아마이드', status: 'GOOD', reason: '피부 톤 개선 이력', recordCount: 12 },
-  { ingredientId: 8, name: '히알루론산', status: 'GOOD', reason: '수분 반응 양호', recordCount: 9 },
-  { ingredientId: 15, name: '판테놀', status: 'GOOD', reason: '진정 반응 확인됨', recordCount: 6 },
-  { ingredientId: 21, name: '레티놀', status: 'CAUTION', reason: '사용 후 홍조 반복 관찰', recordCount: 5 },
-  { ingredientId: 27, name: '향료', status: 'CAUTION', reason: '과거 홍조 반응 있음', recordCount: 7 },
-  { ingredientId: 33, name: 'AHA', status: 'CAUTION', reason: '자극 반응 1회 관찰', recordCount: 2 },
-  { ingredientId: 44, name: '스쿠알란', status: 'INSUFFICIENT', reason: null, recordCount: 1 },
-  { ingredientId: 45, name: '세라마이드', status: 'INSUFFICIENT', reason: null, recordCount: 1 },
-  { ingredientId: 46, name: '티트리오일', status: 'INSUFFICIENT', reason: null, recordCount: 0 },
+  { ingredientId: 3, name: '나이아신아마이드', description: '피부 장벽 강화와 톤 개선에 쓰이는 비타민B3 유도체예요.', status: 'GOOD', reason: '피부 톤 개선 이력', recordCount: 12 },
+  { ingredientId: 8, name: '히알루론산', description: '수분을 끌어당겨 머금는 대표적인 보습 성분이에요.', status: 'GOOD', reason: '수분 반응 양호', recordCount: 9 },
+  { ingredientId: 15, name: '판테놀', description: '진정과 보습을 돕는 프로비타민B5예요.', status: 'GOOD', reason: '진정 반응 확인됨', recordCount: 6 },
+  { ingredientId: 21, name: '레티놀', description: 'turnover를 촉진하는 비타민A 계열로, 처음엔 자극이 있을 수 있어요.', status: 'CAUTION', reason: '사용 후 홍조 반복 관찰', recordCount: 5 },
+  { ingredientId: 27, name: '향료', description: null, status: 'CAUTION', reason: '과거 홍조 반응 있음', recordCount: 7 },
+  { ingredientId: 33, name: 'AHA', description: '각질을 부드럽게 정리하는 수용성 산성 성분이에요.', status: 'CAUTION', reason: '자극 반응 1회 관찰', recordCount: 2 },
+  { ingredientId: 44, name: '스쿠알란', description: null, status: 'INSUFFICIENT', reason: null, recordCount: 1 },
+  { ingredientId: 45, name: '세라마이드', description: '피부 장벽을 이루는 지질 성분이에요.', status: 'INSUFFICIENT', reason: null, recordCount: 1 },
+  { ingredientId: 46, name: '티트리오일', description: null, status: 'INSUFFICIENT', reason: null, recordCount: 0 },
 ];
 
 // USER-01 BR5: completionRate는 F-ANALYSIS-05 값을 그대로 쓰고, 구매 전 확인(Phase7 CHECK)
@@ -84,7 +90,12 @@ export async function buildMockMyPage(): Promise<MyPageResult> {
       // "요약 노출용 최대 8건" — GOOD → CAUTION → INSUFFICIENT 순으로 앞 8개(USER-02 정렬 규칙과 동일하게 맞춤).
       topIngredients: sortedIngredients()
         .slice(0, 8)
-        .map(({ ingredientId, name, status }) => ({ ingredientId, name, status })),
+        .map(({ ingredientId, name, description, status }) => ({
+          ingredientId,
+          name,
+          description,
+          status,
+        })),
     },
     location: getMockCurrentLocation()?.name ?? null,
     notificationEnabled,

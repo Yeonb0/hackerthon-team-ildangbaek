@@ -1,6 +1,7 @@
 // SkinResultScreen.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +14,7 @@ import { MetricScoreList } from '@/components/domain/MetricScoreList';
 import { RadarChart } from '@/components/chart/RadarChart';
 import { IconBack } from '@/components/icons';
 import { toMetricList, type MetricListItem } from '@/api/adapters';
-import { getSkinRecordToday } from '@/api/skin';
+import { getSkinRecordByDate, getSkinRecordToday } from '@/api/skin';
 import { ApiError } from '@/api/unwrap';
 import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
 import { color, metricAccent, reportCardShadow, reportColor, space } from '@/theme/tokens';
@@ -119,18 +120,32 @@ export function SkinResultScreen() {
   const route = useRoute<RouteProp<DetailStackParamList, 'SkinResult'>>();
   const insets = useSafeAreaInsets();
 
+  // 월간 기록 캘린더에서 지난 날짜를 열어 들어온 경우에만 실립니다(없으면 오늘).
+  const viewingDate = route.params.date ?? null;
+  const isPastRecord = viewingDate !== null;
+
   const [result, setResult] = useState<SkinRecordResult | null>(null);
   const [loadError, setLoadError] = useState<'network' | 'server' | null>(null);
+  // 그 날짜에 피부 기록이 없는 상태. REPORT-03은 이걸 빈 배열로 주므로 에러가
+  // 아닙니다 — loadError와 분리해서 "재시도" 버튼이 뜨지 않게 합니다.
+  const [isEmpty, setIsEmpty] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
+    setIsEmpty(false);
     try {
-      const data = await getSkinRecordToday(route.params.timeSlot);
+      const data = viewingDate
+        ? await getSkinRecordByDate(viewingDate, route.params.timeSlot)
+        : await getSkinRecordToday(route.params.timeSlot);
+      if (data === null) {
+        setIsEmpty(true);
+        return;
+      }
       setResult(data);
     } catch (e) {
       setLoadError(e instanceof ApiError ? 'server' : 'network');
     }
-  }, [route.params.timeSlot]);
+  }, [viewingDate, route.params.timeSlot]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -152,8 +167,48 @@ export function SkinResultScreen() {
     });
   };
 
+  /**
+   * 지난 날짜로 들어왔을 땐 하단을 "닫기" 하나로 바꿔 캘린더로 돌아갑니다
+   * (관리자 결정 A안, 2026-08-18). 기존 두 버튼은 둘 다 `navigation.reset`이라
+   * 스택을 통째로 갈아치우기 때문에, 그대로 두면 캘린더로 **돌아갈 방법이 없습니다.**
+   * "홈으로 가기"라는 문구 자체도 방금 기록을 마친 직후 흐름 전제입니다.
+   */
+  const renderFooter = (footerStyle: StyleProp<ViewStyle>) =>
+    isPastRecord ? (
+      <View style={footerStyle}>
+        <Button label="닫기" variant="primary" onPress={() => navigation.goBack()} />
+      </View>
+    ) : (
+      <View style={footerStyle}>
+        <Button label="전체 리포트 보기" variant="primary" onPress={handleGoToReport} />
+        <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
+          <Text style={styles.textButton}>홈으로 가기</Text>
+        </Pressable>
+      </View>
+    );
+
   if (loadError) {
     return <ErrorState variant={loadError} onRetry={load} />;
+  }
+
+  // 그 날짜에 피부 기록이 없는 경우(REPORT-03 빈 배열). 시트가 skinScore null인 날은
+  // "자세히 보기"를 안 그리므로 정상 흐름에선 안 오지만, 실서버에서 시트 조회와 이
+  // 조회 사이에 상태가 어긋날 수 있어 방어적으로 둡니다. 에러가 아니므로 재시도
+  // 버튼 대신 닫기만 줍니다.
+  if (isEmpty) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.emptyBody, { paddingTop: insets.top + space[6] }]}>
+          <Text style={styles.emptyTitle}>이 날은 피부 기록이 없어요</Text>
+          <Text style={styles.emptyDescription}>
+            사진을 찍은 날만 분석 결과를 볼 수 있어요.
+          </Text>
+        </View>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + space[5] }]}>
+          <Button label="닫기" variant="primary" onPress={() => navigation.goBack()} />
+        </View>
+      </View>
+    );
   }
 
   if (!result) {
@@ -162,6 +217,11 @@ export function SkinResultScreen() {
 
   const metrics = toMetricList(result.scores, result.comparison?.changes ?? null);
   const isFirstRecord = result.comparison === null;
+
+  // 헤더 타이틀 — 지난 날짜면 "오늘의 피부"가 거짓말이 됩니다.
+  const headerTitle = viewingDate
+    ? `${Number(viewingDate.split('-')[1])}월 ${Number(viewingDate.split('-')[2])}일 피부`
+    : '오늘의 피부';
 
   // ─────────────────────────────── ① 첫 기록 ───────────────────────────────
   if (isFirstRecord) {
@@ -196,12 +256,18 @@ export function SkinResultScreen() {
           </View>
         </ScrollView>
 
-        <View style={[styles.firstFooter, { paddingBottom: insets.bottom + space[6] }]}>
-          <Button label="자세한 피부 결과 보기" variant="primary" onPress={handleGoToReport} />
-          <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
-            <Text style={styles.textButton}>홈으로 가기</Text>
-          </Pressable>
-        </View>
+        {/* 지난 날짜의 첫 기록(비교 대상 없음)일 수도 있습니다 — 이 화면엔 헤더 뒤로가기가
+            없어서, 푸터를 "닫기"로 바꾸지 않으면 캘린더로 못 돌아가고 갇힙니다. */}
+        {isPastRecord ? (
+          renderFooter([styles.firstFooter, { paddingBottom: insets.bottom + space[6] }])
+        ) : (
+          <View style={[styles.firstFooter, { paddingBottom: insets.bottom + space[6] }]}>
+            <Button label="자세한 피부 결과 보기" variant="primary" onPress={handleGoToReport} />
+            <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
+              <Text style={styles.textButton}>홈으로 가기</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     );
   }
@@ -237,7 +303,7 @@ export function SkinResultScreen() {
             >
               <IconBack size={18} color={color.textInk} />
             </Pressable>
-            <Text style={styles.headerTitle}>오늘의 피부</Text>
+            <Text style={styles.headerTitle}>{headerTitle}</Text>
           </View>
 
           <View style={styles.totalBlock}>
@@ -305,12 +371,7 @@ export function SkinResultScreen() {
         ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + space[5] }]}>
-        <Button label="전체 리포트 보기" variant="primary" onPress={handleGoToReport} />
-        <Pressable onPress={handleGoHome} accessibilityRole="button" hitSlop={8}>
-          <Text style={styles.textButton}>홈으로 가기</Text>
-        </Pressable>
-      </View>
+      {renderFooter([styles.footer, { paddingBottom: insets.bottom + space[5] }])}
     </View>
   );
 }
@@ -549,6 +610,28 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   textButton: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 20,
+    ...weightFamily('medium'),
+    color: color.textSub,
+    textAlign: 'center',
+  },
+
+  // --- 기록 없는 날(REPORT-03 빈 배열) ---
+  emptyBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space[6],
+    gap: space[2],
+  },
+  emptyTitle: {
+    fontSize: adjustFontSize(16),
+    ...weightFamily('bold'),
+    color: color.textInk,
+    textAlign: 'center',
+  },
+  emptyDescription: {
     fontSize: adjustFontSize(13),
     lineHeight: 20,
     ...weightFamily('medium'),
