@@ -9,6 +9,7 @@ import com.ildangbaek.backend.api.user.dto.response.AccountResponse;
 import com.ildangbaek.backend.api.user.dto.response.NotificationSettingResponse;
 import com.ildangbaek.backend.api.user.dto.response.ProfileResponse;
 import com.ildangbaek.backend.api.user.dto.response.SavedProductResponse;
+import com.ildangbaek.backend.domain.location.client.KakaoRegionClient;
 import com.ildangbaek.backend.domain.product.entity.UsageStatus;
 import com.ildangbaek.backend.domain.product.entity.UserProduct;
 import com.ildangbaek.backend.domain.product.repository.UserProductRepository;
@@ -47,6 +48,7 @@ public class UserService {
     private final NotificationSettingRepository notificationSettingRepository;
     private final UserProductRepository userProductRepository;
     private final ImageUrlResolver imageUrlResolver;
+    private final KakaoRegionClient kakaoRegionClient;
 
     @Transactional(readOnly = true)
     public AccountResponse getMe(User user) {
@@ -270,7 +272,8 @@ public class UserService {
         LocationSeed selected = request.locationId() == null ? null : locationByIdOrThrow(request.locationId());
         if (request.latitude() != null && request.longitude() != null) {
             String regionName = selected == null
-                    ? nearestLocation(request.latitude(), request.longitude()).name()
+                    ? kakaoRegionClient.findDistrict(request.latitude(), request.longitude())
+                            .orElseGet(() -> nearestLocation(request.latitude(), request.longitude()).name())
                     : selected.name();
             return new LocationValue(regionName, request.latitude(), request.longitude());
         }

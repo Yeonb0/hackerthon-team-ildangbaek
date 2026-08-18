@@ -28,6 +28,15 @@ app:
       directory: ${STORAGE_LOCAL_DIR:./uploads/images}
       url-prefix: ${STORAGE_LOCAL_URL_PREFIX:/images/}
       public-base-url: ${PUBLIC_BASE_URL:}
+  location:
+    kakao:
+      base-url: ${KAKAO_LOCAL_BASE_URL:https://dapi.kakao.com}
+      rest-api-key: ${KAKAO_REST_API_KEY:}
+  weather:
+    kma:
+      base-url: ${KMA_WEATHER_BASE_URL:http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}
+      uv-base-url: ${KMA_UV_BASE_URL:http://apis.data.go.kr/1360000/LivingWthrIdxServiceV4}
+      service-key: ${KMA_WEATHER_SERVICE_KEY:}
   skin:
     analysis:
       # mock | local-vision. OpenAI Vision은 local-vision(ai-server) 내부에서 2차 확정
