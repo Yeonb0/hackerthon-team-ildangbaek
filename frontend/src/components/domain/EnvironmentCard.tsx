@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { getHumidityGradeLabel, getUvGradeLabel } from '@/lib/weather';
+import { getHumidityGradeLabel, getUvGradeLabel, getWeatherLabel } from '@/lib/weather';
 import { color, overlayWhite, pinDisplayFont, radius, space, typography, weightFamily } from '@/theme';
 import type { HomeEnvironment } from '@/types/home';
 import { adjustFontSize } from '@/theme/typography';
@@ -30,6 +30,12 @@ type EnvironmentCardProps = {
  * 온도 옆(같은 행)으로 옮겼다가, 바로 다음 요청으로 다시 온도 아래(원래 방향, Figma와
  * 동일)로 되돌렸습니다. 대신 인사말("좋은 아침이에요", DayHomeScreen)과 날씨 라벨
  * ("맑음")을 지워서 그만큼 생긴 여유로 온도를 58→64로 키웠습니다.
+ *
+ * 2026-08-18 — 관리자님 요청으로 날씨 라벨("맑음")을 온도 옆에 다시 넣었습니다. 이번엔
+ * 온도 아래 별도 줄이 아니라 온도·단위와 같은 행(온도 오른쪽)에 배치하고, 크기는 위치
+ * 텍스트(DayHomeScreen `location`, typography.caption 13px + bold)와 맞췄습니다. 온도
+ * 폰트(64)는 그대로 유지 — 같은 줄에 작은 텍스트만 추가하는 거라 세로 공간을 추가로
+ * 차지하지 않습니다.
  *
  * "어제보다 2° 높아요" 같은 전일 대비 문구는 Figma에 있지만 백엔드에 아직 없는 데이터라
  * (관리자님 확인, 2026-08-16) 보류 상태입니다 — 값이 추가되면 weather 줄에 이어붙이면 됩니다.
@@ -63,10 +69,13 @@ export function EnvironmentCard({ environment, hasFailed = false, style }: Envir
     <View style={[styles.card, style]}>
       {/* 중첩 Text는 부모의 글꼴을 물려받으므로, 단위 쪽에서 fontFamily를 명시적으로
           덮어써야 본문 글꼴로 그려집니다. */}
-      <Text style={styles.temperature}>
-        {environment.temperature}
-        <Text style={styles.temperatureUnit}>°C</Text>
-      </Text>
+      <View style={styles.temperatureRow}>
+        <Text style={styles.temperature}>
+          {environment.temperature}
+          <Text style={styles.temperatureUnit}>°C</Text>
+        </Text>
+        <Text style={styles.weatherLabel}>{getWeatherLabel(environment.weather)}</Text>
+      </View>
       <View style={styles.badgeRow}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>
@@ -87,6 +96,11 @@ const styles = StyleSheet.create({
   card: {
     gap: space[1],
   },
+  temperatureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: space[1],
+  },
   temperature: {
     // 2026-08-16 — 인사말·날씨 라벨("맑음")을 지우면서 생긴 여유 공간만큼 살짝 키웠습니다
     // (58 → 64).
@@ -101,6 +115,17 @@ const styles = StyleSheet.create({
     // 주아체에 도(°) 글리프가 비어 있어서 이 조각만 본문 글꼴로 그립니다(위 주석 참고).
     fontSize: adjustFontSize(34),
     color: color.white,
+    ...weightFamily('bold'),
+  },
+  weatherLabel: {
+    // DayHomeScreen `location` 텍스트(typography.caption 13px + bold)와 크기를 맞췄습니다.
+    fontSize: adjustFontSize(16),
+    lineHeight: adjustFontSize(16) * 3,
+    color: color.white,
+    // 온도(64) 밑단과 시각적으로 맞도록 살짝 내립니다 — 큰 숫자 옆 작은 라벨이 붕 뜨지
+    // 않게 하는 미세 조정이라, 실기기에서 보고 필요하면 값을 조정해주세요.
+    marginLeft: space[2],
+    marginBottom: space[1],
     ...weightFamily('bold'),
   },
   badgeRow: {

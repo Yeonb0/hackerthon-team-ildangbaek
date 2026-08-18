@@ -26,6 +26,7 @@ import {
   metricGradeAccent,
   type MetricGrade,
 } from '@/lib/metricGrade';
+import { metricPhrase } from '@/lib/metricLabels';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -52,21 +53,13 @@ function gradeOf(score: number): { label: string; accent: string } {
 // 나란히 놓이면 문구 폭이 100px 남짓이라, 주어를 넣으면 대부분 두 줄로 접힙니다
 // (실기기 확인, 2026-08-17).
 //
-// 배열은 [좋음, 보통, 주의] 순으로 그대로 둡니다 — 문구가 뜻하는 "증상 정도"는
-// 방향 확정과 무관하고, 어떤 점수에 어떤 문구를 붙이는지만 phraseOf에서 바뀝니다.
-const METRIC_PHRASE: Record<string, [good: string, normal: string, caution: string]> = {
-  trouble: ['거의 없어요', '조금 있어요', '많은 편이에요'],
-  redness: ['거의 없어요', '약간 있어요', '뚜렷해요'],
-  pores: ['눈에 안 띄어요', '보통 수준이에요', '넓은 편이에요'],
-  pigmentation: ['거의 없어요', '중간 수준이에요', '많은 편이에요'],
-};
-
+// 2026-08-18 — 지표별 증상 문구(「거의 없어요」/「뚜렷해요」 등)를 걷어냈습니다.
+// 카드 제목이 「트러블 안정도」로 바뀌면서(개명 A) 「트러블 안정도 · 거의 없어요」가
+// 무엇이 없다는 건지 정반대로 읽히기 때문입니다. 문구는 lib/metricLabels.ts에 있습니다.
 const PHRASE_INDEX: Record<MetricGrade, 0 | 1 | 2> = { good: 0, normal: 1, caution: 2 };
 
 function phraseOf(item: MetricListItem): string {
-  const set = METRIC_PHRASE[item.key];
-  if (!set) return '';
-  return set[PHRASE_INDEX[metricGradeOf(item.score)]];
+  return metricPhrase(PHRASE_INDEX[metricGradeOf(item.score)]);
 }
 
 /**
@@ -244,7 +237,9 @@ export function SkinResultScreen() {
             <View style={styles.firstGrid}>
               {metrics.map((item) => (
                 <View key={item.key} style={styles.firstGridCell}>
-                  <Text style={styles.firstGridLabel}>{item.label}</Text>
+                  <Text style={styles.firstGridLabel} numberOfLines={1}>
+                    {item.shortLabel}
+                  </Text>
                   <Text
                     style={[styles.firstGridScore, { color: metricAccent[asMetricKey(item.key)] }]}
                   >
@@ -285,7 +280,8 @@ export function SkinResultScreen() {
 
   const radarItems = metrics.map((item) => ({
     key: item.key,
-    label: item.label,
+    // 축 라벨은 도형 바깥 좁은 자리라 짧은 이름을 씁니다(RadarChart 주석 참고).
+    label: item.shortLabel,
     score: item.score,
     accent: metricAccent[asMetricKey(item.key)],
   }));
@@ -336,7 +332,9 @@ export function SkinResultScreen() {
             return (
               <View key={item.key} style={styles.metricCard}>
                 <View style={styles.metricCardHead}>
-                  <Text style={styles.metricCardName}>{item.label}</Text>
+                  <Text style={styles.metricCardName} numberOfLines={1}>
+                    {item.label}
+                  </Text>
                   <View style={[styles.gradeBadge, { backgroundColor: tint(grade.accent) }]}>
                     <Text style={[styles.gradeBadgeText, { color: grade.accent }]}>
                       {grade.label}

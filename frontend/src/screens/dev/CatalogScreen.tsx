@@ -371,14 +371,21 @@ export default function CatalogScreen() {
 
       <Section title="MetricScoreList">
         <Text style={styles.hint}>
-          score/delta는 &ldquo;높을수록 좋음&rdquo; (2026-08-18 확정 — 앱 전체 동일 규칙)
+          score/delta는 &ldquo;높을수록 좋음&rdquo; (2026-08-18 확정 — 앱 전체 동일 규칙).
+          라벨은 lib/metricLabels.ts의 item 슬롯(넓은 자리 = 긍정 라벨)을 씁니다.
         </Text>
         <MetricScoreList
           items={[
-            { key: 'trouble', label: '트러블', score: 72, delta: 5 },
-            { key: 'redness', label: '홍조', score: 58, delta: -3 },
-            { key: 'pores', label: '모공', score: 80, delta: null },
-            { key: 'pigmentation', label: '색소침착', score: 64, delta: 0 },
+            { key: 'trouble', label: '트러블 안정도', shortLabel: '트러블', score: 72, delta: 5 },
+            { key: 'redness', label: '홍조 안정도', shortLabel: '홍조', score: 58, delta: -3 },
+            { key: 'pores', label: '모공 컨디션', shortLabel: '모공', score: 80, delta: null },
+            {
+              key: 'pigmentation',
+              label: '색소 컨디션',
+              shortLabel: '색소침착',
+              score: 64,
+              delta: 0,
+            },
           ]}
         />
       </Section>

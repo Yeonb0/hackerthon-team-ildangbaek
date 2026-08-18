@@ -39,6 +39,10 @@ import { setMockWeatherScenario } from '@/api/mock/home';
 import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
 import { useDevUiStore } from '@/store/devUiStore';
+import {
+  useMetricLabelStore,
+  METRIC_LABEL_MODE_TITLE,
+} from '@/store/metricLabelStore';
 import { SHOW_CATALOG } from '@/lib/devFlags';
 import { getWeatherLabel } from '@/lib/weather';
 import { color, radius, space } from '@/theme/tokens';
@@ -67,6 +71,10 @@ export function DevResetButton() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const catalogOpen = useDevUiStore((state) => state.catalogOpen);
   const toggleCatalog = useDevUiStore((state) => state.toggleCatalog);
+  // 라벨 개명안 비교(2026-08-18) — 카탈로그를 닫은 상태에서도 실제 화면 위에서 바로
+  // 전환할 수 있어야 회의 중 S-19/S-18을 번갈아 보여줄 수 있습니다. 확정 후 제거합니다.
+  const labelMode = useMetricLabelStore((state) => state.mode);
+  const cycleLabelMode = useMetricLabelStore((state) => state.cycleMode);
   const setTotalStepCount = useOnboardingStore((state) => state.setTotalStepCount);
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
@@ -95,6 +103,10 @@ export function DevResetButton() {
           ? '🧩 카탈로그 닫기'
           : '🧩 컴포넌트 카탈로그 열기',
       onPress: () => runReset(() => toggleCatalog()),
+    },
+    {
+      label: `🏷️ 지표 라벨 → ${METRIC_LABEL_MODE_TITLE[labelMode]}`,
+      onPress: () => runReset(() => cycleLabelMode()),
     },
     { label: '로그인 초기화', onPress: () => runReset(() => clearAuth()) },
     {

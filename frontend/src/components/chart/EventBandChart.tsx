@@ -88,9 +88,20 @@ export function EventBandChart({
         )},${PADDING_Y + chartH} Z`
       : '';
 
-  // x축 라벨은 labelCount개만 균등하게 솎아서 보여줍니다(14~30일치를 다 넣으면 겹칩니다).
+  // x축 라벨은 labelCount개만 균등하게 솎아서 보여줍니다(30일치를 다 넣으면 겹칩니다).
+  //
+  // 2026-08-18 — 마지막 날(오늘)을 항상 포함시킵니다. 인사이트 창이 14 → 30일로 바뀌면서
+  // step이 2에서 5가 됐는데, 30개를 5칸씩 솎으면 라벨이 i=25에서 끝나 그래프 오른쪽 끝의
+  // 날짜가 안 보였습니다. 마지막 라벨이 직전 라벨과 너무 붙으면(간격이 step의 절반 미만)
+  // 겹치므로 직전 것을 빼고 끼웁니다.
   const labelStep = n > labelCount ? Math.ceil(n / labelCount) : 1;
-  const labelPoints = points.filter((_, i) => i % labelStep === 0);
+  const labelIndices = points.map((_, i) => i).filter((i) => i % labelStep === 0);
+  if (n > 0 && labelIndices[labelIndices.length - 1] !== n - 1) {
+    if (n - 1 - labelIndices[labelIndices.length - 1] < labelStep / 2) labelIndices.pop();
+    labelIndices.push(n - 1);
+  }
+  const labelIndexSet = new Set(labelIndices);
+  const labelPoints = points.filter((_, i) => labelIndexSet.has(i));
 
   const bandWidth = n > 1 ? Math.max(6, chartW / n * 0.7) : 12;
 
