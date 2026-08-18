@@ -47,3 +47,4 @@
 | [0026](0026-피부-지표-원시-측정값-보존.md) | 피부 지표 원시 측정값 보존 — SkinMetric에 raw_value·confidence·버전 추가 | 수락 | B | ADR 0002 · ADR 0008 · ADR 0020 · ADR 0022 |
 | [0027](0027-클라이언트-파싱-제거-구조화-필드.md) | 문구 파싱 대신 구조화 필드 — REPORT-02 `delta`·`eventKind`·`summary` · CHECK-01 `tags` | 수락 | B | ADR 0013 · ADR 0018 · ADR 0025 · REPORT-02 · CHECK-01 |
 | [0028](0028-요인-상세-관리-팁.md) | 요인 상세 관리 팁 — ai-server 단건 생성 + 실패 시 null 폴백 | 수락 | B | ADR 0013 · ADR 0025 · ADR 0027 · REPORT-02 |
+| [0029](0029-피부-상태-코멘트.md) | 피부 상태 코멘트 — OpenAI Vision 확정 단계에서 함께 생성 + 실패 시 null 폴백 | 수락 | B | ADR 0022 · ADR 0025 · ADR 0028 · F-SKIN-04 · F-SKIN-05 · SKIN-01 |

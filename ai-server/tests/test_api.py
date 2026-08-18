@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from app import config, insight_tip, product_comment
+from app import config, insight_tip, product_comment, vision
 from app.main import app
 from tests.conftest import draw_face, encode_jpeg
 
@@ -31,6 +31,49 @@ def test_analyze_returns_four_metrics(face_jpeg: bytes) -> None:
     assert set(scores) == {"TROUBLE", "REDNESS", "PORES", "PIGMENTATION"}
     assert all(0 <= value <= 100 for value in scores.values())
     assert body["pores_reliability"] in ("LOW", "NORMAL")
+
+
+def test_analyze_returns_skin_comment_from_vision(
+    face_jpeg: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`/analyze` 핸들러가 pipeline 결과의 skin_comment를 HTTP 응답까지 그대로 옮기는지 검증한다.
+
+    pipeline.analyze()가 skin_comment를 채워도 main.py의 AnalyzeResponse 조립이 필드를
+    누락하면 응답에서는 null로 사라진다 — 이 회귀를 잡기 위한 엔드포인트 레벨 테스트다.
+    """
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    config.get_settings.cache_clear()
+    vision._client.cache_clear()
+
+    class _FakeMessage:
+        content = json.dumps(
+            {"TROUBLE": 50, "REDNESS": 50, "PORES": 50, "PIGMENTATION": 50,
+             "skin_comment": "트러블은 적지만 모공 관리가 필요해요."}
+        )
+
+    class _FakeChoice:
+        message = _FakeMessage()
+
+    class _FakeResponse:
+        choices = [_FakeChoice()]
+
+    class _FakeCompletions:
+        def create(self, **_kwargs: object) -> _FakeResponse:
+            return _FakeResponse()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        chat = _FakeChat()
+
+    monkeypatch.setattr(vision, "_client", lambda: _FakeClient())
+
+    response = client.post("/analyze", files={"image": ("face.jpg", face_jpeg, "image/jpeg")})
+
+    assert response.status_code == 200
+    assert response.json()["skin_comment"] == "트러블은 적지만 모공 관리가 필요해요."
+    config.get_settings.cache_clear()
 
 
 def test_no_face_returns_face_not_detected() -> None:

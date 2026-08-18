@@ -87,7 +87,7 @@ class SkinRecordServiceTest {
                 .analysisMethod(AnalysisMethod.MOCK)
                 .capturedAt(LocalDateTime.of(2026, 8, 8, 8, 30))
                 .build();
-        record.completeAnalysis(BigDecimal.valueOf(totalScore));
+        record.completeAnalysis(BigDecimal.valueOf(totalScore), null);
         ReflectionTestUtils.setField(record, "id", id);
         return record;
     }

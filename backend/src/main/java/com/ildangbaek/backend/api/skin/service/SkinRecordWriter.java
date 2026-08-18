@@ -48,7 +48,7 @@ public class SkinRecordWriter {
                 .analysisMethod(analysisMethod)
                 .capturedAt(capturedAt)
                 .build();
-        record.completeAnalysis(BigDecimal.valueOf(totalScore));
+        record.completeAnalysis(BigDecimal.valueOf(totalScore), analysis.skinComment());
 
         SkinRecord saved;
         try {

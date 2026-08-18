@@ -194,8 +194,10 @@ public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
         Map<SkinMetricType, String> confidence = parseConfidence(responseBody);
         String algorithmVersion = textOrNull(responseBody.get("algorithm_version"));
         String normalizationVersion = textOrNull(responseBody.get("normalization_version"));
+        String skinComment = textOrNull(responseBody.get("skin_comment"));
 
-        return new SkinAnalysisResult(scores, rawValues, confidence, algorithmVersion, normalizationVersion);
+        return new SkinAnalysisResult(
+                scores, rawValues, confidence, algorithmVersion, normalizationVersion, skinComment);
     }
 
     /**

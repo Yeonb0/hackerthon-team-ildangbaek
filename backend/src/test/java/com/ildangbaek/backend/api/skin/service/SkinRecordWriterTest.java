@@ -48,10 +48,13 @@ class SkinRecordWriterTest {
                 Map.of(SkinMetricType.REDNESS, 10.2, SkinMetricType.PORES, 7.1),
                 Map.of(SkinMetricType.PORES, "NORMAL"),
                 "cielab-v1",
-                "to-score-v1");
+                "to-score-v1",
+                "피부 상태가 전반적으로 안정적이에요.");
 
         SkinRecord saved = skinRecordWriter.save(user, LocalDate.now(), TimeSlot.MORNING, "/images/a.jpg",
                 LocalDateTime.now(), AnalysisMethod.API, analysis, 80);
+
+        assertThat(saved.getSkinComment()).isEqualTo("피부 상태가 전반적으로 안정적이에요.");
 
         Map<SkinMetricType, SkinMetric> metrics = indexByType(saved.getId());
         assertThat(metrics.get(SkinMetricType.REDNESS).getRawValue()).isEqualTo(10.2);
@@ -70,6 +73,8 @@ class SkinRecordWriterTest {
 
         SkinRecord saved = skinRecordWriter.save(user, LocalDate.now(), TimeSlot.MORNING, "/images/a.jpg",
                 LocalDateTime.now(), AnalysisMethod.MOCK, scoreOnly, 70);
+
+        assertThat(saved.getSkinComment()).isNull();
 
         List<SkinMetric> metrics = skinMetricRepository.findAllBySkinRecordId(saved.getId());
         assertThat(metrics).hasSize(SkinMetricType.values().length);

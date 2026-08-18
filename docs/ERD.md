@@ -275,6 +275,7 @@ UNIQUE(product_record_id, product_id)
 | time_period | VARCHAR(20) | NOT NULL | MORNING, NIGHT |
 | image_url | VARCHAR(500) | NULL | 얼굴 이미지 |
 | overall_score | DECIMAL(5,2) | NULL | 종합 피부 점수 |
+| skin_comment | VARCHAR(200) | NULL | OpenAI Vision이 작성한 피부 상태 코멘트. 규칙 기반 폴백·목업이면 NULL |
 | analysis_status | VARCHAR(20) | NOT NULL | PROCESSING, COMPLETED, FAILED |
 | analysis_method | VARCHAR(20) | NOT NULL | AI, API, MOCK |
 | captured_at | DATETIME | NOT NULL | 촬영 시각 |
