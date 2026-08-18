@@ -47,9 +47,18 @@ export function useAuthBootstrap() {
       setOnboardingNextStep(status.onboardingCompleted ? null : status.nextStep);
       setIsHydrated(true);
     } catch (e) {
+      // ⚠️ AUTH_USER_NOT_FOUND 포함 이유 (2026-08-18 백엔드 연동 점검에서 발견)
+      // 백엔드 CurrentUserIdArgumentResolver는 토큰의 userId로 **활성** 사용자를 못 찾으면
+      // 이 코드를 던지는데, 다른 AUTH_* 와 달리 HTTP 404라 client.ts의 401 인터셉터에
+      // 걸리지 않습니다. 여기서도 안 잡으면 hydrateError로 빠져 RootNavigator가 "재시도"
+      // ErrorState를 띄우고, 재시도해도 계속 404라 **로그인 화면으로 나갈 방법이 없습니다.**
+      // (백엔드 DB 초기화·계정 삭제·서버 교체 시 저장된 토큰이 그대로 이 상태가 됩니다.)
+      // 토큰이 가리키는 계정이 없다는 건 재시도로 풀릴 문제가 아니므로 로그아웃 처리합니다.
       const isAuthDead =
         e instanceof ApiError &&
-        (e.code === ErrorCode.AUTH_INVALID_TOKEN || e.code === ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED);
+        (e.code === ErrorCode.AUTH_INVALID_TOKEN ||
+          e.code === ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED ||
+          e.code === ErrorCode.AUTH_USER_NOT_FOUND);
 
       if (isAuthDead) {
         // client.ts가 이미 refresh를 시도했지만 실패한 상황 -> 로그아웃 처리, S-00으로

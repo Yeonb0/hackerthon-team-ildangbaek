@@ -69,6 +69,7 @@ import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, reportCardShadow, shopTagTint, space } from '@/theme/tokens';
 import { PRODUCT_CATEGORY_LABELS } from '@/types/product';
+import { MetricGradeChip } from '@/components/domain/MetricGradeChip';
 import type { ScanMode } from '@/types/product';
 import type { CheckRecommendation, RecommendationCategory } from '@/types/check';
 import { weightFamily, adjustFontSize } from '@/theme/typography';
@@ -173,15 +174,39 @@ export function ShoppingScreen() {
     : matchedIngredient;
 
   const todayContext = checkHomeQuery.data?.todayContext;
+  // 2026-08-18 — "트러블 38 · 홍조 62 기준 추천"처럼 숫자만 나열하면 그 값이 좋은
+  // 상태인지 나쁜 상태인지 알 수 없습니다. 방향이 "높을수록 좋음"으로 확정됐어도
+  // 사용자는 그 규칙을 모르고, 바로 아래 습도 부제("실내 건조 주의")는 이미 해석을
+  // 달아주고 있어 두 줄의 정보량이 어긋나 있었습니다.
+  //
+  // 지표명·점수를 통째로 색 칩에 넣고 **등급 단어는 쓰지 않습니다**(관리자 결정) —
+  // 부제는 작은 회색 글씨라 "보통"·"주의" 글자를 덧붙이면 줄만 길어지고, 색만으로
+  // 충분히 읽힙니다. 경계·색은 lib/metricGrade.ts가 단독으로 갖습니다
+  // (S-18 등급 배지와 동일 기준).
+  const todayMetricChips =
+    todayContext === undefined
+      ? []
+      : ([
+          todayContext.troubleScore !== null
+            ? { key: 'trouble', label: '트러블', score: todayContext.troubleScore }
+            : null,
+          todayContext.rednessScore !== null
+            ? { key: 'redness', label: '홍조', score: todayContext.rednessScore }
+            : null,
+        ].filter(Boolean) as { key: string; label: string; score: number }[]);
+
   const todaySubtitle =
-    todayContext && (todayContext.troubleScore !== null || todayContext.rednessScore !== null)
-      ? [
-          todayContext.troubleScore !== null ? `트러블 ${todayContext.troubleScore}` : null,
-          todayContext.rednessScore !== null ? `홍조 ${todayContext.rednessScore}` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ') + ' 기준 추천'
-      : null;
+    todayMetricChips.length > 0 ? (
+      // 칩과 꼬리말이 같은 줄에 섞이므로 flexWrap을 켭니다 — 소형 화면에서 두 지표가
+      // 다 있으면 한 줄을 넘깁니다(줄이 바뀌어도 칩이 잘리지 않게).
+      // 칩끼리는 배경색으로 이미 나뉘어 보여서 가운뎃점(·) 구분자를 넣지 않았습니다.
+      <View style={styles.todaySubtitleRow}>
+        {todayMetricChips.map((item) => (
+          <MetricGradeChip key={item.key} label={item.label} score={item.score} />
+        ))}
+        <Text style={styles.subtitleInline}>기준 추천</Text>
+      </View>
+    ) : null;
   const humiditySubtitle =
     todayContext && todayContext.humidity !== null
       ? `오늘 습도 ${todayContext.humidity}%${
@@ -473,7 +498,12 @@ function SectionHeader({
   onToggle,
 }: {
   title: string;
-  subtitle: string | null;
+  /**
+   * 문자열이면 그대로 부제 스타일로 그리고, 노드면 호출부가 만든 것을 그대로 씁니다.
+   * "오늘 내 피부에 필요해요"만 등급 칩이 섞인 노드를 넘깁니다 — 나머지 섹션은
+   * 여전히 단순 문자열이라 호출부마다 View를 조립하게 만들 이유가 없습니다.
+   */
+  subtitle: React.ReactNode;
   expanded: boolean;
   canExpand: boolean;
   onToggle: () => void;
@@ -482,7 +512,11 @@ function SectionHeader({
     <View style={styles.sectionHeader}>
       <View style={styles.sectionHeaderText}>
         <Text style={styles.sectionTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+        {typeof subtitle === 'string' ? (
+          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+        ) : (
+          subtitle
+        )}
       </View>
       {canExpand ? (
         <Pressable accessibilityRole="button" onPress={onToggle} hitSlop={8}>
@@ -755,6 +789,21 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     ...weightFamily('bold'),
     color: color.textInk,
+  },
+  todaySubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 2,
+  },
+  // sectionSubtitle과 같은 서체지만 marginTop이 없습니다 — 위 행이 이미 marginTop을
+  // 갖고 있고, 자식에 또 주면 칩과 세로 중앙 정렬이 어긋납니다.
+  subtitleInline: {
+    fontSize: adjustFontSize(11),
+    lineHeight: 16,
+    ...weightFamily('medium'),
+    color: color.textSub,
   },
   sectionSubtitle: {
     fontSize: adjustFontSize(11),

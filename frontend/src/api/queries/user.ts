@@ -1,9 +1,8 @@
 // src/api/queries/user.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { ApiError, unwrap } from '@/api/unwrap';
+import { unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
-import { ErrorCode } from '@/types/errorCodes';
 import { saveNotificationSetting } from '@/api/notification';
 import {
   buildMockIngredientProfile,
@@ -219,14 +218,14 @@ export function useLogout() {
 }
 
 // ---------------------------------------------------------------------------
-// 회원 탈퇴 (S-23)
+// USER-01-D · 회원 탈퇴 (S-23) · DELETE /users/me
 //
-// ⚠️ 백엔드에 엔드포인트가 없습니다(2026-08-17 확인). User 엔티티에 withdraw()와
-// AccountStatus.WITHDRAWN은 이미 있어서 컨트롤러만 열면 됩니다 —
-// docs/backend-request-account-withdraw.md로 요청했습니다.
+// 2026-08-18 백엔드 구현 완료(커밋 03283f8)로 실호출로 교체했습니다.
+// 그 전까지는 엔드포인트가 없어 ApiError를 직접 던지고 있었습니다.
 //
-// 실서버 모드에서는 지금 호출하면 404가 납니다. 경로가 열리면 아래 주석 처리된
-// 한 줄로 교체하면 되고, 화면 코드는 손대지 않아도 됩니다.
+// 물리 삭제가 아니라 AccountStatus.WITHDRAWN 전환입니다(명세 BR1). 전환 후에는
+// CurrentUserIdArgumentResolver의 isActive 필터에 걸려 남은 토큰으로 어떤 API도
+// 통과하지 못하므로, 아래 onSuccess의 clearAuth()가 반드시 함께 돌아야 합니다.
 // ---------------------------------------------------------------------------
 
 export async function withdrawAccount(): Promise<void> {
@@ -234,8 +233,7 @@ export async function withdrawAccount(): Promise<void> {
     await withdrawMockAccount();
     return;
   }
-  // TODO(백엔드 응답 후): return unwrap<void>(apiClient.delete('/users/me'));
-  throw new ApiError(ErrorCode.COMMON_SERVER_ERROR, '탈퇴 기능은 아직 준비 중이에요.');
+  await unwrap<null>(apiClient.delete('/users/me'));
 }
 
 export function useWithdrawAccount() {

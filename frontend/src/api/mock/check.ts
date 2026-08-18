@@ -28,7 +28,7 @@ export function buildMockCheckHome(): CheckHomeResult {
   return {
     profileCompletion: 65,
     recommendations: [
-      // TODAY_NEEDED — todayContext(트러블 38·홍조 62)를 근거로 함
+      // TODAY_NEEDED — todayContext(트러블 62·홍조 38 → 홍조가 "주의")를 근거로 함
       {
         productId: 71,
         name: '라로슈포제 시카플라스트',
@@ -96,9 +96,13 @@ export function buildMockCheckHome(): CheckHomeResult {
         tags: ['잘 맞는 성분'],
       },
     ],
+    // 2026-08-18 — 점수 방향 "높을수록 좋음" 확정에 맞춰 뒤집었습니다.
+    // mock/skin.ts의 오늘 기록(트러블 62 · 홍조 38)과 같은 값이어야 합니다 —
+    // 실서버에서도 이 값은 같은 피부 기록에서 나옵니다(CheckHomeService).
+    // 홍조 38 = "주의"라 "오늘 내 피부에 필요해요" 섹션이 뜨는 근거가 됩니다.
     todayContext: {
-      troubleScore: 38,
-      rednessScore: 62,
+      troubleScore: 62,
+      rednessScore: 38,
       humidity: 55,
       humidityGrade: 'DRY',
     },
