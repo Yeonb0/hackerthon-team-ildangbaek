@@ -22,7 +22,7 @@
 //       분리합니다(관리자 제공 참고 이미지 구조).
 //   (e) 카드 텍스트 순서: 제품명(볼드) 위 / 브랜드(작은 회색) 아래.
 //   (f) "내게 잘 맞는 성분이 들어간 제품"만 가로 스크롤, 나머지 두 섹션은 세로 카드 스택.
-//   (g) 우측 상단 장바구니 아이콘 + 담긴 개수 배지. 담기/빼기 버튼은 이 화면에 두지 않고
+//   (g) 우측 상단 위시리스트 아이콘 + 저장 개수 배지. 추가/삭제 버튼은 이 화면에 두지 않고
 //       제품 상세(SHOP-02)에만 둡니다 — 쇼핑 화면을 깔끔하게 유지하려는 결정.
 //   (h) 참고 이미지의 번호 배지(1·2)는 넣지 않습니다(추천은 순위 목록이 아님).
 //
@@ -37,9 +37,10 @@
 //   · "더보기"는 Figma엔 1번 카드에만 있고 목적지가 없어서, 죽은 버튼 대신 "접힌 목록
 //     펼치기"로 구현했습니다. 새 API 없이 동작합니다.
 //   · 브랜드 줄이 Figma는 "브랜드 · 용량"인데 CHECK-01에 용량이 없어 브랜드만 표시합니다.
-//   · 장바구니 아이콘은 42종 아이콘 세트에 없어서 Ionicons 'cart-outline'으로 임시
+//   · 위시리스트 아이콘은 42종 아이콘 세트에 없어서 Ionicons 'heart-outline'으로 임시
 //     폴백했습니다(미전달 아이콘은 Ionicons 유지 — Checkpoint 9-B 원칙).
-//     디자인 요청: docs/design-request-cart.md
+//     ※ 2026-08-18 장바구니 → 위시리스트 개명에 따라 'cart-outline' → 'heart-outline'으로
+//       교체했습니다. 확정 하트 아이콘은 아직 미수령입니다.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -64,7 +65,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useCheckHome } from '@/api/queries/check';
 import { useIngredientProfile } from '@/api/queries/user';
 import { useProductSearch } from '@/api/queries/product';
-import { useCartCount } from '@/store/cartStore';
+import { useWishlistCount } from '@/store/wishlistStore';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, reportCardShadow, shopTagTint, space } from '@/theme/tokens';
@@ -114,7 +115,7 @@ export function ShoppingScreen() {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
 
-  const cartCount = useCartCount();
+  const wishlistCount = useWishlistCount();
 
   const checkHomeQuery = useCheckHome();
   // MATCHED_INGREDIENT 섹션 필터 칩용 — GOOD 성분만(성분 프로파일 전체 화면과 달리
@@ -242,17 +243,17 @@ export function ShoppingScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
-              cartCount > 0 ? `장바구니, 담은 제품 ${cartCount}개` : '장바구니, 비어 있음'
+              wishlistCount > 0 ? `위시리스트, 저장한 제품 ${wishlistCount}개` : '위시리스트, 비어 있음'
             }
             hitSlop={8}
-            onPress={() => navigation.navigate(DetailRoutes.Cart)}
-            style={styles.cartButton}
+            onPress={() => navigation.navigate(DetailRoutes.Wishlist)}
+            style={styles.wishlistButton}
           >
-            {/* 42종 세트에 장바구니 아이콘이 없어 Ionicons 폴백입니다(파일 상단 주석). */}
-            <AppIcon name="cart-outline" size={24} color={color.textInk} />
-            {cartCount > 0 ? (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+            {/* 42종 세트에 위시리스트 아이콘이 없어 Ionicons 폴백입니다(파일 상단 주석). */}
+            <AppIcon name="heart-outline" size={24} color={color.textInk} />
+            {wishlistCount > 0 ? (
+              <View style={styles.wishlistBadge}>
+                <Text style={styles.wishlistBadgeText}>{wishlistCount > 99 ? '99+' : wishlistCount}</Text>
               </View>
             ) : null}
           </Pressable>
@@ -721,14 +722,14 @@ const styles = StyleSheet.create({
     ...weightFamily('medium'),
     color: color.textSub,
   },
-  cartButton: {
+  wishlistButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   // 아이콘 우상단에 겹치는 개수 배지. minWidth로 한 자리/두 자리 모두 원형에 가깝게.
-  cartBadge: {
+  wishlistBadge: {
     position: 'absolute',
     top: 2,
     right: 0,
@@ -740,7 +741,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cartBadgeText: {
+  wishlistBadgeText: {
     fontSize: adjustFontSize(9),
     lineHeight: 12,
     ...weightFamily('bold'),

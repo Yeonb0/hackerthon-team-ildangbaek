@@ -60,10 +60,10 @@ export const DetailRoutes = {
   // Phase 11-D(2번 체크포인트) — F-RECORD-02 월간 기록(Frame 10, 210:835). RecordHub의
   // 캘린더 아이콘 버튼에서 진입, 날짜 탭하면 그 날 기록 바텀시트가 뜹니다.
   RecordCalendar: 'RecordCalendar',
-  // 2026-08-17(세션 12) — S-25 장바구니(관리자님 요청). 쇼핑 화면(S-21) 우측 상단
-  // 아이콘에서 진입합니다. 백엔드 API가 없어 cartStore(클라이언트 저장) 전용이고,
-  // Figma에도 시안이 없습니다(요청서: docs/design-request-cart.md).
-  Cart: 'Cart',
+  // 2026-08-17(세션 12) — S-25 위시리스트(관리자님 요청). 쇼핑 화면(S-21) 우측 상단
+  // 아이콘에서 진입합니다. 백엔드 API가 없어 wishlistStore(클라이언트 저장) 전용이고,
+  // Figma에도 시안이 없습니다. 라우트 이름은 2026-08-18에 Cart → Wishlist로 바꿨습니다.
+  Wishlist: 'Wishlist',
 } as const;
 
 export type TimeSlot = 'MORNING' | 'NIGHT';
@@ -135,8 +135,8 @@ export type DetailStackParamList = {
   };
   // Phase 11-D(2번 체크포인트) — F-RECORD-02 월간 기록. RecordHub 캘린더 아이콘에서 진입.
   [DetailRoutes.RecordCalendar]: undefined;
-  // 2026-08-17(세션 12) — S-25 장바구니. 목록은 cartStore가 들고 있어서 파라미터가 없습니다.
-  [DetailRoutes.Cart]: undefined;
+  // 2026-08-17(세션 12) — S-25 위시리스트. 목록은 wishlistStore가 들고 있어서 파라미터가 없습니다.
+  [DetailRoutes.Wishlist]: undefined;
 };
 
 // Root: Auth ↔ Onboarding ↔ Main 전체 교체 (뒤로가기로 못 돌아감)

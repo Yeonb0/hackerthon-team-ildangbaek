@@ -35,7 +35,7 @@ import { RoutineEditScreen } from '@/screens/product/RoutineEditScreen';
 import { RoutineAddProductScreen } from '@/screens/product/RoutineAddProductScreen';
 import { ProductManualRegisterScreen } from '@/screens/product/ProductManualRegisterScreen';
 import { RecordCalendarScreen } from '@/screens/record/RecordCalendarScreen';
-import { CartScreen } from '@/screens/product/CartScreen';
+import { WishlistScreen } from '@/screens/product/WishlistScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<DetailStackParamList>();
@@ -145,8 +145,8 @@ export function MainTabNavigator() {
       <Stack.Screen name={DetailRoutes.RoutineAddProduct} component={RoutineAddProductScreen} />
       <Stack.Screen name={DetailRoutes.ProductManualRegister} component={ProductManualRegisterScreen} />
       <Stack.Screen name={DetailRoutes.RecordCalendar} component={RecordCalendarScreen} />
-      {/* S-25 장바구니 — 2026-08-17(세션 12) 신규. 쇼핑 화면 우측 상단 아이콘에서 진입. */}
-      <Stack.Screen name={DetailRoutes.Cart} component={CartScreen} />
+      {/* S-25 위시리스트 — 2026-08-17(세션 12) 신규. 쇼핑 화면 우측 상단 아이콘에서 진입. */}
+      <Stack.Screen name={DetailRoutes.Wishlist} component={WishlistScreen} />
     </Stack.Navigator>
   );
 }
