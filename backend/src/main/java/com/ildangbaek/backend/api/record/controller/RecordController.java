@@ -1,15 +1,18 @@
 package com.ildangbaek.backend.api.record.controller;
 
 import com.ildangbaek.backend.api.record.dto.RecordCalendarResponse;
+import com.ildangbaek.backend.api.record.dto.RecordDailyResponse;
 import com.ildangbaek.backend.api.record.dto.RecordTodayResponse;
 import com.ildangbaek.backend.api.record.service.RecordHubService;
 import com.ildangbaek.backend.global.auth.CurrentUserId;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.response.ApiResponse;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -33,6 +36,14 @@ public class RecordController {
     @GetMapping("/today")
     public ApiResponse<RecordTodayResponse> getToday(@CurrentUserId Long userId) {
         return ApiResponse.success(recordHubService.getToday(userId));
+    }
+
+    @GetMapping("/daily")
+    public ApiResponse<RecordDailyResponse> getDaily(
+            @CurrentUserId Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ApiResponse.success(recordHubService.getDaily(userId, date));
     }
 
     private YearMonth parseYearMonth(String yearMonth) {

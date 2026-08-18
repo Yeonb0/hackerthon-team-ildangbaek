@@ -11,6 +11,10 @@ import com.ildangbaek.backend.api.product.dto.response.ProductSaveResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductScanResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSearchResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSummaryResponse;
+import com.ildangbaek.backend.domain.analysis.entity.IngredientProfile;
+import com.ildangbaek.backend.domain.analysis.entity.IngredientStatus;
+import com.ildangbaek.backend.domain.analysis.entity.ReactionType;
+import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileRepository;
 import com.ildangbaek.backend.domain.product.entity.Ingredient;
 import com.ildangbaek.backend.domain.product.entity.Product;
 import com.ildangbaek.backend.domain.product.entity.ProductDataSource;
@@ -26,9 +30,11 @@ import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.storage.ImageStorage;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,11 +46,13 @@ public class ProductService {
 
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png");
     private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
+    private static final int KEY_INGREDIENT_LIMIT = 10;
 
     private final ProductRepository productRepository;
     private final ProductIngredientRepository productIngredientRepository;
     private final IngredientRepository ingredientRepository;
     private final UserProductRepository userProductRepository;
+    private final IngredientProfileRepository ingredientProfileRepository;
     private final ImageStorage imageStorage;
 
     @Transactional(readOnly = true)
@@ -67,13 +75,18 @@ public class ProductService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
         List<ProductIngredient> productIngredients =
                 productIngredientRepository.findAllByProductIdOrderByDisplayOrderAsc(productId);
+        Map<Long, IngredientProfile> profilesByIngredientId = findProfiles(user, productIngredients);
         List<IngredientResponse> ingredients = productIngredients.stream()
-                .map(this::toIngredient)
+                .map(productIngredient -> toIngredient(
+                        productIngredient,
+                        profilesByIngredientId.get(productIngredient.getIngredient().getId())))
                 .toList();
         List<IngredientResponse> keyIngredients = productIngredients.stream()
                 .filter(ProductIngredient::isKeyIngredient)
-                .limit(10)
-                .map(this::toIngredient)
+                .limit(KEY_INGREDIENT_LIMIT)
+                .map(productIngredient -> toIngredient(
+                        productIngredient,
+                        profilesByIngredientId.get(productIngredient.getIngredient().getId())))
                 .toList();
 
         return new ProductDetailResponse(
@@ -168,12 +181,14 @@ public class ProductService {
                         .orElseGet(() -> ingredientRepository.save(Ingredient.builder()
                                 .koreanName(ingredientName)
                                 .build()));
+                boolean keyIngredient = displayOrder <= KEY_INGREDIENT_LIMIT;
                 productIngredientRepository.save(ProductIngredient.builder()
                         .product(product)
                         .ingredient(ingredient)
-                        .displayOrder(displayOrder++)
-                        .keyIngredient(false)
+                        .displayOrder(displayOrder)
+                        .keyIngredient(keyIngredient)
                         .build());
+                displayOrder++;
             }
         }
 
@@ -237,11 +252,24 @@ public class ProductService {
         );
     }
 
-    private IngredientResponse toIngredient(ProductIngredient productIngredient) {
+    private Map<Long, IngredientProfile> findProfiles(User user, List<ProductIngredient> productIngredients) {
+        List<Long> ingredientIds = productIngredients.stream()
+                .map(productIngredient -> productIngredient.getIngredient().getId())
+                .toList();
+        if (ingredientIds.isEmpty()) {
+            return Map.of();
+        }
+        return ingredientProfileRepository.findAllByUserIdAndIngredientIdIn(user.getId(), ingredientIds)
+                .stream()
+                .collect(Collectors.toMap(profile -> profile.getIngredient().getId(), profile -> profile));
+    }
+
+    private IngredientResponse toIngredient(ProductIngredient productIngredient, IngredientProfile profile) {
+        ReactionType reactionType = profile == null ? ReactionType.INSUFFICIENT : profile.getReactionType();
         return new IngredientResponse(
                 productIngredient.getIngredient().getId(),
                 productIngredient.getIngredient().getKoreanName(),
-                "INSUFFICIENT",
+                IngredientStatus.from(reactionType).name(),
                 productIngredient.getConcentrationText()
         );
     }
