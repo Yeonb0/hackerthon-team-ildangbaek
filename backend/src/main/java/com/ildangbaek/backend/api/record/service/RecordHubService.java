@@ -3,12 +3,16 @@ package com.ildangbaek.backend.api.record.service;
 import com.ildangbaek.backend.api.record.dto.ProductSlotStateResponse;
 import com.ildangbaek.backend.api.record.dto.RecordCalendarDayResponse;
 import com.ildangbaek.backend.api.record.dto.RecordCalendarResponse;
+import com.ildangbaek.backend.api.record.dto.RecordDailyProductItemResponse;
+import com.ildangbaek.backend.api.record.dto.RecordDailyResponse;
+import com.ildangbaek.backend.api.record.dto.RecordDailySlotResponse;
 import com.ildangbaek.backend.api.record.dto.RecordDotStatus;
 import com.ildangbaek.backend.api.record.dto.RecordMonthlySummaryResponse;
 import com.ildangbaek.backend.api.record.dto.RecordTodayResponse;
 import com.ildangbaek.backend.api.record.dto.SkinSlotStateResponse;
 import com.ildangbaek.backend.api.record.dto.TimeSlotRecordStateResponse;
 import com.ildangbaek.backend.domain.record.entity.ProductRecord;
+import com.ildangbaek.backend.domain.record.entity.ProductRecordItem;
 import com.ildangbaek.backend.domain.record.entity.SkinRecord;
 import com.ildangbaek.backend.domain.record.entity.TimeSlot;
 import com.ildangbaek.backend.domain.record.repository.ProductRecordItemRepository;
@@ -16,6 +20,7 @@ import com.ildangbaek.backend.domain.record.repository.ProductRecordRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -73,6 +78,15 @@ public class RecordHubService {
     }
 
     @Transactional(readOnly = true)
+    public RecordDailyResponse getDaily(Long userId, LocalDate date) {
+        return new RecordDailyResponse(
+                date,
+                skinScore(userId, date),
+                productSlot(userId, date, TimeSlot.MORNING),
+                productSlot(userId, date, TimeSlot.NIGHT));
+    }
+
+    @Transactional(readOnly = true)
     public TimeSlotRecordStateResponse getSlotState(Long userId, LocalDate date, TimeSlot timeSlot) {
         Optional<ProductRecord> productRecord =
                 productRecordRepository.findByUserIdAndRecordDateAndTimeSlot(userId, date, timeSlot);
@@ -82,6 +96,32 @@ public class RecordHubService {
         return new TimeSlotRecordStateResponse(
                 productRecord.map(this::toProductSlot).orElseGet(() -> new ProductSlotStateResponse(false, null, null)),
                 skinRecord.map(this::toSkinSlot).orElseGet(() -> new SkinSlotStateResponse(false, null, null)));
+    }
+
+    private Integer skinScore(Long userId, LocalDate date) {
+        return skinRecordRepository.findAllByUserIdAndRecordDateOrderByTimeSlotAsc(userId, date).stream()
+                .filter(record -> record.getOverallScore() != null)
+                .map(record -> record.getOverallScore().intValue())
+                .reduce((ignored, latest) -> latest)
+                .orElse(null);
+    }
+
+    private RecordDailySlotResponse productSlot(Long userId, LocalDate date, TimeSlot timeSlot) {
+        Optional<ProductRecord> productRecord =
+                productRecordRepository.findByUserIdAndRecordDateAndTimeSlot(userId, date, timeSlot);
+        if (productRecord.isEmpty()) {
+            return new RecordDailySlotResponse(false, List.of());
+        }
+
+        List<RecordDailyProductItemResponse> items = productRecordItemRepository
+                .findAllByProductRecordId(productRecord.get().getId())
+                .stream()
+                .sorted(Comparator.comparing(
+                        ProductRecordItem::getUsageOrder,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(item -> new RecordDailyProductItemResponse(item.getProduct().getProductName()))
+                .toList();
+        return new RecordDailySlotResponse(true, items);
     }
 
     private ProductSlotStateResponse toProductSlot(ProductRecord record) {

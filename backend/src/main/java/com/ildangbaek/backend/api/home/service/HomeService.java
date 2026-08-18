@@ -15,6 +15,7 @@ import com.ildangbaek.backend.api.record.dto.RecordCalendarResponse;
 import com.ildangbaek.backend.api.record.dto.RecordTodayResponse;
 import com.ildangbaek.backend.api.record.dto.TimeSlotRecordStateResponse;
 import com.ildangbaek.backend.api.record.service.RecordHubService;
+import com.ildangbaek.backend.domain.environment.entity.HumidityGrade;
 import com.ildangbaek.backend.domain.environment.entity.WeatherCondition;
 import com.ildangbaek.backend.domain.product.entity.UsageStatus;
 import com.ildangbaek.backend.domain.product.entity.UserProduct;
@@ -55,7 +56,7 @@ public class HomeService {
         return new HomeResponse(
                 homeType,
                 greeting(profile, homeType),
-                homeType == HomeType.NIGHT ? "Record now to make tomorrow's analysis more accurate." : null,
+                homeType == HomeType.NIGHT ? "지금 기록하면 내일 분석이 더 정확해져요." : null,
                 homeType == HomeType.DAY ? environment(profile) : null,
                 routineRecommendation(userId, homeType == HomeType.DAY ? TimeSlot.MORNING : TimeSlot.NIGHT),
                 todayRecord(today),
@@ -70,8 +71,8 @@ public class HomeService {
     }
 
     private String greeting(UserProfile profile, HomeType homeType) {
-        String name = profile == null || profile.getNickname() == null ? "User" : profile.getNickname();
-        return homeType == HomeType.DAY ? "Good morning, " + name + "." : "Good evening, " + name + ".";
+        String name = profile == null || profile.getNickname() == null ? "사용자" : profile.getNickname();
+        return homeType == HomeType.DAY ? "좋은 아침이에요, " + name + "님." : "좋은 저녁이에요, " + name + "님.";
     }
 
     private HomeEnvironmentResponse environment(UserProfile profile) {
@@ -83,7 +84,7 @@ public class HomeService {
                 5,
                 UvGrade.MODERATE,
                 55,
-                "NORMAL");
+                HumidityGrade.NORMAL);
     }
 
     private RoutineRecommendationResponse routineRecommendation(Long userId, TimeSlot timeSlot) {

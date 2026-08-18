@@ -1114,7 +1114,7 @@ json
   "message": "조회에 성공했습니다.",
   "result": {
     "homeType": "DAY",
-    "greeting": "좋은 아침이에요",
+    "greeting": "좋은 아침이에요, 김민지님.",
 
     "environment": {
       "location": "서울 강남구",
@@ -1157,8 +1157,8 @@ json
   "message": "조회에 성공했습니다.",
   "result": {
     "homeType": "NIGHT",
-    "greeting": "오늘도 수고했어요",
-    "recordPrompt": "지금 기록을 남기면 내일 분석이 더 정확해져요",
+    "greeting": "좋은 저녁이에요, 김민지님.",
+    "recordPrompt": "지금 기록하면 내일 분석이 더 정확해져요.",
 
     "environment": null,
 
@@ -1213,6 +1213,10 @@ json
 **`environment.weather` 값** `확정`
 
 `SUNNY`, `CLOUDY`, `OVERCAST`, `RAIN`, `SNOW`, `YELLOW_DUST`, `THUNDERSTORM` 중 하나를 반환한다.
+
+**`environment.humidityGrade` 값** `확정`
+
+`DRY`, `NORMAL`, `HUMID` 중 하나를 반환한다.
 
 **`weeklyCalendar` 점 상태**
 
@@ -1382,6 +1386,59 @@ json
 2. `defaultTab`은 현재 시각 기준 시간대다. 홈 CTA로 진입한 경우 클라이언트가 이 값을 무시하고 진입 경로의 시간대를 사용할 수 있다.
 3. 미완료 슬롯의 `summary`는 `null`이다. 빈 문자열을 쓰지 않는다.
 4. 완료 슬롯의 `recordId` · `skinRecordId`로 상세 조회나 수정에 연결한다.
+
+---
+
+## RECORD-03 · 일자별 기록 상세 조회
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `GET` |
+| URI | `/api/v1/records/daily` |
+| 인증 | 필요 |
+| 관련 화면 | S-09, S-10 월간 기록 날짜 상세 |
+| 관련 기능 | F-RECORD-02 |
+
+**Query Parameter**
+
+| Field | Type | Required | Validation |
+| --- | --- | --- | --- |
+| `date` | String | O | `yyyy-MM-dd` |
+
+**Success Response — 200**
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": {
+    "date": "2026-08-07",
+    "skinScore": 78,
+    "morningProducts": {
+      "completed": true,
+      "items": [
+        { "name": "라운드랩 토너" },
+        { "name": "히알루론산 세럼" }
+      ]
+    },
+    "nightProducts": {
+      "completed": false,
+      "items": []
+    }
+  }
+}
+```
+
+**Business Rule**
+
+1. 캘린더 날짜 탭 바텀시트에서 쓰는 읽기 전용 상세 응답이다.
+2. 제품 기록은 모닝·나이트 슬롯을 분리해서 내려준다.
+3. 해당 슬롯의 제품 기록이 없으면 `completed: false`, `items: []`를 반환한다.
+4. `skinScore`는 해당 날짜의 피부 기록 점수다. 모닝·나이트가 모두 있으면 나이트 점수를 우선한다.
+   피부 기록이 없으면 `null`이다.
 
 ---
 
@@ -2817,6 +2874,7 @@ json
 | F-HOME-01 ~ 07 | `GET /home` |
 | F-RECORD-01 | `GET /records/calendar` |
 | F-RECORD-02 | `GET /records/today` |
+| F-RECORD-02 | `GET /records/daily` |
 | F-RECORD-03 | `GET /records/calendar` (`monthlySummary`) |
 | F-PRODUCT-01 | `GET /product-records/home` |
 | F-PRODUCT-02 | `GET /products` |
@@ -2871,6 +2929,7 @@ json
 | Home | HOME-01 | GET | `/home` | O |
 | Record | RECORD-01 | GET | `/records/calendar` | O |
 | Record | RECORD-02 | GET | `/records/today` | O |
+| Record | RECORD-03 | GET | `/records/daily` | O |
 | Product | PRODUCT-01 | GET | `/product-records/home` | O |
 | Product | PRODUCT-02 | GET | `/products` | O |
 | Product | PRODUCT-03 | GET | `/products/{productId}` | O |

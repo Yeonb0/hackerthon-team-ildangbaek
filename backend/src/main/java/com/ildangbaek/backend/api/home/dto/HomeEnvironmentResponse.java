@@ -1,5 +1,6 @@
 package com.ildangbaek.backend.api.home.dto;
 
+import com.ildangbaek.backend.domain.environment.entity.HumidityGrade;
 import com.ildangbaek.backend.domain.environment.entity.WeatherCondition;
 
 public record HomeEnvironmentResponse(
@@ -9,6 +10,6 @@ public record HomeEnvironmentResponse(
         int uvIndex,
         UvGrade uvGrade,
         int humidity,
-        String humidityGrade
+        HumidityGrade humidityGrade
 ) {
 }
