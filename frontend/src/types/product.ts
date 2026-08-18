@@ -77,7 +77,19 @@ export interface SavedProductSummary {
   name: string;
   brand: string;
   category: ProductCategory;
-  lastUsedAt: string;
+  /**
+   * 마지막 사용 시각(ISO). **null일 수 있습니다** — 저장만 하고 아직 한 번도 기록에
+   * 쓰지 않은 제품입니다.
+   *
+   * 2026-08-18 백엔드 연동 점검에서 확인했습니다. `UserProduct.lastUsedAt`은
+   * `markUsed()`에서만 채워지고 컬럼 자체가 nullable이라, 저장 직후의 제품은
+   * `SavedProductSummaryResponse.lastUsedAt`이 null로 내려옵니다. 백엔드 조치 사항이
+   * 아니라 프론트 타입이 틀렸던 쪽입니다(`docs/backend-request-2026-08-18-addendum.md` 참고).
+   *
+   * 현재 화면에서 이 값을 직접 그리는 곳은 없고 정렬 기준(BR3, 내림차순)은 서버가
+   * 잡아 줍니다 — **표시 용도로 쓸 때는 null 분기를 반드시 두세요.**
+   */
+  lastUsedAt: string | null;
 }
 
 /** PRODUCT-01 · GET /product-records/home?timeSlot= (S-11) */
