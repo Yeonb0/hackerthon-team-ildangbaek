@@ -3,23 +3,14 @@ import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { AreaTrendChart, weekdayLabel } from '@/components/chart/AreaTrendChart';
 import { AppIcon, IconMinus } from '@/components/icons';
+import { metricLabel } from '@/lib/metricLabels';
 import { color, metricAccent, reportColor, space } from '@/theme/tokens';
 import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { MetricKey, ReportPeriod, GraphPoint } from '@/types/report';
 
-const METRIC_TABS: { key: MetricKey; label: string }[] = [
-  { key: 'trouble', label: '트러블' },
-  { key: 'redness', label: '홍조' },
-  { key: 'pigmentation', label: '색소잡티' },
-  { key: 'pores', label: '모공' },
-];
-
-const METRIC_INDEX_LABEL: Record<MetricKey, string> = {
-  trouble: '트러블 지수',
-  redness: '홍조 지수',
-  pigmentation: '색소잡티 지수',
-  pores: '모공 지수',
-};
+// 탭 순서는 고정입니다. 라벨 문자열은 lib/metricLabels.ts가 갖습니다 —
+// 탭은 한 줄에 4개(flex:1)라 개명 대상에서 제외된 자리입니다(개명 A, 2026-08-18).
+const METRIC_TAB_ORDER: MetricKey[] = ['trouble', 'redness', 'pigmentation', 'pores'];
 
 type MetricTrendCardProps = {
   metric: MetricKey;
@@ -76,21 +67,24 @@ export function MetricTrendCard({
       <Text style={styles.sectionTitle}>항목별 추이</Text>
 
       <View style={styles.tabRow}>
-        {METRIC_TABS.map((tab) => {
-          const selected = tab.key === metric;
+        {METRIC_TAB_ORDER.map((key) => {
+          const selected = key === metric;
           return (
             <Pressable
-              key={tab.key}
+              key={key}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
-              onPress={() => onChangeMetric(tab.key)}
+              onPress={() => onChangeMetric(key)}
               style={[
                 styles.tab,
-                selected ? { backgroundColor: metricAccent[tab.key] } : styles.tabIdle,
+                selected ? { backgroundColor: metricAccent[key] } : styles.tabIdle,
               ]}
             >
-              <Text style={[styles.tabLabel, selected ? styles.tabLabelSelected : null]}>
-                {tab.label}
+              <Text
+                style={[styles.tabLabel, selected ? styles.tabLabelSelected : null]}
+                numberOfLines={1}
+              >
+                {metricLabel('tab', key)}
               </Text>
             </Pressable>
           );
@@ -99,7 +93,7 @@ export function MetricTrendCard({
 
       <View style={styles.scoreRow}>
         <View style={styles.scoreBlock}>
-          <Text style={styles.scoreLabel}>{METRIC_INDEX_LABEL[metric]}</Text>
+          <Text style={styles.scoreLabel}>{metricLabel('index', metric)}</Text>
           <View style={styles.scoreValueRow}>
             {score === undefined ? (
               <Text style={[styles.scoreValueEmpty, { color: accent }]}>–</Text>

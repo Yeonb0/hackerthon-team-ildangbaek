@@ -21,17 +21,12 @@ import {
   reportColor,
   space,
 } from '@/theme/tokens';
+import { metricLabel } from '@/lib/metricLabels';
 import { weightFamily, adjustFontSize } from '@/theme/typography';
-import type { InsightDetail, InsightEvent, InsightEventKind, MetricKey } from '@/types/report';
+import type { InsightDetail, InsightEvent, InsightEventKind } from '@/types/report';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
-const METRIC_INDEX_LABEL: Record<MetricKey, string> = {
-  trouble: '트러블 지수',
-  redness: '홍조 지수',
-  pigmentation: '색소잡티 지수',
-  pores: '모공 지수',
-};
 
 /**
  * S-20 요인 상세 (Figma 컬러 최종본 P8CmHDZp7z0dKiHByEzuLx, node 281:801/281:922 실측).
@@ -136,7 +131,7 @@ export function MetricDetailScreen() {
                 <Text style={styles.headerTitle}>{data.title}</Text>
               </View>
               <Text style={styles.headerSubtitle}>
-                {METRIC_INDEX_LABEL[data.metric].replace(' 지수', '')} 수치와의 상관관계
+                {metricLabel('axis', data.metric)} 수치와의 상관관계
               </Text>
             </View>
             {stats.change !== null && (
@@ -159,7 +154,7 @@ export function MetricDetailScreen() {
             <View style={styles.chartHeader}>
               <View style={styles.chartTitleBlock}>
                 <Text style={styles.chartTitle}>
-                  {METRIC_INDEX_LABEL[data.metric]} 추이 (최근 {stats.dayCount}일)
+                  {metricLabel('index', data.metric)} 추이 (최근 {stats.dayCount}일)
                 </Text>
                 {/* 서버 subtitle은 기간 길이를 알리는 메타 문구입니다(ADR 0027) —
                     분석 요약이 아니라 여기 제목 아래에 붙입니다(관리자 결정). */}
@@ -189,7 +184,7 @@ export function MetricDetailScreen() {
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: accent }]} />
-                <Text style={styles.legendText}>{METRIC_INDEX_LABEL[data.metric]}</Text>
+                <Text style={styles.legendText}>{metricLabel('index', data.metric)}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: accent, opacity: 0.35 }]} />
