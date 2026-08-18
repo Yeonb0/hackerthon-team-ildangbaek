@@ -297,8 +297,10 @@ export function buildMockProductRecordHome(timeSlot: TimeSlot): ProductRecordHom
   const saved: SavedProductSummary[] = Array.from(savedProducts.entries())
     .map(([id, lastUsedAt]) => toSavedProductSummary(id, lastUsedAt))
     .filter((p): p is SavedProductSummary => p !== null)
-    // BR3: lastUsedAt 내림차순
-    .sort((a, b) => (a.lastUsedAt < b.lastUsedAt ? 1 : -1));
+    // BR3: lastUsedAt 내림차순. 목업은 항상 값을 채우지만 타입이 nullable이라
+    // (저장만 하고 미사용인 제품은 서버가 null을 줍니다 — types/product.ts 주석 참고)
+    // 없는 값은 맨 뒤로 보냅니다.
+    .sort((a, b) => (b.lastUsedAt ?? '').localeCompare(a.lastUsedAt ?? ''));
 
   return {
     timeSlot,
