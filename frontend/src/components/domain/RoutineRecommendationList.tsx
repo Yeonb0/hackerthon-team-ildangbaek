@@ -53,12 +53,19 @@ export function RoutineRecommendationList({
       </Text>
 
       {items.length === 0 ? (
-        <EmptyState
-          title="아직 등록된 제품이 없어요"
-          description="제품을 등록하면 오늘 추천 루틴을 볼 수 있어요."
-          actionLabel={onEmptyAction ? '제품 등록하러 가기' : undefined}
-          onAction={onEmptyAction}
-        />
+        // 2026-08-18 — EmptyState 내부 텍스트 색이 밝은 배경 기준(ink900/ink600)이라
+        // 밤 홈의 진한 보라 배경 위에서는 글씨가 거의 안 보였습니다(관리자님 제보).
+        // EmptyState 자체에 다크 변형을 만드는 대신, 주간 기록 스트립
+        // (NightHomeScreen.weeklyStripBox)과 동일하게 반투명 흰 박스를 뒤에 깔아
+        // 해결했습니다 — 밤 홈 안에서 두 블록의 표현이 통일됩니다.
+        <View style={darkBackground ? styles.emptyBoxOnDark : undefined}>
+          <EmptyState
+            title="아직 등록된 제품이 없어요"
+            description="제품을 등록하면 오늘 추천 루틴을 볼 수 있어요."
+            actionLabel={onEmptyAction ? '제품 등록하러 가기' : undefined}
+            onAction={onEmptyAction}
+          />
+        </View>
       ) : (
         <View style={styles.list}>
           {items.map((item) => {
@@ -112,6 +119,10 @@ const styles = StyleSheet.create({
   },
   titleOnDark: {
     color: color.bg,
+  },
+  emptyBoxOnDark: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: radius.lg,
   },
   list: {
     gap: space[2],

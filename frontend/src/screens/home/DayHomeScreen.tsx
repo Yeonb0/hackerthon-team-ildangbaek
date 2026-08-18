@@ -87,6 +87,8 @@ export function DayHomeScreen({ data, toggle, onPressRecordCta }: DayHomeScreenP
   });
 
   const weatherBackground = getWeatherBackground(data.environment?.weather ?? '');
+  // 공백만 들어오는 경우도 "미설정"으로 봅니다 — 서버가 빈 문자열을 줄 수도 있어서.
+  const hasLocation = (data.environment?.location ?? '').trim().length > 0;
 
   return (
     <View style={styles.screen}>
@@ -112,8 +114,15 @@ export function DayHomeScreen({ data, toggle, onPressRecordCta }: DayHomeScreenP
             pointerEvents="none"
           />
           <View style={[styles.heroInner, { paddingTop: insets.top + space[3] }]}>
+            {/* 2026-08-18 — 위치 미설정(또는 날씨 API 실패로 environment가 null)이면 Text
+                자체를 렌더링하지 않습니다(관리자님 요청, 밤 홈과 동일 규칙). 토글은
+                headerLeft(flex:1)가 자리를 지켜 오른쪽 정렬을 유지합니다. */}
             <View style={styles.headerRow}>
-              <Text style={styles.location}>{data.environment?.location ?? ''}</Text>
+              <View style={styles.headerLeft}>
+                {hasLocation ? (
+                  <Text style={styles.location}>{data.environment?.location}</Text>
+                ) : null}
+              </View>
               {toggle}
             </View>
 
@@ -196,6 +205,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
+  },
+  // 위치 텍스트가 없어도 토글이 왼쪽으로 밀려오지 않도록 잡아주는 칸입니다.
+  headerLeft: {
+    flex: 1,
   },
   location: {
     ...typography.caption,
