@@ -13,13 +13,29 @@ import type { TimeSlot } from '@/app/routes';
  * TodaySkin으로 갈라집니다. 목업은 항상 comparison을 채우기 때문에 첫 기록 화면을
  * 실기기에서 볼 방법이 없었습니다 — 실제로 첫 기록을 보려면 계정을 새로 만들어야 하고,
  * 목업 환경에는 그런 경로 자체가 없습니다. DevResetButton에서 전환합니다.
+ *
+ * 2026-08-19(세션 18) — `NULL_COMMENT` 추가. 실서버의 `skinComment`가 자주 null이라
+ * "오늘의 피부 요약" 카드가 안 뜨는 상태를 개발 중에 눈으로 볼 수 있어야 합니다.
+ * `COMPARED`와 같은 데이터에 코멘트만 비어 있는 케이스입니다.
  */
-export type MockSkinScenario = 'COMPARED' | 'FIRST';
+export type MockSkinScenario = 'COMPARED' | 'FIRST' | 'NULL_COMMENT';
 
 let skinScenario: MockSkinScenario = 'COMPARED';
 
 export function setMockSkinScenario(scenario: MockSkinScenario): void {
   skinScenario = scenario;
+}
+
+/** 로컬 시간 기준 'YYYY-MM-DD'. toISOString()은 UTC로 밀려 KST 밤에 하루 어긋납니다. */
+function toDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date: Date, offset: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
 }
 
 export function buildMockSkinRecordResult(timeSlot: TimeSlot): SkinRecordResult {
@@ -48,7 +64,12 @@ export function buildMockSkinRecordResult(timeSlot: TimeSlot): SkinRecordResult 
       skinScenario === 'FIRST'
         ? null
         : {
-            comparedTo: `어제 ${timeSlot === 'MORNING' ? '모닝' : '나이트'}`,
+            // 2026-08-19 — 목업이 이미 한국어("어제 모닝")를 주는 바람에, 실서버가
+            // 원시 문자열("2026-08-18 MORNING")을 내려보내는 걸 화면에서 한 번도
+            // 못 봤습니다(세션 17 스캔 버그와 같은 함정). **백엔드
+            // SkinRecordService:177과 똑같은 형식**으로 맞춥니다 — 변환은
+            // lib/comparedTo.ts가 담당합니다.
+            comparedTo: `${toDateKey(addDays(new Date(), -1))} ${timeSlot}`,
             previousTotalScore: 46,
             // 지표는 높을수록 좋으므로 양수가 개선입니다(2026-08-18 확정).
             // 세션 13의 증감(트러블 -6 개선 · 홍조 +3 악화 등)과 같은 이야기를
@@ -60,6 +81,16 @@ export function buildMockSkinRecordResult(timeSlot: TimeSlot): SkinRecordResult 
               pigmentation: -1,
             },
           },
+    // 2026-08-19(세션 18) — Figma TodaySkin "오늘의 피부 요약" 카드(관리자님 7번 항목).
+    //
+    // ⚠️ **실서버는 이 값을 자주 null로 내려보냅니다.** 백엔드 javadoc대로 OpenAI Vision이
+    // 실제로 코멘트를 쓴 경우에만 채워지고, 규칙 기반 폴백·목업 분석이면 null입니다.
+    // 목업이 항상 문자열을 주면 "카드가 안 뜨는 상황"을 개발 중에 한 번도 못 보게 되므로
+    // (세션 17 스캔 버그와 같은 함정), NULL_COMMENT 시나리오로 그 상태를 재현합니다.
+    skinComment:
+      skinScenario === 'NULL_COMMENT'
+        ? null
+        : '오늘 피부는 모공 상태가 좋네요! 트러블 안정도도 어제보다 나아졌어요.',
   };
 }
 
@@ -107,11 +138,18 @@ export function buildMockSkinRecordResultForDate(
       pigmentation: clamp(totalScore + OFFSETS.pigmentation),
     },
     comparison: {
-      comparedTo: `이전 ${timeSlot === 'MORNING' ? '모닝' : '나이트'}`,
+      // 위와 같은 이유로 백엔드 형식 그대로. 비교 대상은 그 날짜의 전날입니다
+      // (백엔드 buildComparison이 recordDate.minusDays(1)을 씁니다).
+      comparedTo: `${toDateKey(addDays(new Date(`${date}T00:00:00`), -1))} ${timeSlot}`,
       previousTotalScore: totalScore - 2,
       // 지표는 높을수록 좋으므로 양수가 개선입니다(2026-08-18 확정).
       changes: { trouble: 3, redness: -1, pores: 2, pigmentation: 0 },
     },
+    // 지난 날짜는 REPORT-03(`/reports/daily`)이 SKIN-01과 같은 DTO를 주므로 여기도
+    // 코멘트가 실립니다. 짝수 날은 null로 둬서 "코멘트 없는 날"을 캘린더에서도
+    // 확인할 수 있게 했습니다(위 buildMockSkinRecordResult와 같은 취지).
+    skinComment:
+      day % 2 === 0 ? null : '전날보다 홍조가 조금 가라앉았어요. 지금 루틴을 유지해보세요.',
   };
 }
 

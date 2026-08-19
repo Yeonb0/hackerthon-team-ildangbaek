@@ -21,6 +21,7 @@ import type {
   ProductCategory,
   ProductDetailResult,
   ProductRecordHomeResult,
+  ProductSaveResult,
   ProductSearchResult,
   RegisterProductInput,
   RoutineListItem,
@@ -158,6 +159,36 @@ export function addProductToRoutine(routineId: number, productId: number): void 
   persistManualState();
 }
 
+/**
+ * PRODUCT-09 · 제품 목록에 담기 / 빼기 (2026-08-19 세션 18 신설).
+ *
+ * ⚠️ **목업은 실서버와 똑같이 실패해야 합니다**(세션 17에서 스캔 버그가 목업 성공에
+ * 가려졌던 교훈). 그래서 백엔드 `ProductService:223-244` 동작을 그대로 흉내냅니다.
+ * - `saveMockProduct`: 카탈로그에 없는 productId면 404 PRODUCT_NOT_FOUND. 이미 저장돼
+ *   있으면 오류가 아니라 그대로 성공(멱등).
+ * - `unsaveMockProduct`: **저장돼 있지 않으면 404 PRODUCT_NOT_FOUND.** 실서버가
+ *   `UserProduct` 행이 없을 때 던지는 것과 같은 코드입니다.
+ */
+export function saveMockProduct(productId: number): ProductSaveResult {
+  if (!findCatalogProduct(productId)) {
+    throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '제품을 찾을 수 없어요.');
+  }
+  savedProducts.set(productId, new Date().toISOString());
+  persistManualState();
+  return { productId, saved: true };
+}
+
+export function unsaveMockProduct(productId: number): ProductSaveResult {
+  if (!savedProducts.has(productId)) {
+    throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '제품을 찾을 수 없어요.');
+  }
+  savedProducts.delete(productId);
+  // 실서버의 stopUsing()은 제품을 목록에서만 빼고 루틴 구성은 건드리지 않습니다 —
+  // 루틴에서도 빼려면 루틴 수정 API가 따로 필요합니다(현재 백엔드에 없음).
+  persistManualState();
+  return { productId, saved: false };
+}
+
 // ---------------------------------------------------------------------------
 // Fast Refresh/새로고침 생존(관리자님 실기기 확인, 2026-08-14) — mockPersistence.ts
 // 참고. 모듈 로드 시 한 번 fire-and-forget으로 이전 상태를 불러오고, 등록·루틴 추가가
@@ -282,6 +313,20 @@ function toSavedProductSummary(productId: number, lastUsedAt: string): SavedProd
 // ---------------------------------------------------------------------------
 // PRODUCT-01 · 제품 기록 화면 조회
 // ---------------------------------------------------------------------------
+/**
+ * PRODUCT-10 목업 · `GET /users/me/products`.
+ *
+ * 2026-08-19(세션 18) 신설 — 로컬 루틴(routineStore)이 productId만 들고 있어서
+ * 이름을 붙이려면 저장 제품 전체 목록이 필요합니다. `buildMockProductRecordHome`의
+ * savedProducts와 같은 소스를 쓰되 timeSlot에 묶이지 않습니다.
+ */
+export function listMockSavedProducts(): SavedProductSummary[] {
+  return Array.from(savedProducts.entries())
+    .map(([id, lastUsedAt]) => toSavedProductSummary(id, lastUsedAt))
+    .filter((p): p is SavedProductSummary => p !== null)
+    .sort((a, b) => (b.lastUsedAt ?? '').localeCompare(a.lastUsedAt ?? ''));
+}
+
 export function buildMockProductRecordHome(timeSlot: TimeSlot): ProductRecordHomeResult {
   const routines: RoutineSummaryItem[] = [...ROUTINES]
     // BR2: 요청한 timeSlot의 루틴을 먼저 정렬. 다른 시간대 루틴도 함께 반환.

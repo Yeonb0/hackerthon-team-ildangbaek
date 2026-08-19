@@ -98,6 +98,11 @@ export function ProductManualRegisterScreen() {
   // 담으려는 의도가 명확하기 때문입니다. 사용자가 직접 해제하거나 다른 루틴을 추가로
   // 고를 수 있습니다.
   const routinesQuery = useRoutines();
+  // 칩 순서를 모닝 → 나이트로 고정합니다(S-14와 동일). 서버 반환 순서에 기대면
+  // 계정마다 칩 위치가 달라져서, 같은 자리를 누르던 사용자가 반대 루틴을 고르게 됩니다.
+  const orderedRoutines = [...(routinesQuery.data ?? [])].sort((a, b) =>
+    a.timeSlot === b.timeSlot ? 0 : a.timeSlot === 'MORNING' ? -1 : 1
+  );
   const [selectedRoutineIds, setSelectedRoutineIds] = useState<Set<number>>(
     initialRoutineId ? new Set([initialRoutineId]) : new Set()
   );
@@ -137,12 +142,11 @@ export function ProductManualRegisterScreen() {
       });
 
       if (selectedRoutineIds.size === 0) {
-        // 루틴 선택 안 함 — 기존과 동일하게 이 제품 하나만 성분확인으로 넘어가서
-        // 바로 오늘 기록으로 저장합니다.
-        navigation.replace(DetailRoutes.IngredientCheck, {
-          productId: product.productId,
-          timeSlot,
-        });
+        // 2026-08-19(세션 18, 관리자님 지시) — 예전엔 성분 확인(S-14)으로 넘겨서
+        // 거기서 다시 고르게 했는데, 이 화면에 이미 같은 3지선다가 있어서 두 번
+        // 묻는 셈이었습니다. 「제품만 등록하기」면 등록으로 이미 끝난 상태라
+        // 제품 기록(S-11)으로 바로 돌아갑니다.
+        navigation.replace(DetailRoutes.ProductRecord, { timeSlot });
         return;
       }
 
@@ -299,13 +303,18 @@ export function ProductManualRegisterScreen() {
           </Text>
         </View>
 
-        {routinesQuery.data && routinesQuery.data.length > 0 ? (
-          <View style={styles.routineSection}>
-            <Text style={styles.fieldLabel}>루틴에 추가 (선택, 중복 가능)</Text>
+        {/* 2026-08-19 — 예전 조건(`length > 0`)은 서버가 루틴을 만들어 준다는 전제였고,
+            실서버에서는 항상 거짓이라 이 섹션이 통째로 사라졌습니다. 이제 모닝·나이트
+            루틴은 제품이 0개여도 항상 존재합니다(store/routineStore.ts). */}
+        <View style={styles.routineSection}>
+            {/* 2026-08-19 — 성분 확인 화면(S-14)과 문구·구조를 통일했습니다(관리자님 지시).
+                「추가 안 함」이라는 부정형 라벨은 아무것도 안 일어나는 것처럼 읽혀서,
+                실제 동작(제품 목록에는 등록됨)에 맞춰 「제품만 등록하기」로 바꿨습니다. */}
+            <Text style={styles.fieldLabel}>어디에 등록할까요? (모닝·나이트 중복 가능)</Text>
             <View style={styles.categoryRow}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="루틴에 추가 안 함"
+                accessibilityLabel="제품만 등록하기"
                 accessibilityState={{ selected: selectedRoutineIds.size === 0 }}
                 onPress={() => setSelectedRoutineIds(new Set())}
                 style={[
@@ -319,10 +328,10 @@ export function ProductManualRegisterScreen() {
                     selectedRoutineIds.size === 0 && styles.categoryChipTextActive,
                   ]}
                 >
-                  추가 안 함
+                  제품만 등록하기
                 </Text>
               </Pressable>
-              {routinesQuery.data.map((routine) => {
+              {orderedRoutines.map((routine) => {
                 const active = selectedRoutineIds.has(routine.routineId);
                 return (
                   <Pressable
@@ -339,9 +348,8 @@ export function ProductManualRegisterScreen() {
                   </Pressable>
                 );
               })}
-            </View>
           </View>
-        ) : null}
+        </View>
 
         {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
       </ScrollView>

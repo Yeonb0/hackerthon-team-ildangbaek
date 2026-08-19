@@ -32,7 +32,8 @@ export async function createSkinRecord({
     const result = buildMockSkinRecordResult(timeSlot);
     // 기록 허브(useRecordToday) mock이 "촬영 후에도 계속 미완료"로 보이던 문제 수정 —
     // 여기서 완료 사실을 세션에 남겨야 record.ts의 mock이 그걸 반영합니다.
-    recordMockSkinCompletion(timeSlot, `분석 점수 ${result.totalScore}점`);
+    // 2026-08-19 — 백엔드 RecordHubService와 같은 영어 형식으로. 변환은 lib/recordSummary.ts.
+    recordMockSkinCompletion(timeSlot, `Analysis score ${result.totalScore}`);
     return result;
   }
 

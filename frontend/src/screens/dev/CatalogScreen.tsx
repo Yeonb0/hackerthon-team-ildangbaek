@@ -494,7 +494,7 @@ export default function CatalogScreen() {
             totalScore: 78,
             previousScore: 72,
             change: 6,
-            comparedTo: '2026-08-06 MORNING',
+            comparedTo: '2026-08-06 MORNING', // 백엔드 원시 형식 그대로 — lib/comparedTo.ts가 변환
             summary: '어제보다 좋아졌어요',
           }}
           onPress={() => {}}

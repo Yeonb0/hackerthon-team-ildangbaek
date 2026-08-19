@@ -200,3 +200,20 @@ export interface RoutineQuickRecordResult {
   skippedProductIds: number[];
   skinRecordSuggested: boolean;
 }
+/**
+ * PRODUCT-09 · `POST /products/{productId}/save` · `DELETE /products/{productId}/save`
+ *
+ * 2026-08-19(세션 18) 신설 — 백엔드에 이미 있던 엔드포인트인데 프론트가 안 쓰고 있었습니다.
+ * "루틴에 넣지 않고 제품 목록(저장된 제품)에만 담기"(관리자님 4번 항목 A안)와 "저장한
+ * 제품 삭제"(3번 항목)가 둘 다 이 한 쌍으로 처리됩니다.
+ *
+ * 백엔드 동작(`ProductService:223-244` 실측):
+ * - 저장은 **멱등**입니다. 이미 저장된 제품을 다시 저장해도 200 + `saved:true`.
+ * - 삭제는 `UserProduct` 행이 없으면 **404 PRODUCT_NOT_FOUND**를 던집니다
+ *   (제품 자체가 없을 때와 같은 코드라, 화면에서 두 경우를 구분할 수 없습니다).
+ * - 삭제는 물리 삭제가 아니라 `stopUsing()` — 과거 기록은 남고 목록에서만 빠집니다.
+ */
+export interface ProductSaveResult {
+  productId: number;
+  saved: boolean;
+}

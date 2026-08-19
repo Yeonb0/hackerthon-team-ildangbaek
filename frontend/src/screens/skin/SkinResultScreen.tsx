@@ -27,6 +27,8 @@ import {
   type MetricGrade,
 } from '@/lib/metricGrade';
 import { metricPhrase } from '@/lib/metricLabels';
+import { formatComparedTo } from '@/lib/comparedTo';
+import { buildFallbackSkinSummary } from '@/lib/skinSummary';
 
 type NavProp = NativeStackNavigationProp<DetailStackParamList>;
 
@@ -233,18 +235,28 @@ export function SkinResultScreen() {
           <Text style={styles.firstLead}>이 결과가 기준 데이터로 저장돼요</Text>
           <Text style={styles.firstCaption}>앞으로 변화를 이 점수와 비교해드려요</Text>
 
+          {/* 2026-08-19(세션 18, 관리자님 10번 항목) — Figma FirstSkinResult 확정본 반영.
+              ① 라벨: 짧은 이름(「트러블」) → 긍정 라벨(「트러블 안정도」). Figma가 이
+                 자리를 넓게 잡아서 item 슬롯 라벨이 들어갑니다 — metricLabels.ts의
+                 axis 슬롯 주석이 이 그리드를 axis로 분류하고 있었는데, 확정본 기준으로
+                 item 슬롯이 맞습니다.
+              ② 점수: 숫자만 → 「42점」 + 「/ 100」. Figma 시안은 셀마다 「/ 100점」과
+                 「/ 100」이 섞여 있는데, 네 칸이 같아야 읽히므로 「/ 100」으로 통일했습니다. */}
           <View style={styles.firstGridCard}>
             <View style={styles.firstGrid}>
               {metrics.map((item) => (
                 <View key={item.key} style={styles.firstGridCell}>
                   <Text style={styles.firstGridLabel} numberOfLines={1}>
-                    {item.shortLabel}
+                    {item.label}
                   </Text>
-                  <Text
-                    style={[styles.firstGridScore, { color: metricAccent[asMetricKey(item.key)] }]}
-                  >
-                    {item.score}
-                  </Text>
+                  <View style={styles.firstGridScoreRow}>
+                    <Text
+                      style={[styles.firstGridScore, { color: metricAccent[asMetricKey(item.key)] }]}
+                    >
+                      {item.score}점
+                    </Text>
+                    <Text style={styles.firstGridScoreUnit}>/ 100</Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -278,6 +290,12 @@ export function SkinResultScreen() {
         ? reportColor.safe
         : reportColor.caution;
 
+  /**
+   * AI 코멘트 우선, 없으면 점수 기반 폴백. 백엔드 skinComment는 AI 서버의 OpenAI 단계가
+   * 성공했을 때만 채워지는데 현재 자주 null입니다 — lib/skinSummary.ts 주석 참고.
+   */
+  const skinSummaryText = result.skinComment ?? buildFallbackSkinSummary(metrics);
+
   const radarItems = metrics.map((item) => ({
     key: item.key,
     // 축 라벨은 도형 바깥 좁은 자리라 짧은 이름을 씁니다(RadarChart 주석 참고).
@@ -310,7 +328,12 @@ export function SkinResultScreen() {
               <Text style={styles.totalUnit}>/ 100</Text>
             </View>
             <Text style={styles.totalCompare}>
-              {result.comparison?.comparedTo ?? `기준점(${BASELINE_SCORE})`} 대비{' '}
+              {/* 2026-08-19 — 서버 comparedTo("2026-08-18 MORNING")를 그대로 찍어서
+                  ISO 날짜와 영어 enum이 노출되던 문제 수정(관리자님 지적).
+                  변환 규칙은 lib/comparedTo.ts 참고. */}
+              {formatComparedTo(result.comparison?.comparedTo ?? null) ??
+                `기준점(${BASELINE_SCORE})`}{' '}
+              대비{' '}
               <Text style={[styles.totalCompareValue, { color: deltaAccent }]}>
                 {totalDelta !== null && totalDelta > 0 ? '+' : ''}
                 {totalDelta ?? 0}
@@ -318,6 +341,16 @@ export function SkinResultScreen() {
             </Text>
           </View>
         </View>
+
+        {/* 2026-08-19(세션 18, 관리자님 7번 항목) — Figma TodaySkin "오늘의 피부 요약".
+            AI 코멘트(skinComment)가 있으면 그것을, 없으면 점수에서 유도한 문장을
+            보여줍니다. 왜 null이 자주 오는지는 lib/skinSummary.ts 주석 참고. */}
+        {skinSummaryText ? (
+          <View style={styles.commentCard}>
+            <Text style={styles.commentLabel}>오늘의 피부 요약</Text>
+            <Text style={styles.commentText}>{skinSummaryText}</Text>
+          </View>
+        ) : null}
 
         {radarItems.length >= 3 ? (
           <View style={styles.radarCard}>
@@ -461,6 +494,19 @@ const styles = StyleSheet.create({
     // 의미가 없기도 합니다.
     ...pinDisplayFont('bmjua'),
   },
+  // 「42점」과 「/ 100」을 한 줄에. 주아체는 x-height가 낮아 baseline 정렬이 어색해서
+  // flex-end로 아랫선을 맞춥니다(EnvironmentCard의 온도 + 날씨 라벨과 같은 처리).
+  firstGridScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: space[1],
+  },
+  firstGridScoreUnit: {
+    fontSize: adjustFontSize(11),
+    lineHeight: 20,
+    ...weightFamily('medium'),
+    color: color.textSub,
+  },
   firstFooter: {
     paddingHorizontal: space[6],
     paddingTop: space[3],
@@ -521,6 +567,29 @@ const styles = StyleSheet.create({
     color: color.textSub,
   },
   totalCompareValue: { ...weightFamily('bold') },
+  // "오늘의 피부 요약"(Figma TodaySkin) — 레이더 카드와 달리 그림자 없이 옅은 라벤더
+  // 면으로 둡니다. 흰 카드가 위아래로 연달아 겹치면 코멘트가 지표 카드처럼 읽힙니다.
+  commentCard: {
+    marginHorizontal: space[4],
+    marginTop: space[4],
+    backgroundColor: color.surfaceLavenderPale,
+    borderRadius: 16,
+    paddingVertical: space[4],
+    paddingHorizontal: space[4],
+    gap: space[2],
+  },
+  commentLabel: {
+    fontSize: adjustFontSize(11),
+    lineHeight: 16,
+    ...weightFamily('semibold'),
+    color: color.brand500,
+  },
+  commentText: {
+    fontSize: adjustFontSize(13),
+    lineHeight: 20,
+    ...weightFamily('medium'),
+    color: color.textInk,
+  },
   radarCard: {
     marginHorizontal: space[4],
     marginTop: space[4],

@@ -35,6 +35,7 @@ import { resetMockProductSession, setMockScanScenario } from '@/api/mock/product
 import { setMockReportScenario } from '@/api/mock/report';
 import { setMockCheckScenario } from '@/api/mock/check';
 import { setMockSkinScenario } from '@/api/mock/skin';
+import { useRoutineStore } from '@/store/routineStore';
 import { setMockWeatherScenario } from '@/api/mock/home';
 import { resetMockUserSession } from '@/api/mock/user';
 import { useReportUiStore } from '@/store/reportUiStore';
@@ -214,8 +215,20 @@ export function DevResetButton() {
       onPress: () => runReset(() => setMockSkinScenario('FIRST')),
     },
     {
+      // 2026-08-19(세션 18) 추가 — 루틴이 클라이언트 소유가 되면서(routineStore) 앱을
+      // 껐다 켜도 구성이 남습니다. 데모 리허설 때 빈 루틴 상태로 되돌리는 용도입니다.
+      label: '루틴 구성 초기화(모닝·나이트 비우기)',
+      onPress: () => runReset(() => useRoutineStore.getState().reset()),
+    },
+    {
       label: '피부 결과 목업 → 어제와 비교(기본값)',
       onPress: () => runReset(() => setMockSkinScenario('COMPARED')),
+    },
+    {
+      // 2026-08-19(세션 18) 추가 — 실서버 skinComment는 규칙 기반 폴백이면 null입니다.
+      // "오늘의 피부 요약" 카드가 통째로 사라지는 상태를 실기기에서 확인하는 용도입니다.
+      label: '피부 결과 목업 → 한마디 없음(코멘트 null)',
+      onPress: () => runReset(() => setMockSkinScenario('NULL_COMMENT')),
     },
     {
       // Phase 8 추가 — 위치(GPS/검색 선택)·알림 토글 mock 상태를 초기값(서울 강남구·
