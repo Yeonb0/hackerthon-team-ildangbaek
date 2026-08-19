@@ -7,6 +7,7 @@ import com.ildangbaek.backend.api.productrecord.dto.response.RoutineSummaryRespo
 import com.ildangbaek.backend.api.productrecord.dto.response.SaveProductRecordResponse;
 import com.ildangbaek.backend.api.productrecord.dto.response.SavedProductSummaryResponse;
 import com.ildangbaek.backend.domain.product.entity.Product;
+import com.ildangbaek.backend.domain.product.entity.UsageStatus;
 import com.ildangbaek.backend.domain.product.entity.UserProduct;
 import com.ildangbaek.backend.domain.product.repository.ProductRepository;
 import com.ildangbaek.backend.domain.product.repository.UserProductRepository;
@@ -63,7 +64,7 @@ public class ProductRecordService {
                 .toList();
         List<RoutineSummaryResponse> routines = toRoutineSummaries(activeRoutines);
         List<SavedProductSummaryResponse> savedProducts =
-                userProductRepository.findAllByUserIdOrderByLastUsedAtDesc(user.getId()).stream()
+                userProductRepository.findAllByUserIdAndUsageStatusOrderByLastUsedAtDesc(user.getId(), UsageStatus.USING).stream()
                         .map(this::toSavedProductSummary)
                         .toList();
 
