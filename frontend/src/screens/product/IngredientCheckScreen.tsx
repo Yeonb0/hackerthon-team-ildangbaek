@@ -12,8 +12,9 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppIcon, IconBack, IconImagePlaceholder } from '@/components/icons';
+import { AppIcon, IconBack, IconImagePlaceholder, IconTrash } from '@/components/icons';
 import { Button } from '@/components/base/Button';
+import { Popup } from '@/components/base/Popup';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
@@ -22,7 +23,9 @@ import {
   useProductDetail,
   useRoutines,
   useSaveProductToLibrary,
+  useUnsaveProductFromLibrary,
 } from '@/api/queries/product';
+import { useRoutineStore } from '@/store/routineStore';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
@@ -60,8 +63,11 @@ export function IngredientCheckScreen() {
   const routinesQuery = useRoutines();
   const addToRoutineMutation = useAddProductToRoutine();
   const saveToLibraryMutation = useSaveProductToLibrary();
+  const unsaveMutation = useUnsaveProductFromLibrary();
+  const removeProductEverywhere = useRoutineStore((s) => s.removeProductEverywhere);
 
   const [addError, setAddError] = useState<string | null>(null);
+  const [deletePopupVisible, setDeletePopupVisible] = useState(false);
   const [selectedRoutineIds, setSelectedRoutineIds] = useState<Set<number>>(new Set());
 
   const toggleRoutine = (routineId: number) => {
@@ -104,6 +110,40 @@ export function IngredientCheckScreen() {
           : '제품을 등록하지 못했어요. 다시 시도해주세요.'
       );
     }
+  };
+
+  /**
+   * 제품 삭제(관리자님 3번 항목 — 2026-08-19 세션 19, 위치 확정: **이 화면 사진 아래 우측**).
+   *
+   * 세션 18 인계 문서의 A/B/C안(S-11 카드 X · 편집 모드 · 길게 누르기)은 폐기됐습니다.
+   * S-11의 제품 카드는 탭이 "오늘 쓴 제품 체크"라 삭제 버튼을 같이 두면 오터치가 나는데,
+   * 이 화면은 이미 "그 제품 하나를 들여다보는" 맥락이라 파괴적 동작을 두기 안전합니다.
+   *
+   * 백엔드 `ProductService.unsaveProduct()`는 물리 삭제가 아니라 `UserProduct.stopUsing()`
+   * 입니다 — **과거 기록은 그대로 남고** 저장 목록에서만 빠집니다. 문구도 그렇게 씁니다.
+   *
+   * 두 가지를 같이 처리해야 합니다:
+   *   ① 서버: `DELETE /products/{id}/save`
+   *   ② 로컬 루틴: 루틴은 클라이언트 소유라(store/routineStore.ts) 서버가 안 건드립니다.
+   *      이걸 빼먹으면 모닝/나이트 루틴에 이름 없는 유령 제품이 남습니다.
+   */
+  const handleConfirmDelete = async () => {
+    setDeletePopupVisible(false);
+    setAddError(null);
+    try {
+      await unsaveMutation.mutateAsync(productId);
+    } catch (error) {
+      // 저장된 적 없는 제품이면 404입니다. 사용자가 원한 결과("목록에 없는 상태")는 이미
+      // 충족됐으므로 실패로 다루지 않고, 로컬 정리만 하고 그대로 빠져나갑니다.
+      const alreadyGone =
+        error instanceof ApiError && error.code === ErrorCode.PRODUCT_NOT_FOUND;
+      if (!alreadyGone) {
+        setAddError('제품을 삭제하지 못했어요. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+    }
+    removeProductEverywhere(productId);
+    navigation.goBack();
   };
 
   const handleGoBack = () => {
@@ -178,6 +218,28 @@ export function IngredientCheckScreen() {
               <IconImagePlaceholder size={40} color={color.ink300} />
             )}
           </View>
+
+          {/* 2026-08-19(세션 19, 관리자님 지시) — 제품 삭제. 사진 바로 아래 오른쪽입니다.
+              **이미 저장된 제품일 때만** 보입니다. 아직 저장 전인 제품(스캔·검색으로 처음
+              만난 제품)에는 지울 대상이 없어서, 버튼을 띄우면 누르는 즉시 404가 납니다. */}
+          {product.saved ? (
+            <View style={styles.deleteRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="제품 삭제"
+                onPress={() => setDeletePopupVisible(true)}
+                disabled={unsaveMutation.isPending}
+                hitSlop={8}
+                style={styles.deleteButton}
+              >
+                <IconTrash size={14} color={color.statusCaution} />
+                <Text style={styles.deleteButtonText}>
+                  {unsaveMutation.isPending ? '삭제 중…' : '제품 삭제'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           <Text style={styles.brand}>{product.brand}</Text>
           <Text style={styles.title}>{product.name}</Text>
           <Text style={styles.category}>{PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}</Text>
@@ -292,6 +354,20 @@ export function IngredientCheckScreen() {
           style={styles.saveButton}
         />
       </View>
+
+      {/* 되돌릴 수 없는 동작이라 확인을 한 번 거칩니다(MyPage 로그아웃·탈퇴와 같은 패턴).
+          "기록은 남아요"를 문구에 넣는 이유 — 백엔드가 stopUsing()만 하기 때문에 실제로
+          지난 기록·리포트는 그대로입니다. 이 말이 없으면 기록까지 지워질까 봐 못 누릅니다. */}
+      <Popup
+        visible={deletePopupVisible}
+        title="이 제품을 삭제할까요?"
+        description="저장된 제품 목록과 루틴에서 빠져요. 지금까지 남긴 기록은 그대로 유지돼요."
+        primaryLabel="삭제"
+        onPrimaryPress={handleConfirmDelete}
+        secondaryLabel="취소"
+        onSecondaryPress={() => setDeletePopupVisible(false)}
+        onRequestClose={() => setDeletePopupVisible(false)}
+      />
     </View>
   );
 }
@@ -340,6 +416,24 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  // 사진 아래 우측 정렬(관리자님 지시). imageBox가 alignSelf:'center'라 이 행은 header
+  // 폭 전체를 차지하고 오른쪽 끝에 붙습니다.
+  deleteRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: space[2],
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    paddingVertical: space[1],
+    paddingHorizontal: space[2],
+  },
+  deleteButtonText: {
+    ...typography.caption,
+    color: color.statusCaution,
   },
   brand: {
     ...typography.caption,

@@ -49,6 +49,12 @@ export interface PersistedManualProductsState {
   routineProductIds: Record<number, number[]>;
   /** 직접 등록한 제품의 savedProducts(저장된 제품 목록) 항목 — [productId, lastUsedAtISO] */
   savedProducts: [number, string][];
+  /**
+   * 삭제(백엔드 `UserProduct.stopUsing()`)된 productId. 행은 남고 상태만 바뀌므로
+   * savedProducts에서 빼지 않고 여기에 따로 표시합니다 — mock/product.ts 참고.
+   * 이전 포맷 호환을 위해 옵셔널입니다.
+   */
+  stoppedProductIds?: number[];
 }
 
 export async function getMockManualProductsState(): Promise<PersistedManualProductsState | null> {

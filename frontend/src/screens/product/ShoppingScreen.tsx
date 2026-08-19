@@ -1,4 +1,4 @@
-// ShoppingScreen.tsx — S-21 쇼핑(구매 전 확인)
+// src/screens/product/ShoppingScreen.tsx — S-21 쇼핑(구매 전 확인)
 //
 // F-CHECK-01(추천) + F-CHECK-02(스캔/검색 전환, 인라인). "여기서 조회한 제품은 사용 기록으로
 // 저장하지 않는다"(BR3) — 검색·스캔 로직(PRODUCT-02/04)만 재사용하고, 저장 관련 훅
@@ -262,11 +262,13 @@ export function ShoppingScreen() {
         <View style={styles.modeChipRow}>
           <ModeChip
             label="바코드 스캔"
+            icon="barcode"
             selected={findMode === 'SCAN'}
             onPress={() => handleFindModePress('SCAN')}
           />
           <ModeChip
             label="제품 검색"
+            icon="search"
             selected={findMode === 'SEARCH'}
             onPress={() => handleFindModePress('SEARCH')}
           />
@@ -483,13 +485,19 @@ export function ShoppingScreen() {
  * 흰 글씨로 뒀습니다. */
 function ModeChip({
   label,
+  icon,
   selected,
   onPress,
 }: {
   label: string;
+  /** 2026-08-19(세션 19, 관리자님 13번 항목) — 칩 좌측 아이콘. */
+  icon: 'barcode' | 'search';
   selected: boolean;
   onPress: () => void;
 }) {
+  // 선택 시 배경이 brand500(진한 보라)으로 차서 글씨가 흰색이 됩니다. 아이콘도 같이
+  // 흰색으로 가야 하나만 남아 안 보이는 일이 없습니다.
+  const iconColor = selected ? color.white : color.textInk;
   return (
     <Pressable
       accessibilityRole="button"
@@ -498,6 +506,9 @@ function ModeChip({
       onPress={onPress}
       style={[styles.modeChip, selected && styles.modeChipSelected]}
     >
+      {/* 아이콘은 라벨을 보조할 뿐이라 스크린리더에는 읽히지 않게 둡니다
+          (Pressable이 이미 accessibilityLabel로 같은 말을 합니다). */}
+      <AppIcon name={icon} size={14} color={iconColor} />
       <Text style={[styles.modeChipLabel, selected && styles.modeChipLabelSelected]}>{label}</Text>
     </Pressable>
   );
@@ -753,6 +764,9 @@ const styles = StyleSheet.create({
     paddingTop: space[4],
   },
   modeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1] + 2,
     paddingHorizontal: space[3],
     paddingVertical: space[2],
     borderRadius: radius.pill,
@@ -900,14 +914,19 @@ const styles = StyleSheet.create({
   },
 
   // 추천 근거 태그 칩 (CHECK-01 tags)
+  //
+  // 2026-08-19(세션 19, 관리자님 8번 항목) — 왼쪽 정렬로 변경.
+  // 예전엔 세로 카드가 오른쪽 정렬(flex-end), 가로 카드가 가운데 정렬이라 칩 길이가
+  // 다를 때마다 시작 위치가 제각각이었습니다. 칩은 짧은 단어 두 개가 위아래로 쌓이는
+  // 구조라, 왼쪽 모서리가 맞아야 두 줄이 한 덩어리로 읽힙니다.
   tagRowVertical: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     gap: 4,
   },
   tagRowHorizontal: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 4,
   },
   tagChip: {

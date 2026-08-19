@@ -1,4 +1,4 @@
-// ProductCameraCapture.tsx
+// src/components/domain/ProductCameraCapture.tsx
 //
 // PRODUCT-04(POST /products/scan) 캡처 로직만 뽑아낸 컴포넌트입니다. S-21(구매 전 확인)이
 // F-CHECK-02 BR1("스캔 모드 → 뷰파인더가 같은 자리에서 교체")에 따라 카메라를 전체화면이
@@ -67,7 +67,11 @@ export const ProductCameraCapture = forwardRef<
       } else {
         onError({ message: '스캔 중 문제가 생겼어요. 다시 시도해 주세요.' });
       }
-      scannedRef.current = false;
+      // ⚠️ 2026-08-19(세션 19, 관리자님 리포트) — 여기서 `scannedRef.current = false`로
+      // 스캐너를 즉시 다시 열면, 실패한 바코드가 아직 카메라 앞에 있어서 같은 실패가
+      // 초당 수차례 반복됩니다(에러 안내가 계속 다시 뜸). S-13과 동일한 수정입니다.
+      //
+      // 잠금은 부모가 「다시 스캔」에서 `resetScanned()`를 부를 때만 풉니다.
     } finally {
       setProcessing(false);
     }
