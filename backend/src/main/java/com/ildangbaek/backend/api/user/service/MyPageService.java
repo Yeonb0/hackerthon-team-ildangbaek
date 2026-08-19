@@ -21,6 +21,7 @@ import com.ildangbaek.backend.domain.user.repository.UserSkinTypeRepository;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
@@ -40,6 +41,8 @@ public class MyPageService {
 
     /** F-MY-01 BR 4의 요약 노출 상한. 전체 목록은 USER-02가 담당한다. */
     private static final int TOP_INGREDIENT_LIMIT = 8;
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     /** USER-02와 동일한 표시 순서(GOOD → CAUTION → INSUFFICIENT, 그룹 내 노출 일수 내림차순). */
     private static final Comparator<IngredientProfile> DISPLAY_ORDER =
@@ -62,7 +65,7 @@ public class MyPageService {
         UserProfile userProfile = userProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        long joinedDays = ChronoUnit.DAYS.between(user.getCreatedAt().toLocalDate(), LocalDate.now());
+        long joinedDays = ChronoUnit.DAYS.between(user.getCreatedAt().toLocalDate(), LocalDate.now(KST));
         long totalRecordCount =
                 skinRecordRepository.countByUserId(userId) + productRecordRepository.countByUserId(userId);
         List<SkinTypeCode> skinTypes = userSkinTypeRepository.findAllByUserId(userId).stream()

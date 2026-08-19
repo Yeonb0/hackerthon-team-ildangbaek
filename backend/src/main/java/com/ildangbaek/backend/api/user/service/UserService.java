@@ -31,6 +31,7 @@ import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.storage.ImageUrlResolver;
 import java.time.LocalDate;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.LinkedHashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
@@ -156,7 +159,7 @@ public class UserService {
     }
 
     private void updateHormoneFields(UserProfile profile, ProfileUpdateRequest request) {
-        if (request.lastPeriodStartDate() != null && request.lastPeriodStartDate().isAfter(LocalDate.now())) {
+        if (request.lastPeriodStartDate() != null && request.lastPeriodStartDate().isAfter(LocalDate.now(KST))) {
             throw new BusinessException(ErrorCode.COMMON_VALIDATION_FAILED);
         }
 

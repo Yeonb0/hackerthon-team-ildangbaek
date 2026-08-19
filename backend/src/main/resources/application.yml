@@ -3,6 +3,8 @@ spring:
     name: backend
   profiles:
     active: local
+  jackson:
+    time-zone: Asia/Seoul
   servlet:
     multipart:
       # SKIN-01 이미지 상한(10MB)에 맞춘다. 기본값(파일 1MB)이면 정상 사진도 튕긴다.

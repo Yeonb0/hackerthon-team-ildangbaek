@@ -34,6 +34,7 @@ import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,6 +61,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ReportService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private static final Set<Integer> ALLOWED_PERIODS = Set.of(7, 30);
 
@@ -105,7 +108,7 @@ public class ReportService {
             throw new BusinessException(ErrorCode.REPORT_INVALID_PERIOD);
         }
 
-        LocalDate endDate = LocalDate.now();
+        LocalDate endDate = LocalDate.now(KST);
         LocalDate startDate = endDate.minusDays(period - 1L);
 
         List<SkinRecord> records = skinRecordRepository
@@ -227,7 +230,7 @@ public class ReportService {
                 .filter(found -> found.getUser().getId().equals(userId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.REPORT_INSIGHT_NOT_FOUND));
 
-        LocalDate endDate = insight.getEndDate() != null ? insight.getEndDate() : LocalDate.now();
+        LocalDate endDate = insight.getEndDate() != null ? insight.getEndDate() : LocalDate.now(KST);
         LocalDate startDate = insight.getStartDate() != null
                 ? insight.getStartDate()
                 : endDate.minusDays(FALLBACK_WINDOW_DAYS - 1L);
@@ -294,7 +297,7 @@ public class ReportService {
      */
     @Transactional(readOnly = true)
     public ReportDailyResponse getDailyReport(Long userId, LocalDate date, TimeSlot timeSlot) {
-        if (date.isAfter(LocalDate.now())) {
+        if (date.isAfter(LocalDate.now(KST))) {
             throw new BusinessException(ErrorCode.RECORD_FUTURE_DATE_NOT_ALLOWED);
         }
 

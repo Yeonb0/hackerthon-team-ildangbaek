@@ -19,7 +19,9 @@ import com.ildangbaek.backend.domain.record.repository.ProductRecordItemReposito
 import com.ildangbaek.backend.domain.record.repository.ProductRecordRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -34,13 +36,15 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RecordHubService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final ProductRecordRepository productRecordRepository;
     private final ProductRecordItemRepository productRecordItemRepository;
     private final SkinRecordRepository skinRecordRepository;
 
     @Transactional(readOnly = true)
     public RecordCalendarResponse getCalendar(Long userId, YearMonth yearMonth) {
-        YearMonth targetMonth = yearMonth == null ? YearMonth.now() : yearMonth;
+        YearMonth targetMonth = yearMonth == null ? YearMonth.now(KST) : yearMonth;
         LocalDate start = targetMonth.atDay(1);
         LocalDate end = targetMonth.atEndOfMonth();
 
@@ -51,7 +55,7 @@ public class RecordHubService {
 
         Map<LocalDate, EnumMap<TimeSlot, Boolean>> productMap = toProductSlotMap(productRecords);
         Map<LocalDate, EnumMap<TimeSlot, Boolean>> skinMap = toSkinSlotMap(skinRecords);
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
 
         List<RecordCalendarDayResponse> days = start.datesUntil(end.plusDays(1))
                 .map(date -> new RecordCalendarDayResponse(
@@ -69,7 +73,7 @@ public class RecordHubService {
 
     @Transactional(readOnly = true)
     public RecordTodayResponse getToday(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
         return new RecordTodayResponse(
                 today,
                 defaultTab(),
@@ -141,7 +145,7 @@ public class RecordHubService {
     }
 
     private TimeSlot defaultTab() {
-        int hour = java.time.LocalTime.now().getHour();
+        int hour = LocalTime.now(KST).getHour();
         return hour >= 18 || hour < 6 ? TimeSlot.NIGHT : TimeSlot.MORNING;
     }
 
