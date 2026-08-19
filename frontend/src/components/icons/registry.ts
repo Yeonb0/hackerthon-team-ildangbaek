@@ -20,6 +20,7 @@ import { IconClose } from './IconClose';
 import { IconCloudError } from './IconCloudError';
 import { IconDragHandle } from './IconDragHandle';
 import { IconEye } from './IconEye';
+import { IconEyeOff } from './IconEyeOff';
 import { IconFaceScan } from './IconFaceScan';
 import { IconLoading } from './IconLoading';
 import { IconMinus } from './IconMinus';
@@ -73,6 +74,7 @@ export const ICONS = {
   cloudError: IconCloudError,
   dragHandle: IconDragHandle,
   eye: IconEye,
+  eyeOff: IconEyeOff,
   faceScan: IconFaceScan,
   loading: IconLoading,
   minus: IconMinus,

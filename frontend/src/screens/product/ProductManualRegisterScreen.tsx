@@ -1,4 +1,4 @@
-// ProductManualRegisterScreen.tsx — PROD-05 제품 직접 등록
+// src/screens/product/ProductManualRegisterScreen.tsx — PROD-05 제품 직접 등록
 //
 // Phase 11-C(관리자 결정, 2026-08-13) — F-PRODUCT-08은 기능명세서에 "TBD-07 · 최우선 미정"
 // (버튼은 있는데 목적지 화면이 없음)으로 남아있던 항목입니다. 이번에 최소 버전으로 화면을
@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppTextInput } from '@/components/base/AppTextInput';
 import { AppIcon, IconCamera } from '@/components/icons';
 import { Button } from '@/components/base/Button';
+import { KeyboardAvoidingScreen } from '@/components/base/KeyboardAvoidingScreen';
 import { Input } from '@/components/base/Input';
 import { LoadingState } from '@/components/state/LoadingState';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
@@ -220,150 +221,155 @@ export function ProductManualRegisterScreen() {
         <View style={styles.navDivider} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.headingArea}>
-          <Text style={styles.heading}>어떤 제품인가요?</Text>
-          <Text style={styles.subheading}>성분을 자동으로 불러와 분석해드려요</Text>
-        </View>
+      {/* 2026-08-19(세션 19, 관리자님 5번 항목) — 스크롤 영역과 하단 버튼을 **함께**
+          감쌉니다. 스크롤 안쪽만 감싸면 「등록하기」가 키보드에 가려진 채로 남습니다.
+          이 화면은 자기 ScrollView를 이미 갖고 있어서 scrollable={false}입니다. */}
+      <KeyboardAvoidingScreen scrollable={false}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.headingArea}>
+            <Text style={styles.heading}>어떤 제품인가요?</Text>
+            <Text style={styles.subheading}>성분을 자동으로 불러와 분석해드려요</Text>
+          </View>
 
-        <Pressable
-          onPress={() => setCameraOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel={photoUri ? '제품 사진 다시 찍기' : '제품 사진 촬영'}
-          style={styles.photoPicker}
-        >
-          {photoUri ? (
-            <Image source={{ uri: photoUri }} style={styles.photoThumbnail} resizeMode="cover" />
-          ) : (
-            <View style={styles.photoPlaceholder}>
-              <IconCamera size={32} color={color.ink300} />
-            </View>
-          )}
-          <Text style={styles.photoPickerLabel}>{photoUri ? '다시 찍기' : '제품 사진 촬영'}</Text>
-        </Pressable>
+          <Pressable
+            onPress={() => setCameraOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={photoUri ? '제품 사진 다시 찍기' : '제품 사진 촬영'}
+            style={styles.photoPicker}
+          >
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={styles.photoThumbnail} resizeMode="cover" />
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <IconCamera size={32} color={color.ink300} />
+              </View>
+            )}
+            <Text style={styles.photoPickerLabel}>{photoUri ? '다시 찍기' : '제품 사진 촬영'}</Text>
+          </Pressable>
 
-        <Input
-          label="제품명"
-          value={name}
-          onChangeText={setName}
-          placeholder="예: 어성초 진정 토너"
-          accessibilityLabel="제품명"
-          maxLength={40}
-        />
-        <Input
-          label="브랜드"
-          value={brand}
-          onChangeText={setBrand}
-          placeholder="예: 이니스프리"
-          accessibilityLabel="브랜드명"
-          maxLength={30}
-        />
-
-        <View style={styles.categorySection}>
-          <Text style={styles.categorySectionLabel}>제품 타입</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-            {PRODUCT_CATEGORIES.map((c) => {
-              const active = category === c;
-              return (
-                <Pressable
-                  key={c}
-                  accessibilityRole="button"
-                  accessibilityLabel={PRODUCT_CATEGORY_LABELS[c]}
-                  accessibilityState={{ selected: active }}
-                  onPress={() => setCategory(c)}
-                  style={[styles.categoryChip, active && styles.categoryChipActive]}
-                >
-                  <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
-                    {PRODUCT_CATEGORY_LABELS[c]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        <View style={styles.ingredientSection}>
-          <Text style={styles.fieldLabel}>성분 입력</Text>
-          <AppTextInput
-            value={ingredientsText}
-            onChangeText={setIngredientsText}
-            placeholder="정제수, 글리세린, 나이아신아마이드, 어성초추출물..."
-            placeholderTextColor={color.ink300}
-            multiline
-            numberOfLines={4}
-            style={styles.textarea}
-            accessibilityLabel="성분 입력"
+          <Input
+            label="제품명"
+            value={name}
+            onChangeText={setName}
+            placeholder="예: 어성초 진정 토너"
+            accessibilityLabel="제품명"
+            maxLength={40}
           />
-        </View>
+          <Input
+            label="브랜드"
+            value={brand}
+            onChangeText={setBrand}
+            placeholder="예: 이니스프리"
+            accessibilityLabel="브랜드명"
+            maxLength={30}
+          />
 
-        <View style={styles.hintBox}>
-          <AppIcon name="info" size={16} color={color.brand700} style={styles.hintIcon} />
-          <Text style={styles.hintText}>
-            성분을 모른다면 일부만 입력하거나 비워두세요. AI가 바코드/사진으로 채울 수 있어요
-          </Text>
-        </View>
-
-        {/* 2026-08-19 — 예전 조건(`length > 0`)은 서버가 루틴을 만들어 준다는 전제였고,
-            실서버에서는 항상 거짓이라 이 섹션이 통째로 사라졌습니다. 이제 모닝·나이트
-            루틴은 제품이 0개여도 항상 존재합니다(store/routineStore.ts). */}
-        <View style={styles.routineSection}>
-            {/* 2026-08-19 — 성분 확인 화면(S-14)과 문구·구조를 통일했습니다(관리자님 지시).
-                「추가 안 함」이라는 부정형 라벨은 아무것도 안 일어나는 것처럼 읽혀서,
-                실제 동작(제품 목록에는 등록됨)에 맞춰 「제품만 등록하기」로 바꿨습니다. */}
-            <Text style={styles.fieldLabel}>어디에 등록할까요? (모닝·나이트 중복 가능)</Text>
-            <View style={styles.categoryRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="제품만 등록하기"
-                accessibilityState={{ selected: selectedRoutineIds.size === 0 }}
-                onPress={() => setSelectedRoutineIds(new Set())}
-                style={[
-                  styles.categoryChip,
-                  selectedRoutineIds.size === 0 && styles.categoryChipActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    selectedRoutineIds.size === 0 && styles.categoryChipTextActive,
-                  ]}
-                >
-                  제품만 등록하기
-                </Text>
-              </Pressable>
-              {orderedRoutines.map((routine) => {
-                const active = selectedRoutineIds.has(routine.routineId);
+          <View style={styles.categorySection}>
+            <Text style={styles.categorySectionLabel}>제품 타입</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+              {PRODUCT_CATEGORIES.map((c) => {
+                const active = category === c;
                 return (
                   <Pressable
-                    key={routine.routineId}
+                    key={c}
                     accessibilityRole="button"
-                    accessibilityLabel={routine.name}
+                    accessibilityLabel={PRODUCT_CATEGORY_LABELS[c]}
                     accessibilityState={{ selected: active }}
-                    onPress={() => toggleRoutine(routine.routineId)}
+                    onPress={() => setCategory(c)}
                     style={[styles.categoryChip, active && styles.categoryChipActive]}
                   >
                     <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
-                      {routine.name}
+                      {PRODUCT_CATEGORY_LABELS[c]}
                     </Text>
                   </Pressable>
                 );
               })}
+            </ScrollView>
           </View>
+
+          <View style={styles.ingredientSection}>
+            <Text style={styles.fieldLabel}>성분 입력</Text>
+            <AppTextInput
+              value={ingredientsText}
+              onChangeText={setIngredientsText}
+              placeholder="정제수, 글리세린, 나이아신아마이드, 어성초추출물..."
+              placeholderTextColor={color.ink300}
+              multiline
+              numberOfLines={4}
+              style={styles.textarea}
+              accessibilityLabel="성분 입력"
+            />
+          </View>
+
+          <View style={styles.hintBox}>
+            <AppIcon name="info" size={16} color={color.brand700} style={styles.hintIcon} />
+            <Text style={styles.hintText}>
+              성분을 모른다면 일부만 입력하거나 비워두세요. AI가 바코드/사진으로 채울 수 있어요
+            </Text>
+          </View>
+
+          {/* 2026-08-19 — 예전 조건(`length > 0`)은 서버가 루틴을 만들어 준다는 전제였고,
+              실서버에서는 항상 거짓이라 이 섹션이 통째로 사라졌습니다. 이제 모닝·나이트
+              루틴은 제품이 0개여도 항상 존재합니다(store/routineStore.ts). */}
+          <View style={styles.routineSection}>
+              {/* 2026-08-19 — 성분 확인 화면(S-14)과 문구·구조를 통일했습니다(관리자님 지시).
+                  「추가 안 함」이라는 부정형 라벨은 아무것도 안 일어나는 것처럼 읽혀서,
+                  실제 동작(제품 목록에는 등록됨)에 맞춰 「제품만 등록하기」로 바꿨습니다. */}
+              <Text style={styles.fieldLabel}>어디에 등록할까요? (모닝·나이트 중복 가능)</Text>
+              <View style={styles.categoryRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="제품만 등록하기"
+                  accessibilityState={{ selected: selectedRoutineIds.size === 0 }}
+                  onPress={() => setSelectedRoutineIds(new Set())}
+                  style={[
+                    styles.categoryChip,
+                    selectedRoutineIds.size === 0 && styles.categoryChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      selectedRoutineIds.size === 0 && styles.categoryChipTextActive,
+                    ]}
+                  >
+                    제품만 등록하기
+                  </Text>
+                </Pressable>
+                {orderedRoutines.map((routine) => {
+                  const active = selectedRoutineIds.has(routine.routineId);
+                  return (
+                    <Pressable
+                      key={routine.routineId}
+                      accessibilityRole="button"
+                      accessibilityLabel={routine.name}
+                      accessibilityState={{ selected: active }}
+                      onPress={() => toggleRoutine(routine.routineId)}
+                      style={[styles.categoryChip, active && styles.categoryChipActive]}
+                    >
+                      <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
+                        {routine.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+            </View>
+          </View>
+
+          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+        </ScrollView>
+
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[3] }]}>
+          <Button
+            label="등록하기"
+            variant="primary"
+            disabled={!canSubmit}
+            loading={registerMutation.isPending || addToRoutineMutation.isPending}
+            onPress={handleSubmit}
+            style={styles.bottomButton}
+          />
         </View>
-
-        {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
-      </ScrollView>
-
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[3] }]}>
-        <Button
-          label="등록하기"
-          variant="primary"
-          disabled={!canSubmit}
-          loading={registerMutation.isPending || addToRoutineMutation.isPending}
-          onPress={handleSubmit}
-          style={styles.bottomButton}
-        />
-      </View>
+      </KeyboardAvoidingScreen>
     </View>
   );
 }

@@ -1,3 +1,4 @@
+// src/components/icons/index.ts
 // 화면 코드에서는 개별 컴포넌트를 직접 import해서 쓰고(예: <IconBack />),
 // ICONS/IconName은 카탈로그 화면처럼 "전체를 순회"해야 하는 곳에서만 씁니다.
 // ICONS/IconName 실제 정의는 registry.ts에 있습니다 (AppIcon.tsx와의 순환 참조 방지 — 주석 참고).
@@ -23,6 +24,7 @@ import { IconClose } from './IconClose';
 import { IconCloudError } from './IconCloudError';
 import { IconDragHandle } from './IconDragHandle';
 import { IconEye } from './IconEye';
+import { IconEyeOff } from './IconEyeOff';
 import { IconFaceScan } from './IconFaceScan';
 import { IconLoading } from './IconLoading';
 import { IconMinus } from './IconMinus';
@@ -78,6 +80,7 @@ export {
   IconCloudError,
   IconDragHandle,
   IconEye,
+  IconEyeOff,
   IconFaceScan,
   IconLoading,
   IconMinus,

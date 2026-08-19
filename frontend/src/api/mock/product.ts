@@ -169,22 +169,46 @@ export function addProductToRoutine(routineId: number, productId: number): void 
  * - `unsaveMockProduct`: **저장돼 있지 않으면 404 PRODUCT_NOT_FOUND.** 실서버가
  *   `UserProduct` 행이 없을 때 던지는 것과 같은 코드입니다.
  */
+/**
+ * 2026-08-19(세션 19) — 삭제를 **행 제거가 아니라 상태 전환**으로 바꿨습니다.
+ *
+ * 실서버는 `UserProduct` 행을 지우지 않고 `usageStatus`만 STOPPED로 바꿉니다. 그리고
+ * 두 목록의 필터가 서로 다릅니다:
+ *   · `GET /users/me/products`   → USING만  (삭제한 제품이 빠짐)
+ *   · `GET /product-records/home` → 필터 없음 (삭제한 제품이 **그대로 남음**)
+ *
+ * 예전 목업은 Map에서 통째로 지워버려서 양쪽 다 깔끔하게 사라졌고, 그래서 이 불일치가
+ * 개발 중에 한 번도 안 보였습니다(세션 17 스캔 버그와 같은 함정). 이제 STOPPED 집합을
+ * 따로 두고 서버와 같은 어긋남을 그대로 재현합니다 — 화면 쪽 보정(ProductRecordScreen의
+ * usingProductIds 교집합)이 목업에서도 실제로 검증됩니다.
+ */
+const stoppedProductIds = new Set<number>();
+
+/** 실서버 `existsByUserIdAndProductIdAndUsageStatus(..., USING)`와 같은 판정. */
+function isProductSaved(productId: number): boolean {
+  return savedProducts.has(productId) && !stoppedProductIds.has(productId);
+}
+
 export function saveMockProduct(productId: number): ProductSaveResult {
   if (!findCatalogProduct(productId)) {
     throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '제품을 찾을 수 없어요.');
   }
   savedProducts.set(productId, new Date().toISOString());
+  // 백엔드 `resumeUsing()` — 지웠던 제품을 다시 담으면 되살아납니다.
+  stoppedProductIds.delete(productId);
   persistManualState();
   return { productId, saved: true };
 }
 
 export function unsaveMockProduct(productId: number): ProductSaveResult {
+  // 행 자체가 없을 때만 404입니다. 이미 STOPPED인 제품을 또 지우면 실서버는 그냥
+  // 200을 돌려줍니다(`findByUserIdAndProductId`는 상태를 안 봅니다).
   if (!savedProducts.has(productId)) {
     throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '제품을 찾을 수 없어요.');
   }
-  savedProducts.delete(productId);
+  stoppedProductIds.add(productId);
   // 실서버의 stopUsing()은 제품을 목록에서만 빼고 루틴 구성은 건드리지 않습니다 —
-  // 루틴에서도 빼려면 루틴 수정 API가 따로 필요합니다(현재 백엔드에 없음).
+  // 루틴에서 빼는 건 클라이언트(routineStore)가 합니다.
   persistManualState();
   return { productId, saved: false };
 }
@@ -206,6 +230,8 @@ function snapshotManualState(): PersistedManualProductsState {
     // 9000 이상은 직접 등록한 제품 ID 범위 — 데모 기본 저장 제품(11, 15)은 resetMockProductSession
     // 쪽 하드코딩된 시드값으로 이미 매번 복원되니 여기 같이 저장할 필요가 없습니다.
     savedProducts: Array.from(savedProducts.entries()).filter(([id]) => id >= 9000),
+    // 삭제 상태는 데모 기본 제품(11, 15)에도 걸리므로 ID 범위로 거르지 않고 전부 저장합니다.
+    stoppedProductIds: Array.from(stoppedProductIds),
   };
 }
 
@@ -230,6 +256,8 @@ async function hydrateManualState(): Promise<void> {
   saved.savedProducts.forEach(([id, lastUsedAt]) => {
     savedProducts.set(id, lastUsedAt);
   });
+  // 이전 포맷으로 저장된 값에는 이 필드가 없습니다(옵셔널).
+  (saved.stoppedProductIds ?? []).forEach((id) => stoppedProductIds.add(id));
 }
 
 // ⚠️ 하이드레이션은 비동기라 완료 전 아주 짧은 순간엔 이전 세션 제품이 안 보일 수
@@ -239,6 +267,7 @@ hydrateManualState();
 export function resetMockProductSession(): void {
   recordedSlots.clear();
   savedProducts.clear();
+  stoppedProductIds.clear();
   savedProducts.set(11, '2026-08-06T08:12:00+09:00');
   savedProducts.set(15, '2026-08-05T08:30:00+09:00');
   MANUAL_CATALOG.length = 0;
@@ -322,6 +351,8 @@ function toSavedProductSummary(productId: number, lastUsedAt: string): SavedProd
  */
 export function listMockSavedProducts(): SavedProductSummary[] {
   return Array.from(savedProducts.entries())
+    // `GET /users/me/products`는 USING만 돌려줍니다 — 삭제한 제품은 여기서 빠집니다.
+    .filter(([id]) => !stoppedProductIds.has(id))
     .map(([id, lastUsedAt]) => toSavedProductSummary(id, lastUsedAt))
     .filter((p): p is SavedProductSummary => p !== null)
     .sort((a, b) => (b.lastUsedAt ?? '').localeCompare(a.lastUsedAt ?? ''));
@@ -339,6 +370,9 @@ export function buildMockProductRecordHome(timeSlot: TimeSlot): ProductRecordHom
       productSummary: buildProductSummary(r.productIds),
     }));
 
+  // ⚠️ 여기는 일부러 STOPPED를 걸러내지 않습니다 — 백엔드
+  // `ProductRecordService.getHome()`에 상태 필터가 없어서 삭제한 제품이 그대로 남습니다.
+  // 화면(ProductRecordScreen)이 `GET /users/me/products`와 교집합해 보정합니다.
   const saved: SavedProductSummary[] = Array.from(savedProducts.entries())
     .map(([id, lastUsedAt]) => toSavedProductSummary(id, lastUsedAt))
     .filter((p): p is SavedProductSummary => p !== null)
@@ -373,7 +407,7 @@ export function searchMockProducts(keyword: string): ProductSearchResult {
 
   const products: SearchedProduct[] = matched.slice(0, 20).map((p) => ({
     ...p,
-    saved: savedProducts.has(p.productId),
+    saved: isProductSaved(p.productId),
   }));
 
   return { keyword, totalCount: matched.length, products };
@@ -554,7 +588,7 @@ export function getMockProductDetail(productId: number): ProductDetailResult {
 
   return {
     ...product,
-    saved: savedProducts.has(productId),
+    saved: isProductSaved(productId),
     ingredientCount,
     keyIngredients,
     ingredients,

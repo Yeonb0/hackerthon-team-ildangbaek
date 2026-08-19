@@ -40,6 +40,7 @@ import {
   useProductSearch,
   useRoutineQuickRecord,
   useRoutines,
+  useSavedProducts,
   useSaveProductRecord,
   useSaveProductToLibrary,
 } from '@/api/queries/product';
@@ -538,6 +539,22 @@ function HomeSection({
   // 초기화되는데, 필터가 "이 목록 안에서 찾기" 용도라 그 정도면 충분하다고 판단했습니다.
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
+  /**
+   * 2026-08-19(세션 19) — 제품 삭제가 이 목록에 반영되게 하는 보정.
+   *
+   * 백엔드에 같은 테이블을 읽는 목록이 둘인데 **필터가 서로 다릅니다**:
+   *   · `GET /product-records/home`(이 화면) → `findAllByUserIdOrderByLastUsedAtDesc`
+   *     — 상태 조건 없음. 삭제(`stopUsing()`)한 제품이 **그대로 남습니다.**
+   *   · `GET /users/me/products`            → `findAllByUserIdAndUsageStatus(..., USING)`
+   *     — 삭제한 제품이 빠집니다.
+   * 그대로 두면 성분 확인 화면에서 삭제해도 여기서는 안 사라져서 "삭제가 안 된다"로 보입니다.
+   *
+   * 그래서 USING 목록과 교집합해서 그립니다. 이 조회가 아직 안 왔거나 실패했으면
+   * **필터를 걸지 않습니다** — 잘못 걸면 목록이 통째로 비는데, 남는 쪽이 훨씬 안전합니다.
+   * 백엔드가 필터를 맞추면 교집합이 원본과 같아져 이 코드는 저절로 무해해집니다.
+   */
+  const usingQuery = useSavedProducts();
+
   if (homeQuery.isLoading) {
     return <LoadingState variant="listRows" rows={3} />;
   }
@@ -545,7 +562,13 @@ function HomeSection({
     return <ErrorState variant="network" layout="inline" onRetry={onRetryHome} />;
   }
 
-  const { savedProducts, alreadyRecorded } = homeQuery.data;
+  const { savedProducts: homeSavedProducts, alreadyRecorded } = homeQuery.data;
+  const usingProductIds = usingQuery.data
+    ? new Set(usingQuery.data.map((p) => p.productId))
+    : null;
+  const savedProducts = usingProductIds
+    ? homeSavedProducts.filter((p) => usingProductIds.has(p.productId))
+    : homeSavedProducts;
   // 관리자님 요청(2026-08-10) — 저장된 제품에 실제로 있는 카테고리만이 아니라, 표준
   // 12종(PRODUCT_CATEGORIES) 전체를 항상 필터로 보여줍니다. 선택했는데 해당 카테고리
   // 제품이 없으면 아래 filteredSavedProducts가 빈 배열이 되고, EmptyState로 안내합니다.

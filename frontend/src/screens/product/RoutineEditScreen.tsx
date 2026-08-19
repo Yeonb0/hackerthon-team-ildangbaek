@@ -20,10 +20,13 @@
 // 로컬 편집 상태(ordersByRoutineId)에 병합합니다 — 사용자가 그사이 다른 탭에서 만든
 // 순서 변경·삭제는 그대로 유지합니다.
 //
-// ⚠️ 순서 변경·삭제는 여전히 화면 전용 데모입니다. 루틴 구성을 바꾸는 API(PATCH/DELETE류)가
-// api_명세서.md에 없어서(PRODUCT-07은 조회만 가능) 로컬 상태로만 동작하고, 화면을 나가면
-// 원래대로 돌아갑니다. 실제로 저장하려면 백엔드에 루틴 수정 API가 필요합니다
-// (RoutineQuickRecordCard.tsx의 기존 데모 노트와 동일한 제약 — 새로 생긴 문제가 아닙니다).
+// 2026-08-19(세션 18) — 순서 변경·삭제가 **실제로 저장됩니다.** 백엔드에 루틴 수정 API가
+// 없는 건 그대로지만, 루틴을 클라이언트가 소유하게 되면서(store/routineStore.ts) 「저장」이
+// 스토어에 커밋되고 앱을 재시작해도 유지됩니다. 예전의 "화면 전용 데모" 제약은 끝났습니다.
+//
+// 2026-08-19(세션 19) 버그 수정 — 삭제가 동작하지 않던 문제. 렌더 중 병합 조건이 로컬에서
+// 지운 제품을 곧바로 "새로 추가된 제품"으로 되살리고 있었습니다. 아래 storeSnapshotByRoutineId
+// 주석 참고.
 //
 // ⚠️ Development Build 전용 화면입니다 (react-native-reanimated 네이티브 모듈 필요).
 // Expo Go에서 이 화면에 진입하면 크래시납니다.
@@ -66,26 +69,60 @@ export function RoutineEditScreen() {
   const [ordersByRoutineId, setOrdersByRoutineId] = useState<Record<number, RoutineProductItem[]>>(
     {}
   );
+  /**
+   * 루틴별로 **직전에 본 스토어 구성**(productId 배열)을 기억합니다.
+   *
+   * 2026-08-19(세션 19) 버그 수정 — 관리자님 리포트 "루틴 수정 화면에서 제품 삭제 안 됨".
+   *
+   * 예전 병합 조건은 "지금 편집 목록에 없으면 새로 추가된 것"이었습니다:
+   *
+   *     const newlyAdded = activeRoutine.products.filter((p) => !currentIds.has(p.productId));
+   *
+   * 그런데 X를 눌러 로컬 목록에서 뺀 제품은 **저장 전이라 스토어에는 그대로 남아 있습니다.**
+   * 그래서 바로 다음 렌더에서 이 조건에 걸려 "새 제품"으로 되살아났습니다 — 삭제를 눌러도
+   * 아무 일도 안 일어나는 것처럼 보인 원인입니다(맨 뒤로 다시 붙습니다).
+   *
+   * 이제 "지금 편집 목록"이 아니라 **"직전에 본 스토어 구성"**과 비교합니다.
+   *   · 로컬에서 지운 제품 → 스냅샷에 이미 있음 → 새 제품 아님 → 안 돌아옵니다
+   *   · 제품 추가 화면에서 담은 제품 → 스냅샷에 없음 → 정상 반영됩니다
+   *   · 지웠다가 추가 화면에서 다시 담은 제품 → 스토어가 한 번 바뀌므로 새 제품으로 잡힙니다
+   */
+  const [storeSnapshotByRoutineId, setStoreSnapshotByRoutineId] = useState<Record<number, number[]>>(
+    {}
+  );
   if (activeRoutine) {
-    const current = ordersByRoutineId[activeRoutine.routineId];
+    const routineId = activeRoutine.routineId;
+    const storeIds = activeRoutine.products.map((p) => p.productId);
+    const current = ordersByRoutineId[routineId];
+    // 렌더 중 조정 패턴(useEffect 대신)은 RoutineQuickRecordCard.tsx와 같은 이유로 씁니다
+    // (React 19 lint 규칙 — set-state-in-effect 금지, 렌더 중 조건부 setState는 허용되는
+    // "bail-out" 패턴). 아래 조건은 setState 후 반드시 거짓이 되므로 루프를 돌지 않습니다.
     if (current === undefined) {
-      // 처음 이 루틴을 여는 경우 — 서버 데이터 그대로 초기화.
-      setOrdersByRoutineId((prev) => ({ ...prev, [activeRoutine.routineId]: activeRoutine.products }));
+      // 처음 이 루틴을 여는 경우 — 스토어 구성 그대로 초기화.
+      setOrdersByRoutineId((prev) => ({ ...prev, [routineId]: activeRoutine.products }));
+      setStoreSnapshotByRoutineId((prev) => ({ ...prev, [routineId]: storeIds }));
     } else {
-      // 2026-08-15(세션5) 버그 수정(관리자님 실기기 확인) — RoutineAddProductScreen에서
-      // 돌아오면(포커스 재획득 → routinesQuery 재조회) 새로 추가된 제품만 병합합니다.
-      // 사용자가 로컬에서 이미 바꿔둔 순서·삭제는 그대로 둡니다. useEffect 안에서
-      // refetch().then(...)으로 처리했던 첫 버전은 addProductToRoutine 뮤테이션의 onSuccess가
-      // 이미 걸어둔 자동 무효화-재조회와 타이밍이 겹치면서 병합이 반영 전 데이터로 덮어써지는
-      // 경우가 있어서(루틴이 업데이트 안 되는 것처럼 보였던 원인), react-query가 최종적으로
-      // 들고 있는 routinesQuery.data를 렌더마다 그대로 비교하는 방식으로 바꿨습니다.
+      // 2026-08-15(세션5) — RoutineAddProductScreen에서 돌아오면(포커스 재획득 →
+      // routinesQuery 재조회) 새로 담긴 제품만 병합합니다. 사용자가 로컬에서 바꿔둔
+      // 순서·삭제는 그대로 둡니다. useEffect 안에서 refetch().then(...)으로 처리했던 첫
+      // 버전은 addProductToRoutine의 자동 무효화-재조회와 타이밍이 겹쳐 반영 전 데이터로
+      // 덮어써지는 경우가 있어서, 렌더마다 최신 데이터를 그대로 비교하는 방식입니다.
+      const snapshot = storeSnapshotByRoutineId[routineId] ?? [];
+      const snapshotIds = new Set(snapshot);
       const currentIds = new Set(current.map((p) => p.productId));
-      const newlyAdded = activeRoutine.products.filter((p) => !currentIds.has(p.productId));
+      const newlyAdded = activeRoutine.products.filter(
+        (p) => !snapshotIds.has(p.productId) && !currentIds.has(p.productId)
+      );
       if (newlyAdded.length > 0) {
         setOrdersByRoutineId((prev) => ({
           ...prev,
-          [activeRoutine.routineId]: [...(prev[activeRoutine.routineId] ?? current), ...newlyAdded],
+          [routineId]: [...(prev[routineId] ?? current), ...newlyAdded],
         }));
+      }
+      const snapshotStale =
+        snapshot.length !== storeIds.length || storeIds.some((id) => !snapshotIds.has(id));
+      if (snapshotStale) {
+        setStoreSnapshotByRoutineId((prev) => ({ ...prev, [routineId]: storeIds }));
       }
     }
   }
@@ -226,9 +263,11 @@ export function RoutineEditScreen() {
           <Text style={styles.addButtonText}>제품 추가하기</Text>
         </Pressable>
 
-        <Text style={styles.demoNote}>
-          순서·삭제는 이 화면에서만 적용돼요. 나가면 원래대로 돌아가요.
-        </Text>
+        {/* 2026-08-19(세션 19) — 예전 문구는 "순서·삭제는 이 화면에서만 적용돼요.
+            나가면 원래대로 돌아가요."였습니다. 세션 18에서 루틴을 클라이언트가 소유하게
+            되면서 저장이 실제로 반영되기 시작했는데 문구가 그대로 남아 있었습니다.
+            "어차피 안 되는 화면"으로 읽혀서 삭제가 정말 안 되는지 확인하기도 어려웠습니다. */}
+        <Text style={styles.demoNote}>순서와 삭제는 아래 「저장」을 눌러야 반영돼요.</Text>
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + space[4] }]}>

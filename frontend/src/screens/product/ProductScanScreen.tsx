@@ -1,4 +1,4 @@
-// ProductScanScreen.tsx — S-13 제품 스캔
+// src/screens/product/ProductScanScreen.tsx — S-13 제품 스캔
 //
 // 바코드/상품 사진 두 모드를 하나의 CameraView로 처리합니다(브리프 가이드: "CameraView는
 // 하나만 두고 barcodeScannerSettings 활성 여부만 바꾸는 방식"). 후면 카메라를 씁니다.
@@ -55,7 +55,11 @@ const GUIDE_TEXT: Record<ScanMode, string> = {
   BARCODE: '바코드를 네모 안에 맞춰주세요',
   // 2026-08-18 — 백엔드에 상품 사진 인식 로직이 없어 이 모드는 아직 동작하지 않습니다.
   // 문구를 "촬영해주세요"로 두면 될 것처럼 보여서 준비 중임을 먼저 알립니다.
-  PRODUCT_IMAGE: '상품 사진 인식은 준비 중이에요',
+  //
+  // 2026-08-19(세션 19, 관리자님 14번 항목) — 예전엔 이 문구와 **거의 같은 말**이 아래
+  // 에러 배너에도 떠서 "준비 중"이 한 화면에 두 번 나왔습니다. 배너를 없애고 안내를
+  // 이 한 줄로 합쳤습니다. 다음 행동(검색 전환)은 하단 「제품 검색하기」 버튼이 맡습니다.
+  PRODUCT_IMAGE: '상품 사진 인식은 준비 중이에요. 바코드로 스캔하거나 제품명으로 검색해 주세요.',
 };
 
 // 유통·화장품 제품에서 흔한 바코드 규격 위주로 골랐습니다.
@@ -111,16 +115,13 @@ export function ProductScanScreen() {
     scannedRef.current = false;
     // 2026-08-18 — 상품 사진 인식은 백엔드에 비전 로직이 없어 동작하지 않습니다
     // (ProductService.scan(ScanMode, MultipartFile)이 SCAN_SERVICE_UNAVAILABLE만 던짐).
-    // 토글은 Figma대로 남겨두되, 고른 즉시 준비 중임을 알리고 검색으로 유도합니다
-    // (관리자 결정 B안). 백엔드가 구현하면 이 분기와 아래 하단 버튼만 되돌리면 됩니다.
-    setErrorInfo(
-      mode === 'PRODUCT_IMAGE'
-        ? {
-            message:
-              '상품 사진으로 찾는 기능은 아직 준비 중이에요. 바코드를 스캔하거나 제품명으로 검색해 주세요.',
-          }
-        : null
-    );
+    // 토글은 Figma대로 남겨두되 준비 중임을 알리고 검색으로 유도합니다(관리자 결정 B안).
+    //
+    // 2026-08-19(세션 19, 관리자님 14번 항목) — 여기서 에러 배너를 띄우던 걸 없앴습니다.
+    // 상단 안내(GUIDE_TEXT)가 같은 말을 이미 하고 있어서 중복이었고, 사용자가 아무것도
+    // 안 했는데 빨간 에러가 뜨는 것도 맞지 않습니다. 이건 실패가 아니라 상태 안내입니다.
+    // 이전 스캔 실패가 남아 있을 수 있으니 모드를 바꿀 땐 항상 비웁니다.
+    setErrorInfo(null);
   };
 
   const runScan = async (barcode: string) => {
@@ -146,7 +147,16 @@ export function ProductScanScreen() {
       } else {
         setErrorInfo({ message: '스캔 중 문제가 생겼어요. 다시 시도해 주세요.' });
       }
-      scannedRef.current = false;
+      // ⚠️ 2026-08-19(세션 19, 관리자님 리포트 "바코드 스캔 실패에서 안내가 반복적으로 나옴")
+      //
+      // 예전엔 여기서 `scannedRef.current = false`로 **스캐너를 즉시 다시 열었습니다.**
+      // 그런데 실패한 바코드는 아직 카메라 앞에 그대로 있습니다. 다음 프레임에서 같은
+      // 값이 또 인식되고 → 또 실패하고 → 에러가 다시 뜨는 일이 초당 수차례 반복됐습니다.
+      // (등록되지 않은 제품처럼 **반드시 실패하는 바코드**에서는 영원히 멈추지 않습니다.)
+      //
+      // 실패 후에는 잠가둔 채로 둡니다. 다시 시도하는 길은 이미 있습니다 —
+      // 아래 「다시 스캔」 버튼이 errorInfo를 지우면서 scannedRef를 풉니다.
+      // 사용자가 스스로 다시 겨눌 때만 재시도되는 게 맞습니다.
     } finally {
       setProcessing(false);
     }
@@ -158,7 +168,10 @@ export function ProductScanScreen() {
    * JSON + 바코드 문자열로만 됩니다. `result.data`가 바로 그 문자열입니다.
    */
   const handleBarcodeDetected = (result: BarcodeScanningResult) => {
-    if (scannedRef.current || processing) return;
+    // errorInfo 검사는 scannedRef 잠금에 더한 2중 안전장치입니다. ref는 렌더와 무관하게
+    // 즉시 반영되지만(네이티브 콜백에서 동기적으로 읽어야 해서 ref를 씁니다), 「다시 스캔」
+    // 직후처럼 두 값이 잠깐 어긋나는 순간에도 에러가 떠 있는 동안엔 새 인식을 막습니다.
+    if (scannedRef.current || processing || errorInfo) return;
     if (!result.data) return;
     scannedRef.current = true;
     runScan(result.data);

@@ -1,4 +1,4 @@
-// LocationSettingsScreen.tsx — S-24 위치 설정
+// src/screens/my/LocationSettingsScreen.tsx — S-24 위치 설정
 //
 // 로드맵(frontend-roadmap-phases.md) Phase 8은 "정적 JSON + 로컬 필터"로 계획했지만,
 // 실제 USER-05/06 명세는 서버 검색 API(`GET /locations?keyword=`)로 설계되어 있어서
@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppTextInput } from '@/components/base/AppTextInput';
 import { IconBack, IconCheck, IconSearch } from '@/components/icons';
 import { Button } from '@/components/base/Button';
+import { KeyboardAvoidingScreen } from '@/components/base/KeyboardAvoidingScreen';
 import { Popup } from '@/components/base/Popup';
 import { LoadingState } from '@/components/state/LoadingState';
 import { EmptyState } from '@/components/state/EmptyState';
@@ -113,7 +114,11 @@ export function LocationSettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    /* 2026-08-19(세션 19, 관리자님 5번 항목) — 검색 입력은 위쪽이라 안 가려지지만
+       하단 「저장」 바가 키보드에 덮여서, 지역을 고른 뒤 키보드를 먼저 닫아야만 저장할
+       수 있었습니다. 목록이 FlatList라 화면 전체를 감싸고 scrollable={false}로 둡니다
+       (ScrollView 안에 FlatList를 넣으면 가상화가 깨집니다). */
+    <KeyboardAvoidingScreen scrollable={false} style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
         <View style={styles.navRow}>
           <Pressable
@@ -198,7 +203,7 @@ export function LocationSettingsScreen() {
         onSecondaryPress={() => setPermissionPopupVisible(false)}
         onRequestClose={() => setPermissionPopupVisible(false)}
       />
-    </View>
+    </KeyboardAvoidingScreen>
   );
 }
 
