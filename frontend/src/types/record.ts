@@ -30,8 +30,10 @@ export interface RecordMonthlySummary {
  *   `/records/calendar`는 점 상태만 줍니다. 백엔드에 요청해 둔 상태입니다
  *   (`docs/backend-request-2026-08-18.md` P2-3).
  *
- * 그래서 이 타입은 **당분간 목업 유지**입니다. 제품 기록 API가 생기면 skinScore는
- * REPORT-03에서, 제품은 새 엔드포인트에서 각각 채우면 됩니다.
+ * ✅ 2026-08-19(세션 20) 해결 — 백엔드가 요청(P2-3)대로 `GET /records/daily?date=`를
+ * 추가했고(RecordController.getDaily), 응답이 이 타입과 필드까지 동일합니다.
+ * `api/queries/record.ts`의 getRecordDayDetail이 실호출로 교체됐습니다.
+ * 목업은 USE_MOCK=true 경로에만 남습니다.
  */
 export interface RecordDayProductItem {
   name: string;

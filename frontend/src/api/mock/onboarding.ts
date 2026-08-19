@@ -6,7 +6,8 @@
 // 테스트/데모 중에 실제 입력값이 요약에 반영되는 게 훨씬 체감이 잘 되기 때문에,
 // 화면 간 입력을 여기 모듈 스코프 변수에 잠깐 기억해뒀다가 완료 요약을 만들 때 씁니다.
 // 앱 상태가 아니라 목업 세션 동안만 유지되는 값이고, 실제 authStore/onboardingStore와는 무관합니다.
-import { GENDER_LABEL, HORMONE_LABEL, SKIN_TYPE_LABEL } from '@/lib/profileLabels';
+import { GENDER_LABEL, SKIN_TYPE_LABEL } from '@/lib/profileLabels';
+import { buildHormoneSummaryRows } from '@/lib/hormoneSummary';
 import type {
   BasicInfoInput,
   BasicInfoResult,
@@ -113,21 +114,19 @@ export function buildMockCompleteResult(): CompleteOnboardingResult {
       value: mockSession.skinTypes.map((type) => SKIN_TYPE_LABEL[type]).join(' · '),
     });
   }
-  if (mockSession.hormoneStatus) {
-    summary.push({ label: '생리 상태', value: HORMONE_LABEL[mockSession.hormoneStatus] });
-  }
-  // 최근 시작일/휴약기 + 평균 주기를 한 줄로 합칩니다. 명세서 예시 응답도
-  // { "label": "생리 주기", "value": "28일 · 생리" }처럼 한 행에 묶는 형태였습니다.
-  const hasDate = Boolean(mockSession.lastPeriodStartDate);
-  const hasCycle = mockSession.averageCycleDays != null;
-  if (hasDate || hasCycle) {
-    const label = mockSession.hormoneStatus === 'HORMONE_PILL' ? '최근 휴약기' : '최근 시작일';
-    const parts = [
-      hasDate ? mockSession.lastPeriodStartDate : null,
-      hasCycle ? `${mockSession.averageCycleDays}일` : null,
-    ].filter(Boolean);
-    summary.push({ label, value: parts.join(' · ') });
-  }
+  // 2026-08-19(세션 20) — 목업과 실서버가 같은 문구를 쓰도록 공용 빌더로 옮겼습니다.
+  // (실서버 요약엔 호르몬 행이 없어서 S-05가 이 함수로 직접 보강합니다.)
+  summary.push(
+    ...buildHormoneSummaryRows(
+      mockSession.hormoneStatus
+        ? {
+            hormoneStatus: mockSession.hormoneStatus,
+            lastPeriodStartDate: mockSession.lastPeriodStartDate,
+            averageCycleDays: mockSession.averageCycleDays,
+          }
+        : null,
+    ),
+  );
 
   return { onboardingCompleted: true, summary };
 }

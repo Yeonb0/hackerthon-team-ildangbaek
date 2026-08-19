@@ -22,6 +22,8 @@ import { completeOnboarding } from '@/api/onboarding';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { useAuthStore } from '@/store/authStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
+import { buildHormoneSummaryRows } from '@/lib/hormoneSummary';
 import { OnboardingRoutes, OnboardingStackParamList } from '@/app/routes';
 import { color, space, gradient, gradientDirection, shadow } from '@/theme/tokens';
 import type { OnboardingSummaryRow } from '@/types/onboarding';
@@ -33,6 +35,7 @@ export function OnboardingCompleteScreen() {
     useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'OnboardingComplete'>>();
   const setOnboardingCompleted = useAuthStore((state) => state.setOnboardingCompleted);
   const setOnboardingNextStep = useAuthStore((state) => state.setOnboardingNextStep);
+  const hormoneInput = useOnboardingStore((state) => state.hormoneInput);
 
   const [summary, setSummary] = useState<OnboardingSummaryRow[] | null>(null);
   const [loadError, setLoadError] = useState<'network' | 'server' | null>(null);
@@ -74,6 +77,22 @@ export function OnboardingCompleteScreen() {
     return <LoadingState variant="spinner" />;
   }
 
+  /**
+   * ⚠️ 임시 보강 (2026-08-19 세션 20, 관리자 리포트 "최근 휴약기·평균 주기가 안 보임")
+   *
+   * 백엔드 `buildSummary()`가 이름 / 성별·나이 / 피부 타입 3행만 만들고 호르몬 정보를
+   * 넣지 않습니다. 그래서 S-04에서 입력한 값이 이 화면에서 통째로 사라져 있었습니다
+   * (목업엔 그 두 행이 있어서 실기기에서만 드러났습니다).
+   *
+   * 서버가 이미 같은 라벨을 내려줬다면 **서버 값을 그대로 씁니다** — 백엔드가 요약에
+   * 호르몬 행을 추가하는 순간 이 보강이 저절로 꺼지도록 하기 위해서입니다.
+   */
+  const serverLabels = new Set(summary.map((row) => row.label));
+  const rows = [
+    ...summary,
+    ...buildHormoneSummaryRows(hormoneInput).filter((row) => !serverLabels.has(row.label)),
+  ];
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
@@ -92,10 +111,10 @@ export function OnboardingCompleteScreen() {
         </Text>
 
         <Card style={styles.summaryCard}>
-          {summary.map((row, index) => (
+          {rows.map((row, index) => (
             <View
               key={row.label}
-              style={[styles.summaryRow, index === summary.length - 1 && styles.summaryRowLast]}
+              style={[styles.summaryRow, index === rows.length - 1 && styles.summaryRowLast]}
             >
               <Text style={styles.summaryLabel}>{row.label}</Text>
               <Text style={styles.summaryValue}>{row.value}</Text>

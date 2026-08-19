@@ -6,9 +6,12 @@
 // 회원가입·비밀번호 설정·인증코드 발송/확인 엔드포인트는 전혀 없습니다.
 // (로그인 API의 provider=EMAIL도 oauthAccessToken을 요구해서 실제 이메일+비밀번호 방식과 구조가 안 맞습니다.)
 //
-// 그래서 이 파일 전체가 목업이며, USE_MOCK 여부와 무관하게 항상 이 로직을 씁니다.
-// 백엔드 API가 나오면 src/api/emailAuth.ts의 함수 내부만 실제 axios 호출로 교체하면 됩니다
-// (기존 getOAuthToken과 동일한 패턴 — 호출부/화면 코드는 변경 불필요).
+// ⚠️ 2026-08-19(세션 20) 갱신 — 백엔드에 이메일 API 5개가 추가되어(AuthController)
+// src/api/emailAuth.ts가 실호출로 교체됐습니다. **이 파일은 이제 USE_MOCK=true일 때만
+// 쓰입니다.** 값(코드 123456, 쿨다운 54초)은 백엔드 AuthService 상수와 일부러 동일하게
+// 유지합니다 — 목업/실서버를 오갈 때 테스트 절차가 달라지지 않게 하기 위해서입니다.
+// 다만 목업엔 서버에 있는 제약(코드 10분 만료, send-code 선행 필수, 중복 가입 차단)이
+// 없어서 목업에서 통과한 시나리오가 실서버에서 막힐 수 있습니다.
 import { getItem, setItem } from '@/lib/platformStorage';
 import { getMockOnboardingCompleted } from '@/api/mock/mockPersistence';
 import type { LoginResult } from '@/types/auth';

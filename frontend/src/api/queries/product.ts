@@ -2,6 +2,7 @@
 //
 // Phase 7-A 범위: PRODUCT-01(홈) · PRODUCT-02(검색) · PRODUCT-08(루틴 바로 기록).
 // Phase 7-B 추가: PRODUCT-03(상세) · PRODUCT-04(스캔) · PRODUCT-05(개별 저장).
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { ApiError, unwrap } from '@/api/unwrap';
@@ -210,6 +211,35 @@ export async function registerProduct(input: RegisterProductInput): Promise<Cata
   // UserProduct까지 만들어 주면 이 호출은 멱등이라 그대로 둬도 무해합니다.
   await saveProductToLibrary(created.productId);
   return created;
+}
+
+/**
+ * PRODUCT-?? · `GET /products/match?name=&brand=` — 이름+브랜드로 기존 제품 찾기.
+ *
+ * 2026-08-19(세션 20) 신설. 백엔드에 이미 있는데 프론트가 안 쓰던 엔드포인트입니다
+ * (ProductController.match). 직접 등록(S-13) 전에 한 번 물어보면 같은 제품이 계정마다
+ * 중복 생성되는 걸 막고, 매칭된 경우 서버가 이미 가진 성분 목록까지 쓸 수 있습니다.
+ *
+ * ⚠️ 실패해도 등록을 막지 않습니다 — 이 조회는 편의 기능이라, 네트워크 오류로
+ * "등록 자체가 안 되는" 상황을 만들면 안 됩니다. 호출부에서 notMatched로 폴백합니다.
+ *
+ * 목업은 항상 matched=false입니다. 목업 카탈로그는 세션 한정이라 "이미 있는 제품"을
+ * 흉내 내면 초기화 시점에 따라 결과가 달라져서 테스트가 오히려 헷갈립니다.
+ */
+export interface ProductMatchResult {
+  matched: boolean;
+  productId: number | null;
+  category: string | null;
+  ingredients: string[];
+}
+
+export async function matchProduct(name: string, brand: string): Promise<ProductMatchResult> {
+  if (USE_MOCK) {
+    return { matched: false, productId: null, category: null, ingredients: [] };
+  }
+  return unwrap<ProductMatchResult>(
+    apiClient.get('/products/match', { params: { name, brand } }),
+  );
 }
 
 export function useRegisterProduct() {
@@ -448,10 +478,21 @@ export function useSavedProducts() {
 export function useRoutines(timeSlot?: TimeSlot) {
   const products = useRoutineStore((s) => s.products);
   const hydrated = useRoutineStore((s) => s.hydrated);
+  const pruneMissing = useRoutineStore((s) => s.pruneMissing);
   const savedQuery = useSavedProducts();
 
+  const savedProducts = savedQuery.data;
+
+  // 2026-08-19(세션 20) — 앱 시작 후 저장 제품 목록을 처음 받은 시점에, 그 목록에 없는
+  // 루틴 항목을 한 번 걷어냅니다. 계정/목업 전환 후에도 기기에 남아 있던 옛 productId가
+  // "알 수 없는 제품"으로 보이던 문제입니다. 1회 제한과 이유는 routineStore 주석 참고.
+  useEffect(() => {
+    if (!hydrated || !savedProducts) return;
+    pruneMissing(savedProducts.map((p) => p.productId));
+  }, [hydrated, savedProducts, pruneMissing]);
+
   const nameById = new Map<number, string>(
-    (savedQuery.data ?? []).map((p) => [p.productId, p.name])
+    (savedProducts ?? []).map((p) => [p.productId, p.name])
   );
 
   const build = (slot: TimeSlot): RoutineListItem => {

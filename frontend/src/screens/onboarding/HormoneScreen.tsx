@@ -47,6 +47,7 @@ export function HormoneScreen() {
     useNavigation<NativeStackNavigationProp<OnboardingStackParamList, 'Hormone'>>();
 
   const totalStepCount = useOnboardingStore((state) => state.totalStepCount);
+  const setHormoneInput = useOnboardingStore((state) => state.setHormoneInput);
 
   const [hormoneStatus, setHormoneStatus] = useState<HormoneStatus | null>(null);
   const [lastPeriodStartDate, setLastPeriodStartDate] = useState<string | null>(null);
@@ -67,6 +68,8 @@ export function HormoneScreen() {
   const handleSkip = () => {
     // 이 화면의 PATCH를 호출하지 않고 바로 완료 화면으로 — 건너뛰어도 온보딩은 정상 완료됩니다
     // (ONBOARD-04 BR3: skip 전용 API가 따로 없고, 호출 자체를 안 하면 건너뛴 것으로 처리)
+    // 뒤로 갔다가 건너뛰는 경로가 있어서, 이전에 저장해둔 값이 요약에 남지 않도록 비웁니다.
+    setHormoneInput(null);
     goToComplete();
   };
 
@@ -78,10 +81,14 @@ export function HormoneScreen() {
     setFieldErrors({});
 
     try {
-      await saveHormoneInfo({
+      const input = {
         hormoneStatus,
         ...(showCycleFields && lastPeriodStartDate ? { lastPeriodStartDate, averageCycleDays } : {}),
-      });
+      };
+      await saveHormoneInfo(input);
+      // 완료 화면 요약용 — 서버 요약에 호르몬 행이 없어서 클라이언트가 보강합니다
+      // (lib/hormoneSummary.ts 주석 참고). 저장 성공 후에만 기록합니다.
+      setHormoneInput(input);
       goToComplete();
     } catch (e) {
       if (e instanceof ApiError && e.code === ErrorCode.COMMON_VALIDATION_FAILED) {
