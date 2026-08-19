@@ -26,13 +26,13 @@ class LagCorrelationAnalyzerTest {
 
     private final LagCorrelationAnalyzer analyzer = new LagCorrelationAnalyzer();
 
-    @DisplayName("사용 2일 뒤 트러블 증가가 반복되면 패턴으로 확정한다")
+    @DisplayName("사용 2일 뒤 트러블 악화가 반복되면 패턴으로 확정한다")
     @Test
     void confirmsRepeatedWorsening() {
-        // 0, 6, 12일차에 사용. 각 사용일의 트러블 50 → 2일 뒤 65로 반복 상승.
+        // 0, 6, 12일차에 사용. 각 사용일의 트러블 50 → 2일 뒤 35로 반복 하락(점수 하락 = 악화, ADR 0002).
         List<Integer> useDays = List.of(0, 6, 12);
         MockupBuilder mockup = new MockupBuilder().baseline(SkinMetricType.TROUBLE, 50);
-        useDays.forEach(day -> mockup.use(RETINOL, "레티놀", day).bump(SkinMetricType.TROUBLE, day + 2, 15));
+        useDays.forEach(day -> mockup.use(RETINOL, "레티놀", day).bump(SkinMetricType.TROUBLE, day + 2, -15));
 
         List<LagPattern> patterns = analyzer.analyze(mockup.exposures(), mockup.observations(20));
 
@@ -41,7 +41,7 @@ class LagCorrelationAnalyzerTest {
         assertThat(found.direction()).isEqualTo(PatternDirection.WORSENED);
         assertThat(found.observationCount()).isEqualTo(3);
         assertThat(found.agreementCount()).isEqualTo(3);
-        assertThat(found.averageDelta()).isEqualTo(15.0);
+        assertThat(found.averageDelta()).isEqualTo(-15.0);
         assertThat(found.ingredientName()).isEqualTo("레티놀");
     }
 
