@@ -1422,6 +1422,7 @@ json
     "skinScore": 78,
     "morningProducts": {
       "completed": true,
+      "recordId": 101,
       "items": [
         { "name": "라운드랩 토너" },
         { "name": "히알루론산 세럼" }
@@ -1429,6 +1430,7 @@ json
     },
     "nightProducts": {
       "completed": false,
+      "recordId": null,
       "items": []
     }
   }
@@ -1439,8 +1441,9 @@ json
 
 1. 캘린더 날짜 탭 바텀시트에서 쓰는 읽기 전용 상세 응답이다.
 2. 제품 기록은 모닝·나이트 슬롯을 분리해서 내려준다.
-3. 해당 슬롯의 제품 기록이 없으면 `completed: false`, `items: []`를 반환한다.
-4. `skinScore`는 해당 날짜의 피부 기록 점수다. 모닝·나이트가 모두 있으면 나이트 점수를 우선한다.
+3. 해당 슬롯의 제품 기록이 있으면 `recordId`를 내려준다. 프론트는 이 값으로 `PATCH /product-records/{recordId}`를 호출해 수정 화면과 연결한다.
+4. 해당 슬롯의 제품 기록이 없으면 `completed: false`, `recordId: null`, `items: []`를 반환한다.
+5. `skinScore`는 해당 날짜의 피부 기록 점수다. 모닝·나이트가 모두 있으면 나이트 점수를 우선한다.
    피부 기록이 없으면 `null`이다.
 
 ---
@@ -1911,17 +1914,19 @@ json
 
 **Business Rule**
 
-1. **오늘 기록만 수정할 수 있다.** 과거 기록 수정은 지원하지 않는다.
+1. 제품 기록은 날짜 제한 없이 수정할 수 있다.
 2. `productIds`는 전체 교체다. 부분 추가·삭제를 지원하지 않는다.
 3. `timeSlot`은 변경할 수 없다. 시간대를 바꾸려면 삭제 후 재기록해야 한다.
 4. 수정 시각을 갱신한다.
+5. 성분분석 결과 재계산은 이번 범위에서 수행하지 않는다.
 
 **Error**
 
 | HTTP | Code |
 | --- | --- |
-| 403 | `PRODUCT_RECORD_NOT_EDITABLE` |
 | 404 | `PRODUCT_RECORD_NOT_FOUND` |
+| 422 | `PRODUCT_RECORD_EMPTY` |
+| 422 | `PRODUCT_RECORD_LIMIT_EXCEEDED` |
 
 ---
 
