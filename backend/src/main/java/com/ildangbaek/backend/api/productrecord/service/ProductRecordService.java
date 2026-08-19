@@ -26,6 +26,7 @@ import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -40,6 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProductRecordService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final ProductRecordRepository productRecordRepository;
     private final ProductRecordItemRepository productRecordItemRepository;
     private final ProductRepository productRepository;
@@ -50,7 +53,7 @@ public class ProductRecordService {
 
     @Transactional(readOnly = true)
     public ProductRecordHomeResponse getHome(User user, TimeSlot timeSlot) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
         boolean alreadyRecorded = productRecordRepository
                 .findByUserIdAndRecordDateAndTimeSlot(user.getId(), today, timeSlot)
                 .isPresent();
@@ -83,7 +86,7 @@ public class ProductRecordService {
             throw new BusinessException(ErrorCode.PRODUCT_RECORD_LIMIT_EXCEEDED);
         }
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
         ProductRecord record = productRecordRepository
                 .findByUserIdAndRecordDateAndTimeSlot(user.getId(), today, timeSlot)
                 .orElse(null);
@@ -101,7 +104,7 @@ public class ProductRecordService {
 
         List<Product> products = findActiveProducts(productIds);
         int usageOrder = productRecordItemRepository.findAllByProductRecordId(record.getId()).size() + 1;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
         for (Product product : products) {
             saveUserProduct(user, product);
             if (productRecordItemRepository.existsByProductRecordIdAndProductId(record.getId(), product.getId())) {
@@ -141,7 +144,7 @@ public class ProductRecordService {
         ProductRecord record = productRecordRepository.findById(recordId)
                 .filter(found -> found.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_RECORD_NOT_FOUND));
-        if (!record.getRecordDate().equals(LocalDate.now())) {
+        if (!record.getRecordDate().equals(LocalDate.now(KST))) {
             throw new BusinessException(ErrorCode.PRODUCT_RECORD_NOT_EDITABLE);
         }
 
@@ -149,7 +152,7 @@ public class ProductRecordService {
         productRecordItemRepository.deleteAllByProductRecordId(record.getId());
 
         int usageOrder = 1;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
         for (Product product : products) {
             saveUserProduct(user, product);
             productRecordItemRepository.save(ProductRecordItem.builder()

@@ -23,6 +23,7 @@ import com.ildangbaek.backend.domain.record.entity.SkinRecord;
 import com.ildangbaek.backend.domain.record.repository.SkinMetricRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,6 +48,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CheckHomeService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     /** 세안·토너·세럼류는 트러블/홍조 진정 목적으로 우선 쓰인다고 추정한다(ADR 0018). */
     private static final Set<ProductCategory> TODAY_NEEDED_CATEGORIES =
@@ -111,7 +114,7 @@ public class CheckHomeService {
         Integer humidity = null;
         HumidityGrade humidityGrade = null;
         DailyEnvironment environment =
-                dailyEnvironmentRepository.findByUserIdAndRecordDate(userId, LocalDate.now()).orElse(null);
+                dailyEnvironmentRepository.findByUserIdAndRecordDate(userId, LocalDate.now(KST)).orElse(null);
         if (environment != null && environment.getHumidity() != null) {
             humidity = environment.getHumidity().intValue();
             humidityGrade = HumidityGrade.from(environment.getHumidity());

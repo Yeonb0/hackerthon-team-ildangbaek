@@ -23,6 +23,7 @@ import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -35,6 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class OnboardingService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
@@ -216,7 +219,7 @@ public class OnboardingService {
     }
 
     private void validateHormoneDate(LocalDate lastPeriodStartDate) {
-        if (lastPeriodStartDate != null && lastPeriodStartDate.isAfter(LocalDate.now())) {
+        if (lastPeriodStartDate != null && lastPeriodStartDate.isAfter(LocalDate.now(KST))) {
             throw new BusinessException(ErrorCode.COMMON_VALIDATION_FAILED);
         }
     }

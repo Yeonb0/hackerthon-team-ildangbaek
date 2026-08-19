@@ -18,6 +18,7 @@ import com.ildangbaek.backend.global.storage.ImageStorage;
 import com.ildangbaek.backend.global.util.RecordDateResolver;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
@@ -42,6 +43,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class SkinRecordService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png");
     private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
 
@@ -56,7 +58,7 @@ public class SkinRecordService {
     public SkinRecordResponse create(Long userId, MultipartFile image, TimeSlot timeSlot) {
         validateImage(image);
 
-        LocalDateTime capturedAt = LocalDateTime.now();
+        LocalDateTime capturedAt = LocalDateTime.now(KST);
         LocalDate recordDate = RecordDateResolver.resolve(capturedAt, timeSlot);
 
         // 업로드·분석 전에 확인한다. 뒤에 두면 실패할 요청에 분석 비용을 먼저 치른다.
@@ -92,7 +94,7 @@ public class SkinRecordService {
         SkinRecord record = (timeSlot == null
                 ? skinRecordRepository.findFirstByUserIdOrderByRecordDateDescCapturedAtDesc(userId)
                 : skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
-                        userId, RecordDateResolver.resolve(LocalDateTime.now(), timeSlot), timeSlot))
+                        userId, RecordDateResolver.resolve(LocalDateTime.now(KST), timeSlot), timeSlot))
                 .orElseThrow(() -> new BusinessException(ErrorCode.SKIN_RECORD_NOT_FOUND));
         return toResponse(userId, record);
     }

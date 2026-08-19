@@ -28,6 +28,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Objects;
@@ -40,6 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class HomeService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final UserProfileRepository userProfileRepository;
     private final UserProductRepository userProductRepository;
@@ -65,7 +68,7 @@ public class HomeService {
     }
 
     private HomeType defaultHomeType() {
-        int hour = LocalTime.now().getHour();
+        int hour = LocalTime.now(KST).getHour();
         return hour >= 6 && hour < 18 ? HomeType.DAY : HomeType.NIGHT;
     }
 
@@ -119,7 +122,7 @@ public class HomeService {
     }
 
     private List<WeeklyCalendarDayResponse> weeklyCalendar(Long userId, DayOfWeek weekStart) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
         LocalDate weekStartDate = today.with(TemporalAdjusters.previousOrSame(weekStart));
         RecordCalendarResponse month = recordHubService.getCalendar(userId, YearMonth.from(today));
         return month.days().stream()
@@ -131,7 +134,7 @@ public class HomeService {
     private TodayReportResponse todayReport(Long userId) {
         Optional<SkinRecord> record = skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
                 userId,
-                LocalDate.now(),
+                LocalDate.now(KST),
                 TimeSlot.NIGHT);
         return record
                 .filter(skinRecord -> Objects.nonNull(skinRecord.getOverallScore()))
