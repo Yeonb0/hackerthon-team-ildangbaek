@@ -59,6 +59,10 @@ public class Routine {
         this.routineName = routineName;
     }
 
+    public void activate() {
+        this.active = true;
+    }
+
     public void deactivate() {
         this.active = false;
     }

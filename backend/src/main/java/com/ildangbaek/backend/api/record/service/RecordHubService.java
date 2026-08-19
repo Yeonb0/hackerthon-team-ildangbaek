@@ -129,14 +129,14 @@ public class RecordHubService {
                 .map(item -> item.getProduct().getProductName())
                 .limit(3)
                 .toList();
-        String summary = names.isEmpty() ? "Product record completed" : String.join(", ", names);
+        String summary = names.isEmpty() ? "제품 기록 완료" : String.join(", ", names);
         return new ProductSlotStateResponse(true, record.getId(), summary);
     }
 
     private SkinSlotStateResponse toSkinSlot(SkinRecord record) {
         String summary = record.getOverallScore() == null
-                ? "Skin record completed"
-                : "Analysis score " + record.getOverallScore().stripTrailingZeros().toPlainString();
+                ? "피부 기록 완료"
+                : "분석 점수 " + record.getOverallScore().stripTrailingZeros().toPlainString() + "점";
         return new SkinSlotStateResponse(true, record.getId(), summary);
     }
 
