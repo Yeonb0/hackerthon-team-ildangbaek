@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,7 +45,7 @@ public class AuthService {
     @Transactional
     public LoginResponse login(LoginRequest request) {
         String providerUserId = mockProviderUserId(request);
-        User user = userRepository.findByProviderAndProviderUserId(request.provider(), providerUserId)
+        User user = findMockLoginUser(request, providerUserId)
                 .orElse(null);
         boolean isNewUser = user == null;
 
@@ -147,12 +148,28 @@ public class AuthService {
     }
 
     private String mockProviderUserId(LoginRequest request) {
+        if (request.provider() == AuthProvider.EMAIL) {
+            return normalizeEmail(request.oauthAccessToken());
+        }
         return request.provider().name().toLowerCase() + "-" + request.oauthAccessToken();
+    }
+
+    private Optional<User> findMockLoginUser(LoginRequest request, String providerUserId) {
+        Optional<User> user = userRepository.findByProviderAndProviderUserId(request.provider(), providerUserId);
+        if (user.isPresent() || request.provider() != AuthProvider.EMAIL) {
+            return user;
+        }
+
+        String legacyProviderUserId = request.provider().name().toLowerCase() + "-" + request.oauthAccessToken();
+        if (legacyProviderUserId.equals(providerUserId)) {
+            return Optional.empty();
+        }
+        return userRepository.findByProviderAndProviderUserId(request.provider(), legacyProviderUserId);
     }
 
     private String mockEmail(LoginRequest request, String providerUserId) {
         if (request.provider().name().equals("EMAIL")) {
-            return request.oauthAccessToken();
+            return providerUserId;
         }
         return providerUserId + "@mock.ildangbaek.local";
     }

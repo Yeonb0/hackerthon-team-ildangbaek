@@ -158,7 +158,7 @@ public class HomeService {
     }
 
     private String location(UserProfile profile) {
-        return profile == null || profile.getRegionName() == null ? "Current location" : profile.getRegionName();
+        return profile == null ? null : profile.getRegionName();
     }
 
     private int intValueOrDefault(BigDecimal value, int defaultValue) {
@@ -199,7 +199,7 @@ public class HomeService {
                 rank,
                 userProduct.getProduct().getId(),
                 userProduct.getProduct().getProductName(),
-                "Saved product");
+                "최근에 사용한 제품이에요");
     }
 
     private TodayRecordResponse todayRecord(RecordTodayResponse today) {
@@ -225,19 +225,54 @@ public class HomeService {
     }
 
     private TodayReportResponse todayReport(Long userId) {
+        LocalDate today = LocalDate.now(KST);
+        TimeSlot timeSlot = TimeSlot.NIGHT;
         Optional<SkinRecord> record = skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
                 userId,
-                LocalDate.now(KST),
-                TimeSlot.NIGHT);
+                today,
+                timeSlot);
         return record
                 .filter(skinRecord -> Objects.nonNull(skinRecord.getOverallScore()))
-                .map(skinRecord -> new TodayReportResponse(
-                        skinRecord.getId(),
-                        skinRecord.getOverallScore().intValue(),
-                        null,
-                        null,
-                        null,
-                        "Today's skin analysis is ready."))
+                .map(skinRecord -> toTodayReport(userId, today, timeSlot, skinRecord))
                 .orElse(null);
+    }
+
+    private TodayReportResponse toTodayReport(Long userId, LocalDate recordDate, TimeSlot timeSlot,
+                                              SkinRecord skinRecord) {
+        int totalScore = skinRecord.getOverallScore().intValue();
+        LocalDate previousDate = recordDate.minusDays(1);
+        Optional<SkinRecord> previous = skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
+                userId,
+                previousDate,
+                timeSlot
+        ).filter(previousRecord -> Objects.nonNull(previousRecord.getOverallScore()));
+
+        Integer previousScore = previous
+                .map(previousRecord -> previousRecord.getOverallScore().intValue())
+                .orElse(null);
+        Integer change = previousScore == null ? null : totalScore - previousScore;
+        String comparedTo = previousScore == null ? null : "%s %s".formatted(previousDate, timeSlot);
+
+        return new TodayReportResponse(
+                skinRecord.getId(),
+                totalScore,
+                previousScore,
+                change,
+                comparedTo,
+                todayReportSummary(change)
+        );
+    }
+
+    private String todayReportSummary(Integer change) {
+        if (change == null) {
+            return "오늘 피부 분석이 완료됐어요.";
+        }
+        if (change > 0) {
+            return "어제보다 좋아졌어요.";
+        }
+        if (change < 0) {
+            return "어제보다 낮아졌어요.";
+        }
+        return "어제와 비슷해요.";
     }
 }

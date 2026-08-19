@@ -9,8 +9,12 @@
 --     -uildangbaek -pildangbaek1234 ildangbaek \
 --     < backend/src/test/resources/seed/demo-full-9101.sql
 --
--- 프론트 접속 토큰 (ADR 0017 임시 인증)
---   Authorization: Bearer mock-access-9101-demo
+-- 프론트 접속 방법 (ADR 0017 임시 인증)
+--   POST /api/v1/auth/login
+--   { "provider": "EMAIL", "oauthAccessToken": "demo-9101" }
+--
+-- 위 요청이 서버에서 서명된 mock-access 토큰을 발급한다. 직접 만든
+-- "mock-access-9101-demo" 문자열은 현재 서명 검증을 통과하지 못한다.
 --
 -- 여러 번 돌려도 된다. 맨 앞에서 9101 사용자의 기존 데이터를 전부 지우고 다시 심는다.
 --
@@ -103,7 +107,12 @@ INSERT INTO users (id, created_at, updated_at, account_status, email, onboarding
                    provider, provider_user_id)
 VALUES (@uid, DATE_SUB(NOW(6), INTERVAL 40 DAY), NOW(6), 'ACTIVE', 'demo@skinteller.app', b'1',
         'EMAIL', 'demo-9101')
-ON DUPLICATE KEY UPDATE updated_at = NOW(6), account_status = 'ACTIVE', onboarding_completed = b'1';
+ON DUPLICATE KEY UPDATE updated_at = NOW(6),
+                        account_status = 'ACTIVE',
+                        onboarding_completed = b'1',
+                        email = VALUES(email),
+                        provider = VALUES(provider),
+                        provider_user_id = VALUES(provider_user_id);
 
 -- 생리 정보를 채우면 F-ANALYSIS-03 호르몬 보정이 걸려 확정 임계값이 0.67 → 0.8로 올라간다.
 -- 이 스크립트의 패턴은 일치율 100%라 그래도 확정되지만, 인사이트 신뢰도가 20% 깎여
@@ -435,7 +444,7 @@ DROP TEMPORARY TABLE day_seq;
 -- 11. 검증
 -- ============================================================================
 SELECT '사용자' AS item, CONCAT(@uid, ' · ', @nickname) AS detail
-UNION ALL SELECT '접속 토큰', CONCAT('Bearer mock-access-', @uid, '-demo')
+UNION ALL SELECT '로그인 요청', 'POST /api/v1/auth/login · provider=EMAIL · oauthAccessToken=demo-9101'
 UNION ALL SELECT '저장된 제품', CAST(COUNT(*) AS CHAR) FROM user_products WHERE user_id = @uid
 UNION ALL SELECT '루틴', CAST(COUNT(*) AS CHAR) FROM routines WHERE user_id = @uid
 UNION ALL SELECT '제품 기록', CAST(COUNT(*) AS CHAR) FROM product_records WHERE user_id = @uid
