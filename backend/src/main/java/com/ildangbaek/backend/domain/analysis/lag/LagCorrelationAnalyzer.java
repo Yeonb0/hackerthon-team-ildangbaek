@@ -177,8 +177,9 @@ public class LagCorrelationAnalyzer {
             return Optional.empty();
         }
 
-        int worsened = (int) deltas.stream().filter(delta -> delta > 0).count();
-        int improved = (int) deltas.stream().filter(delta -> delta < 0).count();
+        // 지표는 점수가 높을수록 좋은 상태다(ADR 0002, ai-server metrics.py). 값 감소가 악화다.
+        int worsened = (int) deltas.stream().filter(delta -> delta < 0).count();
+        int improved = (int) deltas.stream().filter(delta -> delta > 0).count();
         // 변화가 없는(0) 쌍은 어느 방향도 지지하지 않지만 관측 쌍으로는 센다. 분모에 남겨야
         // "매번 썼는데 대부분 그대로였다"가 반복성으로 둔갑하지 않는다.
         PatternDirection direction = worsened >= improved ? PatternDirection.WORSENED : PatternDirection.IMPROVED;

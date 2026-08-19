@@ -48,7 +48,7 @@ public class SkinRecordWriter {
                 .analysisMethod(analysisMethod)
                 .capturedAt(capturedAt)
                 .build();
-        record.completeAnalysis(BigDecimal.valueOf(totalScore));
+        record.completeAnalysis(BigDecimal.valueOf(totalScore), analysis.skinComment());
 
         SkinRecord saved;
         try {
@@ -63,6 +63,10 @@ public class SkinRecordWriter {
                         .skinRecord(saved)
                         .metricType(entry.getKey())
                         .metricValue(BigDecimal.valueOf(entry.getValue()))
+                        .rawValue(analysis.rawValues().get(entry.getKey()))
+                        .confidence(analysis.confidence().get(entry.getKey()))
+                        .algorithmVersion(analysis.algorithmVersion())
+                        .normalizationVersion(analysis.normalizationVersion())
                         .build())
                 .toList();
         skinMetricRepository.saveAll(metrics);

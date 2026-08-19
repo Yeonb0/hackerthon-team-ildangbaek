@@ -9,6 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ildangbaek.backend.api.product.dto.request.ProductRegisterRequest;
+import com.ildangbaek.backend.domain.analysis.entity.IngredientProfile;
+import com.ildangbaek.backend.domain.analysis.entity.ReactionType;
+import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileRepository;
 import com.ildangbaek.backend.domain.product.entity.Ingredient;
 import com.ildangbaek.backend.domain.product.entity.Product;
 import com.ildangbaek.backend.domain.product.entity.ProductCategory;
@@ -17,9 +20,13 @@ import com.ildangbaek.backend.domain.product.repository.IngredientRepository;
 import com.ildangbaek.backend.domain.product.repository.ProductIngredientRepository;
 import com.ildangbaek.backend.domain.product.repository.ProductRepository;
 import com.ildangbaek.backend.domain.product.repository.UserProductRepository;
+import com.ildangbaek.backend.domain.user.entity.AuthProvider;
+import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.storage.ImageStorage;
+import com.ildangbaek.backend.global.storage.ImageUrlResolver;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -47,7 +54,9 @@ class ProductRegisterTest {
     @Mock private ProductIngredientRepository productIngredientRepository;
     @Mock private IngredientRepository ingredientRepository;
     @Mock private UserProductRepository userProductRepository;
+    @Mock private IngredientProfileRepository ingredientProfileRepository;
     @Mock private ImageStorage imageStorage;
+    @Mock private ImageUrlResolver imageUrlResolver;
 
     @InjectMocks private ProductService productService;
 
@@ -98,6 +107,71 @@ class ProductRegisterTest {
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple(7L, 1),
                         org.assertj.core.groups.Tuple.tuple(8L, 2));
+    }
+
+    @Test
+    @DisplayName("직접 등록한 제품은 입력 순서 상위 10개를 주요 성분으로 저장한다")
+    void marksTopTenIngredientsAsKeyIngredients() {
+        givenSavedProduct();
+        for (int i = 1; i <= 11; i++) {
+            String name = "성분" + i;
+            Ingredient ingredient = Ingredient.builder().koreanName(name).build();
+            ReflectionTestUtils.setField(ingredient, "id", (long) i);
+            when(ingredientRepository.findByKoreanName(name)).thenReturn(Optional.of(ingredient));
+        }
+
+        productService.registerProduct(null, request(List.of(
+                "성분1", "성분2", "성분3", "성분4", "성분5", "성분6",
+                "성분7", "성분8", "성분9", "성분10", "성분11")), null);
+
+        ArgumentCaptor<ProductIngredient> captor = ArgumentCaptor.forClass(ProductIngredient.class);
+        verify(productIngredientRepository, times(11)).save(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(ProductIngredient::isKeyIngredient)
+                .containsExactly(true, true, true, true, true, true, true, true, true, true, false);
+    }
+
+    @Test
+    @DisplayName("제품 상세 성분 status는 사용자 성분 프로파일을 따른다")
+    void detailIngredientStatusUsesUserProfile() {
+        User user = User.builder()
+                .provider(AuthProvider.KAKAO)
+                .providerUserId("kakao-1")
+                .email("user@example.com")
+                .build();
+        ReflectionTestUtils.setField(user, "id", 1L);
+        Product product = Product.builder()
+                .productName("세럼")
+                .brandName("브랜드")
+                .category(ProductCategory.SERUM)
+                .dataSource(null)
+                .build();
+        ReflectionTestUtils.setField(product, "id", 2L);
+        Ingredient retinol = Ingredient.builder().koreanName("레티놀").build();
+        ReflectionTestUtils.setField(retinol, "id", 3L);
+        ProductIngredient productIngredient = ProductIngredient.builder()
+                .product(product)
+                .ingredient(retinol)
+                .displayOrder(1)
+                .keyIngredient(true)
+                .build();
+        IngredientProfile profile = IngredientProfile.builder()
+                .user(user)
+                .ingredient(retinol)
+                .build();
+        profile.updateAnalysis(ReactionType.CAUTION, BigDecimal.ONE, BigDecimal.ONE,
+                3, 0, 3, 1, "트러블 변화가 관측됐어요.");
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product));
+        when(productIngredientRepository.findAllByProductIdOrderByDisplayOrderAsc(2L))
+                .thenReturn(List.of(productIngredient));
+        when(ingredientProfileRepository.findAllByUserIdAndIngredientIdIn(1L, List.of(3L)))
+                .thenReturn(List.of(profile));
+        when(userProductRepository.existsByUserIdAndProductIdAndUsageStatus(any(), any(), any())).thenReturn(false);
+
+        var response = productService.getDetail(user, 2L);
+
+        assertThat(response.ingredients()).extracting("status").containsExactly("CAUTION");
+        assertThat(response.keyIngredients()).extracting("status").containsExactly("CAUTION");
     }
 
     @Test

@@ -16,6 +16,8 @@ import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,12 +29,25 @@ public class RoutineService {
     private final RoutineRepository routineRepository;
     private final RoutineProductRepository routineProductRepository;
     private final ProductRecordService productRecordService;
+    private final DefaultRoutineService defaultRoutineService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RoutineResponse> getRoutines(User user, TimeSlot timeSlot) {
-        return routineRepository.findAllByUserIdAndActiveTrue(user.getId()).stream()
+        defaultRoutineService.ensureDefaultRoutines(user);
+        List<Routine> routines = routineRepository.findAllByUserIdAndActiveTrue(user.getId()).stream()
                 .filter(routine -> timeSlot == null || routine.getTimePeriod().name().equals(timeSlot.name()))
-                .map(this::toResponse)
+                .toList();
+        if (routines.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> routineIds = routines.stream().map(Routine::getId).toList();
+        Map<Long, List<RoutineProduct>> productsByRoutineId = routineProductRepository
+                .findAllByRoutineIdInOrderBySequenceOrderAsc(routineIds).stream()
+                .collect(Collectors.groupingBy(routineProduct -> routineProduct.getRoutine().getId()));
+
+        return routines.stream()
+                .map(routine -> toResponse(routine, productsByRoutineId.getOrDefault(routine.getId(), List.of())))
                 .toList();
     }
 
@@ -69,10 +84,8 @@ public class RoutineService {
         );
     }
 
-    private RoutineResponse toResponse(Routine routine) {
-        List<RoutineProductResponse> products = routineProductRepository
-                .findAllByRoutineIdOrderBySequenceOrderAsc(routine.getId())
-                .stream()
+    private RoutineResponse toResponse(Routine routine, List<RoutineProduct> routineProducts) {
+        List<RoutineProductResponse> products = routineProducts.stream()
                 .map(this::toProductResponse)
                 .toList();
         return new RoutineResponse(

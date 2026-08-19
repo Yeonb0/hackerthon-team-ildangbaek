@@ -89,4 +89,17 @@ public class DailyEnvironment {
     public void updateUvIndexMax(BigDecimal uvIndexMax) {
         this.uvIndexMax = uvIndexMax;
     }
+
+    public void updateSnapshot(String regionName, WeatherCondition weatherCondition, BigDecimal temperature,
+                               BigDecimal humidity, BigDecimal uvIndexCurrent, BigDecimal uvIndexMax,
+                               EnvironmentDataSource dataSource) {
+        this.regionName = regionName;
+        this.weatherCondition = weatherCondition;
+        this.temperature = temperature;
+        this.humidity = humidity;
+        this.uvIndexCurrent = uvIndexCurrent;
+        this.uvIndexMax = uvIndexMax;
+        this.dataSource = dataSource;
+        this.fetchedAt = LocalDateTime.now();
+    }
 }

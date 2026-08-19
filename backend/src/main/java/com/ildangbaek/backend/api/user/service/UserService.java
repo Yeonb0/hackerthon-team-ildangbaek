@@ -5,10 +5,11 @@ import com.ildangbaek.backend.api.user.dto.request.GenderRequest;
 import com.ildangbaek.backend.api.user.dto.request.LocationUpdateRequest;
 import com.ildangbaek.backend.api.user.dto.request.NotificationSettingRequest;
 import com.ildangbaek.backend.api.user.dto.request.ProfileUpdateRequest;
-import com.ildangbaek.backend.api.user.dto.response.MyPageResponse;
+import com.ildangbaek.backend.api.user.dto.response.AccountResponse;
 import com.ildangbaek.backend.api.user.dto.response.NotificationSettingResponse;
 import com.ildangbaek.backend.api.user.dto.response.ProfileResponse;
 import com.ildangbaek.backend.api.user.dto.response.SavedProductResponse;
+import com.ildangbaek.backend.domain.location.client.KakaoRegionClient;
 import com.ildangbaek.backend.domain.product.entity.UsageStatus;
 import com.ildangbaek.backend.domain.product.entity.UserProduct;
 import com.ildangbaek.backend.domain.product.repository.UserProductRepository;
@@ -27,8 +28,10 @@ import com.ildangbaek.backend.domain.user.repository.UserRepository;
 import com.ildangbaek.backend.domain.user.repository.UserSkinTypeRepository;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
+import com.ildangbaek.backend.global.storage.ImageUrlResolver;
 import java.time.LocalDate;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.LinkedHashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -39,19 +42,23 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
     private final SkinTypeRepository skinTypeRepository;
     private final UserSkinTypeRepository userSkinTypeRepository;
     private final NotificationSettingRepository notificationSettingRepository;
     private final UserProductRepository userProductRepository;
+    private final ImageUrlResolver imageUrlResolver;
+    private final KakaoRegionClient kakaoRegionClient;
 
     @Transactional(readOnly = true)
-    public MyPageResponse getMe(User user) {
+    public AccountResponse getMe(User user) {
         UserProfile profile = userProfileRepository.findByUserId(user.getId()).orElse(null);
         NotificationSetting notificationSetting = notificationSettingRepository.findByUserId(user.getId()).orElse(null);
 
-        return new MyPageResponse(
+        return new AccountResponse(
                 user.getId(),
                 user.getEmail(),
                 profile == null ? null : profile.getNickname(),
@@ -90,10 +97,18 @@ public class UserService {
     }
 
     @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        user.withdraw();
+    }
+
+    @Transactional
     public void updateLocation(Long userId, LocationUpdateRequest request) {
         UserProfile profile = userProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        profile.updateRegion(locationName(request));
+        LocationValue location = locationValue(request);
+        profile.updateLocation(location.regionName(), location.latitude(), location.longitude());
     }
 
     @Transactional(readOnly = true)
@@ -144,7 +159,7 @@ public class UserService {
     }
 
     private void updateHormoneFields(UserProfile profile, ProfileUpdateRequest request) {
-        if (request.lastPeriodStartDate() != null && request.lastPeriodStartDate().isAfter(LocalDate.now())) {
+        if (request.lastPeriodStartDate() != null && request.lastPeriodStartDate().isAfter(LocalDate.now(KST))) {
             throw new BusinessException(ErrorCode.COMMON_VALIDATION_FAILED);
         }
 
@@ -256,19 +271,40 @@ public class UserService {
     ) {
     }
 
-    private String locationName(LocationUpdateRequest request) {
-        if (request.locationId() == null) {
-            return "Current location";
+    private LocationValue locationValue(LocationUpdateRequest request) {
+        LocationSeed selected = request.locationId() == null ? null : locationByIdOrThrow(request.locationId());
+        if (request.latitude() != null && request.longitude() != null) {
+            String regionName = selected == null
+                    ? kakaoRegionClient.findDistrict(request.latitude(), request.longitude())
+                            .orElseGet(() -> nearestLocation(request.latitude(), request.longitude()).name())
+                    : selected.name();
+            return new LocationValue(regionName, request.latitude(), request.longitude());
         }
-        return switch (request.locationId().intValue()) {
-            case 1 -> "Seoul";
-            case 2 -> "Gyeonggi";
-            case 3 -> "Incheon";
-            case 4 -> "Busan";
-            case 5 -> "Daegu";
-            case 6 -> "Gwangju";
-            default -> "Selected location";
-        };
+        if (selected == null) {
+            return new LocationValue("선택 지역", null, null);
+        }
+        return new LocationValue(selected.name(), selected.latitude(), selected.longitude());
+    }
+
+    private LocationSeed locationByIdOrThrow(Long locationId) {
+        return LOCATIONS.stream()
+                .filter(location -> location.id() == locationId)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_LOCATION_NOT_FOUND));
+    }
+
+    private LocationSeed nearestLocation(double latitude, double longitude) {
+        return LOCATIONS.stream()
+                .min((left, right) -> Double.compare(
+                        distanceSquared(latitude, longitude, left),
+                        distanceSquared(latitude, longitude, right)))
+                .orElse(LOCATIONS.get(0));
+    }
+
+    private double distanceSquared(double latitude, double longitude, LocationSeed location) {
+        double latitudeDelta = latitude - location.latitude();
+        double longitudeDelta = longitude - location.longitude();
+        return latitudeDelta * latitudeDelta + longitudeDelta * longitudeDelta;
     }
 
     private List<String> skinTypes(Long userId) {
@@ -301,9 +337,24 @@ public class UserService {
                 userProduct.getProduct().getProductName(),
                 userProduct.getProduct().getBrandName(),
                 userProduct.getProduct().getCategory().name(),
-                userProduct.getProduct().getImageUrl(),
+                imageUrlResolver.resolve(userProduct.getProduct().getImageUrl()),
                 userProduct.getFirstSavedAt(),
                 userProduct.getLastUsedAt()
         );
     }
+
+    private record LocationValue(String regionName, Double latitude, Double longitude) {
+    }
+
+    private record LocationSeed(long id, String name, double latitude, double longitude) {
+    }
+
+    private static final List<LocationSeed> LOCATIONS = List.of(
+            new LocationSeed(1, "서울", 37.5665, 126.9780),
+            new LocationSeed(2, "경기", 37.4138, 127.5183),
+            new LocationSeed(3, "인천", 37.4563, 126.7052),
+            new LocationSeed(4, "부산", 35.1796, 129.0756),
+            new LocationSeed(5, "대구", 35.8714, 128.6014),
+            new LocationSeed(6, "광주", 35.1595, 126.8526)
+    );
 }

@@ -6,7 +6,9 @@ import com.ildangbaek.backend.api.productrecord.dto.response.ProductRecordHomeRe
 import com.ildangbaek.backend.api.productrecord.dto.response.RoutineSummaryResponse;
 import com.ildangbaek.backend.api.productrecord.dto.response.SaveProductRecordResponse;
 import com.ildangbaek.backend.api.productrecord.dto.response.SavedProductSummaryResponse;
+import com.ildangbaek.backend.api.routine.service.DefaultRoutineService;
 import com.ildangbaek.backend.domain.product.entity.Product;
+import com.ildangbaek.backend.domain.product.entity.UsageStatus;
 import com.ildangbaek.backend.domain.product.entity.UserProduct;
 import com.ildangbaek.backend.domain.product.repository.ProductRepository;
 import com.ildangbaek.backend.domain.product.repository.UserProductRepository;
@@ -26,10 +28,13 @@ import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +43,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProductRecordService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final ProductRecordRepository productRecordRepository;
     private final ProductRecordItemRepository productRecordItemRepository;
     private final ProductRepository productRepository;
@@ -45,20 +52,25 @@ public class ProductRecordService {
     private final RoutineRepository routineRepository;
     private final RoutineProductRepository routineProductRepository;
     private final SkinRecordRepository skinRecordRepository;
+    private final DefaultRoutineService defaultRoutineService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ProductRecordHomeResponse getHome(User user, TimeSlot timeSlot) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
         boolean alreadyRecorded = productRecordRepository
                 .findByUserIdAndRecordDateAndTimeSlot(user.getId(), today, timeSlot)
                 .isPresent();
 
-        List<RoutineSummaryResponse> routines = routineRepository.findAllByUserIdAndActiveTrue(user.getId()).stream()
+        defaultRoutineService.ensureDefaultRoutines(user);
+        List<Routine> activeRoutines = routineRepository.findAllByUserIdAndActiveTrue(user.getId()).stream()
                 .filter(routine -> routine.getTimePeriod().name().equals(timeSlot.name()))
-                .map(this::toRoutineSummary)
                 .toList();
+        List<RoutineSummaryResponse> routines = toRoutineSummaries(activeRoutines);
         List<SavedProductSummaryResponse> savedProducts =
-                userProductRepository.findAllByUserIdOrderByLastUsedAtDesc(user.getId()).stream()
+                userProductRepository.findAllByUserIdAndUsageStatusOrderByLastUsedAtDesc(
+                                user.getId(),
+                                UsageStatus.USING
+                        ).stream()
                         .map(this::toSavedProductSummary)
                         .toList();
 
@@ -81,7 +93,7 @@ public class ProductRecordService {
             throw new BusinessException(ErrorCode.PRODUCT_RECORD_LIMIT_EXCEEDED);
         }
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
         ProductRecord record = productRecordRepository
                 .findByUserIdAndRecordDateAndTimeSlot(user.getId(), today, timeSlot)
                 .orElse(null);
@@ -99,7 +111,7 @@ public class ProductRecordService {
 
         List<Product> products = findActiveProducts(productIds);
         int usageOrder = productRecordItemRepository.findAllByProductRecordId(record.getId()).size() + 1;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
         for (Product product : products) {
             saveUserProduct(user, product);
             if (productRecordItemRepository.existsByProductRecordIdAndProductId(record.getId(), product.getId())) {
@@ -139,7 +151,7 @@ public class ProductRecordService {
         ProductRecord record = productRecordRepository.findById(recordId)
                 .filter(found -> found.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_RECORD_NOT_FOUND));
-        if (!record.getRecordDate().equals(LocalDate.now())) {
+        if (!record.getRecordDate().equals(LocalDate.now(KST))) {
             throw new BusinessException(ErrorCode.PRODUCT_RECORD_NOT_EDITABLE);
         }
 
@@ -147,7 +159,7 @@ public class ProductRecordService {
         productRecordItemRepository.deleteAllByProductRecordId(record.getId());
 
         int usageOrder = 1;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
         for (Product product : products) {
             saveUserProduct(user, product);
             productRecordItemRepository.save(ProductRecordItem.builder()
@@ -191,9 +203,26 @@ public class ProductRecordService {
         userProduct.markUsedNow();
     }
 
-    private RoutineSummaryResponse toRoutineSummary(Routine routine) {
-        List<RoutineProduct> routineProducts =
-                routineProductRepository.findAllByRoutineIdOrderBySequenceOrderAsc(routine.getId());
+    /**
+     * 루틴마다 따로 조회하면 N+1이 나서(ProductRecordHomeResponse.routines), routineId 목록을
+     * 한 번에 받아 관련 RoutineProduct를 벌크로 조회한다.
+     */
+    private List<RoutineSummaryResponse> toRoutineSummaries(List<Routine> routines) {
+        if (routines.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> routineIds = routines.stream().map(Routine::getId).toList();
+        Map<Long, List<RoutineProduct>> productsByRoutineId = routineProductRepository
+                .findAllByRoutineIdInOrderBySequenceOrderAsc(routineIds).stream()
+                .collect(Collectors.groupingBy(routineProduct -> routineProduct.getRoutine().getId()));
+
+        return routines.stream()
+                .map(routine -> toRoutineSummary(routine, productsByRoutineId.getOrDefault(routine.getId(), List.of())))
+                .toList();
+    }
+
+    private RoutineSummaryResponse toRoutineSummary(Routine routine, List<RoutineProduct> routineProducts) {
         String productSummary = routineProducts.stream()
                 .map(routineProduct -> routineProduct.getUserProduct().getProduct().getProductName())
                 .limit(3)

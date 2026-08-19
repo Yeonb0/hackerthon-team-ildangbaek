@@ -41,6 +41,9 @@ public class User extends BaseTimeEntity {
     @Column(unique = true)
     private String email;
 
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
+
     @Column(name = "onboarding_completed", nullable = false)
     private boolean onboardingCompleted;
 
@@ -57,11 +60,19 @@ public class User extends BaseTimeEntity {
         this.accountStatus = AccountStatus.ACTIVE;
     }
 
+    public void updatePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public void completeOnboarding() {
         this.onboardingCompleted = true;
     }
 
     public void withdraw() {
         this.accountStatus = AccountStatus.WITHDRAWN;
+    }
+
+    public boolean isActive() {
+        return this.accountStatus == AccountStatus.ACTIVE;
     }
 }

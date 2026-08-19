@@ -6,17 +6,23 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ildangbaek.backend.api.report.dto.ReportDailyResponse;
 import com.ildangbaek.backend.api.report.dto.ReportGraphPointResponse;
+import com.ildangbaek.backend.api.report.dto.InsightEventKind;
 import com.ildangbaek.backend.api.report.dto.ReportInsightDetailResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightEventResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightResponse;
 import com.ildangbaek.backend.api.report.dto.ReportResponse;
+import com.ildangbaek.backend.api.report.dto.ReportSummaryMetricResponse;
 import com.ildangbaek.backend.api.skin.dto.SkinRecordResponse;
 import com.ildangbaek.backend.api.skin.dto.SkinScoresResponse;
 import com.ildangbaek.backend.api.skin.service.SkinRecordService;
+import com.ildangbaek.backend.domain.analysis.client.InsightTipClient;
+import com.ildangbaek.backend.domain.analysis.client.InsightTipClient.InsightTipRequest;
 import com.ildangbaek.backend.domain.analysis.entity.AnalysisInsight;
 import com.ildangbaek.backend.domain.analysis.entity.InsightType;
 import com.ildangbaek.backend.domain.analysis.repository.AnalysisInsightRepository;
@@ -54,6 +60,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -82,6 +89,8 @@ class ReportServiceTest {
     private ProductIngredientRepository productIngredientRepository;
     @Mock
     private DailyEnvironmentRepository dailyEnvironmentRepository;
+    @Mock
+    private InsightTipClient insightTipClient;
 
     private ReportService service;
     private User user;
@@ -90,7 +99,7 @@ class ReportServiceTest {
     void setUp() {
         service = new ReportService(skinRecordRepository, skinMetricRepository, analysisInsightRepository,
                 skinRecordService, productRecordRepository, productRecordItemRepository,
-                productIngredientRepository, dailyEnvironmentRepository);
+                productIngredientRepository, dailyEnvironmentRepository, insightTipClient);
         user = User.builder().provider(AuthProvider.KAKAO).providerUserId("u1").build();
         ReflectionTestUtils.setField(user, "id", 1L);
     }
@@ -104,7 +113,7 @@ class ReportServiceTest {
                 .analysisMethod(AnalysisMethod.MOCK)
                 .capturedAt(LocalDateTime.of(date.getYear(), date.getMonthValue(), date.getDayOfMonth(), 8, 0))
                 .build();
-        record.completeAnalysis(BigDecimal.valueOf(70));
+        record.completeAnalysis(BigDecimal.valueOf(70), null);
         ReflectionTestUtils.setField(record, "id", id);
         return record;
     }
@@ -293,6 +302,96 @@ class ReportServiceTest {
         assertThat(response.metric()).isEqualTo(SkinMetricType.REDNESS);
     }
 
+    @DisplayName("summary.totalScore는 기간 내 지표 4종 평균이고, 직전 동일 기간과 비교해 증감을 낸다")
+    @Test
+    void summaryTotalScoreAveragesAllMetricsAndComparesToPreviousPeriod() {
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        SkinRecord current = record(1L, today, TimeSlot.MORNING);
+        SkinRecord previous = record(2L, yesterday.minusDays(6), TimeSlot.MORNING);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(6)), eq(today)))
+                .thenReturn(List.of(current));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(List.of(previous));
+        when(skinMetricRepository.findAllBySkinRecordIdIn(List.of(1L))).thenReturn(List.of(
+                metric(current, SkinMetricType.TROUBLE, 40),
+                metric(current, SkinMetricType.REDNESS, 30),
+                metric(current, SkinMetricType.PORES, 20),
+                metric(current, SkinMetricType.PIGMENTATION, 10)));
+        when(skinMetricRepository.findAllBySkinRecordIdIn(List.of(2L))).thenReturn(List.of(
+                metric(previous, SkinMetricType.TROUBLE, 30),
+                metric(previous, SkinMetricType.REDNESS, 30),
+                metric(previous, SkinMetricType.PORES, 30),
+                metric(previous, SkinMetricType.PIGMENTATION, 30)));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        assertThat(response.summary().totalScore()).isEqualTo(25);
+        assertThat(response.summary().totalDelta()).isEqualTo(-5);
+        assertThat(response.summary().metrics()).extracting(
+                        ReportSummaryMetricResponse::metric, ReportSummaryMetricResponse::score,
+                        ReportSummaryMetricResponse::delta)
+                .containsExactlyInAnyOrder(
+                        tuple(SkinMetricType.TROUBLE, 40, 10),
+                        tuple(SkinMetricType.REDNESS, 30, 0),
+                        tuple(SkinMetricType.PORES, 20, -10),
+                        tuple(SkinMetricType.PIGMENTATION, 10, -20));
+    }
+
+    @DisplayName("직전 동일 기간에 기록이 없으면 증감은 0이다")
+    @Test
+    void summaryDeltaIsZeroWhenNoPreviousPeriodRecords() {
+        LocalDate today = LocalDate.now();
+        SkinRecord current = record(1L, today, TimeSlot.MORNING);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(6)), eq(today)))
+                .thenReturn(List.of(current));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(List.of());
+        when(skinMetricRepository.findAllBySkinRecordIdIn(List.of(1L)))
+                .thenReturn(List.of(metric(current, SkinMetricType.TROUBLE, 40)));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        assertThat(response.summary().totalDelta()).isEqualTo(0);
+        assertThat(response.summary().metrics()).extracting(ReportSummaryMetricResponse::delta)
+                .containsOnly(0);
+    }
+
+    @DisplayName("summary.graph는 기록 없는 날짜에 null을 담고, 하루 2건은 지표 평균을 합쳐 하나로 낸다")
+    @Test
+    void summaryGraphCollapsesSlotsAndKeepsNullForMissingDate() {
+        LocalDate today = LocalDate.now();
+        SkinRecord morning = record(1L, today, TimeSlot.MORNING);
+        SkinRecord night = record(2L, today, TimeSlot.NIGHT);
+        morning.completeAnalysis(BigDecimal.valueOf(60), null);
+        night.completeAnalysis(BigDecimal.valueOf(40), null);
+
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(6)), eq(today)))
+                .thenReturn(List.of(morning, night));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(1L), eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(List.of());
+        when(skinMetricRepository.findAllBySkinRecordIdIn(List.of(1L, 2L))).thenReturn(List.of(
+                metric(morning, SkinMetricType.TROUBLE, 60),
+                metric(night, SkinMetricType.TROUBLE, 40)));
+
+        ReportResponse response = service.getReport(1L, 7, SkinMetricType.TROUBLE);
+
+        assertThat(response.summary().graph()).hasSize(7);
+        var todayPoint = response.summary().graph().stream()
+                .filter(p -> p.date().equals(today)).findFirst().orElseThrow();
+        assertThat(todayPoint.score()).isEqualTo(50);
+        long nullDays = response.summary().graph().stream().filter(p -> p.score() == null).count();
+        assertThat(nullDays).isEqualTo(6);
+    }
+
     // --- REPORT-03 · 일자별 리포트 조회 ---
 
     private SkinRecordResponse response(SkinRecord record) {
@@ -302,6 +401,7 @@ class ReportServiceTest {
                 record.getCapturedAt().atZone(java.time.ZoneId.of("Asia/Seoul")).toOffsetDateTime(),
                 70,
                 new SkinScoresResponse(74, 66, 71, 69),
+                null,
                 null);
     }
 
@@ -563,8 +663,109 @@ class ReportServiceTest {
                 anyLong(), any(), any())).thenReturn(List.of());
         givenIngredientUsedOn("레티놀", WINDOW_END.minusDays(18));
 
-        assertThat(service.getInsightDetail(1L, 101L).events().get(0).impact())
-                .isEqualTo("이후 2일 뒤 트러블 수치 +18");
+        ReportInsightEventResponse event = service.getInsightDetail(1L, 101L).events().get(0);
+
+        assertThat(event.impact()).isEqualTo("이후 2일 뒤 트러블 수치 +18");
+        assertThat(event.delta()).isEqualTo(18);
+        assertThat(event.eventKind()).isEqualTo(InsightEventKind.INGREDIENT_USAGE);
+    }
+
+    @DisplayName("변화량이 음수면 delta도 부호를 그대로 보존한다")
+    @Test
+    void detailPreservesNegativeDeltaSign() {
+        AnalysisInsight insight = detailInsight(101L, InsightType.INGREDIENT, SkinMetricType.TROUBLE,
+                "판테놀", BigDecimal.valueOf(80), 2, BigDecimal.valueOf(-7));
+        when(analysisInsightRepository.findById(101L)).thenReturn(Optional.of(insight));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of());
+        givenIngredientUsedOn("판테놀", WINDOW_END.minusDays(18));
+
+        ReportInsightEventResponse event = service.getInsightDetail(1L, 101L).events().get(0);
+
+        assertThat(event.impact()).isEqualTo("이후 2일 뒤 트러블 수치 -7");
+        assertThat(event.delta()).isEqualTo(-7);
+    }
+
+    @DisplayName("summary는 인사이트에 저장된 설명을 그대로 싣고 subtitle은 메타 문구로 남는다")
+    @Test
+    void detailSeparatesSummaryFromSubtitle() {
+        AnalysisInsight insight = detailInsight(101L, InsightType.INGREDIENT, SkinMetricType.TROUBLE,
+                "레티놀", BigDecimal.valueOf(80), 2, BigDecimal.valueOf(18));
+        when(analysisInsightRepository.findById(101L)).thenReturn(Optional.of(insight));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of());
+
+        ReportInsightDetailResponse response = service.getInsightDetail(1L, 101L);
+
+        assertThat(response.summary()).isEqualTo("설명");
+        assertThat(response.subtitle()).isEqualTo("최근 30일 · 이벤트와 상관관계");
+    }
+
+    @DisplayName("관리 팁 생성이 실패해도 상세 조회는 정상 응답이고 tip만 null이다")
+    @Test
+    void detailFallsBackToNullTipWhenGenerationFails() {
+        AnalysisInsight insight = detailInsight(101L, InsightType.INGREDIENT, SkinMetricType.TROUBLE,
+                "레티놀", BigDecimal.valueOf(80), 2, BigDecimal.valueOf(18));
+        when(analysisInsightRepository.findById(101L)).thenReturn(Optional.of(insight));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of());
+        when(insightTipClient.generateTip(any())).thenReturn(Optional.empty());
+
+        ReportInsightDetailResponse response = service.getInsightDetail(1L, 101L);
+
+        assertThat(response.tip()).isNull();
+        assertThat(response.insightId()).isEqualTo(101L);
+    }
+
+    @DisplayName("확정되지 않은 패턴의 시차·변화량은 AI에 넘기지 않는다 — 팁만 단정하는 모순을 막는다")
+    @Test
+    void detailWithholdsUnconfirmedEvidenceFromTip() {
+        // 신뢰도 33.33은 ADR 0009 임계값(67) 미만이라 OBSERVING이다. 변화량 5.00이 DB에 있어도
+        // impact 문구는 이 값을 싣지 않으므로, AI에도 넘기지 않아야 화면과 팁이 어긋나지 않는다.
+        AnalysisInsight insight = detailInsight(101L, InsightType.INGREDIENT, SkinMetricType.TROUBLE,
+                "판테놀", BigDecimal.valueOf(33.33), 1, BigDecimal.valueOf(5));
+        when(analysisInsightRepository.findById(101L)).thenReturn(Optional.of(insight));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of());
+
+        service.getInsightDetail(1L, 101L);
+
+        ArgumentCaptor<InsightTipRequest> captor = ArgumentCaptor.forClass(InsightTipRequest.class);
+        verify(insightTipClient).generateTip(captor.capture());
+        InsightTipRequest sent = captor.getValue();
+        assertThat(sent.confidence()).isEqualTo("OBSERVING");
+        assertThat(sent.lagDays()).isNull();
+        assertThat(sent.averageDelta()).isNull();
+    }
+
+    @DisplayName("확정된 패턴은 시차·변화량을 그대로 AI에 넘긴다")
+    @Test
+    void detailPassesConfirmedEvidenceToTip() {
+        AnalysisInsight insight = detailInsight(101L, InsightType.INGREDIENT, SkinMetricType.TROUBLE,
+                "레티놀", BigDecimal.valueOf(80), 2, BigDecimal.valueOf(18));
+        when(analysisInsightRepository.findById(101L)).thenReturn(Optional.of(insight));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of());
+
+        service.getInsightDetail(1L, 101L);
+
+        ArgumentCaptor<InsightTipRequest> captor = ArgumentCaptor.forClass(InsightTipRequest.class);
+        verify(insightTipClient).generateTip(captor.capture());
+        assertThat(captor.getValue().lagDays()).isEqualTo(2);
+        assertThat(captor.getValue().averageDelta()).isEqualByComparingTo(BigDecimal.valueOf(18));
+    }
+
+    @DisplayName("관리 팁은 ai-server가 생성한 문장을 그대로 싣는다")
+    @Test
+    void detailCarriesGeneratedTip() {
+        AnalysisInsight insight = detailInsight(101L, InsightType.INGREDIENT, SkinMetricType.TROUBLE,
+                "레티놀", BigDecimal.valueOf(80), 2, BigDecimal.valueOf(18));
+        when(analysisInsightRepository.findById(101L)).thenReturn(Optional.of(insight));
+        when(skinRecordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                anyLong(), any(), any())).thenReturn(List.of());
+        when(insightTipClient.generateTip(any())).thenReturn(Optional.of("주 2~3회로 줄여 보세요."));
+
+        assertThat(service.getInsightDetail(1L, 101L).tip()).isEqualTo("주 2~3회로 줄여 보세요.");
     }
 
     @DisplayName("확인 중인 인사이트의 이벤트는 OBSERVING이고 수치를 단정하지 않는다")
@@ -582,6 +783,8 @@ class ReportServiceTest {
         assertThat(event.confidence()).isEqualTo("OBSERVING");
         assertThat(event.impact()).isEqualTo("이후 트러블 변화를 확인 중이에요");
         assertThat(event.impact()).doesNotContain("반복");
+        // 문구가 단정하지 않으면 delta도 비어 있어야 한다 — 둘이 어긋나면 클라이언트가 배지에 수치를 띄운다.
+        assertThat(event.delta()).isNull();
     }
 
     @DisplayName("신뢰도 67은 확정으로 본다 — ADR 0009 경계값")
@@ -725,5 +928,8 @@ class ReportServiceTest {
         assertThat(events).hasSize(1);
         assertThat(events.get(0).label()).startsWith("자외선 지수");
         assertThat(events.get(0).confidence()).isEqualTo("OBSERVING");
+        assertThat(events.get(0).eventKind()).isEqualTo(InsightEventKind.UV_SPIKE);
+        // 자외선 이벤트는 변화량 근거가 없다.
+        assertThat(events.get(0).delta()).isNull();
     }
 }

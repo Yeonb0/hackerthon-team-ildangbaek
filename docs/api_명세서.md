@@ -646,10 +646,18 @@ json
       "cautionCount": 3,
       "insufficientCount": 12,
       "topIngredients": [
-        { "ingredientId": 3,  "name": "나이아신아마이드", "status": "GOOD" },
-        { "ingredientId": 8,  "name": "히알루론산",       "status": "GOOD" },
-        { "ingredientId": 21, "name": "레티놀",           "status": "CAUTION" },
-        { "ingredientId": 27, "name": "향료",             "status": "CAUTION" }
+        {
+          "ingredientId": 3,
+          "name": "나이아신아마이드",
+          "description": "피부 톤 개선과 장벽 관리에 자주 쓰이는 성분입니다.",
+          "status": "GOOD"
+        },
+        {
+          "ingredientId": 21,
+          "name": "레티놀",
+          "description": "피부결 관리에 쓰이지만 민감 피부에는 자극이 될 수 있습니다.",
+          "status": "CAUTION"
+        }
       ]
     },
 
@@ -665,7 +673,9 @@ json
 2. `joinedDays`는 가입일 기준으로 계산한다.
 3. `totalRecordCount`는 실제 저장된 기록 수다. 하루 2회 구조이므로 모닝·나이트를 각각 1회로 센다.
 4. `topIngredients`는 마이페이지 요약 노출용으로 최대 8건을 반환한다. 전체 목록은 USER-02를 사용한다.
-5. `completionRate`는 F-ANALYSIS-05 값을 그대로 사용하며, 구매 전 확인 화면과 동일한 값이어야 한다.
+5. `topIngredients[].description`은 성분 사전의 공통 설명이다. 개인화 판단 근거가 필요하면 USER-02의
+   `reason`을 사용한다.
+6. `completionRate`는 F-ANALYSIS-05 값을 그대로 사용하며, 구매 전 확인 화면과 동일한 값이어야 한다.
    산출식은 ADR 0011에 있고 `ProfileCompletionCalculator`가 단독으로 계산한다 — 이 API가 자체
    계산하면 안 된다. 위 예시의 `65`는 산출식과 무관한 임의값이다.
 
@@ -705,6 +715,7 @@ json
 **Business Rule**
 
 1. USER-01(마이페이지 요약)과 별개로 계정·프로필 원본 필드를 그대로 반환한다.
+2. 구현 DTO 이름은 `AccountResponse`다. USER-01의 `MyPageResponse`와 필드 구성이 달라 혼동을 막기 위해 분리한다.
 
 ---
 
@@ -745,6 +756,40 @@ json
 
 ---
 
+## USER-01-D · 회원 탈퇴
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `DELETE` |
+| URI | `/api/v1/users/me` |
+| 인증 | 필요 |
+
+**Request Body**
+
+없음
+
+**Success Response — 200**
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "요청에 성공했습니다.",
+  "result": null
+}
+```
+
+**Business Rule**
+
+1. 사용자 계정은 물리 삭제하지 않고 `WITHDRAWN` 상태로 전환한다.
+2. 탈퇴 상태 사용자는 로그인, 토큰 재발급, 인증 필요 API 접근이 차단된다.
+3. 현재 임시 인증 토큰은 서버 저장소가 없는 stateless mock token이므로 refresh token 행을 별도로
+   삭제하지 않는다. 실제 인증 저장소가 도입되면 이 API에서 refresh token 폐기를 함께 수행한다.
+
+---
+
 ## USER-02 · 성분 프로파일 전체 조회
 
 | 항목 | 내용 |
@@ -776,6 +821,7 @@ json
       {
         "ingredientId": 3,
         "name": "나이아신아마이드",
+        "description": "피부 톤 개선과 장벽 관리에 자주 쓰이는 성분입니다.",
         "status": "GOOD",
         "reason": "피부 톤 개선 이력",
         "recordCount": 12
@@ -783,6 +829,7 @@ json
       {
         "ingredientId": 27,
         "name": "향료",
+        "description": "제품 향을 내기 위해 쓰이는 성분입니다.",
         "status": "CAUTION",
         "reason": "과거 홍조 반응 있음",
         "recordCount": 7
@@ -790,6 +837,7 @@ json
       {
         "ingredientId": 44,
         "name": "스쿠알란",
+        "description": "피부 보습과 유연감에 쓰이는 오일 성분입니다.",
         "status": "INSUFFICIENT",
         "reason": null,
         "recordCount": 1
@@ -803,14 +851,15 @@ json
 
 1. `status`가 `INSUFFICIENT`인 성분의 `reason`은 `null`이다. **데이터가 부족한 성분에 판단 근거를 지어내지 않는다.**
 2. `recordCount`는 해당 성분이 포함된 제품의 기록 횟수다. 사용자가 왜 아직 데이터 부족인지 이해할 수 있게 한다.
-3. 정렬은 `GOOD` → `CAUTION` → `INSUFFICIENT` 순, 그룹 내에서는 `recordCount` 내림차순이다.
-4. 응답은 `ingredient_profiles`를 읽는다. F-ANALYSIS-04가 새 피부 기록마다 이 표를 갱신한다.
+3. `description`은 성분 사전의 공통 설명이다. 사용자별 판단 근거가 아니므로 `INSUFFICIENT`여도 내려갈 수 있다.
+4. 정렬은 `GOOD` → `CAUTION` → `INSUFFICIENT` 순, 그룹 내에서는 `recordCount` 내림차순이다.
+5. 응답은 `ingredient_profiles`를 읽는다. F-ANALYSIS-04가 새 피부 기록마다 이 표를 갱신한다.
    `status`는 `reaction_type`이며 `SUITABLE`은 `GOOD`으로 변환한다(ADR 0004). `reason`은 `reason_summary`,
    `recordCount`는 `observation_count`(성분 노출 일수)다. 판정 기준은 ADR 0010에 있다.
-5. **프로파일이 비어 있어도 오류가 아니다.** `ingredients`를 빈 배열로 반환한다. 아직 기록이 없는
+6. **프로파일이 비어 있어도 오류가 아니다.** `ingredients`를 빈 배열로 반환한다. 아직 기록이 없는
    사용자에게 정상적으로 나타나는 상태이며, 이 API는 분석을 실행하지 않고 읽기만 한다.
-6. `completionRate`는 `status` 필터와 무관하게 항상 전체 기준이다. 필터는 목록에만 적용된다.
-7. `status`에 `GOOD` · `CAUTION` · `INSUFFICIENT` 외의 값이 오면 422다. **DB 표기인 `SUITABLE`도
+7. `completionRate`는 `status` 필터와 무관하게 항상 전체 기준이다. 필터는 목록에만 적용된다.
+8. `status`에 `GOOD` · `CAUTION` · `INSUFFICIENT` 외의 값이 오면 422다. **DB 표기인 `SUITABLE`도
    거부한다** — API 경계는 `GOOD` 표기만 받는다(ADR 0004).
 
 **Error**
@@ -964,9 +1013,11 @@ json
 
 **Business Rule**
 
-1. `locationId`와 좌표가 동시에 전달되면 `locationId`를 우선한다. 사용자의 명시적 선택이 자동 감지보다 우선이다.
-2. 저장 후 다음 환경 조회부터 이 위치를 기준으로 동작한다.
-3. 좌표로 저장한 경우 서버가 역지오코딩해 표시용 지역명을 함께 저장한다.
+1. `locationId`와 좌표가 동시에 전달되면 표시용 지역명은 `locationId`를 우선한다. 사용자의 명시적 선택이 자동 감지보다 우선이다.
+2. 좌표가 전달되면 `latitude`/`longitude`를 함께 저장한다.
+3. `locationId`만 전달되면 6개 대표 지역의 중심 좌표를 저장한다.
+4. GPS 좌표만 전달되면 서버가 6개 대표 지역(서울/경기/인천/부산/대구/광주) 중 가장 가까운 지역명을 저장한다. 외부 역지오코딩 API는 아직 사용하지 않는다.
+5. 저장 후 다음 환경 조회부터 이 위치를 기준으로 사용할 수 있다. 단, 실제 날씨 API 연동은 별도 작업이다.
 
 **Error**
 
@@ -1066,7 +1117,7 @@ json
   "message": "조회에 성공했습니다.",
   "result": {
     "homeType": "DAY",
-    "greeting": "좋은 아침이에요",
+    "greeting": "좋은 아침이에요, 김민지님.",
 
     "environment": {
       "location": "서울 강남구",
@@ -1109,8 +1160,8 @@ json
   "message": "조회에 성공했습니다.",
   "result": {
     "homeType": "NIGHT",
-    "greeting": "오늘도 수고했어요",
-    "recordPrompt": "지금 기록을 남기면 내일 분석이 더 정확해져요",
+    "greeting": "좋은 저녁이에요, 김민지님.",
+    "recordPrompt": "지금 기록하면 내일 분석이 더 정확해져요.",
 
     "environment": null,
 
@@ -1165,6 +1216,10 @@ json
 **`environment.weather` 값** `확정`
 
 `SUNNY`, `CLOUDY`, `OVERCAST`, `RAIN`, `SNOW`, `YELLOW_DUST`, `THUNDERSTORM` 중 하나를 반환한다.
+
+**`environment.humidityGrade` 값** `확정`
+
+`DRY`, `NORMAL`, `HUMID` 중 하나를 반환한다.
 
 **`weeklyCalendar` 점 상태**
 
@@ -1337,6 +1392,59 @@ json
 
 ---
 
+## RECORD-03 · 일자별 기록 상세 조회
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `GET` |
+| URI | `/api/v1/records/daily` |
+| 인증 | 필요 |
+| 관련 화면 | S-09, S-10 월간 기록 날짜 상세 |
+| 관련 기능 | F-RECORD-02 |
+
+**Query Parameter**
+
+| Field | Type | Required | Validation |
+| --- | --- | --- | --- |
+| `date` | String | O | `yyyy-MM-dd` |
+
+**Success Response — 200**
+
+json
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON_SUCCESS",
+  "message": "조회에 성공했습니다.",
+  "result": {
+    "date": "2026-08-07",
+    "skinScore": 78,
+    "morningProducts": {
+      "completed": true,
+      "items": [
+        { "name": "라운드랩 토너" },
+        { "name": "히알루론산 세럼" }
+      ]
+    },
+    "nightProducts": {
+      "completed": false,
+      "items": []
+    }
+  }
+}
+```
+
+**Business Rule**
+
+1. 캘린더 날짜 탭 바텀시트에서 쓰는 읽기 전용 상세 응답이다.
+2. 제품 기록은 모닝·나이트 슬롯을 분리해서 내려준다.
+3. 해당 슬롯의 제품 기록이 없으면 `completed: false`, `items: []`를 반환한다.
+4. `skinScore`는 해당 날짜의 피부 기록 점수다. 모닝·나이트가 모두 있으면 나이트 점수를 우선한다.
+   피부 기록이 없으면 `null`이다.
+
+---
+
 # 8. Product API
 
 ```
@@ -1483,6 +1591,7 @@ json
 5. 결과 0건은 빈 배열 + `totalCount: 0`이며 **오류가 아니다.**
 6. `category`는 `TONER`, `ESSENCE`, `SERUM`, `AMPOULE`, `GEL`, `LOTION`, `CREAM`, `BALM`, `OIL`, `SUNCREAM`, `CLEANSING`, `MASK` 중 하나만 반환한다.
 7. 목록 응답의 `imageUrl`은 문자열 또는 `null`이며, 값이 없으면 클라이언트가 placeholder를 표시한다.
+8. `PUBLIC_BASE_URL`이 설정된 배포 환경에서는 `/images/...` 같은 상대 이미지 경로를 절대 URL로 보정해 반환한다.
 
 **Error**
 
@@ -1542,6 +1651,7 @@ json
 3. `ingredientCount`는 전체 개수이며 S-14의 "총 N개 성분" 표시에 사용한다.
 4. 성분 데이터가 없는 제품은 `ingredientCount: 0` + 빈 배열로 반환한다. 오류가 아니며 클라이언트가 "성분 데이터 부족" 안내를 표시한다.
 5. `imageUrl`은 문자열 또는 `null`이다. S-14 상단 제품 이미지 표시 영역에서 사용한다.
+6. `PUBLIC_BASE_URL`이 설정된 배포 환경에서는 `/images/...` 같은 상대 이미지 경로를 절대 URL로 보정해 반환한다.
 
 **Error**
 
@@ -1964,7 +2074,7 @@ json
     "name": "홈메이드세럼",
     "brand": "우리집",
     "category": "SERUM",
-    "imageUrl": "/images/xxxx.jpg"
+    "imageUrl": "https://api.example.com/images/xxxx.jpg"
   }
 }
 ```
@@ -1972,10 +2082,11 @@ json
 **Business Rule**
 
 1. 등록된 제품은 `dataSource=USER`, `active=true`로 즉시 저장되며 다른 사용자에게도 검색·매칭·스캔에 동일하게 노출된다. 등록자 전용 비공개 상태는 없다.
-2. `ingredientNames`에 카탈로그에 없는 성분명이 있으면 새 `Ingredient`로 생성해 연결한다. 이미 있는 이름이면 기존 성분을 재사용한다. 농도·핵심 성분 여부는 입력받지 않는다(`keyIngredient=false`로 저장).
+2. `ingredientNames`에 카탈로그에 없는 성분명이 있으면 새 `Ingredient`로 생성해 연결한다. 이미 있는 이름이면 기존 성분을 재사용한다. 농도는 입력받지 않는다.
 3. 이름·브랜드 중복을 서버가 막지 않는다. 클라이언트가 등록 전 PRODUCT-09(`GET /products/match`)로 조회해 중복 여부를 사용자에게 안내한다.
 4. `image`를 생략하면 `imageUrl`은 `null`이다. 보내는 경우 형식·크기 규칙은 공통 이미지 규칙(9.3)과 같다.
 5. 같은 성분명이 여러 번 들어오면(앞뒤 공백 차이 포함) 첫 번째 것만 연결한다. 오류가 아니라 무시이며, `displayOrder`는 중복을 걸러낸 뒤의 순서로 1부터 매긴다.
+6. 직접 등록 제품은 입력 순서 상위 10개 성분을 주요 성분(`keyIngredient=true`)으로 저장한다.
 
 **Error**
 
@@ -2055,7 +2166,9 @@ json
         "pores": 3,
         "pigmentation": 5
       }
-    }
+    },
+
+    "skinComment": "트러블은 줄었지만 색소잡티가 도드라지니 미백 케어를 더해보세요."
   }
 }
 ```
@@ -2066,6 +2179,14 @@ json
 
 ```json
 "comparison": null
+```
+
+**코멘트 근거가 없는 경우**
+
+json
+
+```json
+"skinComment": null
 ```
 
 ---
@@ -2143,6 +2264,10 @@ S-18의 `확인` 버튼은 **화면을 닫는 역할만** 하며 서버 호출�
 **`totalScore` 산출** — 지표 4종의 단순 평균을 반올림한 0~100 정수다.
 가중치를 둘 근거 데이터가 없어 임의 가중을 피한다. ([ADR 0008](decisions/0008-종합-점수-산출식.md))
 
+**`skinComment`** — OpenAI Vision이 사진을 보고 쓴 40~70자의 피부 상태 코멘트다(ADR 0022 연장).
+분석 서버가 규칙 기반 1차 점수로 폴백했거나(OpenAI 호출 실패) 목업 분석이면 근거가 없어 `null`이다 —
+값을 임의로 지어내지 않는다.
+
 ---
 
 ## SKIN-02 · 오늘 피부 결과 조회
@@ -2216,7 +2341,8 @@ json
         "brand": "라로슈포제",
         "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요",
         "category": "MATCHED_INGREDIENT",
-        "aiComment": "판테놀이 진정에 도움을 줘요"
+        "aiComment": "판테놀이 진정에 도움을 줘요",
+        "tags": ["잘 맞는 성분", "주의 성분 미포함"]
       },
       {
         "productId": 82,
@@ -2224,7 +2350,8 @@ json
         "brand": "마누카",
         "reason": "히알루론산 반응이 좋았어요",
         "category": "TODAY_NEEDED",
-        "aiComment": null
+        "aiComment": null,
+        "tags": ["트러블 진정 성분"]
       }
     ],
     "todayContext": {
@@ -2248,7 +2375,7 @@ json
    `reason`은 매칭된 성분명을 모두 모아 `"{성분명1}·{성분명2}이 잘 맞는 성분이에요"` 형태로 조립한다.
 4. `profileCompletion`은 F-ANALYSIS-05 값을 그대로 쓰며, USER-01·USER-02와 동일한 값이어야 한다
    (`ProfileCompletionCalculator` 단독 계산, ADR 0011 BR 4).
-5. `failedSections`는 추천 여부·순서를 좌우하는 조회가 전부 내부 DB 조회이므로 현재는 항상 빈
+5. `failedSections`는 `{ "section", "code", "message" }` 형태의 공통 부분 실패 객체 배열이다. 추천 여부·순서를 좌우하는 조회가 전부 내부 DB 조회이므로 현재는 항상 빈
    배열이다. 1.8절의 외부 API 부분 실패 알림 용도다. ai-server AI 코멘트 호출(BR 7)은 실패해도
    추천 자체를 막지 않는 부가 기능이라 `failedSections`에 반영하지 않는다.
 6. **3분류 · 오늘 컨텍스트(ADR 0018)**: `recommendations[].category`는
@@ -2261,6 +2388,17 @@ json
    여기에 문구만 덧붙인다. ai-server 호출이 실패·타임아웃되면 `aiComment`는 `null`이고, 이 실패는
    `failedSections`에 반영되지 않는다(BR 5) — AI 코멘트는 추천의 전제 조건이 아니므로 200 응답을
    그대로 유지한다.
+8. **태그 칩(ADR 0027)**: `recommendations[].tags`는 추천 카드에 함께 노출하는 짧은 근거 칩이며,
+   **AI가 아니라 규칙으로 도출한다** — 단정문이라 틀리면 사실오류가 그대로 노출되기 때문이다.
+   길이는 1 또는 2다.
+
+   | 칩 | 근거 |
+   | --- | --- |
+   | 1 (항상) | `category`(BR 6) → `TODAY_NEEDED`=`"트러블 진정 성분"` · `HUMIDITY_CARE`=`"보습 강화 성분"` · `MATCHED_INGREDIENT`=`"잘 맞는 성분"` |
+   | 2 (조건부) | 사용자 프로파일 기준 `CAUTION` 성분이 이 제품에 **없을 때만** `"주의 성분 미포함"` |
+
+   CAUTION 성분이 있으면 두 번째 칩을 붙이지 않는다(칩 1개만 나간다). "주의 성분 포함" 같은 부정
+   문구는 넣지 않는다 — 추천 카드는 권하는 자리이고, 주의 성분 노출은 CHECK-02가 담당한다.
 
 ---
 
@@ -2431,6 +2569,21 @@ json
     "period": 7,
     "metric": "TROUBLE",
 
+    "summary": {
+      "totalScore": 78,
+      "totalDelta": -2,
+      "metrics": [
+        { "metric": "TROUBLE", "score": 38, "delta": -1 },
+        { "metric": "REDNESS", "score": 34, "delta": 1 },
+        { "metric": "PORES", "score": 40, "delta": 3 },
+        { "metric": "PIGMENTATION", "score": 47, "delta": -2 }
+      ],
+      "graph": [
+        { "date": "2026-08-01", "score": 76 },
+        { "date": "2026-08-02", "score": null }
+      ]
+    },
+
     "graph": [
       { "date": "2026-08-01", "morningScore": 70, "nightScore": 73 },
       { "date": "2026-08-02", "morningScore": 76, "nightScore": null },
@@ -2469,6 +2622,14 @@ json
 3. 리포트 최소 요건은 **피부 사진 필수 · 제품 기록 선택**이다. 제품 기록이 없다는 이유로 `REPORT_DATA_INSUFFICIENT`를 반환하지 않는다.
 4. 실제 분석 데이터가 있는 인사이트만 반환한다. 데이터가 부족하면 빈 배열이다.
 5. `confidence`가 `OBSERVING`인 인사이트는 단정적 문구를 쓰지 않는다.
+6. `summary.totalScore`는 기간 내 지표 4종 값을 모두 모은 평균을 반올림한 0~100 정수다.
+   SKIN-01의 `totalScore` 산출식(ADR 0008)을 기간 단위로 그대로 확장한 값이며, **높을수록 좋다.**
+7. `summary.metrics`는 지표 4종 각각의 기간 평균 점수다. **낮을수록 좋다.**
+8. `summary.totalDelta`·`summary.metrics[].delta`는 직전 동일 길이 기간(예: `period=7`이면 그 이전 7일) 대비
+   증감이다. 직전 기간에 해당 지표 기록이 전혀 없으면 비교 대상이 없으므로 `0`이다 — 값이 실제로 변하지 않은
+   경우와 이 경우는 응답만으로 구분되지 않는다.
+9. `summary.graph`는 모닝·나이트를 구분하지 않고 하루 종합 점수(SKIN-01 `totalScore`) 하나로 낸다. 하루 2건이면
+   두 기록의 종합 점수 평균이다. 기록이 없는 날짜는 `score`가 `null`이다 — 0으로 계산하지 않는다.
 
 **`confidence` 값**
 
@@ -2524,6 +2685,7 @@ json
     "metric": "TROUBLE",
     "title": "트러블 추이",
     "subtitle": "최근 30일 · 이벤트와 상관관계",
+    "summary": "레티놀 사용 후 평균 2일 뒤 트러블 수치가 반복적으로 올라가는 패턴이 감지되었어요.",
 
     "graph": [
       { "date": "2026-07-08", "morningScore": 64, "nightScore": 68 },
@@ -2535,15 +2697,21 @@ json
         "date": "2026-07-10",
         "label": "레티놀 이 기간 첫 사용",
         "impact": "이후 2일 뒤 트러블 수치 +18",
-        "confidence": "OBSERVED"
+        "confidence": "OBSERVED",
+        "delta": 18,
+        "eventKind": "INGREDIENT_USAGE"
       },
       {
         "date": "2026-07-22",
         "label": "자외선 지수 8 이상 3일 연속",
         "impact": "이 기간 트러블 변화를 확인 중이에요",
-        "confidence": "OBSERVING"
+        "confidence": "OBSERVING",
+        "delta": null,
+        "eventKind": "UV_SPIKE"
       }
-    ]
+    ],
+
+    "tip": "레티놀은 처음엔 피부 장벽을 약화시킬 수 있어요. 주 2~3회로 줄이거나, 보습제를 함께 쓰는 버퍼링 방식을 시도해 보세요."
   }
 }
 ```
@@ -2560,6 +2728,19 @@ json
 5. `insightId`는 영속 식별자가 아니다. F-ANALYSIS-01이 피부 기록 저장마다 성분 인사이트를 지우고
    다시 넣으므로, 이전에 받은 id로 조회하면 404가 나는 것이 정상이다.
 6. 도출할 이벤트가 없으면 빈 배열이며 오류가 아니다.
+7. **이벤트 구조화 필드(ADR 0027)**: `events[].delta`는 `impact` 문구에 실린 지표 변화량을 부호 있는
+   정수로 그대로 낸 값이고, `events[].eventKind`는 도출 유형(`INGREDIENT_USAGE`/`UV_SPIKE`)이다.
+   클라이언트가 `impact` 문구를 파싱해 수치·유형을 복원하지 않도록 두는 필드이므로, `impact` 문구
+   형식에 의존하는 구현을 만들지 않는다. **`delta`는 `impact`가 단정하는 경우에만 값이 있다** —
+   BR 2로 문구가 "확인 중"으로 폴백하면 `delta`도 `null`이며, 둘이 어긋나지 않는다. 자외선 이벤트는
+   변화량 근거가 없어 항상 `null`이다. `eventKind`에 "성분 재시작"에 해당하는 값은 없다(BR 4).
+8. **`subtitle`과 `summary`는 다른 값이다(ADR 0027)**: `subtitle`은 기간 길이를 알리는 메타 문구
+   (`"최근 30일 · 이벤트와 상관관계"`)이고, `summary`는 F-ANALYSIS-01이 인사이트에 저장해 둔 분석
+   요약 문장(REPORT-01 `insights[].description`과 같은 값)이다. 저장된 값이 없으면 `null`이다.
+9. **관리 팁(ADR 0028)**: `tip`은 ai-server가 인사이트의 근거(요인·지표·신뢰도·시차·변화량)를 받아
+   생성한 관리 조언이다. 패턴 판정·수치는 서버가 이미 확정한 상태이고 AI는 이를 바꾸지 않는다.
+   ai-server 호출이 실패·타임아웃되면 `tip`은 `null`이며, 이때도 상세 조회는 200이다 — 팁은 상세
+   화면의 전제 조건이 아니다. 클라이언트는 `null`이면 팁 섹션을 감춘다.
 
 **이벤트 도출 기준**
 
@@ -2713,6 +2894,7 @@ json
 | F-HOME-01 ~ 07 | `GET /home` |
 | F-RECORD-01 | `GET /records/calendar` |
 | F-RECORD-02 | `GET /records/today` |
+| F-RECORD-02 | `GET /records/daily` |
 | F-RECORD-03 | `GET /records/calendar` (`monthlySummary`) |
 | F-PRODUCT-01 | `GET /product-records/home` |
 | F-PRODUCT-02 | `GET /products` |
@@ -2757,6 +2939,7 @@ json
 | User | USER-01 | GET | `/users/me` | O |
 | User | USER-01-B | GET | `/users/me/account` | O |
 | User | USER-01-C | GET | `/users/me/products` | O |
+| User | USER-01-D | DELETE | `/users/me` | O |
 | User | USER-02 | GET | `/users/me/ingredient-profile` | O |
 | User | USER-03 | GET | `/users/me/profile` | O |
 | User | USER-04 | PATCH | `/users/me/profile` | O |
@@ -2766,6 +2949,7 @@ json
 | Home | HOME-01 | GET | `/home` | O |
 | Record | RECORD-01 | GET | `/records/calendar` | O |
 | Record | RECORD-02 | GET | `/records/today` | O |
+| Record | RECORD-03 | GET | `/records/daily` | O |
 | Product | PRODUCT-01 | GET | `/product-records/home` | O |
 | Product | PRODUCT-02 | GET | `/products` | O |
 | Product | PRODUCT-03 | GET | `/products/{productId}` | O |

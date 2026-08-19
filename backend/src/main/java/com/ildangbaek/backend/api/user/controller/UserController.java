@@ -5,6 +5,7 @@ import com.ildangbaek.backend.api.user.dto.MyPageResponse;
 import com.ildangbaek.backend.api.user.dto.request.LocationUpdateRequest;
 import com.ildangbaek.backend.api.user.dto.request.NotificationSettingRequest;
 import com.ildangbaek.backend.api.user.dto.request.ProfileUpdateRequest;
+import com.ildangbaek.backend.api.user.dto.response.AccountResponse;
 import com.ildangbaek.backend.api.user.dto.response.NotificationSettingResponse;
 import com.ildangbaek.backend.api.user.dto.response.ProfileResponse;
 import com.ildangbaek.backend.api.user.dto.response.SavedProductResponse;
@@ -18,6 +19,7 @@ import com.ildangbaek.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,8 +39,14 @@ public class UserController {
     private final UserService userService;
     private final UserIngredientProfileService userIngredientProfileService;
 
+    @DeleteMapping
+    public ApiResponse<Void> withdraw(@CurrentUserId Long userId) {
+        userService.withdraw(userId);
+        return ApiResponse.success(null);
+    }
+
     @GetMapping("/account")
-    public ApiResponse<com.ildangbaek.backend.api.user.dto.response.MyPageResponse> getAccount(
+    public ApiResponse<AccountResponse> getAccount(
             @CurrentUserId User user
     ) {
         return ApiResponse.success(userService.getMe(user));

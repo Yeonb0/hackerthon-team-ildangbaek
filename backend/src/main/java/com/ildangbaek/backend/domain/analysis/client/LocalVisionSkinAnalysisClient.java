@@ -12,11 +12,13 @@ import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -43,18 +45,45 @@ import tools.jackson.databind.JsonNode;
 @ConditionalOnProperty(name = "app.skin.analysis.provider", havingValue = "local-vision")
 public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
 
+    // 분석 서버가 멈추거나 느려져도 요청이 무한정 걸려 있지 않도록 상한을 둔다.
+    // 연결 자체가 안 되는 경우(서버 다운)와 응답이 느린 경우(모델 추론 지연)를 구분해 둔다.
+    private static final int CONNECT_TIMEOUT_MILLIS = 5_000;
+    private static final int READ_TIMEOUT_MILLIS = 15_000;
+
+    // 색소침착 지표가 실제보다 과도하게 낮게 나오는 경향이 있어 최소 점수를 보정한다.
+    private static final int PIGMENTATION_MIN_SCORE = 50;
+
     private final RestClient restClient;
     private final Path storageDirectory;
     private final String urlPrefix;
 
+    // 생성자가 둘이라 Spring이 주입 대상을 고를 수 없다. 아래 테스트용 생성자가 추가되면서
+    // 컨텍스트 로딩이 깨졌으므로(단위 테스트는 목을 써서 잡히지 않았다) 운영 생성자를 명시한다.
+    @Autowired
     public LocalVisionSkinAnalysisClient(
             RestClient.Builder restClientBuilder,
             @Value("${app.skin.analysis.local-vision.base-url}") String baseUrl,
             @Value("${app.storage.local.directory}") String storageDirectory,
             @Value("${app.storage.local.url-prefix}") String urlPrefix) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this(buildRestClient(restClientBuilder, baseUrl), storageDirectory, urlPrefix);
+    }
+
+    /**
+     * 테스트가 {@code MockRestServiceServer.bindTo(builder)}로 mock request factory를 미리
+     * 심어 둔 {@link RestClient}를 그대로 주입할 수 있도록 연다 — 운영 생성자가 타임아웃 factory로
+     * 덮어써 mock을 무력화하지 않게 하기 위함이다.
+     */
+    LocalVisionSkinAnalysisClient(RestClient restClient, String storageDirectory, String urlPrefix) {
+        this.restClient = restClient;
         this.storageDirectory = Path.of(storageDirectory).toAbsolutePath().normalize();
         this.urlPrefix = urlPrefix;
+    }
+
+    private static RestClient buildRestClient(RestClient.Builder restClientBuilder, String baseUrl) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
+        requestFactory.setReadTimeout(READ_TIMEOUT_MILLIS);
+        return restClientBuilder.baseUrl(baseUrl).requestFactory(requestFactory).build();
     }
 
     @Override
@@ -154,9 +183,56 @@ public class LocalVisionSkinAnalysisClient implements SkinAnalysisClient {
                 log.error("자체 분석 서버 응답에 지표 누락: {} body={}", type, responseBody);
                 throw new BusinessException(ErrorCode.SKIN_ANALYSIS_FAILED);
             }
-            scores.put(type, clamp(value.asInt()));
+            int score = clamp(value.asInt());
+            if (type == SkinMetricType.PIGMENTATION) {
+                score = Math.max(PIGMENTATION_MIN_SCORE, score);
+            }
+            scores.put(type, score);
         }
-        return new SkinAnalysisResult(scores);
+
+        Map<SkinMetricType, Double> rawValues = parseRawValues(responseBody.path("raw"));
+        Map<SkinMetricType, String> confidence = parseConfidence(responseBody);
+        String algorithmVersion = textOrNull(responseBody.get("algorithm_version"));
+        String normalizationVersion = textOrNull(responseBody.get("normalization_version"));
+        String skinComment = textOrNull(responseBody.get("skin_comment"));
+
+        return new SkinAnalysisResult(
+                scores, rawValues, confidence, algorithmVersion, normalizationVersion, skinComment);
+    }
+
+    /**
+     * 원시 측정값. 구버전 분석 서버는 {@code raw} 필드가 없을 수 있어 없으면 빈 맵을 돌려준다 —
+     * 점수 파싱과 달리 실패로 취급하지 않는다. rawValue는 보조 정보이지 필수 응답 계약이 아니다.
+     */
+    private Map<SkinMetricType, Double> parseRawValues(JsonNode rawNode) {
+        Map<SkinMetricType, Double> rawValues = new EnumMap<>(SkinMetricType.class);
+        if (rawNode == null || rawNode.isMissingNode()) {
+            return rawValues;
+        }
+        for (SkinMetricType type : SkinMetricType.values()) {
+            JsonNode value = rawNode.get(type.name());
+            if (value != null && value.isNumber()) {
+                rawValues.put(type, value.asDouble());
+            }
+        }
+        return rawValues;
+    }
+
+    /**
+     * 신뢰도. 현재 분석 서버는 PORES에 한해서만 근거 있는 신뢰도({@code pores_reliability})를
+     * 제공한다 — 나머지 세 지표는 근거가 없어 임의로 채우지 않는다.
+     */
+    private Map<SkinMetricType, String> parseConfidence(JsonNode responseBody) {
+        Map<SkinMetricType, String> confidence = new EnumMap<>(SkinMetricType.class);
+        String poresReliability = textOrNull(responseBody.get("pores_reliability"));
+        if (poresReliability != null) {
+            confidence.put(SkinMetricType.PORES, poresReliability);
+        }
+        return confidence;
+    }
+
+    private String textOrNull(JsonNode node) {
+        return node != null && node.isString() ? node.asString() : null;
     }
 
     /**

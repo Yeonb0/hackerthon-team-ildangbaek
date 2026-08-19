@@ -28,7 +28,7 @@ from app.schema import AnalysisResult, SkinScores
 log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """너는 피부과 전문의를 보조하는 피부 분석 AI다. 첨부된 얼굴 사진과 아래
-1차 분석 결과를 참고해 최종 점수를 확정해라.
+1차 분석 결과를 참고해 최종 점수를 확정하고, 사용자에게 보여줄 짧은 피부 상태 코멘트를 써라.
 
 1차 분석 결과는 CIELAB 색공간 통계를 쓰는 영상처리 규칙 시스템이 산출한 참고 자료일 뿐이다.
 사진을 직접 보고 실제 상태에 맞게 최종 점수를 자유롭게 조정해라. 점수가 높을수록 좋은
@@ -40,8 +40,15 @@ SYSTEM_PROMPT = """너는 피부과 전문의를 보조하는 피부 분석 AI�
   어려워 1차 점수의 신뢰도가 낮을 수 있다)
 - PIGMENTATION: 색소침착·잡티 상태
 
+코멘트(skin_comment) 작성 규칙:
+- 40~70자 이내의 한글 문장.
+- 현재 피부 상태를 요약하고 관리 방향을 제안해라.
+- 확정한 점수 중 가장 개선이 필요한 항목 1~2개를 중심으로 써라.
+- 긍정적이고 친근한 뷰티 상담 톤을 유지해라.
+- "질환", "치료", "병", "심각" 등 의료적 진단으로 읽히는 표현은 쓰지 마라.
+
 반드시 아래 JSON 형식으로만 답해라. 다른 텍스트를 덧붙이지 마라.
-{"TROUBLE": 0-100, "REDNESS": 0-100, "PORES": 0-100, "PIGMENTATION": 0-100}
+{"TROUBLE": 0-100, "REDNESS": 0-100, "PORES": 0-100, "PIGMENTATION": 0-100, "skin_comment": "..."}
 """
 
 
@@ -77,12 +84,14 @@ def _encode_image(image_bgr: np.ndarray) -> str:
     return base64.b64encode(buffer).decode("ascii")
 
 
-def _parse(content: str) -> SkinScores:
+def _parse(content: str) -> tuple[SkinScores, str | None]:
     try:
         data = json.loads(content)
-        return SkinScores.model_validate(data)
+        scores = SkinScores.model_validate(data)
     except (json.JSONDecodeError, ValidationError) as e:
         raise VisionUnavailableError(f"OpenAI 응답 파싱 실패: {content!r}") from e
+    skin_comment = data.get("skin_comment")
+    return scores, skin_comment if isinstance(skin_comment, str) else None
 
 
 def refine(image_bgr: np.ndarray, preliminary: AnalysisResult) -> AnalysisResult:
@@ -90,6 +99,13 @@ def refine(image_bgr: np.ndarray, preliminary: AnalysisResult) -> AnalysisResult
 
     `pores_reliability`는 규칙 기반 판정을 그대로 유지한다 — 이 값은 촬영 조건별 실측
     통계(`metrics._PORES_NOISE_FLOOR`)로 정의된 것이라 OpenAI에 재위임할 근거가 없다.
+
+    `raw`·`algorithm_version`·`normalization_version`도 1차 결과를 그대로 옮긴다. OpenAI는
+    수치 측정값을 내지 않고 점수만 판단하므로, 이 필드들은 항상 규칙 기반(CIELAB) 1차 단계의
+    값을 가리킨다 — score가 OpenAI로 바뀌어도 raw는 바뀌지 않는다.
+
+    `skin_comment`는 이 호출에서 새로 받는다 — 1차 규칙 기반 단계는 근거가 없어 코멘트를
+    지어낼 수 없다.
 
     :raises VisionUnavailableError: 키 미설정·호출 실패·타임아웃·비신뢰 응답인 경우
     """
@@ -130,7 +146,14 @@ def refine(image_bgr: np.ndarray, preliminary: AnalysisResult) -> AnalysisResult
     if not content:
         raise VisionUnavailableError(f"OpenAI 응답에 content가 없습니다: {response!r}")
 
-    scores = _parse(content)
-    result = AnalysisResult(scores=scores, pores_reliability=preliminary.pores_reliability)
+    scores, skin_comment = _parse(content)
+    result = AnalysisResult(
+        scores=scores,
+        raw=preliminary.raw,
+        pores_reliability=preliminary.pores_reliability,
+        algorithm_version=preliminary.algorithm_version,
+        normalization_version=preliminary.normalization_version,
+        skin_comment=skin_comment,
+    )
     log.info("OpenAI 확정 점수: %s (1차: %s)", result.model_dump(), preliminary.model_dump())
     return result

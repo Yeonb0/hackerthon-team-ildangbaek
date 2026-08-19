@@ -1,13 +1,19 @@
 package com.ildangbaek.backend.api.report.service;
 
+import com.ildangbaek.backend.api.report.dto.InsightEventKind;
 import com.ildangbaek.backend.api.report.dto.ReportDailyResponse;
 import com.ildangbaek.backend.api.report.dto.ReportGraphPointResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightDetailResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightEventResponse;
 import com.ildangbaek.backend.api.report.dto.ReportInsightResponse;
 import com.ildangbaek.backend.api.report.dto.ReportResponse;
+import com.ildangbaek.backend.api.report.dto.ReportSummaryGraphPointResponse;
+import com.ildangbaek.backend.api.report.dto.ReportSummaryMetricResponse;
+import com.ildangbaek.backend.api.report.dto.ReportSummaryResponse;
 import com.ildangbaek.backend.api.skin.dto.SkinRecordResponse;
 import com.ildangbaek.backend.api.skin.service.SkinRecordService;
+import com.ildangbaek.backend.domain.analysis.client.InsightTipClient;
+import com.ildangbaek.backend.domain.analysis.client.InsightTipClient.InsightTipRequest;
 import com.ildangbaek.backend.domain.analysis.entity.AnalysisInsight;
 import com.ildangbaek.backend.domain.analysis.entity.InsightType;
 import com.ildangbaek.backend.domain.analysis.repository.AnalysisInsightRepository;
@@ -28,6 +34,7 @@ import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,6 +61,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ReportService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private static final Set<Integer> ALLOWED_PERIODS = Set.of(7, 30);
 
@@ -90,13 +99,16 @@ public class ReportService {
     /** REPORT-02의 자외선 급증 이벤트. */
     private final DailyEnvironmentRepository dailyEnvironmentRepository;
 
+    /** REPORT-02의 관리 팁. 실패해도 상세 응답을 막지 않는다 (ADR 0028). */
+    private final InsightTipClient insightTipClient;
+
     @Transactional(readOnly = true)
     public ReportResponse getReport(Long userId, int period, SkinMetricType metric) {
         if (!ALLOWED_PERIODS.contains(period)) {
             throw new BusinessException(ErrorCode.REPORT_INVALID_PERIOD);
         }
 
-        LocalDate endDate = LocalDate.now();
+        LocalDate endDate = LocalDate.now(KST);
         LocalDate startDate = endDate.minusDays(period - 1L);
 
         List<SkinRecord> records = skinRecordRepository
@@ -105,8 +117,100 @@ public class ReportService {
             throw new BusinessException(ErrorCode.REPORT_DATA_INSUFFICIENT);
         }
 
-        return new ReportResponse(period, metric, buildGraph(records, metric, startDate, endDate),
+        return new ReportResponse(period, metric, buildSummary(userId, records, period, startDate, endDate),
+                buildGraph(records, metric, startDate, endDate),
                 loadInsights(userId, startDate), Collections.emptyList());
+    }
+
+    /**
+     * REPORT-01 {@code summary} · 기간 종합 점수 카드.
+     *
+     * <p>{@code totalScore}는 SKIN-01의 산출식(ADR 0008)을 기간 단위로 그대로 확장한다 — 기간 내
+     * 모든 지표값을 한데 모은 평균이다. 직전 동일 기간(같은 길이의 바로 전 구간)에 기록이 없으면
+     * 증감은 0으로 둔다 — 비교 대상이 없을 때 임의로 단정하지 않는다.
+     */
+    private ReportSummaryResponse buildSummary(
+            Long userId, List<SkinRecord> records, int period, LocalDate startDate, LocalDate endDate) {
+        Map<SkinMetricType, List<Integer>> scoresByMetric = loadScoresByMetric(records);
+
+        LocalDate previousEndDate = startDate.minusDays(1);
+        LocalDate previousStartDate = previousEndDate.minusDays(period - 1L);
+        List<SkinRecord> previousRecords = skinRecordRepository
+                .findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(userId, previousStartDate, previousEndDate);
+        Map<SkinMetricType, List<Integer>> previousScoresByMetric = loadScoresByMetric(previousRecords);
+
+        List<ReportSummaryMetricResponse> metrics = new ArrayList<>();
+        for (SkinMetricType type : SkinMetricType.values()) {
+            int score = averageOf(scoresByMetric.get(type));
+            metrics.add(new ReportSummaryMetricResponse(type, score, deltaOf(score, previousScoresByMetric.get(type))));
+        }
+
+        int totalScore = averageOfAll(scoresByMetric);
+        int totalDelta = previousRecords.isEmpty() ? 0 : totalScore - averageOfAll(previousScoresByMetric);
+
+        return new ReportSummaryResponse(
+                totalScore, totalDelta, metrics, buildSummaryGraph(records, startDate, endDate));
+    }
+
+    /** 직전 기간에 해당 지표 기록 자체가 없으면 0(비교 없음)이다 — 있었는데 값이 0인 경우와 구별한다. */
+    private int deltaOf(int score, List<Integer> previousScores) {
+        if (previousScores == null || previousScores.isEmpty()) {
+            return 0;
+        }
+        return score - averageOf(previousScores);
+    }
+
+    /**
+     * 하루에 모닝·나이트가 다 있으면 두 슬롯의 종합 점수 평균을 그날의 값으로 쓴다 — 대표값 하나로 접는다.
+     *
+     * <p>기록별 종합 점수는 {@link SkinRecord#getOverallScore()}를 그대로 쓴다 — SKIN-01 저장 시점에
+     * 이미 ADR 0008 방식(지표 4종 단순 평균)으로 계산되어 있어, 지표가 일부만 있는 기록도 이 계산을
+     * 다시 하지 않고 동일한 값을 재사용한다.
+     */
+    private List<ReportSummaryGraphPointResponse> buildSummaryGraph(
+            List<SkinRecord> records, LocalDate startDate, LocalDate endDate) {
+        Map<LocalDate, List<Integer>> scoresByDate = new HashMap<>();
+        for (SkinRecord record : records) {
+            if (record.getOverallScore() == null) {
+                continue;
+            }
+            scoresByDate.computeIfAbsent(record.getRecordDate(), date -> new ArrayList<>())
+                    .add(record.getOverallScore().intValue());
+        }
+
+        return startDate.datesUntil(endDate.plusDays(1))
+                .map(date -> new ReportSummaryGraphPointResponse(date, averageOfNullable(scoresByDate.get(date))))
+                .toList();
+    }
+
+    private Map<SkinMetricType, List<Integer>> loadScoresByMetric(List<SkinRecord> records) {
+        Map<SkinMetricType, List<Integer>> scoresByMetric = new EnumMap<>(SkinMetricType.class);
+        List<Long> recordIds = records.stream().map(SkinRecord::getId).toList();
+        for (SkinMetric skinMetric : skinMetricRepository.findAllBySkinRecordIdIn(recordIds)) {
+            scoresByMetric.computeIfAbsent(skinMetric.getMetricType(), type -> new ArrayList<>())
+                    .add(skinMetric.getMetricValue().intValue());
+        }
+        return scoresByMetric;
+    }
+
+    /** 지표 4종의 점수 리스트를 하나로 합쳐 평균 낸다 — SKIN-01 totalScore(ADR 0008)의 기간판이다. */
+    private int averageOfAll(Map<SkinMetricType, List<Integer>> scoresByMetric) {
+        List<Integer> all = scoresByMetric.values().stream().flatMap(List::stream).toList();
+        return averageOf(all);
+    }
+
+    private int averageOf(List<Integer> scores) {
+        if (scores == null || scores.isEmpty()) {
+            return 0;
+        }
+        return (int) Math.round(scores.stream().mapToInt(Integer::intValue).average().orElse(0));
+    }
+
+    private Integer averageOfNullable(List<Integer> scores) {
+        if (scores == null || scores.isEmpty()) {
+            return null;
+        }
+        return (int) Math.round(scores.stream().mapToInt(Integer::intValue).average().orElse(0));
     }
 
     /**
@@ -126,7 +230,7 @@ public class ReportService {
                 .filter(found -> found.getUser().getId().equals(userId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.REPORT_INSIGHT_NOT_FOUND));
 
-        LocalDate endDate = insight.getEndDate() != null ? insight.getEndDate() : LocalDate.now();
+        LocalDate endDate = insight.getEndDate() != null ? insight.getEndDate() : LocalDate.now(KST);
         LocalDate startDate = insight.getStartDate() != null
                 ? insight.getStartDate()
                 : endDate.minusDays(FALLBACK_WINDOW_DAYS - 1L);
@@ -141,8 +245,30 @@ public class ReportService {
                 metric,
                 insight.getTitle() + " 추이",
                 subtitleOf(insight.getStartDate(), insight.getEndDate()),
+                insight.getDescription(),
                 buildGraph(records, metric, startDate, endDate),
-                buildEvents(userId, insight, metric, startDate, endDate));
+                buildEvents(userId, insight, metric, startDate, endDate),
+                loadTip(insight, metric));
+    }
+
+    /**
+     * 관리 팁은 ai-server가 생성한다(ADR 0028). 실패하면 {@code null}이다 — 팁이 없어도 상세
+     * 화면은 성립하므로 상세 조회 전체를 막지 않는다.
+     *
+     * <p>AI에 넘기는 시차·변화량은 {@code impact} 문구에 싣는 것과 **같은 기준으로 거른다**
+     * ({@link #firstUsageDelta}). 확정되지 않은 패턴의 변화량을 넘기면 AI가 그 부호로 "악화됐다"고
+     * 단정해 버려, 화면은 "확인 중"인데 팁만 단정하는 모순이 생긴다 (BR 2).
+     */
+    private String loadTip(AnalysisInsight insight, SkinMetricType metric) {
+        Integer delta = firstUsageDelta(insight);
+        return insightTipClient.generateTip(new InsightTipRequest(
+                        insight.getTitle(),
+                        metricName(metric),
+                        insight.getDescription(),
+                        confidenceOf(insight),
+                        delta == null ? null : insight.getLagDays(),
+                        delta == null ? null : BigDecimal.valueOf(delta)))
+                .orElse(null);
     }
 
     /** 기록이 있는 날만이 아니라 창 전체를 조밀하게 채운다 — 결측 날짜는 두 슬롯 모두 {@code null}이다. */
@@ -171,7 +297,7 @@ public class ReportService {
      */
     @Transactional(readOnly = true)
     public ReportDailyResponse getDailyReport(Long userId, LocalDate date, TimeSlot timeSlot) {
-        if (date.isAfter(LocalDate.now())) {
+        if (date.isAfter(LocalDate.now(KST))) {
             throw new BusinessException(ErrorCode.RECORD_FUTURE_DATE_NOT_ALLOWED);
         }
 
@@ -222,12 +348,15 @@ public class ReportService {
         List<ReportInsightEventResponse> events = new ArrayList<>();
 
         if (insight.getInsightType() == InsightType.INGREDIENT) {
+            Integer delta = firstUsageDelta(insight);
             findFirstUsageDate(userId, insight.getTitle(), startDate, endDate)
                     .map(date -> new ReportInsightEventResponse(
                             date,
                             "%s 이 기간 첫 사용".formatted(insight.getTitle()),
-                            firstUsageImpact(insight, metric),
-                            confidenceOf(insight)))
+                            firstUsageImpact(insight, delta, metric),
+                            confidenceOf(insight),
+                            delta,
+                            InsightEventKind.INGREDIENT_USAGE))
                     .ifPresent(events::add);
         }
 
@@ -237,18 +366,29 @@ public class ReportService {
     }
 
     /**
-     * 확정된 패턴만 시차와 변화량을 문구에 싣는다. 확인 중이거나 두 값이 없으면 단정하지 않는다 (BR 2).
+     * 문구에 실을 수 있는 변화량. 확정되지 않았거나 시차·변화량이 없으면 {@code null}이다 (BR 2) —
+     * {@link #firstUsageImpact}가 "확인 중"으로 폴백하는 조건과 같아, 문구와 {@code delta} 필드가
+     * 어긋날 수 없다.
      */
-    private String firstUsageImpact(AnalysisInsight insight, SkinMetricType metric) {
-        String metricName = metricName(metric);
-        Integer lagDays = insight.getLagDays();
+    private Integer firstUsageDelta(AnalysisInsight insight) {
         BigDecimal averageDelta = insight.getAverageDelta();
-        if (!"OBSERVED".equals(confidenceOf(insight)) || lagDays == null || averageDelta == null) {
+        if (!"OBSERVED".equals(confidenceOf(insight)) || insight.getLagDays() == null || averageDelta == null) {
+            return null;
+        }
+        // 지표값 기준이라 양수면 증상 악화다. 부호를 그대로 보존한다.
+        return averageDelta.intValue();
+    }
+
+    /**
+     * 확정된 패턴만 시차와 변화량을 문구에 싣는다. 확인 중이거나 값이 없으면 단정하지 않는다 (BR 2).
+     */
+    private String firstUsageImpact(AnalysisInsight insight, Integer delta, SkinMetricType metric) {
+        String metricName = metricName(metric);
+        if (delta == null) {
             return "이후 %s 변화를 확인 중이에요".formatted(metricName);
         }
-        // 지표값 기준이라 양수면 증상 악화다. 부호를 그대로 보여준다.
         return "이후 %d일 뒤 %s 수치 %s%d".formatted(
-                lagDays, metricName, averageDelta.signum() < 0 ? "-" : "+", averageDelta.abs().intValue());
+                insight.getLagDays(), metricName, delta < 0 ? "-" : "+", Math.abs(delta));
     }
 
     /**
@@ -295,11 +435,14 @@ public class ReportService {
         if (spikeStart == null || streak < UV_SPIKE_MIN_DAYS) {
             return;
         }
+        // 자외선 이벤트는 변화량을 산출할 근거가 없다 — 단정하지 않는다는 BR 2 그대로다.
         events.add(new ReportInsightEventResponse(
                 spikeStart,
                 "자외선 지수 %d 이상 %d일 연속".formatted(UV_SPIKE_THRESHOLD.intValue(), streak),
                 "이 기간 %s 변화를 확인 중이에요".formatted(metricName(metric)),
-                confidence));
+                confidence,
+                null,
+                InsightEventKind.UV_SPIKE));
     }
 
     /**

@@ -4,6 +4,7 @@ import com.ildangbaek.backend.api.check.dto.CheckHomeResponse;
 import com.ildangbaek.backend.api.check.dto.CheckRecommendationResponse;
 import com.ildangbaek.backend.api.check.dto.RecommendationCategory;
 import com.ildangbaek.backend.api.check.dto.TodayContextResponse;
+import com.ildangbaek.backend.domain.analysis.entity.IngredientProfile;
 import com.ildangbaek.backend.domain.analysis.entity.ReactionType;
 import com.ildangbaek.backend.domain.analysis.profile.ProfileCompletionCalculator;
 import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileRepository;
@@ -22,6 +23,7 @@ import com.ildangbaek.backend.domain.record.entity.SkinRecord;
 import com.ildangbaek.backend.domain.record.repository.SkinMetricRepository;
 import com.ildangbaek.backend.domain.record.repository.SkinRecordRepository;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,6 +49,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CheckHomeService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     /** 세안·토너·세럼류는 트러블/홍조 진정 목적으로 우선 쓰인다고 추정한다(ADR 0018). */
     private static final Set<ProductCategory> TODAY_NEEDED_CATEGORIES =
             Set.of(ProductCategory.CLEANSING, ProductCategory.TONER, ProductCategory.SERUM);
@@ -67,20 +71,26 @@ public class CheckHomeService {
 
     @Transactional(readOnly = true)
     public CheckHomeResponse getHome(Long userId) {
-        List<Long> goodIngredientIds = ingredientProfileRepository.findAllByUserIdWithIngredient(userId).stream()
-                .filter(profile -> profile.getReactionType() == ReactionType.SUITABLE)
-                .map(profile -> profile.getIngredient().getId())
-                .toList();
+        List<IngredientProfile> profiles = ingredientProfileRepository.findAllByUserIdWithIngredient(userId);
+        List<Long> goodIngredientIds = ingredientIdsOf(profiles, ReactionType.SUITABLE);
+        Set<Long> cautionIngredientIds = Set.copyOf(ingredientIdsOf(profiles, ReactionType.CAUTION));
 
         TodayContextResponse todayContext = buildTodayContext(userId);
 
         List<CheckRecommendationResponse> recommendations = goodIngredientIds.isEmpty()
                 ? List.of()
-                : buildRecommendations(goodIngredientIds, todayContext);
+                : buildRecommendations(goodIngredientIds, cautionIngredientIds, todayContext);
 
         int profileCompletion = profileCompletionCalculator.calculate(userId);
 
         return new CheckHomeResponse(profileCompletion, recommendations, todayContext, List.of());
+    }
+
+    private List<Long> ingredientIdsOf(List<IngredientProfile> profiles, ReactionType reactionType) {
+        return profiles.stream()
+                .filter(profile -> profile.getReactionType() == reactionType)
+                .map(profile -> profile.getIngredient().getId())
+                .toList();
     }
 
     /**
@@ -104,7 +114,7 @@ public class CheckHomeService {
         Integer humidity = null;
         HumidityGrade humidityGrade = null;
         DailyEnvironment environment =
-                dailyEnvironmentRepository.findByUserIdAndRecordDate(userId, LocalDate.now()).orElse(null);
+                dailyEnvironmentRepository.findByUserIdAndRecordDate(userId, LocalDate.now(KST)).orElse(null);
         if (environment != null && environment.getHumidity() != null) {
             humidity = environment.getHumidity().intValue();
             humidityGrade = HumidityGrade.from(environment.getHumidity());
@@ -120,9 +130,12 @@ public class CheckHomeService {
      *
      * <p>{@code reason}까지 조립한 뒤 ai-server에 배치로 {@code aiComment}를 요청한다(ADR 0025).
      * 제품 수만큼 개별 호출하면 지연·비용이 배로 늘어나 한 번의 호출로 묶는다.
+     *
+     * <p>{@code tags}는 규칙으로 도출한다(ADR 0027). 주의 성분 판정에 추천 제품 전체의 성분이
+     * 필요해 쿼리 1번을 더 쓰지만, 제품별로 나눠 읽지 않아 제품 수와 무관하게 1회로 고정된다.
      */
     private List<CheckRecommendationResponse> buildRecommendations(
-            List<Long> goodIngredientIds, TodayContextResponse todayContext) {
+            List<Long> goodIngredientIds, Set<Long> cautionIngredientIds, TodayContextResponse todayContext) {
         List<ProductIngredient> matches =
                 productIngredientRepository.findAllWithProductByIngredientIdInAndKeyIngredientTrue(goodIngredientIds);
 
@@ -130,14 +143,21 @@ public class CheckHomeService {
                 .collect(Collectors.groupingBy(
                         pi -> pi.getProduct().getId(), LinkedHashMap::new, Collectors.toList()));
 
+        Set<Long> productIdsWithCaution =
+                findProductIdsWithCaution(List.copyOf(matchesByProductId.keySet()), cautionIngredientIds);
+
         List<CheckRecommendationResponse> recommendations = new ArrayList<>();
         List<ProductCommentRequest> commentRequests = new ArrayList<>();
-        for (List<ProductIngredient> productMatches : matchesByProductId.values()) {
+        for (Map.Entry<Long, List<ProductIngredient>> entry : matchesByProductId.entrySet()) {
+            List<ProductIngredient> productMatches = entry.getValue();
             List<String> ingredientNames = productMatches.stream()
                     .map(pi -> pi.getIngredient().getKoreanName())
                     .toList();
-            CheckRecommendationResponse recommendation =
-                    toRecommendation(productMatches.get(0).getProduct(), ingredientNames, todayContext);
+            CheckRecommendationResponse recommendation = toRecommendation(
+                    productMatches.get(0).getProduct(),
+                    ingredientNames,
+                    todayContext,
+                    !productIdsWithCaution.contains(entry.getKey()));
             recommendations.add(recommendation);
             commentRequests.add(new ProductCommentRequest(
                     recommendation.productId(),
@@ -154,17 +174,51 @@ public class CheckHomeService {
                 .toList();
     }
 
+    /**
+     * 사용자 프로파일에서 CAUTION인 성분을 하나라도 가진 제품의 ID. 주의 성분 프로파일이 없으면
+     * 대조할 것이 없어 조회하지 않는다 — 이때는 모든 제품이 "주의 성분 없음"이다.
+     */
+    private Set<Long> findProductIdsWithCaution(List<Long> productIds, Set<Long> cautionIngredientIds) {
+        if (cautionIngredientIds.isEmpty() || productIds.isEmpty()) {
+            return Set.of();
+        }
+        return productIngredientRepository.findAllWithIngredientByProductIdIn(productIds).stream()
+                .filter(pi -> cautionIngredientIds.contains(pi.getIngredient().getId()))
+                .map(pi -> pi.getProduct().getId())
+                .collect(Collectors.toSet());
+    }
+
     private CheckRecommendationResponse toRecommendation(
-            Product product, List<String> ingredientNames, TodayContextResponse todayContext) {
+            Product product, List<String> ingredientNames, TodayContextResponse todayContext, boolean cautionFree) {
         String reason = String.join("·", ingredientNames) + "이 잘 맞는 성분이에요";
         RecommendationCategory category = classify(product.getCategory(), todayContext);
         return new CheckRecommendationResponse(
-                product.getId(), product.getProductName(), product.getBrandName(), reason, category, null);
+                product.getId(), product.getProductName(), product.getBrandName(), reason, category, null,
+                buildTags(category, cautionFree));
+    }
+
+    /**
+     * 추천 카드의 근거 칩(ADR 0027). 첫 칩은 {@code category} 판정 근거를 요약하고, 둘째 칩은
+     * 사용자 프로파일 기준 주의 성분이 없을 때만 붙인다 — 있는 경우 "포함" 문구를 넣지 않는 이유는
+     * 추천 카드가 그 제품을 권하는 자리이지 경고하는 자리가 아니기 때문이다. CHECK-02(제품 상세)가
+     * 주의 성분을 다룬다.
+     */
+    private List<String> buildTags(RecommendationCategory category, boolean cautionFree) {
+        List<String> tags = new ArrayList<>();
+        tags.add(switch (category) {
+            case TODAY_NEEDED -> "트러블 진정 성분";
+            case HUMIDITY_CARE -> "보습 강화 성분";
+            case MATCHED_INGREDIENT -> "잘 맞는 성분";
+        });
+        if (cautionFree) {
+            tags.add("주의 성분 미포함");
+        }
+        return List.copyOf(tags);
     }
 
     private CheckRecommendationResponse withAiComment(CheckRecommendationResponse r, String aiComment) {
         return new CheckRecommendationResponse(
-                r.productId(), r.name(), r.brand(), r.reason(), r.category(), aiComment);
+                r.productId(), r.name(), r.brand(), r.reason(), r.category(), aiComment, r.tags());
     }
 
     /**

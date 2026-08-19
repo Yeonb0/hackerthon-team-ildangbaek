@@ -22,6 +22,8 @@ spring:
         default_batch_fetch_size: 100
 
 app:
+  auth:
+    mock-token-secret: test-mock-token-secret
   storage:
     local:
       directory: ./build/test-uploads/images

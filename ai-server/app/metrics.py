@@ -18,9 +18,14 @@ import logging
 import cv2
 import numpy as np
 
-from app.schema import AnalysisResult, SkinScores
+from app.schema import AnalysisResult, RawMeasurements, SkinScores
 
 log = logging.getLogger(__name__)
+
+# 이 상수들(구간값)이 바뀌면 과거에 저장된 rawValue로 재계산한 점수가 당시 점수와 달라진다.
+# 그런 변경을 할 때는 반드시 이 버전 문자열도 함께 올린다.
+ALGORITHM_VERSION = "cielab-v1"
+NORMALIZATION_VERSION = "to-score-v1"
 
 # 측정값을 점수로 옮기는 구간. (좋은 상태의 측정값, 나쁜 상태의 측정값)
 # 모든 값은 tests/conftest.py의 합성 얼굴을 전체 파이프라인에 태워 실측해 잡았다.
@@ -74,7 +79,7 @@ def _channels(image_bgr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return lab[:, :, 0], lab[:, :, 1] - 128.0
 
 
-def _redness(a_channel: np.ndarray, cheeks: np.ndarray) -> int:
+def _redness(a_channel: np.ndarray, cheeks: np.ndarray) -> tuple[float, int]:
     """홍조 — 볼에서 가장 붉은 축에 속하는 영역의 a*(붉은기).
 
     홍조는 넓은 영역의 색 변화라 화질에 덜 민감하다. 볼만 보는 이유는 이마·코가 조명 반사로
@@ -88,11 +93,14 @@ def _redness(a_channel: np.ndarray, cheeks: np.ndarray) -> int:
 
     TROUBLE(p99.9)·PIGMENTATION(p98)이 국소 이상치를 백분위로 잡는 것과 같은 접근이다.
     다만 홍조는 여드름·잡티보다 넓게 퍼지므로 훨씬 낮은 백분위를 쓴다.
+
+    :return: (볼 a* 상위 85 백분위 원시값, 0~100 점수)
     """
-    return _to_score(float(np.percentile(a_channel[cheeks > 0], 85)), *REDNESS_RANGE)
+    raw = float(np.percentile(a_channel[cheeks > 0], 85))
+    return raw, _to_score(raw, *REDNESS_RANGE)
 
 
-def _pigmentation(lightness: np.ndarray, pigmentation_skin: np.ndarray) -> int:
+def _pigmentation(lightness: np.ndarray, pigmentation_skin: np.ndarray) -> tuple[float, int]:
     """색소침착 — 주변보다 어두운 반점의 정도.
 
     큰 스케일로 흐린 영상과의 차분을 써서 "주변 대비 얼마나 어두운가"를 잰다. 절대 밝기가 아니라
@@ -112,12 +120,13 @@ def _pigmentation(lightness: np.ndarray, pigmentation_skin: np.ndarray) -> int:
     — 정면이 아니거나 조명이 측면에서 오면 두드러진다. 블러 반경을 sigma=80까지 키워도 이
     구조적 음영은 사라지지 않았다(실측) — 급경사 경계는 큰 블러로도 배경 추정이 못 따라간다.
     합성 얼굴은 코가 평평해 이 문제가 테스트로 드러나지 않았다.
+
+    :return: (배경 대비 어두움 정도의 p99.6 원시값, 0~100 점수)
     """
     background = cv2.GaussianBlur(lightness, (0, 0), 15)
     darker_than_surroundings = np.clip(background - lightness, 0, None)
-    return _to_score(
-        float(np.percentile(darker_than_surroundings[pigmentation_skin > 0], 99.6)), *PIGMENTATION_RANGE
-    )
+    raw = float(np.percentile(darker_than_surroundings[pigmentation_skin > 0], 99.6))
+    return raw, _to_score(raw, *PIGMENTATION_RANGE)
 
 
 # clean 사진 20장(노이즈만 다름, JPEG+리사이즈 포함)의 hf_std 실측 범위. 측정값이 이 안에 있으면
@@ -125,7 +134,7 @@ def _pigmentation(lightness: np.ndarray, pigmentation_skin: np.ndarray) -> int:
 _PORES_NOISE_FLOOR = 6.2
 
 
-def _pores(lightness: np.ndarray, skin: np.ndarray) -> tuple[int, str]:
+def _pores(lightness: np.ndarray, skin: np.ndarray) -> tuple[float, int, str]:
     """모공 — 피부 표면의 고주파 텍스처 세기.
 
     <strong>네 지표 중 신뢰도가 가장 낮다.</strong> 모공과 카메라 노이즈·압축 아티팩트가 같은
@@ -136,14 +145,14 @@ def _pores(lightness: np.ndarray, skin: np.ndarray) -> tuple[int, str]:
     구간값 결정과 같은 철학)을 신뢰도에도 적용한 것 — "낮은 신뢰도의 점수"와 "점수 없음"은 다른
     정보라 후자로 뭉개면 오히려 정보 손실이다.
 
-    :return: (점수, "LOW" 또는 "NORMAL")
+    :return: (고주파 텍스처 표준편차 원시값, 점수, "LOW" 또는 "NORMAL")
     """
     raw = float((lightness - cv2.GaussianBlur(lightness, (0, 0), 3))[skin > 0].std())
     reliability = "LOW" if raw <= _PORES_NOISE_FLOOR else "NORMAL"
-    return _to_score(raw, *PORES_RANGE), reliability
+    return raw, _to_score(raw, *PORES_RANGE), reliability
 
 
-def _trouble(lightness: np.ndarray, a_channel: np.ndarray, skin: np.ndarray) -> int:
+def _trouble(lightness: np.ndarray, a_channel: np.ndarray, skin: np.ndarray) -> tuple[float, int]:
     """트러블 — 붉으면서 동시에 국소적으로 도드라지는 작은 영역.
 
     붉기만으로 판단하면 홍조와 구분되지 않는다. 여드름은 붉고(a* 상승) 주변보다 어둡거나 튀어나와
@@ -157,27 +166,52 @@ def _trouble(lightness: np.ndarray, a_channel: np.ndarray, skin: np.ndarray) -> 
     — 실측으로 확인했다(p99에서는 radius=2 반점이 clean과 구분 불가, p99.9에서는 명확히 분리).
     큰 반점(radius 6 이상)은 전체 픽셀 수가 충분해 p99로도 잡히지만, 작은 것에 맞추면 큰 것도
     함께 잡힌다 — 반대는 성립하지 않는다.
+
+    :return: (relative_redness*local_shadow의 p99.9 원시값, 0~100 점수)
     """
     skin_pixels = skin > 0
     relative_redness = np.clip(a_channel - float(np.median(a_channel[skin_pixels])), 0, None)
     local_shadow = np.clip(cv2.GaussianBlur(lightness, (0, 0), 15) - lightness, 0, None)
 
     combined = (relative_redness * local_shadow)[skin_pixels]
-    return _to_score(float(np.percentile(combined, 99.9)), *TROUBLE_RANGE)
+    raw = float(np.percentile(combined, 99.9))
+    return raw, _to_score(raw, *TROUBLE_RANGE)
 
 
 def compute(image_bgr: np.ndarray, masks: dict[str, np.ndarray]) -> AnalysisResult:
-    """전처리를 마친 이미지에서 지표 4종과 모공 지표의 신뢰도를 산출한다."""
+    """전처리를 마친 이미지에서 지표 4종과 모공 지표의 신뢰도를 산출한다.
+
+    반환하는 `raw`는 이 1차(규칙 기반) 단계의 원시 측정값이다. `vision.refine()`이 뒤이어
+    점수를 OpenAI 판단으로 덮어쓸 수 있으므로(ADR 0022), 최종적으로 저장되는 score가
+    `raw`로부터 `_to_score`를 거쳐 정확히 재현된다는 보장은 없다 — OpenAI가 개입하지 않았을
+    때만 그 관계가 성립한다.
+    """
     lightness, a_channel = _channels(image_bgr)
     skin = masks["skin"]
 
-    pores_score, pores_reliability = _pores(lightness, skin)
+    trouble_raw, trouble_score = _trouble(lightness, a_channel, skin)
+    redness_raw, redness_score = _redness(a_channel, masks["cheeks"])
+    pores_raw, pores_score, pores_reliability = _pores(lightness, skin)
+    pigmentation_raw, pigmentation_score = _pigmentation(lightness, masks["pigmentation"])
+
     scores = SkinScores(
-        TROUBLE=_trouble(lightness, a_channel, skin),
-        REDNESS=_redness(a_channel, masks["cheeks"]),
+        TROUBLE=trouble_score,
+        REDNESS=redness_score,
         PORES=pores_score,
-        PIGMENTATION=_pigmentation(lightness, masks["pigmentation"]),
+        PIGMENTATION=pigmentation_score,
     )
-    result = AnalysisResult(scores=scores, pores_reliability=pores_reliability)
+    raw = RawMeasurements(
+        TROUBLE=trouble_raw,
+        REDNESS=redness_raw,
+        PORES=pores_raw,
+        PIGMENTATION=pigmentation_raw,
+    )
+    result = AnalysisResult(
+        scores=scores,
+        raw=raw,
+        pores_reliability=pores_reliability,
+        algorithm_version=ALGORITHM_VERSION,
+        normalization_version=NORMALIZATION_VERSION,
+    )
     log.info("지표 산출: %s", result.model_dump())
     return result

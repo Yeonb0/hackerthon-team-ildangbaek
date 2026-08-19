@@ -8,6 +8,7 @@ import com.ildangbaek.backend.api.onboard.dto.response.HormoneResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingCompleteResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingStatusResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingStatusResponse.StepStatus;
+import com.ildangbaek.backend.api.routine.service.DefaultRoutineService;
 import com.ildangbaek.backend.domain.user.entity.Gender;
 import com.ildangbaek.backend.domain.user.entity.MenstrualStatus;
 import com.ildangbaek.backend.domain.user.entity.SkinType;
@@ -23,6 +24,7 @@ import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -36,10 +38,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OnboardingService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
     private final SkinTypeRepository skinTypeRepository;
     private final UserSkinTypeRepository userSkinTypeRepository;
+    private final DefaultRoutineService defaultRoutineService;
 
     @Transactional(readOnly = true)
     public OnboardingStatusResponse getStatus(User user) {
@@ -130,6 +135,7 @@ public class OnboardingService {
 
         user.completeOnboarding();
         userRepository.save(user);
+        defaultRoutineService.ensureDefaultRoutines(user);
 
         return new OnboardingCompleteResponse(true, buildSummary(user));
     }
@@ -216,7 +222,7 @@ public class OnboardingService {
     }
 
     private void validateHormoneDate(LocalDate lastPeriodStartDate) {
-        if (lastPeriodStartDate != null && lastPeriodStartDate.isAfter(LocalDate.now())) {
+        if (lastPeriodStartDate != null && lastPeriodStartDate.isAfter(LocalDate.now(KST))) {
             throw new BusinessException(ErrorCode.COMMON_VALIDATION_FAILED);
         }
     }

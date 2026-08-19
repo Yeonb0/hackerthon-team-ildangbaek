@@ -11,6 +11,10 @@ import com.ildangbaek.backend.api.product.dto.response.ProductSaveResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductScanResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSearchResponse;
 import com.ildangbaek.backend.api.product.dto.response.ProductSummaryResponse;
+import com.ildangbaek.backend.domain.analysis.entity.IngredientProfile;
+import com.ildangbaek.backend.domain.analysis.entity.IngredientStatus;
+import com.ildangbaek.backend.domain.analysis.entity.ReactionType;
+import com.ildangbaek.backend.domain.analysis.repository.IngredientProfileRepository;
 import com.ildangbaek.backend.domain.product.entity.Ingredient;
 import com.ildangbaek.backend.domain.product.entity.Product;
 import com.ildangbaek.backend.domain.product.entity.ProductDataSource;
@@ -25,10 +29,13 @@ import com.ildangbaek.backend.domain.user.entity.User;
 import com.ildangbaek.backend.global.exception.BusinessException;
 import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.storage.ImageStorage;
+import com.ildangbaek.backend.global.storage.ImageUrlResolver;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,12 +47,15 @@ public class ProductService {
 
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png");
     private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
+    private static final int KEY_INGREDIENT_LIMIT = 10;
 
     private final ProductRepository productRepository;
     private final ProductIngredientRepository productIngredientRepository;
     private final IngredientRepository ingredientRepository;
     private final UserProductRepository userProductRepository;
+    private final IngredientProfileRepository ingredientProfileRepository;
     private final ImageStorage imageStorage;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional(readOnly = true)
     public ProductSearchResponse search(User user, String keyword) {
@@ -67,13 +77,18 @@ public class ProductService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
         List<ProductIngredient> productIngredients =
                 productIngredientRepository.findAllByProductIdOrderByDisplayOrderAsc(productId);
+        Map<Long, IngredientProfile> profilesByIngredientId = findProfiles(user, productIngredients);
         List<IngredientResponse> ingredients = productIngredients.stream()
-                .map(this::toIngredient)
+                .map(productIngredient -> toIngredient(
+                        productIngredient,
+                        profilesByIngredientId.get(productIngredient.getIngredient().getId())))
                 .toList();
         List<IngredientResponse> keyIngredients = productIngredients.stream()
                 .filter(ProductIngredient::isKeyIngredient)
-                .limit(10)
-                .map(this::toIngredient)
+                .limit(KEY_INGREDIENT_LIMIT)
+                .map(productIngredient -> toIngredient(
+                        productIngredient,
+                        profilesByIngredientId.get(productIngredient.getIngredient().getId())))
                 .toList();
 
         return new ProductDetailResponse(
@@ -81,7 +96,7 @@ public class ProductService {
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                product.getImageUrl(),
+                imageUrlResolver.resolve(product.getImageUrl()),
                 isSaved(user, product),
                 ingredients.size(),
                 keyIngredients,
@@ -116,7 +131,7 @@ public class ProductService {
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                product.getImageUrl(),
+                imageUrlResolver.resolve(product.getImageUrl()),
                 1.0
         );
     }
@@ -126,17 +141,10 @@ public class ProductService {
         if (scanMode == null) {
             throw new BusinessException(ErrorCode.SCAN_UNSUPPORTED_MODE);
         }
-        Product product = productRepository.findFirstByActiveTrueOrderByIdAsc()
-                .orElseThrow(() -> new BusinessException(ErrorCode.SCAN_PRODUCT_NOT_DETECTED));
-        double confidence = scanMode == ScanMode.BARCODE ? 1.0 : 0.92;
-        return new ProductScanResponse(
-                product.getId(),
-                product.getProductName(),
-                product.getBrandName(),
-                product.getCategory().name(),
-                product.getImageUrl(),
-                confidence
-        );
+        // 이미지에서 바코드를 디코딩하거나 상품을 인식하는 비전 로직이 아직 없다.
+        // 인식한 것처럼 임의 제품을 돌려주는 대신 서비스 미지원으로 명확히 응답한다.
+        // 바코드는 /scan(JSON, barcode 문자열)으로만 실제 조회가 가능하다.
+        throw new BusinessException(ErrorCode.SCAN_SERVICE_UNAVAILABLE);
     }
 
     @Transactional
@@ -175,21 +183,25 @@ public class ProductService {
                         .orElseGet(() -> ingredientRepository.save(Ingredient.builder()
                                 .koreanName(ingredientName)
                                 .build()));
+                boolean keyIngredient = displayOrder <= KEY_INGREDIENT_LIMIT;
                 productIngredientRepository.save(ProductIngredient.builder()
                         .product(product)
                         .ingredient(ingredient)
-                        .displayOrder(displayOrder++)
-                        .keyIngredient(false)
+                        .displayOrder(displayOrder)
+                        .keyIngredient(keyIngredient)
                         .build());
+                displayOrder++;
             }
         }
+
+        saveUserProduct(user, product);
 
         return new ProductRegisterResponse(
                 product.getId(),
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                product.getImageUrl()
+                imageUrlResolver.resolve(product.getImageUrl())
         );
     }
 
@@ -233,22 +245,45 @@ public class ProductService {
         return new ProductSaveResponse(productId, false);
     }
 
+    private void saveUserProduct(User user, Product product) {
+        UserProduct userProduct = userProductRepository.findByUserIdAndProductId(user.getId(), product.getId())
+                .orElseGet(() -> UserProduct.builder()
+                        .user(user)
+                        .product(product)
+                        .build());
+        userProduct.resumeUsing();
+        userProductRepository.save(userProduct);
+    }
+
     private ProductSummaryResponse toSummary(User user, Product product) {
         return new ProductSummaryResponse(
                 product.getId(),
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                product.getImageUrl(),
+                imageUrlResolver.resolve(product.getImageUrl()),
                 isSaved(user, product)
         );
     }
 
-    private IngredientResponse toIngredient(ProductIngredient productIngredient) {
+    private Map<Long, IngredientProfile> findProfiles(User user, List<ProductIngredient> productIngredients) {
+        List<Long> ingredientIds = productIngredients.stream()
+                .map(productIngredient -> productIngredient.getIngredient().getId())
+                .toList();
+        if (ingredientIds.isEmpty()) {
+            return Map.of();
+        }
+        return ingredientProfileRepository.findAllByUserIdAndIngredientIdIn(user.getId(), ingredientIds)
+                .stream()
+                .collect(Collectors.toMap(profile -> profile.getIngredient().getId(), profile -> profile));
+    }
+
+    private IngredientResponse toIngredient(ProductIngredient productIngredient, IngredientProfile profile) {
+        ReactionType reactionType = profile == null ? ReactionType.INSUFFICIENT : profile.getReactionType();
         return new IngredientResponse(
                 productIngredient.getIngredient().getId(),
                 productIngredient.getIngredient().getKoreanName(),
-                "INSUFFICIENT",
+                IngredientStatus.from(reactionType).name(),
                 productIngredient.getConcentrationText()
         );
     }

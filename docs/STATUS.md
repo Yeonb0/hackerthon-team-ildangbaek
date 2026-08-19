@@ -3,7 +3,7 @@
 > 이 문서는 **실제 구현·검증·배포 상태**를 기록한다. 계획이나 목표가 아니라 **지금 저장소에 있는 것**을 적는다.
 > 완료로 표시하려면 코드가 실제로 존재하고 동작이 확인되어야 한다.
 
-- 최종 갱신: 2026-08-15
+- 최종 갱신: 2026-08-19
 
 > **2026-08-15 코드리뷰 및 수정 세션.** 백엔드 전체를 심각도 순으로 리뷰해 버그 4건과 인증 구조
 > 1건을 수정했다. 커밋 단위: 테스트 DB 격리(H2, MySQL 없이도 빌드 통과) → USER-04 스킨타입 교체
@@ -124,8 +124,8 @@
 | **인증 (JWT · Security)** | 🟡 | **임시 방편만 있음.** 목업 Bearer 토큰 → `@CurrentUserId`(`Long`·`User` 모두 해석, ADR 0006 · 0017 · 0024). 위조 가능 · 배포 전 교체 필수 |
 | 이미지 업로드 · 스토리지 | 🟡 | `ImageStorage` + `LocalImageStorage` (ADR 0007). multipart 10MB. **로컬 저장이라 다중 인스턴스·재배포 시 유실** |
 | 날짜 귀속 유틸 | ✅ | `global/util/RecordDateResolver` · 경계값 테스트 13종 (ADR 0005 — **확정**) |
-| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능), 규칙 기반 자체 서버 연동(`LocalVisionSkinAnalysisClient`, ADR 0020) 2종. `app.skin.analysis.provider`(`mock`/`local-vision`)로 전환. Spring이 직접 호출하는 OpenAI 클라이언트는 폐기했다(ADR 0022) — OpenAI Vision은 이제 ai-server 내부의 2차 확정 단계로만 쓰인다. 단위 테스트만 검증했고 **자체 서버 경로의 실제 얼굴 사진 E2E 호출은 아직 안 함** — 실사용 전 필요 |
-| 규칙 기반 분석 서버 (`ai-server/`) | 🟡 | FastAPI. MediaPipe 얼굴 검출·피부 영역 분리 → Shades of Gray 화이트밸런스·품질 게이트 → CIELAB 기반 1차 지표 4종 산출(딥러닝 모델 아님, ADR 0020) → OpenAI Vision(`gpt-4o`)이 1차 점수를 근거로 최종 점수 확정, 클램핑 없음(ADR 0022). `OPENAI_API_KEY` 미설정 시 1차 점수로 자동 폴백. **`POST /product-comments`로 제품 추천 AI 코멘트도 배치 생성(ADR 0025)** — 추천 판단은 여전히 Spring의 규칙 기반, AI는 문구만 생성. 파이썬 테스트 66개(OpenAI는 fake 클라이언트로 검증), 합성 이미지로만 검증 — **실제 얼굴 사진 검증 안 함**, **OpenAI 확정·코멘트 생성 모두 실 API 키 E2E 검증 안 함**. 모공 지표는 실측상 신뢰도 낮음(`ai-server/README.md` 신뢰도 표), OpenAI에 재위임하지 않고 규칙 기반 판정 유지 |
+| 피부 분석 클라이언트 | 🟡 | `SkinAnalysisClient` — 목업(`MockSkinAnalysisClient`, 결정적 · 실패 재현 가능), 규칙 기반 자체 서버 연동(`LocalVisionSkinAnalysisClient`, ADR 0020) 2종. `app.skin.analysis.provider`(`mock`/`local-vision`)로 전환. Spring이 직접 호출하는 OpenAI 클라이언트는 폐기했다(ADR 0022) — OpenAI Vision은 이제 ai-server 내부의 2차 확정 단계로만 쓰인다. 단위 테스트만 검증했고 **자체 서버 경로의 실제 얼굴 사진 E2E 호출은 아직 안 함** — 실사용 전 필요. **2026-08-16**: `SkinAnalysisResult`에 `rawValues`·`confidence`·`algorithmVersion`·`normalizationVersion` 추가(ADR 0026) — ai-server 응답의 `raw`/`pores_reliability`/버전 필드를 파싱해 옮긴다. 목업은 근거가 없어 `ofScoresOnly()`로 점수만 채운다. **2026-08-17: `@Autowired` 누락으로 앱이 기동하지 않던 것을 고침** — `b061302`에서 테스트용 생성자가 추가되며 생성자가 둘이 됐는데 어느 쪽에도 표시가 없어 Spring이 주입 대상을 못 골랐다(`NoSuchMethodException: <init>()`). 단위 테스트는 목을 써서 컨텍스트 로딩을 검증하지 않아 잡히지 않았다 — **`@SpringBootTest` 스모크 테스트가 없다는 공백이 드러난 건이다**(2.20절). **2026-08-18**: `SkinAnalysisResult`에 `skinComment` 추가(ADR 0022 연장) — ai-server의 `skin_comment`를 파싱해 `SkinRecord.skin_comment`(신규 컬럼, `ddl-auto: update`로 반영)에 저장하고 `SkinRecordResponse`로 내려준다. 규칙 기반 폴백·목업은 근거가 없어 `null` |
+| 규칙 기반 분석 서버 (`ai-server/`) | 🟡 | FastAPI. MediaPipe 얼굴 검출·피부 영역 분리 → Shades of Gray 화이트밸런스·품질 게이트 → CIELAB 기반 1차 지표 4종 산출(딥러닝 모델 아님, ADR 0020) → OpenAI Vision(`gpt-4o`)이 1차 점수를 근거로 최종 점수 확정, 클램핑 없음(ADR 0022). `OPENAI_API_KEY` 미설정 시 1차 점수로 자동 폴백. **`POST /product-comments`로 제품 추천 AI 코멘트도 배치 생성(ADR 0025)** — 추천 판단은 여전히 Spring의 규칙 기반, AI는 문구만 생성. **2026-08-16**: `/analyze` 응답에 1차(CIELAB) 원시 측정값(`raw`)과 `algorithm_version`/`normalization_version`을 추가(ADR 0026) — OpenAI가 최종 score를 덮어써도 `raw`는 1차 규칙 기반 값을 그대로 유지한다. **2026-08-18**: `vision.refine()`이 최종 점수와 함께 40~70자 `skin_comment`도 받도록 프롬프트·응답 스키마 확장 — 1차 규칙 기반 단계는 근거가 없어 폴백 시 `null`. 파이썬 테스트 78개(OpenAI는 fake 클라이언트로 검증), 합성 이미지로만 검증 — **실제 얼굴 사진 검증 안 함**, **OpenAI 확정·코멘트 생성 모두 실 API 키 E2E 검증 안 함**. 모공 지표는 실측상 신뢰도 낮음(`ai-server/README.md` 신뢰도 표), OpenAI에 재위임하지 않고 규칙 기반 판정 유지 |
 
 > ⚠️ **인증은 임시 방편으로 우회한 상태다.** 실제 인증(AUTH-01~03, A 담당)이 들어오기 전까지
 > 프로덕션 배포는 불가능하다.
@@ -186,18 +186,18 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 | SKIN-01 피부 기록 생성 및 분석 | ✅ | 임시 인증(ADR 0006) · 로컬 스토리지(ADR 0007)로 해소 |
 | SKIN-02 오늘 피부 결과 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13) — 실서버에서만 드러난 버그 1건(NIGHT 자정 경계 404) 수정. **2026-08-15**: 지표 4종 중 일부가 없는 기록(분석 부분 실패 등) 조회 시 언박싱 NPE로 500 나던 버그 수정(`SkinRecordService.buildComparison`, `SkinScoresResponse.from`). 조회 메서드에 누락됐던 `@Transactional(readOnly = true)`도 함께 추가 |
 | SKIN-03 피부 기록 상세 조회 | ✅ | 2.5절. 로컬 MySQL로 실서버 확인(2026-08-13). 소유권 격리(404) 확인. **2026-08-15**: `@Transactional(readOnly = true)` 누락 수정 |
-| F-ANALYSIS-01 성분-피부 시차 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.7절). ADR 0014 기준 재검증 완료 — 회귀 기준선 · 슬롯 분리 전용 시드 · PRODUCT-05 실입력 경로 3축 |
+| F-ANALYSIS-01 성분-피부 시차 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.7절). ADR 0014 기준 재검증 완료 — 회귀 기준선 · 슬롯 분리 전용 시드 · PRODUCT-05 실입력 경로 3축. **2026-08-19**: `LagCorrelationAnalyzer`의 악화/개선 방향이 반대로 계산되던 버그 수정(2.21절) — 지표는 점수가 높을수록 좋은 상태(ADR 0002)인데 점수 상승을 WORSENED로 세고 있었다 |
 | F-ANALYSIS-02 환경 요인 보정 | ✅ | 자외선 급변일 계산(`IngredientLagAnalysisService.loadUvVolatileDates`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동, 호르몬 보정과 곱셈 합성(ADR 0021). 로직·단위 테스트는 완료. **단, `daily_environments`에 실제로 쓰는 프로덕션 코드(F-HOME-03, A 담당)가 아직 없어 실사용 데이터에서는 급변일 집합이 항상 비어 보정이 미적용 경로로만 흐름 — BR 3이 요구하는 정상 동작이며, F-HOME-03 적재가 붙는 즉시 코드 변경 없이 동작. 검증은 목업 데이터로 함** |
 | F-ANALYSIS-03 호르몬 요인 반영 | ✅ | 주기 구간 계산(`MenstrualCycleCalculator`) + `LagCorrelationAnalyzer`·`LagInsightWriter` 연동(ADR 0019). 로컬 MySQL로 실서버 확인(2026-08-14) — `user_profiles`에 호르몬 정보를 직접 넣고 SKIN-01 재분석 시 신뢰도 100→80(20% 감쇄) 및 확정→확인중 전환을 API 응답(`GET /reports`)에서 재현. **단, 호르몬 정보를 입력하는 API(F-ONBOARD-03 `hormone` 단계)가 아직 없어 DB 직접 수정으로 우회 검증함 — A 담당 온보딩 API 미구현이 후속 이슈** |
 | F-ANALYSIS-04 성분 프로파일 갱신 | ✅ | 분류 로직 구현 완료(ADR 0010). **USER-02 응답 경로로 실서버 확인**(2026-08-11). PRODUCT-05 실입력 경로 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 제품 기록이 `CAUTION` 행까지 만든다 |
 | F-ANALYSIS-05 프로파일 완성도 계산 | ✅ | 산출식 구현 완료(ADR 0011). **소비처 3곳(USER-01 · USER-02 · CHECK-01) 모두 연결 완료.** 단위 테스트로 세 서비스가 `ProfileCompletionCalculator` 값을 그대로 위임하는지 확인(BR 4) — 실서버 3자 대조는 아직 |
-| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천. **2026-08-14: `category`·`todayContext` 추가(ADR 0018)** — 프론트 SHOP-01 3분류 요청 대응, 백엔드 API만 준비(프론트 화면은 미구현, `boyeon` 브랜치 `ShoppingScreen.tsx`는 아직 단일 섹션). **2026-08-16: `aiComment` 추가(ADR 0025)** — ai-server가 배치로 생성한 AI 코멘트, 실패 시 `null`. 단위 테스트로 확인, 실서버 미검증 |
+| CHECK-01 쇼핑 홈 | ✅ | `ProductRepository`·`ProductIngredientRepository`가 이미 존재해 구현 가능했다(이전 "제품 목록 없어 미착수" 기록은 stale). `CheckHomeService` — GOOD 성분을 `key_ingredient`로 가진 제품을 제품 단위로 dedup해 추천. **2026-08-14: `category`·`todayContext` 추가(ADR 0018)** — 프론트 SHOP-01 3분류 요청 대응, 백엔드 API만 준비(프론트 화면은 미구현, `boyeon` 브랜치 `ShoppingScreen.tsx`는 아직 단일 섹션). **2026-08-16: `aiComment` 추가(ADR 0025)** — ai-server가 배치로 생성한 AI 코멘트, 실패 시 `null`. 단위 테스트로 확인, 실서버 미검증. **2026-08-17: `tags` 추가(ADR 0027)** — 프론트 SHOP-01 태그 칩 대응. AI가 아니라 규칙으로 도출(`category` + 사용자 CAUTION 성분 유무), 주의 성분이 있으면 둘째 칩을 붙이지 않음. 추천 제품 전체 성분을 1회 더 조회(제품 수와 무관하게 고정) |
 | CHECK-02 위험도 분석 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). ADR 0015 — 등급 산출 기준 신설 |
 | CHECK-03 확인 결과 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-12 · 2.14절). CHECK-02와 같은 DTO·조립 로직 |
 | USER-02 성분 프로파일 전체 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.10절). ADR 0004 양방향 변환 · ADR 0011 완성도 연결 |
-| REPORT-01 리포트 조회 | ✅ | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다. PRODUCT-05 실입력 경로로도 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 기록이 `insights`까지 나온다. **2026-08-15**: `ReportService`의 조회 메서드 3개(REPORT-01~03) 모두에 `@Transactional(readOnly = true)`가 빠져 있던 것을 수정 — `open-in-view: false`라 지연 로딩 프록시를 건드리면 `LazyInitializationException`이 날 수 있었다 |
-| PRODUCT-05 제품 기록 저장 | ✅ | 2.13절. 원래 A 담당이나 B가 대신 구현. 로컬 MySQL로 실서버 확인(2026-08-12) — 실서버에서만 드러난 버그 2건(`force` 생략 400 · `force: true` 500) 수정 |
-| REPORT-02 요인 상세 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.12절). ADR 0013 — 이벤트 조회 시점 도출 · 그래프 ADR 0012 적용 |
+| REPORT-01 리포트 조회 | ✅ | SKIN-01. `insights`는 F-ANALYSIS-01 결과를 반환한다. PRODUCT-05 실입력 경로로도 재검증 완료(2026-08-12 · 2.7절) — API로 넣은 기록이 `insights`까지 나온다. **2026-08-15**: `ReportService`의 조회 메서드 3개(REPORT-01~03) 모두에 `@Transactional(readOnly = true)`가 빠져 있던 것을 수정 — `open-in-view: false`라 지연 로딩 프록시를 건드리면 `LazyInitializationException`이 날 수 있었다. **2026-08-17**: 프론트 요청(리포트 상단 "종합 피부 점수" 카드)에 맞춰 `summary`(`totalScore`·`totalDelta`·지표별 `metrics`·`graph`) 필드를 추가 — 실서버 미검증, 단위 테스트만 완료(아래 2.6절 추가분) |
+| PRODUCT-05 제품 기록 저장 | ✅ | 2.13절. 원래 A 담당이나 B가 대신 구현. 로컬 MySQL로 실서버 확인(2026-08-12) — 실서버에서만 드러난 버그 2건(`force` 생략 400 · `force: true` 500) 수정. **2026-08-19**: `getHome()`(PRODUCT-01) 저장 목록 조회가 `usageStatus` 필터 없이 STOPPED 제품까지 보여주던 버그 수정(2.21절) |
+| REPORT-02 요인 상세 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.12절). ADR 0013 — 이벤트 조회 시점 도출 · 그래프 ADR 0012 적용. **2026-08-17: `events[].delta`·`events[].eventKind`·`summary` 추가(ADR 0027)** — 프론트가 `impact` 문구를 정규식 파싱하던 것을 대체, 전부 기존 값의 노출이라 분석 로직 불변. **2026-08-17: `tip` 추가(ADR 0028)** — ai-server 생성, 실패 시 `null`. 단위 테스트로 확인, **실서버·실 OpenAI 키 미검증** |
 | REPORT-03 일자별 리포트 조회 | ✅ | 로컬 MySQL로 실서버 확인(2026-08-11 · 2.11절). SKIN-01 응답 구조 재사용 · ADR 0012 원칙 유지 |
 | PRODUCT-09 제품 매칭 조회(신규) | ✅ | 2026-08-14 신규. `GET /products/match?name=&brand=` — 프론트 `ProductManualRegisterScreen`(boyeon, 등록 저장은 여전히 목업) 지원용. `ProductMatchService`/`ProductMatchController`. F-PRODUCT-08 저장 자체는 PRODUCT-10(2026-08-15 구현, 아래 156행)이 맡는다. 단위 테스트 없음(단순 위임 로직), 실서버 미검증 |
 
@@ -282,6 +282,24 @@ USER-05~07이 A 담당 커밋(`1bf5f09 feat(home): add service flow APIs` 등)�
 서비스 단위 테스트 8개(기간 검증 1 · 데이터 부족 1 · 결측 null 1 · 두 슬롯 각각 반환 1 ·
 한쪽 슬롯만 기록 1 · insights 빈 배열 1 · 신뢰도 라벨 매핑 1 · metric 필터링 1).
 REPORT-01의 `insights`는 F-ANALYSIS-01 검증에서 실서버로 확인했다(아래 2.7).
+
+**2026-08-17 추가 — `summary` 필드.** 프론트가 리포트 화면 상단 "종합 피부 점수" 카드에 쓸
+기간 종합 데이터가 없다는 요청을 받아 추가했다.
+
+- `summary.totalScore`는 기간 내 지표 4종 값을 모두 모은 평균 — SKIN-01의 `totalScore` 산출식
+  (ADR 0008)을 기간 단위로 그대로 확장했다. 새 ADR을 따로 만들지 않았다 — 계산식 자체가 아니라
+  적용 범위(레코드 1건 → 기간 전체)만 넓힌 것이라 기존 결정을 벗어나지 않는다고 판단했다.
+- `summary.metrics[].delta` · `summary.totalDelta`는 직전 동일 길이 기간과 비교한다. 직전 기간에
+  기록이 아예 없으면(신규 가입자 등) `0`을 반환한다 — SKIN-01의 "비교 대상 없으면 `comparison`
+  자체가 `null`"과 달리 여기서는 필드 자체를 없앨 수 없는 구조라(항상 존재해야 하는 카드) 값이
+  없다는 신호를 `0`으로 근사했다. 프론트가 "변화 없음"과 "비교 불가"를 구분해야 하면 추후
+  `totalDelta`를 `Integer`(nullable)로 바꾸는 논의가 필요하다.
+- `summary.graph`는 기존 `graph`와 달리 모닝·나이트를 접어 하루 하나의 값으로 낸다(ADR 0012는
+  지표별 상세 그래프에만 적용되고, 종합 점수 카드의 미니 추이 그래프는 요청 문서가 대표값 하나를
+  요구했다). 기록별 종합 점수는 재계산하지 않고 `SkinRecord.overallScore`를 그대로 읽는다.
+- 단위 테스트 3개 추가(총점·지표별 평균 및 증감 1 · 직전 기간 기록 없을 때 증감 0 1 ·
+  그래프 슬롯 병합과 결측 null 1). **실서버·프론트 연동 검증은 아직이다** — 로컬 컴파일과
+  단위 테스트만 통과한 상태.
 
 **로컬 MySQL 실서버 검증** (2026-08-11). 목업 시드가 `NIGHT`만 심어 네 조합을 만들 수 없어,
 `MORNING` 기록을 얹는 보조 시드(`seed/report-01-slots.sql`)를 함께 썼다.
@@ -951,6 +969,207 @@ ai-server는 `tests/test_product_comment.py` 4개(정상 생성·키 미설정·
 `tests/test_api.py`에 `/product-comments` 3개(빈 목록·정상 생성·502 폴백) 추가. 백엔드
 전체·ai-server 전체(66개) 테스트 통과 확인(2026-08-16). **실 OpenAI API 키로 코멘트 품질을
 확인하는 E2E 검증은 아직 하지 않았다** — 다음 작업으로 남긴다.
+
+---
+
+### 2.18 프론트 요청 대응 — REPORT-02 · CHECK-01 필드 추가 (ADR 0027 · 0028, 2026-08-17)
+
+프론트엔드(boyeon)가 Figma 최종본으로 S-20·SHOP-01을 구현하며 보낸 두 건의 요청
+(`backend-request-report02-detail-fields.md`, `backend-request-shop01-tag-chips.md`)에 대응했다.
+공통 문제는 **서버가 문장만 주고 그 문장을 만든 구조화된 근거는 버려서, 클라이언트가 문장을
+되파싱하고 있었다**는 것이다.
+
+| 필드 | 위치 | 출처 | AI |
+| --- | --- | --- | --- |
+| `events[].delta` | REPORT-02 | `AnalysisInsight.averageDelta` (ADR 0013이 이미 보존) | X |
+| `events[].eventKind` | REPORT-02 | 도출 분기 자체(`INGREDIENT_USAGE`/`UV_SPIKE`) | X |
+| `summary` | REPORT-02 | `AnalysisInsight.description` (기존 컬럼) | X |
+| `tip` | REPORT-02 | ai-server `POST /insight-tips` 신규 | **O** |
+| `tags` | CHECK-01 | `category` + 사용자 CAUTION 성분 유무 | X |
+
+**`tip` 하나만 AI다.** 나머지 넷은 전부 이미 있는 값의 노출이거나 규칙 도출이라 분석 로직이
+바뀌지 않았다. 특히 `tags`는 ADR 0025(AI 코멘트)와 달리 규칙으로 만들었다 — "주의 성분 미포함"
+같은 짧은 단정문이라 AI가 틀리면 사실오류가 그대로 노출된다.
+
+**`delta`와 `impact`는 한 판정을 공유한다.** `ReportService.firstUsageDelta()`가 폴백 여부를
+판정하고 `firstUsageImpact()`가 그 결과를 받는다. 문구가 "확인 중"인데 `delta`에 숫자가 실리는
+상태가 구조적으로 불가능하다 — 어긋나면 단정하지 않기로 한 자리(BR 2)에 수치 배지가 뜬다.
+
+**요청 중 거절한 것**(ADR 0027 "만들지 않기로 한 것" 참고):
+
+- 기간 변화·평균·현재값 — 클라이언트가 `graph`로 이미 정확히 계산 중이고, 서버가 재계산하면
+  모닝/나이트 2계열(ADR 0012)을 접는 방식 차이로 화면 수치와 어긋난다. 정본은 `graph` 하나.
+- `eventKind`의 `ABSTINENCE` — ADR 0013이 판정 불가로 닫은 유형이다.
+- "향료 미포함"·"과거 이력 없음" 칩 — 향료 여부 데이터가 스키마에 없다.
+
+**신규 ai-server 엔드포인트**: `POST /insight-tips`(단건). ADR 0025가 배치인 이유는 추천이
+제품 N개이기 때문이고, 요인 상세는 화면당 인사이트 하나다. `InsightTipClient`
+(`domain/analysis/client`)가 기존 `app.skin.analysis.local-vision.base-url`을 재사용하고,
+실패를 `Optional.empty()`로 흡수해 `tip=null`인 채 200을 유지한다.
+
+자동 테스트 추가 — 백엔드 `ReportServiceTest` 5개(delta 양수·음수 부호 보존, OBSERVING 시
+`delta=null`, `summary`/`subtitle` 분리, 팁 성공·실패 폴백)·`CheckHomeServiceTest` 2개(CAUTION
+프로파일 없을 때 조회 생략 + 칩 2개, CAUTION 있을 때 칩 1개). ai-server
+`tests/test_insight_tip.py` 6개·`tests/test_api.py` `/insight-tips` 2개. **백엔드 전체 통과**,
+ai-server는 신규·영향 범위 16개 통과 확인(2026-08-17).
+
+**실 OpenAI 키 E2E 확인 완료(2026-08-17)** — 아래 2.19절. **프롬프트 결함 1건을 발견해
+고쳤다.** ai-server `test_consistency.py`·`test_metrics.py`의 실패 4~5건은 이 작업 이전부터
+있던 것으로, 합성 이미지 임계값과 OpenAI 429에 따른 flaky 실패다 — 깨끗한 트리에서 동일 실패를
+확인했고 이번 변경과 무관하다.
+
+**실서버 왕복 검증 완료(2026-08-17)** — 아래 2.20절. **여기서 결함 1건을 더 발견해 고쳤다.**
+
+---
+
+### 2.19 관리 팁 실 OpenAI 키 E2E 검증 (ADR 0028, 2026-08-17)
+
+시나리오 3종(OBSERVED · OBSERVING · 환경 인사이트) × 5회를 실 키로 호출해 사람이 읽고
+판단했다. 자동 테스트로 고정할 수 없는 종류라(LLM 출력은 실행마다 다름) 기계적으로 거를 수
+있는 것만 플래그를 달고 문장은 직접 읽었다.
+
+**발견한 결함 — 근거 없는 인과 방향 단정 (수정함).**
+
+변화량이 없는 OBSERVING 인사이트에서 **8회 중 8회 전부** "판테놀 제품을 사용해 보세요"라고
+권했고, 5회 중 4회는 "**트러블 개선에 도움이 될 수 있다**"고 방향까지 단정했다. 근거에 없는
+주장이다.
+
+원인은 프롬프트가 요인·지표를 **단어로만 나열**한 것이었다(`- 요인: 판테놀` / `- 지표: 트러블`).
+인사이트가 "이 요인이 이 지표에 영향을 주는지 관찰 중"인 **관계**라는 게 전달되지 않아, 모델이
+성분 일반 지식(판테놀=진정 성분)으로 빈칸을 채웠다. 실제로는 판테놀이 트러블을 악화시키는
+중일 수도 있는데 권하는 셈이었다. 수치는 지어내지 않았지만 **방향을 지어냈으므로** BR 2 위반이다.
+
+수정 내용:
+
+- `_build_user_prompt`가 근거를 관계 문장으로 서술한다 — `'판테놀'이(가) 트러블 지표에 영향을
+  주는지 관찰 중`.
+- **변화량 부호의 의미를 풀어 준다.** 지표값은 높을수록 증상이 심하므로 양수=악화, 음수=완화다.
+  이 설명이 없으면 모델이 방향을 뒤집어 읽을 수 있다.
+- 변화량이 없으면 `방향을 추정하지 말고 기록을 더 쌓도록 안내해라`를 명시한다.
+- 시스템 프롬프트에 "성분 일반 지식으로 좋고 나쁨을 추정하지 마라" 추가.
+
+수정 후 재검증: 15회 전부 방향 단정이 사라졌다. OBSERVING은 "관찰해 보라 / 기록을 더 쌓아라"로,
+OBSERVED는 부호를 읽어 "악화되는 경향"으로 정확히 서술한다. 분량은 53~88자로 요구(100자 내외)
+안에 들었고, 의학적 진단·치료 표현과 근거 밖 수치는 0건, 호출 실패도 0건이다.
+
+회귀 방지로 단위 테스트 2개를 추가했다(`test_insight_tip.py`) — 부호에 따라 프롬프트가
+"악화"/"완화"를 싣는지, 변화량이 없으면 "아직 알 수 없다"를 싣는지. **프롬프트 문구가 아니라
+BR 2가 프롬프트 층에서 지켜지는지를 고정하는 테스트다.**
+
+⚠️ 사용한 모델은 `.env`의 `OPENAI_MODEL=gpt-4o-mini`다(코드 기본값 `gpt-4o`가 아님). 모델을
+바꾸면 이 검증을 다시 해야 한다 — 프롬프트 준수도는 모델마다 다르다.
+
+---
+
+### 2.20 실서버 왕복 검증 — MySQL → Spring → ai-server → OpenAI (2026-08-17)
+
+로컬 MySQL(`ildangbaek-mysql`) · Spring(:8080) · ai-server(:8000)를 모두 띄우고, 서명된 목업
+토큰으로 REPORT-02와 CHECK-01을 실제 호출해 응답 JSON을 확인했다. 2.19절이 ai-server 단독
+검증이었다면, 여기서는 **DB에 저장된 실제 인사이트가 Spring을 거쳐 팁까지 도달하는지**를 봤다.
+
+**발견 1 — 앱이 아예 기동하지 않았다 (기존 결함, 고침).**
+
+`LocalVisionSkinAnalysisClient`에 생성자가 둘인데 어느 쪽에도 `@Autowired`가 없어 Spring이
+주입 대상을 고르지 못하고 기본 생성자를 찾다 실패했다(`NoSuchMethodException: <init>()`).
+**이 작업과 무관한 기존 결함이다** — `git stash`로 작업 내용을 걷어낸 깨끗한 `yunjin` HEAD에서
+동일 실패를 재현해 확인했다. 커밋 `b061302`(타임아웃 추가)에서 테스트용 생성자가 추가되며
+깨졌고, 단위 테스트는 목을 쓰기 때문에 컨텍스트 로딩을 검증하지 않아 잡히지 않았다. 운영
+생성자에 `@Autowired`를 명시해 고쳤다.
+
+**발견 2 — OBSERVING 인사이트인데 팁이 "악화됐다"고 단정 (이번 작업 결함, 고침).**
+
+인사이트 119(판테놀, `confidence_score` 33.33 → OBSERVING, 그러나 `average_delta`는 5.00으로
+존재)를 조회하니 팁이 `판테놀 사용 후 트러블이 악화된 것으로 보입니다`로 나왔다. 화면의
+`impact`는 BR 2에 따라 "확인 중"인데 **팁만 단정하는 모순**이다.
+
+2.19절에서 고친 것은 "변화량이 **없을** 때"였고, 이번 건은 "변화량이 **있지만 확정되지 않았을**
+때"다 — 실 데이터에만 있던 조합이라 목 테스트로는 드러나지 않았다. 원인은 `loadTip`이
+`insight.getAverageDelta()`를 무조건 AI에 넘긴 것이고, `ReportService`가 `impact`에는 이미
+같은 값을 거르고 있었으므로 **거르는 기준을 한 곳(`firstUsageDelta`)으로 통일**해 고쳤다.
+회귀 테스트 2개를 `ReportServiceTest`에 추가했다(확정 안 된 근거는 안 넘김 / 확정된 근거는 넘김).
+
+**수정 후 최종 확인 결과** (각 2회):
+
+| 인사이트 | 상태 | 팁 |
+| --- | --- | --- |
+| 117 레티놀 (conf 100, +15) | OBSERVED | `레티놀 사용 후 트러블이 증가하는 경향이 관찰되었습니다. 추가 기록을 통해…` |
+| 119 판테놀 (conf 33.33, +5) | OBSERVING | `판테놀 사용 후 트러블 변화에 대한 기록을 계속 쌓아보세요…` (단정 사라짐) |
+| 120 레티놀/홍조 (conf 0) | OBSERVING | `레티놀 사용 후 홍조의 변화를 계속 관찰해 보세요…` |
+
+`summary`는 DB `description`에서, `graph`는 30일 창(값 있는 날 20일)으로 정상 반환됐다.
+ai-server 로그에서 `POST /insight-tips 200` · 실제 OpenAI 호출을 확인했다.
+
+**CHECK-01 `tags` 확인** — 기존 시드는 제품 성분(영문명 9152~9167)과 프로파일 성분(한글명
+9010~)이 서로 다른 집합이라 매칭이 0건이었다(코드 문제가 아닌 시드 데이터 공백). 검증을 위해
+프로파일 3건을 임시로 넣고 확인한 뒤 **원상 복구했다**.
+
+| 제품 | 조건 | `tags` |
+| --- | --- | --- |
+| 1025 Dokdo Toner | TONER + 트러블 64(≥50) → `TODAY_NEEDED`, CAUTION 성분 없음 | `["트러블 진정 성분", "주의 성분 미포함"]` |
+| Retinol Cica Ampoule | `MATCHED_INGREDIENT`, 같은 제품에 CAUTION(Squalane) 있음 | `["잘 맞는 성분"]` — 둘째 칩 정상 억제 |
+
+`aiComment`도 함께 채워져(ADR 0025) 같은 ai-server 경로가 정상 동작함을 확인했다.
+
+⚠️ **남은 한계**: 프론트엔드 화면에서의 렌더링은 확인하지 않았다(API 응답까지만 검증). CHECK-01
+매칭은 임시 시드로만 확인했으므로, 제품·성분 시드를 정합적으로 채우는 작업은 별도로 필요하다.
+
+---
+
+### 2.21 프론트 요청 대응 — B 담당 항목 3건 (2026-08-19, `backend-request-2026-08-19.md`)
+
+프론트가 `origin/main` 코드 대조로 발견한 항목 7건 중 B(분석 흐름) 담당 3건을 처리했다.
+나머지(P0-1 루틴, P0-2 `UserProduct` 미생성, P1-1 영문 하드코딩)는 A 담당 API(routine·product
+등록·record 허브)라 이 세션에서 다루지 않았다.
+
+**P0-4 — `LagCorrelationAnalyzer` 증감 방향이 실제로 반대였다 (버그, 고침).**
+
+`LagCorrelationAnalyzer.java:180-184`가 `delta > 0`(지표 점수 상승)을 `WORSENED`로 세고 있었다.
+그런데 지표는 "점수가 높을수록 좋은 상태"다(ADR 0002, `ai-server/app/metrics.py:11` —
+"모든 지표는 점수가 높을수록 좋은 상태다"). 즉 점수가 **오르면 개선, 내리면 악화**인데 코드는
+정반대로 세고 있었다 — 사용자에게는 "이 성분 쓰니 트러블이 나아졌는데 앱이 '악화 반복, 줄이세요'
+라고 권고"하는 형태로 나타난다. `delta < 0`(점수 하락)을 `WORSENED`로 뒤집어 고쳤다.
+
+기존 `LagCorrelationAnalyzerTest.confirmsRepeatedWorsening`이 "트러블 +15 반복"을 WORSENED로
+기대하고 있었다 — 이 테스트 자체가 버그와 같은 가정(점수 상승=악화)으로 작성되어 있어 버그를
+못 잡았다. 부호를 뒤집어 "트러블 −15 반복"으로 고치고 `averageDelta` 기대값도 함께 수정했다.
+수정 후 백엔드 전체 테스트(244개, 30개 클래스) 통과 확인.
+
+> ⚠️ F-ANALYSIS-02(환경 요인 보정)·F-ANALYSIS-03(호르몬 요인 보정)은 `LagCorrelationAnalyzer`의
+> `direction` 값을 그대로 재사용하므로 이번 수정의 영향을 받는다 — 로직 자체(임계값·비율 계산)는
+> 손대지 않았고 방향 정의만 바로잡았으므로 별도 재검증은 필요 없다고 판단했으나, 실사용 데이터가
+> 쌓이면 인사이트 문구("증가/감소", "줄여보세요/잘 맞는 편")가 이전과 반대로 나오는 것이 정상
+> 동작임을 팀에 공유해야 한다.
+
+**P1-2 — 저장 제품 목록 조회 2곳의 필터 불일치 (버그, 고침).**
+
+`ProductRecordService.getHome()`(PRODUCT-01)이 `usageStatus` 필터 없이
+`findAllByUserIdOrderByLastUsedAtDesc`를 썼다. 반면 `GET /users/me/products`는
+`findAllByUserIdAndUsageStatusOrderByLastUsedAtDesc(userId, USING)`로 `USING`만 걸렀다.
+`DELETE /products/{id}/save`가 `usageStatus`를 `STOPPED`로만 바꾸고 행을 지우지 않아서,
+제품을 "찜 해제"해도 기록 화면(PRODUCT-01)의 저장 목록에는 계속 남아 있었다.
+
+`getHome()`도 같은 `USING` 필터 메서드로 바꿔 두 조회가 일치하도록 고쳤다(기존에 이미 존재하는
+리포지토리 메서드를 재사용, 신규 쿼리 없음). 로컬 MySQL 실서버로 재현·검증
+완료(2026-08-19) — 제품 저장 → `getHome`에 노출 → `DELETE /save`로 사용중단 → `getHome`에서
+즉시 사라짐, `GET /users/me/products`와 결과 일치.
+
+**P0-3 — `skinComment`가 항상 null이라는 보고는 이 환경에서 재현되지 않았다 (조사만, 코드 변경 없음).**
+
+프론트가 요청한 두 가지를 확인했다:
+1. ai-server `.env`에 `OPENAI_API_KEY` 설정 확인 — 164자 값 로드됨, `_client()`로 실제
+   `chat.completions.create` 호출 성공(`Pong!` 응답 수신).
+2. `vision.refine()`을 실제 이미지로 직접 호출 — `skin_comment` 정상 반환.
+3. 실서버 왕복 재현: mock 로그인 → `POST /api/v1/skin-records`(실제 업로드된 얼굴 사진 사용) →
+   응답 `skinComment` 필드에 실제 OpenAI 생성 문구가 채워짐(`"현재 홍조가 다소 눈에 띄며,
+   모공 관리가 필요해요…"`).
+
+즉 이 저장소 상태에서는 AI 서버·백엔드·OpenAI 연동 경로 전체가 정상 동작한다. `8dfd340 feat: ai
+활용 skinComment 구현`(2026-08-18) 커밋이 이미 이 문제를 해결한 것으로 보인다. 프론트가 본 문제는
+(a) 프론트가 실제로 붙는 배포/다른 환경에서 `OPENAI_API_KEY`가 비어 있거나, (b) 프론트 보고
+시점이 `8dfd340` 병합 이전 코드 기준이었거나, (c) 얼굴 미검출 등 다른 사유로 폴백된 것을
+`skinComment` null로 오인했을 가능성 중 하나로 추정된다. **코드 변경 없음** — 재현되지 않는
+버그를 임의로 고치지 않았다. 프론트가 실제로 붙는 환경에서 재현되면 그 환경의 `OPENAI_API_KEY`
+설정 여부와 로그의 `OpenAI 확정 실패, 1차 규칙 기반 점수로 폴백` 경고 유무를 다시 확인해야 한다.
 
 ---
 
