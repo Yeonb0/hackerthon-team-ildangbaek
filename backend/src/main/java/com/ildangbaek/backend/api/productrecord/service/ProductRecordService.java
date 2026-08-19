@@ -151,9 +151,6 @@ public class ProductRecordService {
         ProductRecord record = productRecordRepository.findById(recordId)
                 .filter(found -> found.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_RECORD_NOT_FOUND));
-        if (!record.getRecordDate().equals(LocalDate.now(KST))) {
-            throw new BusinessException(ErrorCode.PRODUCT_RECORD_NOT_EDITABLE);
-        }
 
         List<Product> products = findActiveProducts(productIds);
         productRecordItemRepository.deleteAllByProductRecordId(record.getId());

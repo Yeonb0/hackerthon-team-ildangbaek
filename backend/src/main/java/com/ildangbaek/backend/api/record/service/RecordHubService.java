@@ -114,18 +114,19 @@ public class RecordHubService {
         Optional<ProductRecord> productRecord =
                 productRecordRepository.findByUserIdAndRecordDateAndTimeSlot(userId, date, timeSlot);
         if (productRecord.isEmpty()) {
-            return new RecordDailySlotResponse(false, List.of());
+            return new RecordDailySlotResponse(false, null, List.of());
         }
 
+        ProductRecord record = productRecord.get();
         List<RecordDailyProductItemResponse> items = productRecordItemRepository
-                .findAllByProductRecordId(productRecord.get().getId())
+                .findAllByProductRecordId(record.getId())
                 .stream()
                 .sorted(Comparator.comparing(
                         ProductRecordItem::getUsageOrder,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(item -> new RecordDailyProductItemResponse(item.getProduct().getProductName()))
                 .toList();
-        return new RecordDailySlotResponse(true, items);
+        return new RecordDailySlotResponse(true, record.getId(), items);
     }
 
     private ProductSlotStateResponse toProductSlot(ProductRecord record) {
