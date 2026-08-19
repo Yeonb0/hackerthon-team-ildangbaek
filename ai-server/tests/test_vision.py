@@ -147,6 +147,33 @@ def test_refine_raises_on_missing_field(monkeypatch: pytest.MonkeyPatch) -> None
         vision.refine(np.zeros((10, 10, 3), np.uint8), PRELIMINARY)
 
 
+def test_refine_returns_skin_comment(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_api_key(monkeypatch)
+    scores = {
+        "TROUBLE": 80,
+        "REDNESS": 70,
+        "PORES": 60,
+        "PIGMENTATION": 90,
+        "skin_comment": "모공 관리에 신경 써보면 더 좋아질 거예요.",
+    }
+    _use_fake_client(monkeypatch, _FakeCompletions(content=json.dumps(scores)))
+
+    result = vision.refine(np.zeros((10, 10, 3), np.uint8), PRELIMINARY)
+
+    assert result.skin_comment == "모공 관리에 신경 써보면 더 좋아질 거예요."
+
+
+def test_refine_skin_comment_defaults_to_none_when_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """skin_comment 없이도 점수 파싱은 실패하지 않아야 한다 — 필수 계약이 아니다."""
+    _set_api_key(monkeypatch)
+    scores = {"TROUBLE": 80, "REDNESS": 70, "PORES": 60, "PIGMENTATION": 90}
+    _use_fake_client(monkeypatch, _FakeCompletions(content=json.dumps(scores)))
+
+    result = vision.refine(np.zeros((10, 10, 3), np.uint8), PRELIMINARY)
+
+    assert result.skin_comment is None
+
+
 def test_refine_raises_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_api_key(monkeypatch)
     timeout_error = openai.APITimeoutError(request=object())

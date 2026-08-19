@@ -96,7 +96,19 @@ export type MainTabParamList = {
 
 export type DetailStackParamList = {
   Tabs: undefined; // MainTabNavigator 내부의 탭 화면 자체
-  [DetailRoutes.ProductRecord]: { timeSlot: TimeSlot };
+  [DetailRoutes.ProductRecord]: {
+    timeSlot: TimeSlot;
+    /**
+     * 2026-08-19(세션 18) — 스캔(S-13)·직접 등록에서 돌아오면서 실어 보내는 제품 ID.
+     * 값이 있으면 S-11이 마운트 직후 "어디에 등록할까요?" 시트를 그 제품으로 엽니다.
+     *
+     * 예전엔 이 경로들이 성분 확인(S-14)으로 `replace`해서 거기서 루틴을 골랐는데,
+     * 관리자님 지시로 선택을 S-11 시트로 끌어올리면서 화면 이동 대신 파라미터로
+     * 바뀌었습니다. 시트를 닫으면 `setParams`로 이 값을 지워서, 화면이 다시
+     * 포커스될 때 시트가 되살아나지 않게 합니다.
+     */
+    registerProductId?: number;
+  };
   // Phase 7-A 수정: PRODUCT-05 저장(POST /product-records) 시 timeSlot이 필수인데
   // 기존엔 이 라우트들에 안 실려 있었습니다. S-11에서 스캔·제품 선택 시점의 시간대를
   // 여기 실어서 S-13/S-14까지 그대로 들고 가도록 고쳤습니다.

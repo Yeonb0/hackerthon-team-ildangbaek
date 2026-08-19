@@ -82,7 +82,7 @@ class LocalVisionSkinAnalysisClientTest {
     }
 
     @Test
-    @DisplayName("raw·신뢰도·버전 필드를 함께 파싱한다")
+    @DisplayName("raw·신뢰도·버전·코멘트 필드를 함께 파싱한다")
     void parsesRawValuesConfidenceAndVersions() {
         mockServer.expect(requestTo(BASE_URL + "/analyze"))
                 .andRespond(withSuccess("""
@@ -90,7 +90,8 @@ class LocalVisionSkinAnalysisClientTest {
                          "raw":{"TROUBLE":120.5,"REDNESS":10.2,"PORES":7.1,"PIGMENTATION":20.3},
                          "pores_reliability":"NORMAL",
                          "algorithm_version":"cielab-v1",
-                         "normalization_version":"to-score-v1"}
+                         "normalization_version":"to-score-v1",
+                         "skin_comment":"트러블이 살짝 보이니 저자극 진정 케어를 더해보세요."}
                         """, MediaType.APPLICATION_JSON));
 
         SkinAnalysisResult result = analyze();
@@ -101,10 +102,11 @@ class LocalVisionSkinAnalysisClientTest {
         assertThat(result.confidence()).doesNotContainKey(SkinMetricType.REDNESS);
         assertThat(result.algorithmVersion()).isEqualTo("cielab-v1");
         assertThat(result.normalizationVersion()).isEqualTo("to-score-v1");
+        assertThat(result.skinComment()).isEqualTo("트러블이 살짝 보이니 저자극 진정 케어를 더해보세요.");
     }
 
     @Test
-    @DisplayName("구버전 응답처럼 raw·버전 필드가 없어도 점수 파싱은 실패하지 않는다")
+    @DisplayName("구버전 응답처럼 raw·버전·코멘트 필드가 없어도 점수 파싱은 실패하지 않는다")
     void toleratesMissingRawAndVersionFields() {
         mockServer.expect(requestTo(BASE_URL + "/analyze"))
                 .andRespond(withSuccess("""
@@ -117,6 +119,7 @@ class LocalVisionSkinAnalysisClientTest {
         assertThat(result.confidence()).isEmpty();
         assertThat(result.algorithmVersion()).isNull();
         assertThat(result.normalizationVersion()).isNull();
+        assertThat(result.skinComment()).isNull();
     }
 
     @Test

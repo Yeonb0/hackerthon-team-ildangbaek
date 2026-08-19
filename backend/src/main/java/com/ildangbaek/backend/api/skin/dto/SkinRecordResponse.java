@@ -8,7 +8,9 @@ import java.time.ZoneId;
 /**
  * SKIN-01 응답. SKIN-02 · SKIN-03도 같은 구조를 쓴다.
  *
- * @param comparison 비교 대상이 없으면 {@code null}. 오류가 아니다. (F-SKIN-05)
+ * @param comparison  비교 대상이 없으면 {@code null}. 오류가 아니다. (F-SKIN-05)
+ * @param skinComment OpenAI Vision이 사진을 보고 쓴 피부 상태 코멘트. 규칙 기반 폴백이거나
+ *                    목업 분석이면 근거가 없어 {@code null}이다.
  */
 public record SkinRecordResponse(
         Long skinRecordId,
@@ -16,7 +18,8 @@ public record SkinRecordResponse(
         OffsetDateTime capturedAt,
         int totalScore,
         SkinScoresResponse scores,
-        SkinComparisonResponse comparison
+        SkinComparisonResponse comparison,
+        String skinComment
 ) {
 
     /** 날짜/시간은 KST 오프셋을 명시해 내려보낸다 (공통 응답 포맷 8.1). */
@@ -30,6 +33,7 @@ public record SkinRecordResponse(
                 record.getCapturedAt().atZone(KST).toOffsetDateTime(),
                 record.getOverallScore().intValue(),
                 scores,
-                comparison);
+                comparison,
+                record.getSkinComment());
     }
 }

@@ -157,7 +157,7 @@ SPRING_PROFILES_ACTIVE=local ./gradlew bootRun --args='--server.port=8090'
 curl -i -X POST "http://localhost:8090/api/v1/skin-records" \
   -H "Authorization: Bearer mock-access-9001-$(uuidgen)" \
   -F "timeSlot=MORNING" \
-  -F "image=@/path/to/face.jpg;type=image/jpeg"
+  -F "image=@/Users/yunjinkim/Downloads/face2.jpg;type=image/jpeg"
 # 기대: 201 Created, comparison: null(첫 기록) 또는 전일 대비 값
 # 4) 같은 슬롯 재요청
 # 기대: 409, code: SKIN_ALREADY_RECORDED_IN_SLOT

@@ -7,29 +7,36 @@ import { apiClient } from '@/api/client';
 import { ApiError, unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
 import {
-  addProductToRoutine,
   buildMockProductRecordHome,
   buildProductRecordSummary,
-  buildRoutineRecordSummary,
   getMockProductDetail,
-  listMockRoutines,
-  recordMockRoutineQuickRecord,
+  listMockSavedProducts,
   registerMockProduct,
+  saveMockProduct,
   saveMockProductRecord,
   scanMockProduct,
   searchMockProducts,
+  unsaveMockProduct,
 } from '@/api/mock/product';
 import type { CatalogProduct } from '@/api/mock/product';
 import { recordMockProductCompletion } from '@/api/mock/record';
 import { ErrorCode } from '@/types/errorCodes';
+import {
+  LOCAL_ROUTINE_ID,
+  LOCAL_ROUTINE_NAME,
+  timeSlotOfLocalRoutine,
+  useRoutineStore,
+} from '@/store/routineStore';
 import type { TimeSlot } from '@/app/routes';
 import type {
   ProductDetailResult,
   ProductRecordHomeResult,
+  ProductSaveResult,
   ProductSearchResult,
   RegisterProductInput,
   RoutineListItem,
   RoutineQuickRecordResult,
+  SavedProductSummary,
   SaveProductRecordResult,
   ScanMode,
   ScanResult,
@@ -79,16 +86,37 @@ export async function quickRecordRoutine(params: {
   force?: boolean;
 }): Promise<RoutineQuickRecordResult> {
   const { routineId, timeSlot, force = false } = params;
-  if (USE_MOCK) {
-    const result = recordMockRoutineQuickRecord(routineId, timeSlot, force);
-    // 기록 허브(useRecordToday) mock이 별도 모듈(api/mock/record.ts)이라 저장 성공 사실이
-    // 저절로 안 넘어갑니다 — skin.ts의 recordMockSkinCompletion과 동일한 이유·동일한 패턴.
-    recordMockProductCompletion(timeSlot, buildRoutineRecordSummary(routineId));
-    return result;
+
+  // ⚠️ 2026-08-19(세션 18) — `POST /routines/{id}/records`를 **더 이상 쓰지 않습니다.**
+  // 루틴이 서버에 존재하지 않아(store/routineStore.ts 주석 참고) 그 경로는 반드시
+  // ROUTINE_NOT_FOUND로 떨어집니다.
+  //
+  // 대신 루틴이 들고 있는 productIds를 그대로 제품 기록 저장으로 보냅니다.
+  // **저장 결과는 동일합니다** — 백엔드 `RoutineService.quickRecord()`도 결국
+  // `productRecordService.saveProducts(...)`를 호출하고, 차이는 `SourceType`이
+  // ROUTINE이냐 MANUAL이냐 뿐입니다(현재 어느 화면도 이 값을 읽지 않습니다).
+  //
+  // 목업/실서버 분기 **앞에서** 제품을 뽑습니다 — 루틴은 이제 양쪽 모드 모두
+  // 같은 로컬 스토어에서 오기 때문입니다.
+  const slot = timeSlotOfLocalRoutine(routineId);
+  if (!slot) {
+    throw new ApiError(ErrorCode.ROUTINE_NOT_FOUND, '루틴을 찾을 수 없어요.');
   }
-  return unwrap<RoutineQuickRecordResult>(
-    apiClient.post(`/routines/${routineId}/records`, { timeSlot, force })
-  );
+  const productIds = useRoutineStore.getState().products[slot];
+  if (productIds.length === 0) {
+    // 백엔드 ROUTINE_EMPTY와 같은 상황을 같은 코드로 재현합니다.
+    throw new ApiError(ErrorCode.ROUTINE_EMPTY, '루틴에 담긴 제품이 없어요.');
+  }
+
+  const saved = await saveProductRecord({ timeSlot, productIds, force });
+  return {
+    recordId: saved.recordId,
+    timeSlot: saved.timeSlot,
+    productCount: saved.productCount,
+    // 이 경로에는 "건너뛴 제품" 개념이 없습니다 — 루틴 구성이 곧 요청 목록입니다.
+    skippedProductIds: [],
+    skinRecordSuggested: saved.skinRecordSuggested,
+  };
 }
 
 export function useRoutineQuickRecord() {
@@ -122,6 +150,9 @@ export function useProductDetail(productId: number) {
   return useQuery({
     queryKey: ['productDetail', productId],
     queryFn: () => getProductDetail(productId),
+    // 2026-08-19 — S-11의 등록 시트가 "아직 제품을 안 골랐다"를 0으로 표현합니다.
+    // 이 가드가 없으면 `GET /products/0`이 나가서 404가 계속 찍힙니다.
+    enabled: productId > 0,
   });
 }
 
@@ -164,11 +195,31 @@ export async function registerProduct(input: RegisterProductInput): Promise<Cata
     } as unknown as Blob);
   }
 
-  return unwrap<CatalogProduct>(apiClient.post('/products', form));
+  const created = await unwrap<CatalogProduct>(apiClient.post('/products', form));
+
+  // ⚠️ 2026-08-19(세션 18, 관리자님 리포트 "제품 추가해도 저장된 제품에 안 보여")
+  //
+  // 백엔드 `ProductService.registerProduct()`는 **`Product`만 만들고 `UserProduct`는
+  // 만들지 않습니다**(151~204행 확인 — 성분까지 저장하고 바로 응답을 조립합니다).
+  // 그런데 "저장된 제품" 목록은 `UserProduct`에서 옵니다:
+  //   · `GET /product-records/home` → `userProductRepository.findAllByUserId...`
+  //   · `GET /users/me/products`     → 같은 테이블에서 usageStatus=USING만
+  // 그래서 직접 등록한 제품은 등록에 성공해도 어떤 목록에도 뜨지 않았습니다.
+  //
+  // 등록 직후 저장을 이어 붙여 사용자 소유로 만듭니다. 백엔드가 registerProduct 안에서
+  // UserProduct까지 만들어 주면 이 호출은 멱등이라 그대로 둬도 무해합니다.
+  await saveProductToLibrary(created.productId);
+  return created;
 }
 
 export function useRegisterProduct() {
-  return useMutation({ mutationFn: registerProduct });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: registerProduct,
+    // 2026-08-19 — 등록이 곧 "저장된 제품" 목록 변경입니다(위 registerProduct 주석 참고).
+    // 무효화가 없어서 등록 후 S-11로 돌아가도 목록이 갱신 전 캐시였습니다.
+    onSuccess: () => invalidateProductLibrary(queryClient),
+  });
 }
 
 /**
@@ -179,7 +230,29 @@ export async function addProductToRoutineRequest(input: {
   routineId: number;
   productId: number;
 }): Promise<void> {
-  addProductToRoutine(input.routineId, input.productId);
+  const slot = timeSlotOfLocalRoutine(input.routineId);
+  if (!slot) {
+    // 로컬 루틴 ID가 아닌 값이 들어오면 조용히 넘기지 않고 드러냅니다 — 서버 루틴이
+    // 다시 생겼는데 이 경로가 안 바뀐 상황을 잡기 위한 안전망입니다.
+    throw new ApiError(ErrorCode.ROUTINE_NOT_FOUND, '루틴을 찾을 수 없어요.');
+  }
+  useRoutineStore.getState().addProduct(slot, input.productId);
+}
+
+/** 루틴에서 제품 빼기(RoutineEditScreen). 저장 제품 목록 자체는 건드리지 않습니다. */
+export async function removeProductFromRoutineRequest(input: {
+  routineId: number;
+  productId: number;
+}): Promise<void> {
+  const slot = timeSlotOfLocalRoutine(input.routineId);
+  if (!slot) {
+    throw new ApiError(ErrorCode.ROUTINE_NOT_FOUND, '루틴을 찾을 수 없어요.');
+  }
+  useRoutineStore.getState().removeProduct(slot, input.productId);
+}
+
+export function useRemoveProductFromRoutine() {
+  return useMutation({ mutationFn: removeProductFromRoutineRequest });
 }
 
 export function useAddProductToRoutine() {
@@ -194,6 +267,67 @@ export function useAddProductToRoutine() {
       queryClient.invalidateQueries({ queryKey: ['productRecordHome'] });
       queryClient.invalidateQueries({ queryKey: ['home'] });
     },
+  });
+}
+
+/**
+ * PRODUCT-09 · `POST /products/{productId}/save` (2026-08-19 세션 18 신설).
+ *
+ * 관리자님 4번 항목(A안) — 스캔한 제품을 **루틴에 넣지 않고도** 제품 목록에 담습니다.
+ * 15번(루틴이 하나도 없으면 제품 추가 자체가 막히던 문제)도 이 경로로 풀립니다:
+ * `useAddProductToRoutine`은 백엔드에 대응 API가 없어 100% 목업이라, 루틴이 없는
+ * 신규 사용자에게는 **실제로 서버에 남는 유일한 저장 경로**가 이쪽입니다.
+ *
+ * 백엔드는 멱등입니다 — 이미 저장된 제품을 다시 저장해도 오류가 아닙니다.
+ */
+export async function saveProductToLibrary(productId: number): Promise<ProductSaveResult> {
+  if (USE_MOCK) {
+    return saveMockProduct(productId);
+  }
+  return unwrap<ProductSaveResult>(apiClient.post(`/products/${productId}/save`));
+}
+
+/**
+ * PRODUCT-09 · `DELETE /products/{productId}/save` (관리자님 3번 항목).
+ *
+ * 물리 삭제가 아니라 백엔드 `UserProduct.stopUsing()`입니다 — 과거 기록은 그대로 남고
+ * "저장된 제품" 목록에서만 빠집니다. **저장돼 있지 않은 제품을 지우면 404**가 납니다.
+ */
+export async function unsaveProductFromLibrary(productId: number): Promise<ProductSaveResult> {
+  if (USE_MOCK) {
+    return unsaveMockProduct(productId);
+  }
+  return unwrap<ProductSaveResult>(apiClient.delete(`/products/${productId}/save`));
+}
+
+/**
+ * 저장/삭제 후 무효화 대상. `productRecordHome`(S-11 저장된 제품 목록)과
+ * `productDetail`(S-14의 `saved` 배지)이 핵심이고, `routines`·`home`은 루틴 카드의
+ * 제품 수 요약이 영향을 받을 수 있어 함께 털어냅니다.
+ */
+function invalidateProductLibrary(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['productRecordHome'] });
+  // 2026-08-19 — 이게 빠져 있어서, 제품을 담아도 루틴 카드가 이름을 못 찾아
+  // "아직 담긴 제품이 없어요"로 남아 있었습니다(useRoutines가 이 캐시로 이름을 붙입니다).
+  queryClient.invalidateQueries({ queryKey: ['savedProducts'] });
+  queryClient.invalidateQueries({ queryKey: ['productDetail'] });
+  queryClient.invalidateQueries({ queryKey: ['routines'] });
+  queryClient.invalidateQueries({ queryKey: ['home'] });
+}
+
+export function useSaveProductToLibrary() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: saveProductToLibrary,
+    onSuccess: () => invalidateProductLibrary(queryClient),
+  });
+}
+
+export function useUnsaveProductFromLibrary() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: unsaveProductFromLibrary,
+    onSuccess: () => invalidateProductLibrary(queryClient),
   });
 }
 
@@ -266,24 +400,92 @@ export async function saveProductRecord(params: {
 }
 
 /**
- * PRODUCT-07 · GET /routines (S-11 루틴 펼치기). ProductRecordHomeResult.routines와 별도로
- * 부르는 이유는 위 types/product.ts의 RoutineListItem 주석 참고 — PRODUCT-01은 요약
- * 문자열만 주고, 실제 제품 목록(펼침 UI에 필요)은 이 API로만 옵니다.
+ * PRODUCT-10 · `GET /users/me/products` — 사용자가 저장한 제품 전체.
+ *
+ * 2026-08-19(세션 18) 신설. 백엔드에 이미 있던 엔드포인트인데 프론트가 안 쓰고
+ * 있었습니다. 로컬 루틴(routineStore)이 productId만 들고 있어서, 루틴 안에 제품
+ * **이름**을 그리려면 이 목록이 필요합니다.
+ *
+ * `GET /product-records/home`의 savedProducts와 내용이 겹치지만 그쪽은 timeSlot이
+ * 필수라 루틴 조회 같은 시간대 무관 화면에서 쓰기에 맞지 않습니다.
  */
-export async function getRoutines(timeSlot?: TimeSlot): Promise<RoutineListItem[]> {
+export async function getSavedProducts(): Promise<SavedProductSummary[]> {
   if (USE_MOCK) {
-    return listMockRoutines(timeSlot);
+    return listMockSavedProducts();
   }
-  return unwrap<RoutineListItem[]>(
-    apiClient.get('/routines', { params: timeSlot ? { timeSlot } : undefined })
-  );
+  return unwrap<SavedProductSummary[]>(apiClient.get('/users/me/products'));
 }
 
-export function useRoutines(timeSlot?: TimeSlot) {
+export function useSavedProducts() {
   return useQuery({
-    queryKey: ['routines', timeSlot ?? 'all'],
-    queryFn: () => getRoutines(timeSlot),
+    queryKey: ['savedProducts'],
+    queryFn: getSavedProducts,
   });
+}
+
+/**
+ * PRODUCT-07 · 루틴 목록.
+ *
+ * ⚠️ **2026-08-19(세션 18) 전면 변경 — 더 이상 `GET /routines`를 부르지 않습니다.**
+ *
+ * 백엔드에 루틴을 **만드는 코드 경로가 아예 없습니다**(`routineRepository.save` 0건,
+ * `Routine.builder()` 0건, 생성 엔드포인트 없음, 운영 시드 SQL 없음). 그래서 실서버
+ * 계정에서 `GET /routines`는 항상 빈 배열이고, 루틴 UI가 전부 사라졌습니다. 그동안
+ * 목업에 루틴이 하드코딩돼 있어 이 사실이 가려져 있었습니다.
+ *
+ * 관리자님 A안 결정에 따라 **루틴 2개(모닝·나이트)를 클라이언트가 소유**합니다.
+ * 제품이 0개여도 루틴은 항상 존재하고, 사용자는 그 안에서 제품을 넣고 뺍니다.
+ * 자세한 배경은 `store/routineStore.ts` 상단 주석을 참고하세요.
+ *
+ * 이 훅은 react-query가 아니라 **Zustand 구독 + 저장 제품 조회 조합**입니다.
+ * 그래서 호출부에서 `queryClient.invalidateQueries(['routines'])`를 해도 이 값은
+ * 바뀌지 않습니다 — 스토어가 바뀌면 즉시 리렌더되므로 무효화 자체가 필요 없습니다.
+ * (기존 호출부의 무효화 코드는 그대로 둬도 무해합니다.)
+ *
+ * 백엔드에 루틴 API가 생기면 이 함수 안에서 서버 응답을 우선 쓰도록만 바꾸면 됩니다 —
+ * 화면 코드는 `RoutineListItem`만 보므로 손댈 필요가 없습니다.
+ */
+export function useRoutines(timeSlot?: TimeSlot) {
+  const products = useRoutineStore((s) => s.products);
+  const hydrated = useRoutineStore((s) => s.hydrated);
+  const savedQuery = useSavedProducts();
+
+  const nameById = new Map<number, string>(
+    (savedQuery.data ?? []).map((p) => [p.productId, p.name])
+  );
+
+  const build = (slot: TimeSlot): RoutineListItem => {
+    const ids = products[slot];
+    return {
+      routineId: LOCAL_ROUTINE_ID[slot],
+      name: LOCAL_ROUTINE_NAME[slot],
+      timeSlot: slot,
+      productCount: ids.length,
+      // 저장 제품 목록이 아직 안 왔거나 그 사이 제품이 삭제됐으면 이름을 모릅니다.
+      // 그 항목만 빼고 그립니다 — productCount는 루틴이 들고 있는 실제 개수 그대로라
+      // 목록 길이와 잠깐 어긋날 수 있지만, 없는 이름을 지어내는 것보다 낫습니다.
+      // 2026-08-19 버그 수정(관리자님 리포트 "루틴에 제품이 있는데 없다고 나옴") —
+      // 예전엔 이름을 못 찾은 제품을 **목록에서 통째로 빼버려서**, 저장 제품 캐시가
+      // 아직 안 왔거나 어긋난 사이 루틴이 비어 보였습니다. 게다가 목록에서 사라지면
+      // 루틴 수정 화면에서 지울 수도 없어 유령 제품이 남습니다.
+      // 이제 항상 남기고 이름만 자리표시자로 대체합니다.
+      products: ids.map((productId) => ({
+        productId,
+        name: nameById.get(productId) ?? '알 수 없는 제품',
+      })),
+    };
+  };
+
+  const all = timeSlot ? [build(timeSlot)] : [build('MORNING'), build('NIGHT')];
+
+  return {
+    data: all,
+    // 저장소 복원 전이거나 제품 이름을 아직 못 받았으면 로딩으로 봅니다 — 그래야
+    // "루틴이 비었다"가 잠깐 스쳐 지나가지 않습니다.
+    isLoading: !hydrated || savedQuery.isLoading,
+    isError: savedQuery.isError,
+    refetch: savedQuery.refetch,
+  };
 }
 
 export function useSaveProductRecord() {

@@ -10,9 +10,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.ildangbaek.skinteller",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       },
-      "buildNumber": "2"
+      "buildNumber": "4"
     },
     "android": {
       "package": "com.ildangbaek.skinteller",

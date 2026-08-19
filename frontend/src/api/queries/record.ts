@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { unwrap } from '@/api/unwrap';
+import { formatSlotSummary } from '@/lib/recordSummary';
 import { USE_MOCK } from '@/api/useMock';
 import { buildMockRecordCalendar, buildMockRecordDayDetail, buildMockRecordToday } from '@/api/mock/record';
 import type { RecordCalendarResponse, RecordDayDetailResponse, RecordTodayResponse } from '@/types/record';
@@ -26,7 +27,28 @@ export async function getRecordToday(): Promise<RecordTodayResponse> {
   if (USE_MOCK) {
     return buildMockRecordToday();
   }
-  return unwrap<RecordTodayResponse>(apiClient.get('/records/today'));
+  const raw = await unwrap<RecordTodayResponse>(apiClient.get('/records/today'));
+  return normalizeRecordToday(raw);
+}
+
+/**
+ * 2026-08-19(세션 18, 관리자님 9번 항목) — 백엔드가 슬롯 요약을 영어 하드코딩으로
+ * 만들어서("Analysis score 72") 화면에 그대로 노출되던 문제. 변환 규칙과 배경은
+ * `lib/recordSummary.ts` 주석 참고.
+ *
+ * **파싱 경계에서 한 번만 처리합니다.** 슬롯 요약을 그리는 화면이 여럿(기록 허브,
+ * 홈 등)이라 화면마다 변환을 넣으면 하나 빠뜨렸을 때 그 화면만 영어로 남습니다.
+ */
+function normalizeRecordToday(response: RecordTodayResponse): RecordTodayResponse {
+  const slot = (state: RecordTodayResponse['morning']): RecordTodayResponse['morning'] => ({
+    product: { ...state.product, summary: formatSlotSummary(state.product.summary) },
+    skin: { ...state.skin, summary: formatSlotSummary(state.skin.summary) },
+  });
+  return {
+    ...response,
+    morning: slot(response.morning),
+    night: slot(response.night),
+  };
 }
 
 export function useRecordToday() {

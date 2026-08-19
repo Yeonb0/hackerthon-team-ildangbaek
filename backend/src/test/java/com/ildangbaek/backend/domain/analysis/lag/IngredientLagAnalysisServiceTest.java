@@ -456,7 +456,7 @@ class IngredientLagAnalysisServiceTest {
                 .capturedAt(LocalDateTime.of(date, java.time.LocalTime.of(22, 0)))
                 .build();
         if (completed) {
-            record.completeAnalysis(BigDecimal.valueOf(60));
+            record.completeAnalysis(BigDecimal.valueOf(60), null);
         } else {
             record.failAnalysis();
         }

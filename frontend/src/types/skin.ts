@@ -23,6 +23,20 @@ export interface SkinRecordResult {
   scores: Record<string, number>;
   /** 첫 기록이거나 비교 대상이 없으면 null입니다 (SKIN-01 BR3 — 오류가 아닙니다). */
   comparison: SkinComparison | null;
+  /**
+   * OpenAI Vision이 사진을 보고 쓴 한 줄 코멘트 — S-18 "오늘의 피부 요약" 카드
+   * (Figma TodaySkin, 관리자님 7번 항목).
+   *
+   * 2026-08-19(세션 18) 신설. 백엔드 `SkinRecordResponse.skinComment`가 이미 내려주고
+   * 있었는데 프론트 타입에 자리가 없어 파싱 시점에 버려지고 있었습니다.
+   *
+   * ⚠️ **null이 정상입니다.** 백엔드 javadoc 그대로 — 규칙 기반 폴백으로 분석했거나
+   * 목업 분석이면 근거가 없어 null을 내려보냅니다. 화면은 null일 때 카드 자체를
+   * 그리지 않아야 합니다(빈 카드가 뜨면 분석이 실패한 것처럼 보입니다).
+   *
+   * REPORT-03(`GET /reports/daily`)의 `records[]`도 같은 DTO라 지난 날짜에서도 옵니다.
+   */
+  skinComment: string | null;
 }
 
 export interface CreateSkinRecordInput {

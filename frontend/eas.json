@@ -13,8 +13,16 @@
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "android": {
         "buildType": "apk"
+      }
+    },
+    "testflight": {
+      "environment": "preview",
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release"
       }
     },
     "production": {

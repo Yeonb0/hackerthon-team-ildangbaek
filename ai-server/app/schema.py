@@ -57,6 +57,11 @@ class AnalysisResult(BaseModel):
     `NORMALIZATION_VERSION` 상수를 그대로 옮긴다 — 구간값(`REDNESS_RANGE` 등)이나 `_to_score`
     공식이 바뀌면 그 상수도 함께 올려서, 과거에 저장된 rawValue가 어떤 기준으로 만들어졌는지
     추적할 수 있게 한다.
+
+    `skin_comment`는 `vision.refine()`이 OpenAI Vision으로 최종 점수를 확정하면서 함께 받는
+    피부 상태 코멘트다(ADR 0022 연장). 규칙 기반 1차 점수에는 근거가 없어 값을 지어낼 수 없으므로,
+    OpenAI 확정이 실패해 1차 점수로 폴백한 경우 `None`이다 — Spring은 이 필드가 없을 수 있다는
+    전제로 다뤄야 한다.
     """
 
     scores: SkinScores
@@ -64,6 +69,7 @@ class AnalysisResult(BaseModel):
     pores_reliability: Literal["LOW", "NORMAL"]
     algorithm_version: str
     normalization_version: str
+    skin_comment: str | None = None
 
 
 class AnalyzeResponse(AnalysisResult):

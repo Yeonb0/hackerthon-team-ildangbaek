@@ -40,6 +40,7 @@ import { ErrorState } from '@/components/state/ErrorState';
 import { IconAdd, IconBack } from '@/components/icons';
 import { DraggableRoutineRow, ROW_HEIGHT } from '@/components/domain/DraggableRoutineRow';
 import { useRoutines } from '@/api/queries/product';
+import { timeSlotOfLocalRoutine, useRoutineStore } from '@/store/routineStore';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, space, typography } from '@/theme';
 import { weightFamily } from '@/theme/typography';
@@ -134,7 +135,21 @@ export function RoutineEditScreen() {
   };
 
   const handleSave = () => {
-    // 저장 API가 없어 실제 서버 반영은 없습니다 — 데모용 완료 안내만 보여주고 나갑니다.
+    // 2026-08-19(세션 18) — 예전엔 "저장 API가 없어 실제 반영 없음"이라 토스트만
+    // 띄우고 편집 내용이 화면을 나가면 사라졌습니다. 루틴을 클라이언트가 소유하게
+    // 되면서(store/routineStore.ts) 이제 실제로 반영됩니다.
+    //
+    // 활성 탭만이 아니라 **편집한 모든 루틴**을 커밋합니다 — 탭을 오가며 양쪽을
+    // 고친 뒤 저장을 누르면 둘 다 반영돼야 합니다.
+    const { reorder } = useRoutineStore.getState();
+    Object.entries(ordersByRoutineId).forEach(([routineIdText, items]) => {
+      const slot = timeSlotOfLocalRoutine(Number(routineIdText));
+      if (!slot) return;
+      reorder(
+        slot,
+        items.map((p) => p.productId)
+      );
+    });
     setToastVisible(true);
   };
 

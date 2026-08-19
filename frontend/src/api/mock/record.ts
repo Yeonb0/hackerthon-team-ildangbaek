@@ -119,7 +119,11 @@ export function buildMockRecordToday(): RecordTodayResponse {
     defaultTab: getFixedHomeType() === 'DAY' ? 'MORNING' : 'NIGHT',
     morning: {
       product: { completed: true, recordId: 41, summary: '라운드랩 토너 외 2개' },
-      skin: { completed: true, skinRecordId: 31, summary: '분석 점수 78점' },
+      // 2026-08-19 — 목업이 이미 한국어를 주는 바람에, 실서버가 영어("Analysis score 78")를
+      // 내려보내는 걸 화면에서 한 번도 못 봤습니다(세션 17 스캔 버그와 같은 함정).
+      // **백엔드 RecordHubService:137-139와 똑같은 형식**으로 맞춥니다 — 한국어 변환은
+      // lib/recordSummary.ts가 담당합니다.
+      skin: { completed: true, skinRecordId: 31, summary: 'Analysis score 78' },
     },
     night: {
       product: { completed: false, recordId: null, summary: null },

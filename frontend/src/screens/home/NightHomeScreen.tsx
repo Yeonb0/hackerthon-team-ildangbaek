@@ -6,6 +6,7 @@ import { Button } from '@/components/base/Button';
 import { RoutineRecommendationList } from '@/components/domain/RoutineRecommendationList';
 import { WeeklyRecordStrip } from '@/components/domain/WeeklyRecordStrip';
 import { TodayReportCard } from '@/components/domain/TodayReportCard';
+import { useWeekStartStore } from '@/store/weekStartStore';
 import { color, gradient, space, typography } from '@/theme';
 import type { HomeResponse } from '@/types/home';
 import { adjustFontSize, weightFamily } from '@/theme/typography';
@@ -64,14 +65,23 @@ export function NightHomeScreen({
   onPressReportCta,
 }: NightHomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const weekStart = useWeekStartStore((s) => s.weekStart);
   const nightSlot = data.todayRecord.night;
   const nightCompleted = nightSlot.productCompleted && nightSlot.skinCompleted;
+  // 공백만 들어오는 경우도 "미설정"으로 봅니다 — 서버가 빈 문자열을 줄 수도 있어서.
+  const hasLocation = (location ?? '').trim().length > 0;
 
   return (
     <LinearGradient colors={gradient.night} style={styles.gradient}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space[3] }]}>
+        {/* 2026-08-18 — 위치 미설정(마이페이지 location이 null/빈 문자열)이면 Text 자체를
+            렌더링하지 않습니다(관리자님 요청). 예전엔 `location ?? ''`로 빈 Text를 그려서
+            빈 줄만큼 헤더가 내려앉아 있었습니다. 토글은 왼쪽 칸(headerLeft, flex:1)이
+            자리를 지켜주기 때문에 위치가 없어도 오른쪽 정렬을 유지합니다. */}
         <View style={styles.headerRow}>
-          <Text style={styles.location}>{location ?? ''}</Text>
+          <View style={styles.headerLeft}>
+            {hasLocation ? <Text style={styles.location}>{location}</Text> : null}
+          </View>
           {toggle}
         </View>
 
@@ -81,7 +91,7 @@ export function NightHomeScreen({
 
         {data.weeklyCalendar && (
           <View style={[styles.weeklyStripBox, styles.section]}>
-            <WeeklyRecordStrip days={data.weeklyCalendar} />
+            <WeeklyRecordStrip days={data.weeklyCalendar} weekStart={weekStart} />
           </View>
         )}
 
@@ -130,6 +140,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
+  },
+  // 위치 텍스트가 없어도 토글이 왼쪽으로 밀려오지 않도록 잡아주는 칸입니다.
+  headerLeft: {
+    flex: 1,
   },
   location: {
     ...typography.caption,

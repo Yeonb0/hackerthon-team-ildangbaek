@@ -31,16 +31,22 @@ import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
 import { EmptyState } from '@/components/state/EmptyState';
 import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
+import { ProductRegisterSheet } from '@/components/domain/ProductRegisterSheet';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
+  useAddProductToRoutine,
+  useProductDetail,
   useProductRecordHome,
   useProductSearch,
   useRoutineQuickRecord,
+  useRoutines,
   useSaveProductRecord,
+  useSaveProductToLibrary,
 } from '@/api/queries/product';
 import { ApiError } from '@/api/unwrap';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
+import { LOCAL_ROUTINE_ID } from '@/store/routineStore';
 import { color, radius, space, typography } from '@/theme';
 import type { RoutineSummaryItem, SavedProductSummary } from '@/types/product';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
@@ -96,6 +102,93 @@ export function ProductRecordScreen() {
   const searchQuery = useProductSearch(debouncedKeyword);
   const quickRecordMutation = useRoutineQuickRecord();
   const saveMutation = useSaveProductRecord();
+
+  // ── 2026-08-19(세션 18, 관리자님 지시) 제품 등록 시트 ──────────────────────────
+  // 스캔·검색으로 새 제품을 만났을 때 성분 확인(S-14)으로 넘기지 않고 이 화면 위에서
+  // 바로 「제품만 등록하기 / 모닝 / 나이트」를 고릅니다. 자세한 배경은
+  // components/domain/ProductRegisterSheet.tsx 상단 주석을 참고하세요.
+  const routinesQuery = useRoutines();
+  // "자주 쓰는 루틴" 카드는 RoutineSummaryItem(요약 문자열 포함)을 받습니다. 로컬 루틴은
+  // 제품 목록을 통째로 갖고 있으므로 여기서 요약을 만듭니다 — 예전엔 서버가 만들어 줬습니다.
+  // BR2와 같은 정렬: 현재 탭(timeSlot)의 루틴을 앞에 둡니다.
+  const routineSummaries: RoutineSummaryItem[] = [...(routinesQuery.data ?? [])]
+    .sort((a, b) => (a.timeSlot === timeSlot ? -1 : 0) - (b.timeSlot === timeSlot ? -1 : 0))
+    .map((routine) => ({
+      routineId: routine.routineId,
+      name: routine.name,
+      timeSlot: routine.timeSlot,
+      productCount: routine.productCount,
+      productSummary:
+        routine.productCount === 0
+          ? '아직 담긴 제품이 없어요'
+          : routine.products.length > 2
+            ? `${routine.products[0].name} 외 ${routine.products.length - 1}개`
+            : routine.products.map((p) => p.name).join(', '),
+    }));
+  const saveToLibraryMutation = useSaveProductToLibrary();
+  const addToRoutineMutation = useAddProductToRoutine();
+  const [registerProductId, setRegisterProductId] = useState<number | null>(
+    route.params.registerProductId ?? null
+  );
+  const [registerRoutineIds, setRegisterRoutineIds] = useState<Set<number>>(new Set());
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  // 시트에 이름·브랜드를 그리려면 제품 정보가 필요합니다. 스캔으로 들어온 제품은 아직
+  // savedProducts/검색 결과 어디에도 없을 수 있어서 상세를 따로 읽습니다.
+  const registerDetailQuery = useProductDetail(registerProductId ?? 0);
+  const registerDetail = registerProductId ? registerDetailQuery.data ?? null : null;
+
+  const openRegisterSheet = (productId: number) => {
+    setRegisterError(null);
+    setRegisterRoutineIds(new Set());
+    setRegisterProductId(productId);
+  };
+
+  const closeRegisterSheet = () => {
+    setRegisterProductId(null);
+    setRegisterError(null);
+    // 파라미터로 열린 경우 값을 지워야 화면이 다시 포커스될 때 시트가 되살아나지 않습니다.
+    if (route.params.registerProductId !== undefined) {
+      navigation.setParams({ timeSlot, registerProductId: undefined });
+    }
+  };
+
+  const toggleRegisterRoutine = (routineId: number) => {
+    setRegisterRoutineIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(routineId)) {
+        next.delete(routineId);
+      } else {
+        next.add(routineId);
+      }
+      return next;
+    });
+  };
+
+  /**
+   * 선택이 무엇이든 **제품 목록 저장(`POST /products/{id}/save`)을 항상 먼저** 합니다.
+   * `addProductToRoutine`은 백엔드에 대응 API가 없어 완전 목업이라, 이걸 안 하면
+   * 루틴만 고른 경우 실서버에는 아무것도 남지 않습니다. 저장은 멱등이라 중복 호출은
+   * 문제없습니다. 「제품만 등록하기」면 아래 루프가 0회 돌 뿐 코드 경로는 같습니다.
+   */
+  const handleRegisterSubmit = async () => {
+    if (registerProductId === null) return;
+    setRegisterError(null);
+    try {
+      await saveToLibraryMutation.mutateAsync(registerProductId);
+      for (const routineId of registerRoutineIds) {
+        await addToRoutineMutation.mutateAsync({ routineId, productId: registerProductId });
+      }
+      closeRegisterSheet();
+      setKeyword(''); // 검색 결과에서 골랐다면 기본 화면으로 돌려서 등록 결과를 보여줍니다.
+    } catch {
+      setRegisterError(
+        registerRoutineIds.size > 0
+          ? '루틴에 추가하지 못했어요. 다시 시도해주세요.'
+          : '제품을 등록하지 못했어요. 다시 시도해주세요.'
+      );
+    }
+  };
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const [selectedProductIds, setSelectedProductIds] = useState<Set<number>>(new Set());
   const [routineError, setRoutineError] = useState<string | null>(null);
@@ -239,10 +332,8 @@ export function ProductRecordScreen() {
   // 섹션 헤더 "루틴 수정" 링크(관리자님 요청, 2026-08-15) — 현재 탭(timeSlot)과 같은
   // 루틴을 기본으로 열고, RoutineEditScreen 안에서 모닝/나이트를 탭으로 오갈 수 있습니다.
   const handleEditRoutines = () => {
-    const routines = homeQuery.data?.routines ?? [];
-    const target = routines.find((r) => r.timeSlot === timeSlot) ?? routines[0];
-    if (!target) return;
-    navigation.navigate(DetailRoutes.RoutineEdit, { routineId: target.routineId });
+    // 2026-08-19 — 서버 루틴이 존재하지 않아(store/routineStore.ts) 로컬 루틴 ID를 씁니다.
+    navigation.navigate(DetailRoutes.RoutineEdit, { routineId: LOCAL_ROUTINE_ID[timeSlot] });
   };
 
   return (
@@ -292,7 +383,7 @@ export function ProductRecordScreen() {
           <SearchResultsSection
             query={searchQuery}
             keyword={debouncedKeyword}
-            onSelectNew={handleGoToIngredientCheck}
+            onSelectNew={openRegisterSheet}
             onQuickSave={(productId, name) => handleQuickSaveSingle(productId, name)}
             onRetry={() => searchQuery.refetch()}
             onScan={handleScanPress}
@@ -304,6 +395,7 @@ export function ProductRecordScreen() {
         ) : (
           <HomeSection
             homeQuery={homeQuery}
+            routines={routineSummaries}
             onQuickRecord={handleQuickRecord}
             onEditRoutines={handleEditRoutines}
             quickRecordingRoutineId={
@@ -344,6 +436,37 @@ export function ProductRecordScreen() {
         </View>
       ) : null}
 
+      <ProductRegisterSheet
+        visible={registerProductId !== null}
+        product={
+          registerDetail
+            ? {
+                name: registerDetail.name,
+                brand: registerDetail.brand,
+                category: getCategoryLabel(registerDetail.category),
+              }
+            : null
+        }
+        routines={routinesQuery.data ?? []}
+        selectedRoutineIds={registerRoutineIds}
+        onToggleRoutine={toggleRegisterRoutine}
+        onSelectLibraryOnly={() => setRegisterRoutineIds(new Set())}
+        onSubmit={handleRegisterSubmit}
+        onRequestClose={closeRegisterSheet}
+        onViewIngredients={
+          registerProductId !== null
+            ? () => {
+                const id = registerProductId;
+                closeRegisterSheet();
+                handleGoToIngredientCheck(id);
+              }
+            : undefined
+        }
+        submitting={saveToLibraryMutation.isPending || addToRoutineMutation.isPending}
+        alreadySaved={registerDetail?.saved ?? false}
+        errorMessage={registerError}
+      />
+
       <Popup
         visible={confirm !== null}
         title={confirm?.title ?? ''}
@@ -372,6 +495,7 @@ export function ProductRecordScreen() {
 // ---------------------------------------------------------------------------
 function HomeSection({
   homeQuery,
+  routines,
   onQuickRecord,
   onEditRoutines,
   quickRecordingRoutineId,
@@ -387,6 +511,12 @@ function HomeSection({
   searchInputRef,
 }: {
   homeQuery: ReturnType<typeof useProductRecordHome>;
+  /**
+   * 2026-08-19(세션 18) — 예전엔 `homeQuery.data.routines`(서버)를 그대로 썼는데,
+   * 백엔드에 루틴을 만드는 코드 자체가 없어 실서버에서는 항상 빈 배열이라 이 섹션이
+   * 통째로 사라졌습니다. 이제 로컬 루틴(store/routineStore.ts)을 부모가 넘겨줍니다.
+   */
+  routines: RoutineSummaryItem[];
   onQuickRecord: (routine: RoutineSummaryItem) => void;
   /** "루틴 수정" 섹션 헤더 링크(Figma 요청, 2026-08-15) — RoutineEditScreen으로 이동합니다.
    * 어느 routineId로 열지는 호출부(ProductRecordScreen)가 정합니다. */
@@ -415,7 +545,7 @@ function HomeSection({
     return <ErrorState variant="network" layout="inline" onRetry={onRetryHome} />;
   }
 
-  const { routines, savedProducts, alreadyRecorded } = homeQuery.data;
+  const { savedProducts, alreadyRecorded } = homeQuery.data;
   // 관리자님 요청(2026-08-10) — 저장된 제품에 실제로 있는 카테고리만이 아니라, 표준
   // 12종(PRODUCT_CATEGORIES) 전체를 항상 필터로 보여줍니다. 선택했는데 해당 카테고리
   // 제품이 없으면 아래 filteredSavedProducts가 빈 배열이 되고, EmptyState로 안내합니다.
@@ -431,7 +561,10 @@ function HomeSection({
 
       {routineError ? <InlineErrorBanner message={routineError} /> : null}
 
-      {/* BR7: 루틴이 없으면 섹션을 생략합니다 */}
+      {/* 2026-08-19 — 예전 BR7("루틴이 없으면 섹션 생략")은 서버가 루틴을 만들어 준다는
+          전제였습니다. 이제 모닝·나이트 루틴은 **제품이 0개여도 항상 존재**하므로
+          (관리자님 확정) 섹션을 항상 그립니다. 빈 루틴 카드가 곧 "여기에 제품을
+          넣으세요"라는 안내 역할을 합니다. */}
       {routines.length > 0 ? (
         <View style={styles.section}>
           <View style={styles.routineHeaderRow}>
