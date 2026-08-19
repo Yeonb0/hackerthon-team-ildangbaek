@@ -194,6 +194,8 @@ public class ProductService {
             }
         }
 
+        saveUserProduct(user, product);
+
         return new ProductRegisterResponse(
                 product.getId(),
                 product.getProductName(),
@@ -241,6 +243,16 @@ public class ProductService {
         userProduct.stopUsing();
         userProductRepository.save(userProduct);
         return new ProductSaveResponse(productId, false);
+    }
+
+    private void saveUserProduct(User user, Product product) {
+        UserProduct userProduct = userProductRepository.findByUserIdAndProductId(user.getId(), product.getId())
+                .orElseGet(() -> UserProduct.builder()
+                        .user(user)
+                        .product(product)
+                        .build());
+        userProduct.resumeUsing();
+        userProductRepository.save(userProduct);
     }
 
     private ProductSummaryResponse toSummary(User user, Product product) {

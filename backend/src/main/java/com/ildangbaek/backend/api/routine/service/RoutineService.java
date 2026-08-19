@@ -29,9 +29,11 @@ public class RoutineService {
     private final RoutineRepository routineRepository;
     private final RoutineProductRepository routineProductRepository;
     private final ProductRecordService productRecordService;
+    private final DefaultRoutineService defaultRoutineService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RoutineResponse> getRoutines(User user, TimeSlot timeSlot) {
+        defaultRoutineService.ensureDefaultRoutines(user);
         List<Routine> routines = routineRepository.findAllByUserIdAndActiveTrue(user.getId()).stream()
                 .filter(routine -> timeSlot == null || routine.getTimePeriod().name().equals(timeSlot.name()))
                 .toList();

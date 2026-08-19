@@ -9,6 +9,7 @@ import com.ildangbaek.backend.api.auth.dto.response.EmailVerificationResponse;
 import com.ildangbaek.backend.api.auth.dto.response.LoginResponse;
 import com.ildangbaek.backend.api.auth.dto.response.RefreshTokenResponse;
 import com.ildangbaek.backend.api.auth.dto.response.ResendCooldownResponse;
+import com.ildangbaek.backend.api.routine.service.DefaultRoutineService;
 import com.ildangbaek.backend.domain.auth.PasswordHasher;
 import com.ildangbaek.backend.domain.user.entity.AuthProvider;
 import com.ildangbaek.backend.domain.user.entity.User;
@@ -36,6 +37,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final MockAccessToken mockAccessToken;
     private final PasswordHasher passwordHasher;
+    private final DefaultRoutineService defaultRoutineService;
     private final Map<String, LocalDateTime> codeSentAtByEmail = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> verifiedAtByEmail = new ConcurrentHashMap<>();
 
@@ -56,6 +58,8 @@ public class AuthService {
             throw new BusinessException(ErrorCode.AUTH_LOGIN_FAILED);
         }
 
+        defaultRoutineService.ensureDefaultRoutines(user);
+
         return new LoginResponse(
                 mockAccessToken.issueAccessToken(user.getId()),
                 mockAccessToken.issueRefreshToken(user.getId()),
@@ -65,13 +69,14 @@ public class AuthService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse emailLogin(EmailLoginRequest request) {
         String email = normalizeEmail(request.email());
         User user = userRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, email)
                 .filter(User::isActive)
                 .filter(found -> passwordHasher.matches(request.password(), found.getPasswordHash()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_LOGIN_FAILED));
+        defaultRoutineService.ensureDefaultRoutines(user);
         return loginResponse(user, false);
     }
 
@@ -105,6 +110,7 @@ public class AuthService {
                 .build();
         user.updatePasswordHash(passwordHasher.hash(request.password()));
         User saved = userRepository.save(user);
+        defaultRoutineService.ensureDefaultRoutines(saved);
         verifiedAtByEmail.remove(email);
         return loginResponse(saved, true);
     }

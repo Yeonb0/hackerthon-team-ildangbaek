@@ -8,6 +8,7 @@ import com.ildangbaek.backend.api.onboard.dto.response.HormoneResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingCompleteResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingStatusResponse;
 import com.ildangbaek.backend.api.onboard.dto.response.OnboardingStatusResponse.StepStatus;
+import com.ildangbaek.backend.api.routine.service.DefaultRoutineService;
 import com.ildangbaek.backend.domain.user.entity.Gender;
 import com.ildangbaek.backend.domain.user.entity.MenstrualStatus;
 import com.ildangbaek.backend.domain.user.entity.SkinType;
@@ -40,6 +41,7 @@ public class OnboardingService {
     private final UserProfileRepository userProfileRepository;
     private final SkinTypeRepository skinTypeRepository;
     private final UserSkinTypeRepository userSkinTypeRepository;
+    private final DefaultRoutineService defaultRoutineService;
 
     @Transactional(readOnly = true)
     public OnboardingStatusResponse getStatus(User user) {
@@ -130,6 +132,7 @@ public class OnboardingService {
 
         user.completeOnboarding();
         userRepository.save(user);
+        defaultRoutineService.ensureDefaultRoutines(user);
 
         return new OnboardingCompleteResponse(true, buildSummary(user));
     }
