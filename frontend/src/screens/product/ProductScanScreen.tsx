@@ -129,9 +129,17 @@ export function ProductScanScreen() {
     setErrorInfo(null);
     try {
       const result = await scanMutation.mutateAsync({ scanMode: 'BARCODE', barcode });
-      // replace를 씁니다 — 인식된 카메라 화면으로 뒤로가기가 자연스럽지 않아서(FaceCaptureScreen의
-      // handleConfirm과 같은 이유), S-13을 스택에서 빼고 S-14로 바로 넘어갑니다.
-      navigation.replace(DetailRoutes.IngredientCheck, { productId: result.productId, timeSlot });
+      // 2026-08-19(세션 18, 관리자님 지시) — 예전엔 성분 확인(S-14)으로 `replace`해서
+      // 거기서 루틴을 골랐습니다. 등록에 성분 확인이 필수 단계일 이유가 없어서,
+      // **제품 기록(S-11)으로 돌아가 그 위에 등록 시트를 띄우는** 방식으로 바꿨습니다.
+      //
+      // `replace`가 아니라 `navigate`인 이유: S-11은 이미 스택 아래에 있습니다.
+      // `replace`를 쓰면 S-11이 하나 더 쌓여서 뒤로가기를 두 번 눌러야 나가집니다.
+      // 같은 이름으로 `navigate`하면 그 화면까지 pop하면서 파라미터만 갱신됩니다.
+      navigation.navigate(DetailRoutes.ProductRecord, {
+        timeSlot,
+        registerProductId: result.productId,
+      });
     } catch (e) {
       if (e instanceof ApiError) {
         setErrorInfo({ code: e.code, message: e.message });
