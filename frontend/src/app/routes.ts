@@ -1,3 +1,4 @@
+// src/app/routes.ts
 // 화면 이름 상수 + 네비게이션 파라미터 타입
 // 상수 옆 주석은 대응하는 화면 ID(S-XX)입니다
 
@@ -57,6 +58,9 @@ export const DetailRoutes = {
   // Phase 11-C — PROD-05 제품 직접 등록(F-PRODUCT-08, TBD-07). 백엔드 API 없이 프론트 목업
   // 전용(관리자 결정, 2026-08-13). ProductRecord(S-11/12)의 "제품 직접 등록" 버튼에서 옴.
   ProductManualRegister: 'ProductManualRegister',
+  // 세션 20 — 제품 등록 완료(Figma 322:911). 세션 18에서 진입 지점 미결로 남았던 화면이며,
+  // 관리자님이 A안(제품 기록 저장 직후, S-11)으로 확정했습니다(2026-08-19).
+  ProductRecordComplete: 'ProductRecordComplete',
   // Phase 11-D(2번 체크포인트) — F-RECORD-02 월간 기록(Frame 10, 210:835). RecordHub의
   // 캘린더 아이콘 버튼에서 진입, 날짜 탭하면 그 날 기록 바텀시트가 뜹니다.
   RecordCalendar: 'RecordCalendar',
@@ -136,6 +140,15 @@ export type DetailStackParamList = {
   [DetailRoutes.IngredientList]: { initialStatus?: IngredientStatus } | undefined;
   [DetailRoutes.RoutineEdit]: { routineId: number };
   [DetailRoutes.RoutineAddProduct]: { routineId: number; timeSlot: TimeSlot };
+  [DetailRoutes.ProductRecordComplete]: {
+    timeSlot: TimeSlot;
+    /**
+     * 서버가 `POST /product-records` 응답으로 주는 값(F-PRODUCT-07과 같은 조건 — 같은
+     * 시간대 피부 기록이 아직 없음). false면 피부 기록을 권할 이유가 없어 완료 화면이
+     * 문구와 버튼 구성을 바꿉니다.
+     */
+    skinRecordSuggested: boolean;
+  };
   // initialKeyword: 검색결과없음(PROD-03) 경로로 들어왔을 때만 있음 — 검색어를 제품명에 prefill
   [DetailRoutes.ProductManualRegister]: {
     timeSlot: TimeSlot;

@@ -194,7 +194,13 @@ export function buildMockRecordDayDetail(date: string): RecordDayDetailResponse 
 
   return {
     date,
-    skinScore: hasSkinRecord ? 68 + (Number(date.slice(-2)) % 20) : null,
+    // 백엔드 `RecordHubService.skinScore()`는 그 날 기록 중 **마지막**(= 나이트)을
+    // 고릅니다(106행 `.reduce((ignored, latest) -> latest)`). 목업도 같은 규칙을
+    // 따라야 상세 화면과 숫자가 맞는지 여기서 검증할 수 있습니다.
+    // 슬롯별 편차(+4)는 api/mock/skin.ts와 같은 값이어야 합니다.
+    skinScore: hasSkinRecord
+      ? 68 + (Number(date.slice(-2)) % 20) + (nightStatus !== 'NONE' ? 4 : 0)
+      : null,
     morningProducts: buildSlot(morningStatus, 'MORNING'),
     nightProducts: buildSlot(nightStatus, 'NIGHT'),
   };

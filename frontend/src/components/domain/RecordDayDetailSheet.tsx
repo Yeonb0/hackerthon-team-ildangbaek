@@ -1,5 +1,15 @@
+// src/components/domain/RecordDayDetailSheet.tsx
 import React, { useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+// src/components/domain/RecordDayDetailSheet.tsx
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -18,6 +28,20 @@ import type { RecordDotStatus } from '@/types/home';
 type RecordDayDetailSheetProps = {
   visible: boolean;
   detail: RecordDayDetailResponse | null;
+  /**
+   * 탭한 날짜('YYYY-MM-DD'). `detail`이 아직 없어도 타이틀을 그려야 해서 따로 받습니다.
+   *
+   * 2026-08-19(세션 20) — 이 화면이 실 API(`GET /records/daily`)로 넘어오면서 생긴
+   * 필요입니다. 목업일 땐 조회가 즉시 끝나 `detail`이 항상 준비된 상태로 들어왔지만,
+   * 실서버에선 응답 전까지 null이라 예전 코드(`if (!detail) return null`)로는 **날짜를
+   * 눌러도 아무 일도 안 일어나는 것처럼** 보입니다.
+   */
+  date: string | null;
+  /** 조회 중. 시트 골격은 그대로 두고 본문만 안내 문구로 바꿉니다. */
+  isLoading?: boolean;
+  /** 조회 실패. `onRetry`가 있으면 다시 시도 버튼을 함께 그립니다. */
+  isError?: boolean;
+  onRetry?: () => void;
   onRequestClose: () => void;
   /**
    * "자세히 보기" — 그 날짜의 피부 결과 화면(S-18)으로 이동합니다.
@@ -85,6 +109,10 @@ const SHEET_MIN_HEIGHT_RATIO = 0.62;
 export function RecordDayDetailSheet({
   visible,
   detail,
+  date,
+  isLoading = false,
+  isError = false,
+  onRetry,
   onRequestClose,
   onViewSkinDetail,
   dayStatus,
@@ -131,9 +159,10 @@ export function RecordDayDetailSheet({
     transform: [{ translateY: (1 - entranceProgress.value) * windowHeight + translateY.value }],
   }));
 
-  if (!detail) return null;
+  // 날짜조차 없으면 열 이유가 없습니다(부모가 visible=false로 두는 상태).
+  if (!date) return null;
 
-  const [, monthStr, dayStr] = detail.date.split('-');
+  const [, monthStr, dayStr] = date.split('-');
   const title = `${Number(monthStr)}월 ${Number(dayStr)}일 기록`;
 
   return (
@@ -168,6 +197,25 @@ export function RecordDayDetailSheet({
               </View>
             </GestureDetector>
 
+            {/* 2026-08-19(세션 20) — 실 API 전환에 따른 조회 상태 처리.
+                시트 골격(핸들·타이틀)은 항상 그대로 두고 본문만 갈아 끼웁니다 — 시트가
+                통째로 안 뜨면 사용자 입장에선 탭이 씹힌 것과 구분되지 않습니다. */}
+            {isLoading ? (
+              <View style={styles.stateBox}>
+                <ActivityIndicator color={color.brand500} />
+                <Text style={styles.stateText}>기록을 불러오는 중이에요</Text>
+              </View>
+            ) : isError || !detail ? (
+              <View style={styles.stateBox}>
+                <Text style={styles.stateText}>기록을 불러오지 못했어요</Text>
+                {onRetry && (
+                  <Pressable onPress={onRetry} accessibilityRole="button" hitSlop={8}>
+                    <Text style={styles.retryLabel}>다시 시도</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : (
+              <>
             {/* 2026-08-18 — Figma에는 여기에도 "수정" 버튼이 있지만 제거했습니다(관리자
                 결정 A안). 지난 날짜 피부 기록은 **고칠 수 있는 방법이 없습니다** — 백엔드에
                 수정 API가 없고, 다시 POST하면 슬롯당 1회 제약에 걸립니다
@@ -247,6 +295,8 @@ export function RecordDayDetailSheet({
                 );
               })}
             </View>
+              </>
+            )}
           </Animated.View>
         </Animated.View>
       </GestureHandlerRootView>
@@ -272,6 +322,24 @@ const styles = StyleSheet.create({
     // paddingBottom은 안전영역(홈 인디케이터)에 맞춰 동적으로 줍니다(아래 컴포넌트에서
     // 계산) — 고정 space[8](32)를 쓰던 예전엔 홈 인디케이터가 없는 기기에서도 늘
     // 큰 여백이 남아 "아래쪽이 비어 보인다"는 지적을 받았습니다(2026-08-15).
+  },
+  // 조회 중·실패 시 본문 자리. 시트 최소 높이가 이미 확보돼 있어 여기서는 여백만 줍니다.
+  stateBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[3],
+    paddingVertical: space[8],
+  },
+  stateText: {
+    ...weightFamily('medium'),
+    fontSize: 13,
+    color: color.textSub,
+  },
+  retryLabel: {
+    ...weightFamily('bold'),
+    fontSize: 13,
+    color: color.brand500,
   },
   dragArea: {
     alignItems: 'center',

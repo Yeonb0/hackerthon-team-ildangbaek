@@ -1,4 +1,4 @@
-// SkinResultScreen.tsx
+// src/screens/skin/SkinResultScreen.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -10,22 +10,28 @@ import { Card } from '@/components/base/Card';
 import { GradientNumber } from '@/components/base/GradientNumber';
 import { LoadingState } from '@/components/state/LoadingState';
 import { ErrorState } from '@/components/state/ErrorState';
-import { MetricScoreList } from '@/components/domain/MetricScoreList';
+import { DeltaBadge, MetricScoreList } from '@/components/domain/MetricScoreList';
 import { RadarChart } from '@/components/chart/RadarChart';
 import { IconBack } from '@/components/icons';
 import { toMetricList, type MetricListItem } from '@/api/adapters';
 import { getSkinRecordByDate, getSkinRecordToday } from '@/api/skin';
 import { ApiError } from '@/api/unwrap';
 import { DetailStackParamList, MainTabRoutes } from '@/app/routes';
-import { color, metricAccent, reportCardShadow, reportColor, space } from '@/theme/tokens';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  color,
+  gradient,
+  gradientDirection,
+  metricAccent,
+  reportCardShadow,
+  reportColor,
+  space,
+} from '@/theme/tokens';
 import { weightFamily, adjustFontSize, pinDisplayFont } from '@/theme/typography';
 import type { SkinRecordResult } from '@/types/skin';
-import {
-  metricGradeOf,
-  metricGradeLabel,
-  metricGradeAccent,
-  type MetricGrade,
-} from '@/lib/metricGrade';
+// 2026-08-19 — 등급 배지 제거로 metricGradeLabel · metricGradeAccent는 더 이상 쓰지
+// 않습니다. 배지를 되살릴 땐 이 두 개와 아래 tint()를 함께 되돌리면 됩니다.
+import { metricGradeOf, type MetricGrade } from '@/lib/metricGrade';
 import { metricPhrase } from '@/lib/metricLabels';
 import { formatComparedTo } from '@/lib/comparedTo';
 import { buildFallbackSkinSummary } from '@/lib/skinSummary';
@@ -37,18 +43,6 @@ type NavProp = NativeStackNavigationProp<DetailStackParamList>;
  * 대비"로 표기합니다 — 서버가 주는 값이 아니라 화면 표기용 상수입니다.
  */
 const BASELINE_SCORE = 50;
-
-/**
- * 지표 점수 등급. 지표 4종은 모두 **높을수록 좋음**입니다(2026-08-18 확정).
- *
- * 임계값과 판정은 `lib/metricGrade.ts`가 단독으로 갖습니다 — 쇼핑 홈의
- * "오늘 내 피부에 필요해요" 부제가 같은 경계를 쓰기 때문에, 여기서 따로 상수를
- * 들고 있으면 한쪽만 바뀌었을 때 같은 점수가 화면마다 다른 등급으로 보입니다.
- * 방향 확정 근거와 임계값 미확정 사유는 그 파일 주석을 참고하세요.
- */
-function gradeOf(score: number): { label: string; accent: string } {
-  return { label: metricGradeLabel(score), accent: metricGradeAccent(score) };
-}
 
 /** Figma 118:9504 등의 지표별 한 줄 설명. 등급에 따라 문구가 바뀝니다. */
 // 카드 제목에 이미 지표명이 있으므로 주어를 반복하지 않습니다 — 2열 카드에서 숫자와
@@ -345,11 +339,21 @@ export function SkinResultScreen() {
         {/* 2026-08-19(세션 18, 관리자님 7번 항목) — Figma TodaySkin "오늘의 피부 요약".
             AI 코멘트(skinComment)가 있으면 그것을, 없으면 점수에서 유도한 문장을
             보여줍니다. 왜 null이 자주 오는지는 lib/skinSummary.ts 주석 참고. */}
+        {/* 2026-08-19(세션 20, 관리자님 요청) — 배경을 S-20 「AI 분석 요약」 카드와 같은
+            연보라→연핑크 그라데이션으로 맞췄습니다. 두 카드가 하는 일이 같고(분석이
+            문장으로 말해주는 자리) 서로 다른 면으로 보이면 같은 성격의 정보라는 게
+            안 읽힙니다. 색·방향·라운드·패딩 모두 MetricDetailScreen의 summaryCard와
+            같은 값입니다 — 한쪽만 바꾸면 어긋나므로 함께 고쳐야 합니다. */}
         {skinSummaryText ? (
-          <View style={styles.commentCard}>
+          <LinearGradient
+            colors={gradient.iconBoxSoft}
+            start={gradientDirection.badge.start}
+            end={gradientDirection.badge.end}
+            style={styles.commentCard}
+          >
             <Text style={styles.commentLabel}>오늘의 피부 요약</Text>
             <Text style={styles.commentText}>{skinSummaryText}</Text>
-          </View>
+          </LinearGradient>
         ) : null}
 
         {radarItems.length >= 3 ? (
@@ -361,18 +365,23 @@ export function SkinResultScreen() {
         <View style={styles.metricGrid}>
           {metrics.map((item) => {
             const accent = metricAccent[asMetricKey(item.key)];
-            const grade = gradeOf(item.score);
             return (
               <View key={item.key} style={styles.metricCard}>
+                {/* 2026-08-19(세션 20) — 지표별 증감. 서버가 `comparison.changes`로 실제
+                    계산해서 내려주는 값인데(SkinRecordService.buildComparison) 이 카드가
+                    지금껏 쓰지 않고 있었습니다.
+
+                    같은 날 등급 배지를 **제거**했습니다(관리자님 B안). 배지의
+                    `metricGradeLabel`(「좋음」)과 아래 한 줄 설명 `metricPhrase`(「좋아요」)가
+                    **같은 점수에서 같은 임계값으로 나온 같은 등급**이라, 한 카드가 같은 말을
+                    두 번 하고 있었습니다. 2열 카드라 폭도 130px 남짓이어서 이름·증감·배지
+                    셋이 한 줄에 못 들어가 「트러블 안...」으로 잘렸습니다. 배지를 빼서
+                    중복과 잘림을 함께 해소했고, 제목 크기도 13으로 되돌렸습니다. */}
                 <View style={styles.metricCardHead}>
                   <Text style={styles.metricCardName} numberOfLines={1}>
                     {item.label}
                   </Text>
-                  <View style={[styles.gradeBadge, { backgroundColor: tint(grade.accent) }]}>
-                    <Text style={[styles.gradeBadgeText, { color: grade.accent }]}>
-                      {grade.label}
-                    </Text>
-                  </View>
+                  <DeltaBadge delta={item.delta} compact />
                 </View>
                 <View style={styles.progressTrack}>
                   <View
@@ -411,14 +420,6 @@ export function SkinResultScreen() {
  *  화면이 죽지 않게 trouble로 폴백합니다(라벨은 adapters가 이미 폴백 처리). */
 function asMetricKey(key: string): keyof typeof metricAccent {
   return key in metricAccent ? (key as keyof typeof metricAccent) : 'trouble';
-}
-
-/** 등급 배지 배경 — accent의 옅은 알파(Figma rgba(...,0.13)). */
-function tint(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, 0.13)`;
 }
 
 const styles = StyleSheet.create({
@@ -569,13 +570,13 @@ const styles = StyleSheet.create({
   totalCompareValue: { ...weightFamily('bold') },
   // "오늘의 피부 요약"(Figma TodaySkin) — 레이더 카드와 달리 그림자 없이 옅은 라벤더
   // 면으로 둡니다. 흰 카드가 위아래로 연달아 겹치면 코멘트가 지표 카드처럼 읽힙니다.
+  // 배경은 LinearGradient가 그립니다(backgroundColor 없음). 라운드 18·패딩 16은
+  // S-20 summaryCard와 같은 값입니다.
   commentCard: {
     marginHorizontal: space[4],
     marginTop: space[4],
-    backgroundColor: color.surfaceLavenderPale,
-    borderRadius: 16,
-    paddingVertical: space[4],
-    paddingHorizontal: space[4],
+    borderRadius: 18,
+    padding: space[4],
     gap: space[2],
   },
   commentLabel: {
@@ -622,21 +623,12 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   metricCardName: {
+    // 등급 배지를 뺀 뒤 폭에 여유가 생겨 13으로 되돌렸습니다(잘림 대응으로 잠시 12였음).
     fontSize: adjustFontSize(13),
     lineHeight: 20,
     ...weightFamily('bold'),
     color: color.textInk,
     flexShrink: 1,
-  },
-  gradeBadge: {
-    paddingHorizontal: space[2],
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  gradeBadgeText: {
-    fontSize: adjustFontSize(10),
-    lineHeight: 15,
-    ...weightFamily('bold'),
   },
   progressTrack: {
     height: 8,

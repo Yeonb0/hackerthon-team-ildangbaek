@@ -32,11 +32,49 @@
 // 목업이 보여주는 근거 문구(자외선 지수 높음 / 모공 케어 추천 …)가 **우리가 원하는 최종
 // 모습**입니다. 그건 백엔드가 실제 분석으로 채워야 하는 값이고, 프론트가 흉내 낼 수
 // 있는 게 아닙니다.
-import type { HomeResponse } from '@/types/home';
+import type { HomeResponse, HomeType } from '@/types/home';
 
 const SAVED_PRODUCT = /^Saved\s+product$/i;
 const SKIN_ANALYSIS_READY = /^Today's\s+skin\s+analysis\s+is\s+ready\.?$/i;
 const CURRENT_LOCATION = /^Current\s+location$/i;
+
+/**
+ * 밤 인사말. 백엔드 `HomeService.greeting()`(91행)이 이렇게 만듭니다.
+ *
+ *     homeType == DAY ? "좋은 아침이에요, " + name + "님." : "좋은 저녁이에요, " + name + "님."
+ *
+ * 관리자님 확정(2026-08-19, 세션 20): 밤은 「오늘도 수고했어요, ○○님!」.
+ * 하루를 마무리하며 여는 화면이라 시간대 인사보다 위로하는 문구가 맞다는 판단입니다.
+ *
+ * 닉네임을 살려야 해서 통째로 치환하지 않고 **이름만 뽑아 다시 조립**합니다.
+ */
+const EVENING_GREETING = /^좋은\s*저녁이에요[,，]?\s*(.*?)님\.?$/;
+
+/**
+ * 백엔드는 프로필이나 닉네임이 없으면 `"사용자"`를 끼워 넣습니다(HomeService 92행).
+ * 그대로 조립하면 「오늘도 수고했어요, 사용자님!」이 되는데, 이건 이름이 아니라
+ * 자리표시자라서 이름 없는 문장으로 떨어뜨립니다.
+ */
+const PLACEHOLDER_NAME = '사용자';
+
+/**
+ * 홈 인사말.
+ *
+ * 낮은 손대지 않습니다 — `DayHomeScreen`이 greeting을 **렌더링하지 않기 때문**입니다
+ * (관리자님 지시: 낮 홈 문구 삭제). 값이 남아 있어도 화면에 나오지 않으므로,
+ * 여기서 지우면 오히려 나중에 낮 홈에 문구를 되살릴 때 원인을 찾기 어려워집니다.
+ *
+ * 아는 패턴이 아니면 원본 그대로 — 백엔드가 문구를 한국어로 다시 쓰면 자동으로 통과합니다.
+ */
+export function formatGreeting(greeting: string, homeType: HomeType): string {
+  if (homeType !== 'NIGHT') return greeting;
+  const matched = EVENING_GREETING.exec(greeting.trim());
+  if (!matched) return greeting;
+  const name = matched[1].trim();
+  return name && name !== PLACEHOLDER_NAME
+    ? `오늘도 수고했어요, ${name}님!`
+    : '오늘도 수고했어요!';
+}
 
 /** 추천 항목의 근거 문구. 아는 패턴이 아니면 원본 그대로. */
 export function formatRecommendationReason(reason: string): string {
@@ -67,6 +105,7 @@ export function normalizeLocation(location: string | null): string | null {
 export function normalizeHomeCopy(response: HomeResponse): HomeResponse {
   return {
     ...response,
+    greeting: formatGreeting(response.greeting, response.homeType),
     routineRecommendation: {
       ...response.routineRecommendation,
       items: response.routineRecommendation.items.map((item) => ({

@@ -1,4 +1,4 @@
-// ProductRecordScreen.tsx
+// src/screens/product/ProductRecordScreen.tsx
 //
 // S-11(기본 상태) / S-12(검색 결과 상태) — 별도 화면으로 나누지 않고 검색어 유무로
 // 내부 분기합니다(F-PRODUCT-01 BR1, 명세서에도 두 화면이 "같은 화면"으로 정의돼 있음).
@@ -21,7 +21,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
-import { Toast } from '@/components/base/Toast';
 import { IconBack, IconChevronRight, IconClose } from '@/components/icons';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
@@ -49,7 +48,7 @@ import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { LOCAL_ROUTINE_ID } from '@/store/routineStore';
 import { color, radius, space, typography } from '@/theme';
-import type { RoutineSummaryItem, SavedProductSummary } from '@/types/product';
+import type { RoutineSummaryItem } from '@/types/product';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
 import { weightFamily } from '@/theme/typography';
 
@@ -68,17 +67,6 @@ type PendingConfirm = {
   message: string;
   onConfirmRetry: () => void;
 };
-
-function buildSelectionSummary(
-  selectedIds: number[],
-  savedProducts: Pick<SavedProductSummary, 'productId' | 'name'>[]
-): string {
-  const names = selectedIds
-    .map((id) => savedProducts.find((p) => p.productId === id)?.name)
-    .filter((n): n is string => Boolean(n));
-  if (names.length === 0) return `제품 ${selectedIds.length}개`;
-  return names.length > 1 ? `${names[0]} 외 ${names.length - 1}개` : names[0];
-}
 
 // "저장된 제품" 카테고리 필터 칩 라벨은 types/product.ts의 PRODUCT_CATEGORY_LABELS(관리자님
 // 확정 12종, 2026-08-10 — 백엔드에도 이 목록대로 전달 예정)를 그대로 씁니다.
@@ -195,12 +183,21 @@ export function ProductRecordScreen() {
   const [routineError, setRoutineError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
-  // 기록 성공 안내(Toast). skinRecordSuggested가 true면(F-PRODUCT-07과 같은 조건 — 같은
-  // 시간대 피부 기록이 아직 없음) 피부 기록으로 바로 이어갈 수 있는 액션을 추가로 보여줍니다.
-  const [successInfo, setSuccessInfo] = useState<{
-    summary: string;
-    skinRecordSuggested: boolean;
-  } | null>(null);
+  /**
+   * 기록 성공 안내. 2026-08-19(세션 20, 관리자님 A안) — **Toast에서 완료 화면으로
+   * 교체**했습니다(Figma 322:911). 저장 경로 3개(루틴 바로 기록 · 체크 다중 저장 ·
+   * 검색결과 단일 저장)가 모두 같은 화면으로 모입니다.
+   *
+   * `skinRecordSuggested`는 서버가 응답으로 주는 값을 그대로 넘깁니다 — 완료 화면이
+   * 이 값으로 "피부 기록하러 가기"를 보여줄지 정합니다. 예전 Toast의 「피부도 기록하기」
+   * 액션이 하던 판단과 같은 조건입니다(F-PRODUCT-07).
+   *
+   * 저장한 제품 이름을 더 이상 안내에 쓰지 않으므로 요약 문구(`buildSelectionSummary`)도
+   * 함께 걷어냈습니다 — Figma 완료 화면에 제품명이 들어가는 자리가 없습니다.
+   */
+  const goToComplete = (skinRecordSuggested: boolean) => {
+    navigation.navigate(DetailRoutes.ProductRecordComplete, { timeSlot, skinRecordSuggested });
+  };
 
   const handleQuickRecord = (routine: RoutineSummaryItem, force = false) => {
     setRoutineError(null);
@@ -209,10 +206,7 @@ export function ProductRecordScreen() {
       {
         onSuccess: (data) => {
           setConfirm(null);
-          setSuccessInfo({
-            summary: `${routine.name} 기록을 저장했어요.`,
-            skinRecordSuggested: data.skinRecordSuggested,
-          });
+          goToComplete(data.skinRecordSuggested);
         },
         onError: (error) => {
           if (error instanceof ApiError && error.code === ErrorCode.ROUTINE_TIME_SLOT_MISMATCH) {
@@ -260,11 +254,11 @@ export function ProductRecordScreen() {
       {
         onSuccess: (result) => {
           setConfirm(null);
-          setSuccessInfo({
-            summary: buildSelectionSummary(productIds, homeQuery.data?.savedProducts ?? []),
-            skinRecordSuggested: result.skinRecordSuggested,
-          });
+          // 선택 초기화는 유지합니다 — 완료 화면에서 「홈으로 돌아가기」를 누르면 스택이
+          // 리셋되지만, 그 전에 이 화면이 다시 그려지는 순간 체크가 남아 있으면 방금
+          // 저장한 것을 아직 안 한 것처럼 보입니다.
           setSelectedProductIds(new Set());
+          goToComplete(result.skinRecordSuggested);
         },
         onError: (error) => {
           if (error instanceof ApiError && error.code === ErrorCode.PRODUCT_ALREADY_RECORDED_IN_SLOT) {
@@ -293,10 +287,7 @@ export function ProductRecordScreen() {
       {
         onSuccess: (result) => {
           setConfirm(null);
-          setSuccessInfo({
-            summary: `${productName} 기록을 저장했어요.`,
-            skinRecordSuggested: result.skinRecordSuggested,
-          });
+          goToComplete(result.skinRecordSuggested);
         },
         onError: (error) => {
           if (error instanceof ApiError && error.code === ErrorCode.PRODUCT_ALREADY_RECORDED_IN_SLOT) {
@@ -319,10 +310,6 @@ export function ProductRecordScreen() {
   // 검색 결과 중 "저장됨"이 아닌 새 제품 — 첫 발견이라 성분 확인(S-14)을 거칩니다.
   const handleGoToIngredientCheck = (productId: number) =>
     navigation.navigate(DetailRoutes.IngredientCheck, { productId, timeSlot });
-  const handleGoToSkinRecord = () => {
-    setSuccessInfo(null);
-    navigation.navigate(DetailRoutes.PhotoGuide, { timeSlot });
-  };
   // Phase 11-C(관리자 결정, 2026-08-13) — TBD-07 해소. 검색 결과 없음(빈 상태)에서 오면
   // 검색어를 제품명에 prefill해줍니다.
   const handleGoToManualRegister = (prefillKeyword?: string) =>
@@ -479,14 +466,6 @@ export function ProductRecordScreen() {
         onRequestClose={() => setConfirm(null)}
       />
 
-      <Toast
-        visible={successInfo !== null}
-        message={successInfo ? `기록 완료! ${successInfo.summary}` : ''}
-        icon="check"
-        actionLabel={successInfo?.skinRecordSuggested ? '피부도 기록하기' : undefined}
-        onActionPress={handleGoToSkinRecord}
-        onDismiss={() => setSuccessInfo(null)}
-      />
     </View>
   );
 }
