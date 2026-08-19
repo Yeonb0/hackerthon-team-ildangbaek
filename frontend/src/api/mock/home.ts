@@ -135,7 +135,10 @@ function buildMockDayHome(): HomeResponse {
 function buildMockNightHome(weekStart: WeekStart): HomeResponse {
   return {
     homeType: 'NIGHT',
-    greeting: '오늘도 수고했어요',
+    // 2026-08-19(세션 20, 관리자님 확정) — 「오늘도 수고했어요, ○○님!」.
+    // 목업이 기준이고 실서버가 여기에 맞춰야 합니다(세션 19 원칙). 실서버는 아직
+    // "좋은 저녁이에요, ○○님."을 주므로 lib/homeCopy.ts가 파싱 경계에서 변환합니다.
+    greeting: '오늘도 수고했어요, 김민지님!',
     recordPrompt: '지금 기록을 남기면 내일 분석이 더 정확해져요',
     environment: null,
     routineRecommendation: {

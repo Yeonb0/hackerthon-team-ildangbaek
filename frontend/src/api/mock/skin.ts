@@ -116,7 +116,11 @@ export function buildMockSkinRecordResultForDate(
   const day = Number(date.slice(-2));
   if (Number.isNaN(day)) return null;
 
-  const totalScore = 68 + (day % 20);
+  // 2026-08-19(세션 20) — 슬롯마다 점수를 다르게 둡니다. 예전엔 모닝·나이트가 **항상
+  // 같은 값**이라, "시트는 나이트 / 상세는 모닝을 고른다"는 실서버의 불일치가 목업에선
+  // 절대 재현되지 않았습니다(관리자님이 실기기에서야 발견). 목업이 실서버와 같은
+  // 방식으로 어긋나야 화면 대조로 잡을 수 있습니다 — 세션 17 scan 버그와 같은 교훈입니다.
+  const totalScore = 68 + (day % 20) + (timeSlot === 'NIGHT' ? 4 : 0);
   // 합이 0인 편차 — 평균이 totalScore와 정확히 일치합니다.
   const OFFSETS: Record<string, number> = {
     trouble: 12,

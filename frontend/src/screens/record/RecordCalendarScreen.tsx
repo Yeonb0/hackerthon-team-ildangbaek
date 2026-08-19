@@ -1,4 +1,5 @@
-// RecordCalendarScreen.tsx — F-RECORD-02 월간 기록 (Frame 10, 210:835/210:1241)
+// src/screens/record/RecordCalendarScreen.tsx
+// F-RECORD-02 월간 기록 (Frame 10, 210:835/210:1241)
 //
 // 2번 체크포인트(관리자 승인 순서 1→2→3 중 2번). 기록 홈(RecordHubScreen)의 캘린더
 // 아이콘 버튼에서 진입하는 별도 화면입니다 — 1번 체크포인트에서 홈을 주간 스트립으로
@@ -182,6 +183,13 @@ export function RecordCalendarScreen() {
         key={selectedDate ?? 'none'}
         visible={selectedDate !== null}
         detail={dayDetail.data ?? null}
+        // 2026-08-19(세션 20) — 실 API(`GET /records/daily`) 연결에 따라 조회 상태를
+        // 함께 넘깁니다. 목업일 땐 즉시 반환이라 필요 없었지만, 실서버에선 응답 전까지
+        // detail이 null이라 시트가 아예 안 뜨는 것처럼 보입니다.
+        date={selectedDate}
+        isLoading={dayDetail.isLoading}
+        isError={dayDetail.isError}
+        onRetry={() => dayDetail.refetch()}
         dayStatus={
           selectedDate
             ? calendar.data?.days.find((d) => d.date === selectedDate)

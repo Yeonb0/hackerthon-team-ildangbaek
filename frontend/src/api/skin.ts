@@ -80,20 +80,34 @@ export async function getSkinRecordToday(timeSlot?: TimeSlot): Promise<SkinRecor
  *
  * `records`는 모닝 → 나이트 순이고 원소는 SKIN-01/02와 같은 구조입니다(ADR 0012 —
  * 하루 2건을 대표값으로 접지 않습니다). `timeSlot`을 주면 그 슬롯만 담겨 옵니다.
- * 안 주면 **첫 원소(모닝 우선)** 를 씁니다 — 바텀시트가 종합 점수 하나만 보여주는
- * 구조라 어차피 한 건만 펼칠 수 있고, 슬롯을 고르는 UI는 아직 없습니다.
+ *
+ * ⚠️ 2026-08-19(세션 20, 관리자님 A안) — `timeSlot`이 없을 때 **마지막 원소(나이트 우선)**
+ * 를 씁니다. 예전엔 첫 원소(모닝)를 썼는데, 캘린더 시트가 보여주는 점수와 **같은 날인데
+ * 서로 다른 숫자**가 나오는 문제가 있었습니다.
+ *
+ *   시트(`GET /records/daily`)   → `RecordHubService.skinScore()` 106행이
+ *                                  `.reduce((ignored, latest) -> latest)`로 **마지막** 선택
+ *   자세히 보기(`GET /reports/daily`) → 프론트가 `records[0]`로 **첫 원소** 선택
+ *
+ * 하루에 모닝·나이트를 둘 다 기록한 날에만 어긋났습니다(한 번만 기록한 날은 원소가
+ * 하나라 같은 값). 시트가 먼저 보이는 화면이고 그 숫자를 누른 결과가 상세이므로,
+ * 프론트를 시트 규칙에 맞췄습니다 — 서버 수정 대기 없이 즉시 일치합니다.
+ *
+ * 슬롯을 고르는 UI가 생기면 이 임의 선택 자체가 없어집니다.
  */
 export async function getSkinRecordByDate(
   date: string,
   timeSlot?: TimeSlot,
 ): Promise<SkinRecordResult | null> {
   if (USE_MOCK) {
-    return buildMockSkinRecordResultForDate(date, timeSlot ?? 'MORNING');
+    // 목업 기본 슬롯도 실서버 선택 규칙(나이트 우선)과 같게 둡니다 — 목업만 다른 슬롯을
+    // 보여주면 화면 대조로 버그를 잡을 수 없습니다(세션 17 scan 버그의 교훈).
+    return buildMockSkinRecordResultForDate(date, timeSlot ?? 'NIGHT');
   }
   const daily = await unwrap<ReportDailyResult>(
     apiClient.get('/reports/daily', {
       params: timeSlot ? { date, timeSlot } : { date },
     }),
   );
-  return daily.records[0] ?? null;
+  return daily.records[daily.records.length - 1] ?? null;
 }

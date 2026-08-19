@@ -18,10 +18,16 @@
 //       'SAFE' 폴백이 결국 모든 카드에 근거 없는 "잘 맞음"을 띄우고 있었습니다.
 //       tags는 서버가 규칙으로 도출한 값이라 폴백이 필요 없습니다. 1번 칩은 category별로
 //       색이 갈리고(shopTagTint), 2번 "주의 성분 미포함"은 초록 고정입니다.
-//   (d) 레이아웃: 섹션 제목을 카드 밖 큰 글씨로 빼고, 항목 하나하나를 개별 흰 카드로
-//       분리합니다(관리자 제공 참고 이미지 구조).
+//   (d) [2026-08-19 세션 20에 폐기] 섹션 제목을 카드 밖 큰 글씨로 빼고, 항목 하나하나를
+//       개별 흰 카드로 분리했었습니다 → **섹션 하나 = 흰 카드 하나**로 되돌렸습니다.
+//       카드 안에 섹션 제목 + "더보기" + 상품 행들이 모두 들어갑니다(관리자 지시 +
+//       디자이너 참고 이미지). 행 사이 구분선은 없고 여백만 둡니다.
 //   (e) 카드 텍스트 순서: 제품명(볼드) 위 / 브랜드(작은 회색) 아래.
-//   (f) "내게 잘 맞는 성분이 들어간 제품"만 가로 스크롤, 나머지 두 섹션은 세로 카드 스택.
+//   (f) [2026-08-19 세션 20에 폐기] "내게 잘 맞는 성분이 들어간 제품"만 가로 스크롤이었으나
+//       세 섹션 모두 세로 목록으로 통일했습니다(관리자 결정). 성분 필터 칩은 그대로 가로
+//       스크롤이고, 세로가 되면서 이 섹션에도 "더보기"(COLLAPSED_COUNT=2)가 붙었습니다.
+//       ※ RecommendationCard의 horizontal 분기와 hCard 계열 스타일은 지금 호출되지
+//         않습니다. 가로 배치를 되살릴 여지가 있어 남겨뒀습니다 — 정리하려면 말씀해주세요.
 //   (g) 우측 상단 위시리스트 아이콘 + 저장 개수 배지. 추가/삭제 버튼은 이 화면에 두지 않고
 //       제품 상세(SHOP-02)에만 둡니다 — 쇼핑 화면을 깔끔하게 유지하려는 결정.
 //   (h) 참고 이미지의 번호 배지(1·2)는 넣지 않습니다(추천은 순위 목록이 아님).
@@ -372,7 +378,7 @@ export function ShoppingScreen() {
         ) : (
           <>
             {todayNeeded.length > 0 && (
-              <View style={styles.section}>
+              <View style={styles.sectionCard}>
                 <SectionHeader
                   title="오늘 내 피부에 필요해요"
                   subtitle={todaySubtitle}
@@ -380,7 +386,7 @@ export function ShoppingScreen() {
                   canExpand={todayNeeded.length > COLLAPSED_COUNT}
                   onToggle={() => toggleSection('today')}
                 />
-                <View style={styles.cardStack}>
+                <View style={styles.rowStack}>
                   {(expandedSections.today
                     ? todayNeeded
                     : todayNeeded.slice(0, COLLAPSED_COUNT)
@@ -396,7 +402,7 @@ export function ShoppingScreen() {
             )}
 
             {humidityCare.length > 0 && (
-              <View style={styles.section}>
+              <View style={styles.sectionCard}>
                 <SectionHeader
                   title="보습이 필요한 날"
                   subtitle={humiditySubtitle}
@@ -404,7 +410,7 @@ export function ShoppingScreen() {
                   canExpand={humidityCare.length > COLLAPSED_COUNT}
                   onToggle={() => toggleSection('humidity')}
                 />
-                <View style={styles.cardStack}>
+                <View style={styles.rowStack}>
                   {(expandedSections.humidity
                     ? humidityCare
                     : humidityCare.slice(0, COLLAPSED_COUNT)
@@ -420,14 +426,15 @@ export function ShoppingScreen() {
             )}
 
             {matchedIngredient.length > 0 && (
-              <View style={styles.section}>
-                {/* 이 섹션만 가로 스크롤이라 "더보기"가 필요 없습니다(관리자 결정 (f)). */}
+              <View style={styles.sectionCard}>
+                {/* 2026-08-19(세션 20) — 가로 스크롤을 접고 다른 섹션과 같은 세로 목록으로
+                    통일했습니다(관리자 결정). 목록이 길어질 수 있어 "더보기"도 같이 붙입니다. */}
                 <SectionHeader
                   title="내게 잘 맞는 성분이 들어간 제품"
                   subtitle={null}
-                  expanded={false}
-                  canExpand={false}
-                  onToggle={() => undefined}
+                  expanded={!!expandedSections.ingredient}
+                  canExpand={filteredByIngredient.length > COLLAPSED_COUNT}
+                  onToggle={() => toggleSection('ingredient')}
                 />
                 {goodIngredients.length > 0 && (
                   // 성분 칩도 개수가 많으면 줄바꿈으로 화면을 밀어내서 가로 스크롤로 둡니다.
@@ -452,20 +459,18 @@ export function ShoppingScreen() {
                     {effectiveSelectedIngredient ?? ''} 성분이 들어간 추천 제품이 아직 없어요.
                   </Text>
                 ) : (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.horizontalRow}
-                  >
-                    {filteredByIngredient.map((rec) => (
+                  <View style={styles.rowStack}>
+                    {(expandedSections.ingredient
+                      ? filteredByIngredient
+                      : filteredByIngredient.slice(0, COLLAPSED_COUNT)
+                    ).map((rec) => (
                       <RecommendationCard
                         key={rec.productId}
                         rec={rec}
-                        horizontal
                         onPress={() => handleProductSelected(rec.productId, rec.reason)}
                       />
                     ))}
-                  </ScrollView>
+                  </View>
                 )}
               </View>
             )}
@@ -798,20 +803,28 @@ const styles = StyleSheet.create({
     ...reportCardShadow.soft,
   },
 
-  section: {
-    gap: space[3],
+  // 2026-08-19(세션 20, 관리자님 지시) — "섹션 하나 = 흰 카드 하나".
+  // 세션 12 결정 (d)(제목은 카드 밖 / 항목마다 개별 흰 카드)를 뒤집은 것입니다.
+  // 카드가 항목 수만큼 쪼개져 있어서 섹션 경계가 오히려 흐릿했고, 스크롤할 때
+  // 그림자가 계속 반복돼 배경이 지저분해 보였습니다. 이제 그림자는 섹션당 하나입니다.
+  sectionCard: {
+    backgroundColor: color.bg,
+    borderRadius: radius.xl,
+    padding: space[5],
+    gap: space[4],
+    ...reportCardShadow.soft,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: space[2],
-    paddingHorizontal: space[1],
   },
   sectionHeaderText: {
     flex: 1,
   },
-  // 카드 밖으로 나오면서 카드 안 제목(14)보다 키웠습니다 — 참고 이미지의 "큰 글씨".
+  // 카드 안으로 들어왔지만 크기는 17을 유지합니다 — 참고 이미지의 카드 안 제목도
+  // 본문보다 확실히 큽니다. 줄이면 상품명(15)과 위계가 거의 사라집니다.
   sectionTitle: {
     fontSize: adjustFontSize(17),
     lineHeight: 25,
@@ -847,18 +860,23 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
 
-  // 세로 카드 스택
+  // 검색 결과(ProductCard)용 — 카드가 각자 껍데기를 갖는 예전 스택입니다.
+  // 추천 섹션은 아래 rowStack을 씁니다.
   cardStack: {
     gap: space[3],
   },
+  // 섹션 카드 안의 상품 행 간격. 참고 이미지대로 구분선 없이 여백만 둡니다.
+  rowStack: {
+    gap: space[4],
+  },
+  // 2026-08-19(세션 20) — 카드 껍데기(배경·모서리·그림자·padding)를 걷어내고 행이
+  // 됐습니다. 바깥 sectionCard가 이미 흰 배경이라 흰 카드를 겹치면 경계가 안 보입니다.
+  // 대신 세로 padding을 조금 남겨 탭 영역이 썸네일(48) 밖으로도 잡히게 했습니다.
   vCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[3],
-    backgroundColor: color.bg,
-    borderRadius: radius.xl,
-    padding: space[4],
-    ...reportCardShadow.soft,
+    paddingVertical: space[1],
   },
   vCardThumbnail: {
     width: 48,
@@ -897,9 +915,10 @@ const styles = StyleSheet.create({
   },
 
   // 카드 텍스트 — 제품명 볼드 위 / 브랜드 작은 회색 아래 (관리자 지시)
+  // 2026-08-19(세션 20, 관리자님 지시) — 14 → 15. 가로 카드(132px)도 같이 올립니다.
   cardName: {
-    fontSize: adjustFontSize(14),
-    lineHeight: 21,
+    fontSize: adjustFontSize(15),
+    lineHeight: 22,
     ...weightFamily('bold'),
     color: color.textInk,
   },

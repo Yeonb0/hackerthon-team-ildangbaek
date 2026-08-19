@@ -1,3 +1,4 @@
+// src/app/MainTabNavigator.tsx
 import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -34,6 +35,7 @@ import { IngredientListScreen } from '@/screens/my/IngredientListScreen';
 import { RoutineEditScreen } from '@/screens/product/RoutineEditScreen';
 import { RoutineAddProductScreen } from '@/screens/product/RoutineAddProductScreen';
 import { ProductManualRegisterScreen } from '@/screens/product/ProductManualRegisterScreen';
+import { ProductRecordCompleteScreen } from '@/screens/product/ProductRecordCompleteScreen';
 import { RecordCalendarScreen } from '@/screens/record/RecordCalendarScreen';
 import { WishlistScreen } from '@/screens/product/WishlistScreen';
 
@@ -144,6 +146,14 @@ export function MainTabNavigator() {
       <Stack.Screen name={DetailRoutes.RoutineEdit} component={RoutineEditScreen} />
       <Stack.Screen name={DetailRoutes.RoutineAddProduct} component={RoutineAddProductScreen} />
       <Stack.Screen name={DetailRoutes.ProductManualRegister} component={ProductManualRegisterScreen} />
+      {/* 제품 등록 완료 — 지나가는 화면이라 제스처 뒤로가기를 막습니다. 저장은 이미
+          끝난 상태라 뒤로 쓸어 S-11로 돌아가면 방금 기록한 내용이 그대로 남아 있어
+          다시 저장할 수 있는 것처럼 보입니다. */}
+      <Stack.Screen
+        name={DetailRoutes.ProductRecordComplete}
+        component={ProductRecordCompleteScreen}
+        options={{ gestureEnabled: false }}
+      />
       <Stack.Screen name={DetailRoutes.RecordCalendar} component={RecordCalendarScreen} />
       {/* S-25 위시리스트 — 2026-08-17(세션 12) 신규. 쇼핑 화면 우측 상단 아이콘에서 진입. */}
       <Stack.Screen name={DetailRoutes.Wishlist} component={WishlistScreen} />

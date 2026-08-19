@@ -25,6 +25,7 @@ import { IconCloudError } from './IconCloudError';
 import { IconDragHandle } from './IconDragHandle';
 import { IconEye } from './IconEye';
 import { IconEyeOff } from './IconEyeOff';
+import { IconFaceGood } from './IconFaceGood';
 import { IconFaceScan } from './IconFaceScan';
 import { IconLoading } from './IconLoading';
 import { IconMinus } from './IconMinus';
@@ -81,6 +82,7 @@ export {
   IconDragHandle,
   IconEye,
   IconEyeOff,
+  IconFaceGood,
   IconFaceScan,
   IconLoading,
   IconMinus,
