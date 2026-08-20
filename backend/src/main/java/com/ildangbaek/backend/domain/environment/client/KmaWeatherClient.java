@@ -14,13 +14,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 @Slf4j
 @Component
 public class KmaWeatherClient {
 
-    private static final String DEFAULT_BASE_URL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0";
+    private static final String DEFAULT_BASE_URL = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmm");
 
@@ -68,7 +67,7 @@ public class KmaWeatherClient {
                 return Optional.empty();
             }
             return Optional.of(new WeatherSnapshot(weatherCondition, temperature, humidity, baseDateTime));
-        } catch (RestClientException exception) {
+        } catch (RuntimeException exception) {
             log.warn("기상청 초단기실황 조회 실패: latitude={}, longitude={}", latitude, longitude, exception);
             return Optional.empty();
         }
