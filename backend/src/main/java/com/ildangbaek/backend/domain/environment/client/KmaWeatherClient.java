@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ildangbaek.backend.domain.environment.entity.WeatherCondition;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -32,7 +34,7 @@ public class KmaWeatherClient {
             @Value("${app.weather.kma.service-key:}") String serviceKey
     ) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
-        this.serviceKey = serviceKey == null ? "" : serviceKey.trim();
+        this.serviceKey = normalizeServiceKey(serviceKey);
     }
 
     public Optional<WeatherSnapshot> getCurrent(double latitude, double longitude, LocalDateTime now) {
@@ -71,6 +73,14 @@ public class KmaWeatherClient {
             log.warn("기상청 초단기실황 조회 실패: latitude={}, longitude={}", latitude, longitude, exception);
             return Optional.empty();
         }
+    }
+
+    private String normalizeServiceKey(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String trimmed = value.trim();
+        return trimmed.contains("%") ? URLDecoder.decode(trimmed, StandardCharsets.UTF_8) : trimmed;
     }
 
     private Map<String, String> itemValues(KmaCurrentWeatherResponse response) {
