@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final String MOCK_VERIFICATION_CODE = "123456";
+    private static final String MOCK_VERIFICATION_CODE = "724913";
     private static final int RESEND_COOLDOWN_SECONDS = 54;
     private static final Duration VERIFICATION_TTL = Duration.ofMinutes(10);
 

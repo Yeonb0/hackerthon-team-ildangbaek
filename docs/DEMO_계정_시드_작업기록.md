@@ -50,7 +50,7 @@
 
 ```
 POST /auth/email/send-code      { "email": "demo@naver.com" }
-POST /auth/email/verify-code    { "email": "demo@naver.com", "code": "123456" }  # mock 고정 코드
+POST /auth/email/verify-code    { "email": "demo@naver.com", "code": "724913" }  # mock 고정 코드
 POST /auth/email/signup         { "email": "demo@naver.com", "password": "Demo1234!" }
 ```
 
