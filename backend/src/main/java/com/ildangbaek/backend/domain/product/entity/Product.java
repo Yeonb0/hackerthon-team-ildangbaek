@@ -61,4 +61,13 @@ public class Product extends BaseTimeEntity {
         this.dataSource = dataSource;
         this.active = true;
     }
+
+    public void updateSampleInfo(String brandName, String productName, ProductCategory category, String imageUrl) {
+        this.brandName = brandName;
+        this.productName = productName;
+        this.category = category;
+        this.imageUrl = imageUrl;
+        this.dataSource = ProductDataSource.SAMPLE;
+        this.active = true;
+    }
 }
