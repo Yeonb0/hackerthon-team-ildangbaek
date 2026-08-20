@@ -247,7 +247,40 @@ public class OnboardingService {
                 genderLabel(profile.getGender()) + " · " + age(profile.getBirthYear()) + "세"
         ));
         summary.add(new OnboardingCompleteResponse.SummaryItem("피부 타입", skinTypeSummary(user)));
+        appendHormoneSummary(summary, profile);
         return summary;
+    }
+
+    private void appendHormoneSummary(List<OnboardingCompleteResponse.SummaryItem> summary, UserProfile profile) {
+        if (profile.getMenstrualStatus() == null) {
+            return;
+        }
+
+        summary.add(new OnboardingCompleteResponse.SummaryItem("생리 상태", hormoneStatusLabel(profile)));
+        if (profile.getLastMenstrualStartDate() == null) {
+            return;
+        }
+
+        String label = profile.isOralContraceptive() ? "최근 휴약기" : "최근 시작일";
+        summary.add(new OnboardingCompleteResponse.SummaryItem(label, hormoneDateSummary(profile)));
+    }
+
+    private String hormoneStatusLabel(UserProfile profile) {
+        if (profile.getMenstrualStatus() == MenstrualStatus.MENOPAUSE) {
+            return "폐경";
+        }
+        if (profile.isOralContraceptive()) {
+            return "호르몬약";
+        }
+        return "생리";
+    }
+
+    private String hormoneDateSummary(UserProfile profile) {
+        String date = profile.getLastMenstrualStartDate().toString();
+        if (profile.getMenstrualCycleDays() == null) {
+            return date;
+        }
+        return date + " · " + profile.getMenstrualCycleDays() + "일";
     }
 
     private String genderLabel(Gender gender) {
