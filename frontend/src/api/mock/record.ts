@@ -222,7 +222,54 @@ export function buildMockRecordDayDetail(date: string): RecordDayDetailResponse 
     };
   };
 
-  const hasSkinRecord = morningStatus !== 'NONE' || nightStatus !== 'NONE';
+  // 2026-08-20(세션 22) — 판정을 FULL 기준으로 바꿨습니다. 아래 buildSlotState가
+  // "FULL = 제품·피부 둘 다"로 슬롯을 만드는데, 여기만 "NONE만 아니면 피부 기록 있음"
+  // 이면 PARTIAL인 날에 **시트는 점수를 보여주고 허브 카드는 '기록 없음'** 이 됩니다.
+  // 목업끼리 어긋나면 실서버 버그를 찾는 시간만 낭비합니다.
+  const hasSkinRecord = morningStatus === 'FULL' || nightStatus === 'FULL';
+
+  /**
+   * 2026-08-20(세션 22) — 주간 스트립에서 과거 날짜를 눌렀을 때 쓰는 슬롯 상태.
+   *
+   * 실서버는 아직 이 필드가 없어 `api/queries/record.ts`가 두 응답을 조합해 채웁니다.
+   * 목업은 조합할 대상이 없으니 여기서 직접 만듭니다 — **점 상태(DEMO_PATTERN)와 반드시
+   * 일치해야 합니다.** 스트립의 점과 카드의 체크가 어긋나면 그게 곧 버그로 보입니다.
+   *
+   *   FULL    = 제품 · 피부 둘 다 완료   (computeDotStatus의 정의 그대로)
+   *   PARTIAL = 제품만 완료
+   *   NONE    = 둘 다 미완료
+   */
+  const buildSlotState = (
+    status: RecordDotStatus,
+    slot: TimeSlot,
+  ): RecordDayDetailResponse['morning'] => {
+    const productDone = status !== 'NONE';
+    const skinDone = status === 'FULL';
+    const items = buildSlot(status, slot).items;
+    // 슬롯별 점수 편차(+4)는 api/mock/skin.ts·위 skinScore와 같은 규칙이어야 합니다.
+    const score = 68 + (Number(date.slice(-2)) % 20) + (slot === 'NIGHT' ? 4 : 0);
+
+    return {
+      product: {
+        completed: productDone,
+        recordId: productDone ? mockProductRecordId(date, slot) : null,
+        summary: productDone
+          ? items.length > 1
+            ? `${items[0].name} 외 ${items.length - 1}개`
+            : (items[0]?.name ?? '제품 기록 완료')
+          : null,
+      },
+      skin: {
+        // buildMockSkinRecordResultForDate가 skinRecordId를 일(day)로 두므로 맞춥니다 —
+        // 상세 화면과 같은 기록을 가리켜야 합니다.
+        completed: skinDone,
+        skinRecordId: skinDone ? Number(date.slice(-2)) : null,
+        summary: skinDone ? `분석 점수 ${score}점` : null,
+      },
+    };
+  };
+
+  const todayData = date === today ? buildMockRecordToday() : null;
 
   return {
     date,
@@ -231,9 +278,13 @@ export function buildMockRecordDayDetail(date: string): RecordDayDetailResponse 
     // 따라야 상세 화면과 숫자가 맞는지 여기서 검증할 수 있습니다.
     // 슬롯별 편차(+4)는 api/mock/skin.ts와 같은 값이어야 합니다.
     skinScore: hasSkinRecord
-      ? 68 + (Number(date.slice(-2)) % 20) + (nightStatus !== 'NONE' ? 4 : 0)
+      ? 68 + (Number(date.slice(-2)) % 20) + (nightStatus === 'FULL' ? 4 : 0)
       : null,
     morningProducts: buildSlot(morningStatus, 'MORNING'),
     nightProducts: buildSlot(nightStatus, 'NIGHT'),
+    // 오늘이면 세션 상태(방금 기록한 것)를 그대로 씁니다 — 기록 직후 스트립에서 오늘을
+    // 다시 눌렀을 때 미완료로 되돌아가 보이면 안 됩니다.
+    morning: todayData ? todayData.morning : buildSlotState(morningStatus, 'MORNING'),
+    night: todayData ? todayData.night : buildSlotState(nightStatus, 'NIGHT'),
   };
 }

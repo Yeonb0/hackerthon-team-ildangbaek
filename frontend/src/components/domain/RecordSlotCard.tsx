@@ -17,6 +17,16 @@ type RecordSlotCardProps = {
   completed: boolean;
   summary: string | null;
   onPress: () => void;
+  /**
+   * 미완료일 때 요약 자리에 쓸 문구. 기본값은 '기록하러 가기'입니다.
+   *
+   * 2026-08-20(세션 22) — 주간 스트립에서 **지난 날짜**를 열면 그 날짜로 새 기록을 만들
+   * 수는 없어서(POST /product-records·/skin-records 둘 다 오늘 기준) '기록 없음'처럼
+   * 바꿔 써야 합니다.
+   */
+  emptyText?: string;
+  /** true면 눌러도 반응하지 않고 화살표도 감춥니다(진입할 곳이 없는 경우). */
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -46,14 +56,21 @@ export function RecordSlotCard({
   completed,
   summary,
   onPress,
+  emptyText = '기록하러 가기',
+  disabled = false,
   style,
 }: RecordSlotCardProps) {
   const Icon = VARIANT_ICON[variant];
   const badgeTint = timeSlot === 'morning' ? color.calendarMorningDot : color.brand500;
 
   return (
-    <Pressable onPress={onPress} accessibilityRole="button">
-      <Card style={[styles.card, style]}>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole={disabled ? undefined : 'button'}
+      accessibilityState={disabled ? { disabled: true } : undefined}
+    >
+      <Card style={[styles.card, disabled && styles.cardDisabled, style]}>
         <View style={styles.row}>
           <LinearGradient
             colors={gradient.iconBoxSoft}
@@ -66,7 +83,7 @@ export function RecordSlotCard({
           <View style={styles.textArea}>
             <Text style={styles.title}>{label}</Text>
             <Text style={styles.summary} numberOfLines={1}>
-              {completed && summary ? summary : '기록하러 가기'}
+              {completed && summary ? summary : emptyText}
             </Text>
           </View>
           <View style={styles.trailing}>
@@ -77,7 +94,9 @@ export function RecordSlotCard({
             ) : (
               <View style={styles.checkBadgeEmpty} />
             )}
-            <IconChevronRight size={14} color={color.textSub} />
+            {/* 갈 곳이 없으면 화살표를 감춥니다 — 눌러도 아무 일이 없는데 화살표만
+                있으면 고장으로 보입니다. 자리는 남겨 카드 높이·정렬을 유지합니다. */}
+            {disabled ? <View style={styles.chevronPlaceholder} /> : <IconChevronRight size={14} color={color.textSub} />}
           </View>
         </View>
       </Card>
@@ -90,6 +109,13 @@ const styles = StyleSheet.create({
     padding: 0,
     borderWidth: 0.79,
     borderColor: color.borderDivider,
+  },
+  cardDisabled: {
+    opacity: 0.55,
+  },
+  chevronPlaceholder: {
+    width: 14,
+    height: 14,
   },
   row: {
     flexDirection: 'row',

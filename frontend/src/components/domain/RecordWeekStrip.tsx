@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { RecordDot } from '@/components/domain/RecordDot';
 import { getCurrentWeekDates, getWeekdayLabels, isFutureDateString } from '@/lib/date';
@@ -17,6 +17,13 @@ type RecordWeekStripProps = {
    * 2026-08-15). RecordCalendar와 같은 prop 이름·기본값 관례를 따르진 않았는데,
    * 이 화면은 Figma가 명시적으로 일요일 시작이라 기본값을 다르게 뒀습니다. */
   weekStart?: WeekStart;
+  /**
+   * 2026-08-20(세션 22) — 지금 선택된 날짜('YYYY-MM-DD'). 오늘이면 오늘 칸이 선택
+   * 상태입니다. `onSelectDate`와 함께 주지 않으면 기존처럼 읽기 전용으로 동작합니다.
+   */
+  selectedDate?: string;
+  /** 지나간 날짜를 탭했을 때. 미래 날짜는 애초에 눌리지 않습니다(F-RECORD-01 BR6). */
+  onSelectDate?: (date: string) => void;
 };
 
 /**
@@ -34,7 +41,12 @@ type RecordWeekStripProps = {
  * 달 경계를 걸쳐 `days`에 데이터가 없는 과거 날짜는 기존대로 NONE(미기록)으로
  * 그립니다(관리자 결정 — 이번 수정 범위는 미래 날짜만).
  */
-export function RecordWeekStrip({ days, weekStart = 'SUNDAY' }: RecordWeekStripProps) {
+export function RecordWeekStrip({
+  days,
+  weekStart = 'SUNDAY',
+  selectedDate,
+  onSelectDate,
+}: RecordWeekStripProps) {
   const dayMap = new Map(days.map((d) => [d.date, d]));
   const weekDates = getCurrentWeekDates(weekStart);
   const weekdayLabels = getWeekdayLabels(weekStart);
@@ -45,6 +57,7 @@ export function RecordWeekStrip({ days, weekStart = 'SUNDAY' }: RecordWeekStripP
         const data = dayMap.get(date);
         const isToday = data?.today ?? false;
         const isFuture = isFutureDateString(date);
+        const isSelected = selectedDate === date;
         const day = Number(date.slice(-2));
         const label = weekdayLabels[index];
         // 요일 라벨 색 구분은 index가 아니라 라벨 문자 기준입니다 — weekStart가
@@ -53,12 +66,31 @@ export function RecordWeekStrip({ days, weekStart = 'SUNDAY' }: RecordWeekStripP
         const isSunday = label === '일';
         const isSaturday = label === '토';
 
+        // 미래 날짜는 선택 불가(F-RECORD-01 BR6). onSelectDate를 안 넘긴 호출부에서는
+        // 전체가 읽기 전용으로 남습니다 — 기존 동작 그대로입니다.
+        const selectable = onSelectDate !== undefined && !isFuture;
+        // selectedDate를 안 넘긴 호출부(읽기 전용)에서는 예전처럼 오늘 칸이 강조됩니다.
+        const highlighted = selectedDate !== undefined ? isSelected : isToday;
+
         return (
-          <View key={date} style={styles.cell}>
+          <Pressable
+            key={date}
+            style={styles.cell}
+            disabled={!selectable}
+            onPress={() => onSelectDate?.(date)}
+            accessibilityRole={selectable ? 'button' : undefined}
+            accessibilityLabel={selectable ? `${day}일 기록 보기` : undefined}
+            accessibilityState={selectable ? { selected: isSelected } : undefined}
+          >
             <Text style={[styles.weekdayLabel, isSunday && styles.weekdayLabelSun, isSaturday && styles.weekdayLabelSat]}>
               {label}
             </Text>
-            {isToday ? (
+            {/* 그라데이션 원 = **지금 보고 있는 날짜**입니다(관리자 결정, 2026-08-20).
+                기본 선택이 오늘이라 첫 진입 화면은 예전과 똑같고, 지난 날짜를 고르면
+                그 칸으로 원이 옮겨 갑니다. 테두리를 따로 두지 않는 이유는 강조 수단이
+                둘이면 어느 쪽이 "지금 보는 날"인지 읽히지 않기 때문입니다.
+                원을 잃은 오늘 칸은 숫자만 브랜드 색으로 남겨 위치를 알 수 있게 합니다. */}
+            {highlighted ? (
               <LinearGradient
                 colors={gradient.brand}
                 start={gradientDirection.iconBox.start}
@@ -69,7 +101,15 @@ export function RecordWeekStrip({ days, weekStart = 'SUNDAY' }: RecordWeekStripP
               </LinearGradient>
             ) : (
               <View style={styles.dayCircle}>
-                <Text style={[styles.dayText, isFuture && styles.dayTextFuture]}>{day}</Text>
+                <Text
+                  style={[
+                    styles.dayText,
+                    isToday && styles.dayTextTodayMuted,
+                    isFuture && styles.dayTextFuture,
+                  ]}
+                >
+                  {day}
+                </Text>
               </View>
             )}
             <View style={styles.dots}>
@@ -87,7 +127,7 @@ export function RecordWeekStrip({ days, weekStart = 'SUNDAY' }: RecordWeekStripP
                 </>
               )}
             </View>
-          </View>
+          </Pressable>
         );
       })}
     </View>
@@ -131,6 +171,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19.5,
     color: color.textInk,
+  },
+  // 지난 날짜를 보는 동안 오늘 칸이 어디였는지 잃지 않게 하는 표식입니다.
+  dayTextTodayMuted: {
+    color: color.brand500,
   },
   dayTextFuture: {
     color: color.textMuted,
