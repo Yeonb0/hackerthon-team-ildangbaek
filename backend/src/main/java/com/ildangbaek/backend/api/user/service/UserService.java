@@ -350,11 +350,32 @@ public class UserService {
     }
 
     private static final List<LocationSeed> LOCATIONS = List.of(
-            new LocationSeed(1, "서울", 37.5665, 126.9780),
-            new LocationSeed(2, "경기", 37.4138, 127.5183),
-            new LocationSeed(3, "인천", 37.4563, 126.7052),
-            new LocationSeed(4, "부산", 35.1796, 129.0756),
-            new LocationSeed(5, "대구", 35.8714, 128.6014),
-            new LocationSeed(6, "광주", 35.1595, 126.8526)
+            new LocationSeed(1, "서울 강남구", 37.5172, 127.0473),
+            new LocationSeed(2, "서울 마포구", 37.5663, 126.9019),
+            new LocationSeed(3, "서울 종로구", 37.5735, 126.9788),
+            new LocationSeed(4, "서울 송파구", 37.5145, 127.1059),
+            new LocationSeed(5, "서울 서대문구", 37.5791, 126.9368),
+            new LocationSeed(6, "인천 연수구", 37.4106, 126.6784),
+            new LocationSeed(7, "인천 남동구", 37.4467, 126.7314),
+            new LocationSeed(8, "경기 성남시 분당구", 37.3826, 127.1188),
+            new LocationSeed(9, "경기 수원시 영통구", 37.2589, 127.0567),
+            new LocationSeed(10, "경기 고양시 일산동구", 37.6584, 126.7717),
+            new LocationSeed(11, "부산 해운대구", 35.1631, 129.1635),
+            new LocationSeed(12, "부산 수영구", 35.1455, 129.1132),
+            new LocationSeed(13, "대구 수성구", 35.8583, 128.6311),
+            new LocationSeed(14, "광주 서구", 35.1519, 126.8896),
+            new LocationSeed(15, "대전 유성구", 36.3623, 127.3562),
+            new LocationSeed(16, "울산 남구", 35.5439, 129.3300),
+            new LocationSeed(17, "세종특별자치시", 36.4801, 127.2891),
+            new LocationSeed(18, "강원 춘천시", 37.8813, 127.7300),
+            new LocationSeed(19, "강원 강릉시", 37.7519, 128.8761),
+            new LocationSeed(20, "충북 청주시 흥덕구", 36.6280, 127.4470),
+            new LocationSeed(21, "충남 천안시 서북구", 36.8151, 127.1139),
+            new LocationSeed(22, "전북 전주시 완산구", 35.8134, 127.1380),
+            new LocationSeed(23, "전남 여수시", 34.7604, 127.6622),
+            new LocationSeed(24, "경북 포항시 남구", 36.0011, 129.3435),
+            new LocationSeed(25, "경남 창원시 성산구", 35.2280, 128.6811),
+            new LocationSeed(26, "제주 제주시", 33.4996, 126.5312),
+            new LocationSeed(27, "제주 서귀포시", 33.2541, 126.5601)
     );
 }
