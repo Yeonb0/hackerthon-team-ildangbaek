@@ -3,6 +3,8 @@ package com.ildangbaek.backend.domain.environment.client;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -16,7 +18,7 @@ import org.springframework.web.client.RestClient;
 @Component
 public class KmaUvIndexClient {
 
-    private static final String DEFAULT_BASE_URL = "https://apis.data.go.kr/1360000/LivingWthrIdxServiceV4";
+    private static final String DEFAULT_BASE_URL = "https://apis.data.go.kr/1360000/LivingWthrIdxServiceV5";
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
     private final RestClient restClient;
@@ -28,7 +30,7 @@ public class KmaUvIndexClient {
             @Value("${app.weather.kma.service-key:}") String serviceKey
     ) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
-        this.serviceKey = serviceKey == null ? "" : serviceKey.trim();
+        this.serviceKey = normalizeServiceKey(serviceKey);
     }
 
     public Optional<BigDecimal> getCurrent(String areaNo, LocalDateTime now) {
@@ -40,7 +42,7 @@ public class KmaUvIndexClient {
         try {
             KmaUvIndexResponse response = restClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path("/getUVIdxV4")
+                            .path("/getUVIdxV5")
                             .queryParam("serviceKey", serviceKey)
                             .queryParam("pageNo", 1)
                             .queryParam("numOfRows", 10)
@@ -55,6 +57,14 @@ public class KmaUvIndexClient {
             log.warn("기상청 자외선지수 조회 실패: areaNo={}", areaNo, exception);
             return Optional.empty();
         }
+    }
+
+    private String normalizeServiceKey(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String trimmed = value.trim();
+        return trimmed.contains("%") ? URLDecoder.decode(trimmed, StandardCharsets.UTF_8) : trimmed;
     }
 
     private LocalDateTime latestBaseDateTime(LocalDateTime now) {
