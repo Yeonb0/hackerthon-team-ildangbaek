@@ -1,7 +1,8 @@
 // src/components/dev/DevResetButton.tsx
 //
 // 폰(Expo Go 등)에는 브라우저 콘솔이 없어서 localStorage를 못 지웁니다.
-// 이 버튼은 __DEV__ 빌드에서만 항상 화면 위에 떠 있습니다. 누르면 메뉴가 펼쳐져서
+// 이 버튼은 __DEV__ 빌드 + .env의 EXPO_PUBLIC_SHOW_DEV_TOOLS=true 일 때만 화면 위에
+// 떠 있습니다(기본값 꺼짐 — 시연 영상 촬영 때 찍히지 않게, 2026-08-20). 누르면 메뉴가 펼쳐져서
 // 로그인 / 온보딩 / 피부 기록 목업 상태를 각각 따로 초기화할 수 있습니다.
 // ⚠️ 전에는 눌렀을 때 전부 한 번에(+로그아웃까지) 지웠는데, 피부 기록만 다시
 // 테스트하고 싶을 때마다 로그인·온보딩을 매번 다시 거쳐야 해서 관리자님 요청으로
@@ -44,7 +45,7 @@ import {
   useMetricLabelStore,
   METRIC_LABEL_MODE_TITLE,
 } from '@/store/metricLabelStore';
-import { SHOW_CATALOG } from '@/lib/devFlags';
+import { SHOW_CATALOG, SHOW_DEV_TOOLS } from '@/lib/devFlags';
 import { getWeatherLabel } from '@/lib/weather';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
@@ -81,7 +82,9 @@ export function DevResetButton() {
   const [expanded, setExpanded] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  if (!__DEV__) return null;
+  // 2026-08-20 — 시연 영상 촬영용. dev 빌드에서도 .env로 명시적으로 켜야 뜹니다
+  // (EXPO_PUBLIC_SHOW_DEV_TOOLS=true). 훅 호출 뒤에 두어야 훅 순서가 깨지지 않습니다.
+  if (!__DEV__ || !SHOW_DEV_TOOLS) return null;
 
   const runReset = async (action: () => void | Promise<void>) => {
     if (resetting) return;

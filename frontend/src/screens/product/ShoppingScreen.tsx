@@ -71,6 +71,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useCheckHome } from '@/api/queries/check';
 import { useIngredientProfile } from '@/api/queries/user';
 import { useProductSearch } from '@/api/queries/product';
+import { ApiError } from '@/api/unwrap';
 import { useWishlistCount } from '@/store/wishlistStore';
 import { ErrorCode } from '@/types/errorCodes';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
@@ -352,6 +353,7 @@ export function ShoppingScreen() {
           <View style={styles.panelCard}>
             <SearchArea
               keyword={keyword}
+              debouncedKeyword={debouncedKeyword}
               onChangeKeyword={setKeyword}
               query={searchQuery}
               onSelect={handleProductSelected}
@@ -657,18 +659,80 @@ function RecommendationCard({
   );
 }
 
+/**
+ * 2026-08-20 — 검색 중 "인터넷 연결을 확인해주세요"가 깜빡이던 버그 수정.
+ *
+ * 원인: 판정에 쓰던 keyword는 **입력값 원본**인데 쿼리는 **300ms 디바운스된 값**으로
+ * 돕니다. 첫 글자를 친 직후에는 원본이 1자 이상이지만 디바운스값은 아직 ''이라
+ * useProductSearch의 enabled가 false → 쿼리가 pending이지만 fetching은 아니라서
+ * isLoading이 false, data는 undefined. 그 결과 `query.isError || !query.data` 분기로
+ * 떨어져 300ms 동안 네트워크 에러 화면이 떴습니다(검색어를 지웠다 다시 칠 때마다 반복).
+ *
+ * 수정: "데이터가 없다"를 실패로 보지 않습니다. 실패는 query.isError일 때만이고,
+ * 그 외 데이터 없는 구간은 전부 로딩입니다. 에러 종류도 구분합니다 —
+ * ApiError면 서버가 판단한 실패(server), 아니면 연결 실패(network).
+ */
 function SearchArea({
   keyword,
+  debouncedKeyword,
   onChangeKeyword,
   query,
   onSelect,
 }: {
   keyword: string;
+  /** useProductSearch에 실제로 들어간 값. keyword와 다르면 아직 디바운스 대기 중입니다. */
+  debouncedKeyword: string;
   onChangeKeyword: (v: string) => void;
   query: ReturnType<typeof useProductSearch>;
   onSelect: (productId: number) => void;
 }) {
   const trimmed = keyword.trim();
+  const awaitingDebounce = trimmed !== debouncedKeyword.trim();
+
+  const renderResult = () => {
+    if (trimmed.length === 0) return null;
+
+    if (query.isError) {
+      return (
+        <ErrorState
+          variant={query.error instanceof ApiError ? 'server' : 'network'}
+          layout="inline"
+          onRetry={() => query.refetch()}
+        />
+      );
+    }
+
+    // 디바운스 대기 중이어도 직전 결과(placeholderData)가 있으면 그대로 두고,
+    // 아무 결과도 없을 때만 스켈레톤을 띄웁니다.
+    if (!query.data) {
+      return <LoadingState variant="skeleton" skeletonLines={3} />;
+    }
+
+    // 결과 0건은 오류가 아니라 빈 상태입니다. 단, 아직 이전 검색어의 결과를 보고 있는
+    // 구간에서는 "결과 없어요"를 미리 띄우지 않습니다.
+    if (query.data.totalCount === 0) {
+      return awaitingDebounce || query.isPlaceholderData ? (
+        <LoadingState variant="skeleton" skeletonLines={3} />
+      ) : (
+        <EmptyState icon="search" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
+      );
+    }
+
+    return (
+      <View style={styles.cardStack}>
+        {query.data.products.map((product) => (
+          <ProductCard
+            key={product.productId}
+            brand={product.brand}
+            name={product.name}
+            category={PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
+            onPress={() => onSelect(product.productId)}
+          />
+        ))}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.searchArea}>
       <Input
@@ -679,25 +743,7 @@ function SearchArea({
         returnKeyType="search"
         accessibilityLabel="제품 검색"
       />
-      {trimmed.length === 0 ? null : query.isLoading ? (
-        <LoadingState variant="skeleton" skeletonLines={3} />
-      ) : query.isError || !query.data ? (
-        <ErrorState variant="network" layout="inline" onRetry={() => query.refetch()} />
-      ) : query.data.totalCount === 0 ? (
-        <EmptyState icon="search" title="검색 결과가 없어요" description="다른 검색어로 시도해 보세요." />
-      ) : (
-        <View style={styles.cardStack}>
-          {query.data.products.map((product) => (
-            <ProductCard
-              key={product.productId}
-              brand={product.brand}
-              name={product.name}
-              category={PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
-              onPress={() => onSelect(product.productId)}
-            />
-          ))}
-        </View>
-      )}
+      {renderResult()}
     </View>
   );
 }

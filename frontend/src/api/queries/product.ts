@@ -3,7 +3,7 @@
 // Phase 7-A 범위: PRODUCT-01(홈) · PRODUCT-02(검색) · PRODUCT-08(루틴 바로 기록).
 // Phase 7-B 추가: PRODUCT-03(상세) · PRODUCT-04(스캔) · PRODUCT-05(개별 저장).
 import { useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { ApiError, unwrap } from '@/api/unwrap';
 import { USE_MOCK } from '@/api/useMock';
@@ -84,6 +84,11 @@ export function useProductSearch(keyword: string) {
     queryKey: ['productSearch', trimmed],
     queryFn: () => searchProducts(trimmed),
     enabled: trimmed.length >= 1 && trimmed.length <= 20,
+    // 2026-08-20 — 검색어가 바뀔 때마다 queryKey가 바뀌면서 data가 undefined로 떨어지고,
+    // 화면이 그 한 틱을 "결과 없음/실패"로 오인해 리스트가 깜빡였습니다.
+    // 이전 검색어 결과를 그대로 들고 있다가 새 결과가 오면 교체합니다
+    // (직전 결과인지 여부는 호출부에서 isPlaceholderData로 구분 가능).
+    placeholderData: keepPreviousData,
   });
 }
 
