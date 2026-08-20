@@ -10,6 +10,7 @@ export interface CheckRecommendation {
   brand: string;
   /** 근거 없는 추천은 서버가 아예 안 내려줍니다(BR1) — 그래서 optional이 아니라 필수. */
   reason: string;
+  imageUrl?: string | null;
 }
 
 /** CHECK-01 · GET /checks/home (S-21) */

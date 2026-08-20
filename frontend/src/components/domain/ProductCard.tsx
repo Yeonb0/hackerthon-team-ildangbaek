@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React, { useState } from 'react';
+import { Image, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { IconImagePlaceholder, IconList } from '@/components/icons';
 import { color, radius, space } from '@/theme/tokens';
 import { weightFamily } from '@/theme/typography';
@@ -9,7 +9,7 @@ type ProductCardProps = {
   brand: string;
   name: string;
   category: string;
-  /** 실제 이미지 로딩은 아직 미구현 — 디자인 에셋/이미지 파이프라인 붙이기 전까지 항상 placeholder */
+  /** 있으면 <Image>로 로딩, 없거나 로딩 실패 시 placeholder 아이콘 */
   imageUrl?: string | null;
   /** S-12 검색 결과의 '저장됨' 배지처럼, 짧은 상태 라벨이 필요할 때만 채웁니다. */
   badgeLabel?: string;
@@ -45,6 +45,8 @@ export function ProductCard({
   onPress,
   style,
 }: ProductCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
@@ -58,8 +60,16 @@ export function ProductCard({
       ]}
     >
       <View style={styles.thumbnail}>
-        {/* TODO: 이미지 파이프라인 붙이면 imageUrl로 <Image> 교체. 지금은 항상 placeholder 아이콘 */}
-        <IconImagePlaceholder size={22} color={color.ink300} />
+        {imageUrl && !imageFailed ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={styles.thumbnailImage}
+            resizeMode="cover"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <IconImagePlaceholder size={22} color={color.ink300} />
+        )}
       </View>
       <View style={styles.info}>
         <Text style={styles.brand} numberOfLines={1}>
@@ -121,6 +131,11 @@ const styles = StyleSheet.create({
     backgroundColor: color.brand50,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
   },
   info: {
     flex: 1,

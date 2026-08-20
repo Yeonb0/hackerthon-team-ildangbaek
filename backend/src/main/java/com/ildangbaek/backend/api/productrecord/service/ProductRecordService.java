@@ -238,7 +238,8 @@ public class ProductRecordService {
                 product.getProductName(),
                 product.getBrandName(),
                 product.getCategory().name(),
-                userProduct.getLastUsedAt()
+                userProduct.getLastUsedAt(),
+                product.getImageUrl()
         );
     }
 }

@@ -483,6 +483,7 @@ function HomeSection({
                     brand={product.brand}
                     name={product.name}
                     category={getCategoryLabel(product.category)}
+                    imageUrl={product.imageUrl}
                     selected={selectedProductIds.has(product.productId)}
                     onPress={() => onToggleProduct(product.productId)}
                     onViewIngredients={() => onViewIngredients(product.productId)}
@@ -600,6 +601,7 @@ function SearchResultsSection({
             brand={product.brand}
             name={product.name}
             category={getCategoryLabel(product.category)}
+            imageUrl={product.imageUrl}
             badgeLabel={product.saved ? '저장됨' : undefined}
             onViewIngredients={product.saved ? () => onSelectNew(product.productId) : undefined}
             onPress={() =>

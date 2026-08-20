@@ -5,7 +5,7 @@
 // (useSaveProductRecord 등)은 이 화면에서 전혀 안 씁니다. 제품을 고르면 바로 CHECK-02로
 // 넘어갑니다(S-22가 진입 시 자동으로 POST /checks를 호출).
 import React, { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -108,10 +108,7 @@ export function ShoppingScreen() {
                 onPress={() => handleProductSelected(rec.productId, rec.reason)}
                 style={({ pressed }) => [styles.recommendationCard, pressed && styles.recommendationCardPressed]}
               >
-                <View style={styles.recommendationThumbnail}>
-                  {/* ProductCard와 같은 패턴 — 이미지 파이프라인 붙기 전까지 항상 placeholder */}
-                  <IconImagePlaceholder size={20} color={color.ink300} />
-                </View>
+                <RecommendationThumbnail imageUrl={rec.imageUrl} />
                 <View style={styles.recommendationInfo}>
                   <Text style={styles.recommendationBrand}>{rec.brand}</Text>
                   <Text style={styles.recommendationName}>{rec.name}</Text>
@@ -202,6 +199,24 @@ export function ShoppingScreen() {
   );
 }
 
+function RecommendationThumbnail({ imageUrl }: { imageUrl?: string | null }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <View style={styles.recommendationThumbnail}>
+      {imageUrl && !failed ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.recommendationThumbnailImage}
+          resizeMode="cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <IconImagePlaceholder size={20} color={color.ink300} />
+      )}
+    </View>
+  );
+}
+
 function SearchArea({
   keyword,
   onChangeKeyword,
@@ -238,6 +253,7 @@ function SearchArea({
               brand={product.brand}
               name={product.name}
               category={PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
+              imageUrl={product.imageUrl}
               onPress={() => onSelect(product.productId)}
             />
           ))}
@@ -289,6 +305,11 @@ const styles = StyleSheet.create({
     backgroundColor: color.bg,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  recommendationThumbnailImage: {
+    width: '100%',
+    height: '100%',
   },
   recommendationInfo: {
     flex: 1,

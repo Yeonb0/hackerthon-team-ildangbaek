@@ -78,6 +78,7 @@ export interface SavedProductSummary {
   brand: string;
   category: ProductCategory;
   lastUsedAt: string;
+  imageUrl?: string | null;
 }
 
 /** PRODUCT-01 · GET /product-records/home?timeSlot= (S-11) */
@@ -95,6 +96,7 @@ export interface SearchedProduct {
   category: ProductCategory;
   /** 이미 저장한 제품이면 true — S-12 '저장됨' 배지 */
   saved: boolean;
+  imageUrl?: string | null;
 }
 
 /** PRODUCT-02 · GET /products?keyword= (S-12) */

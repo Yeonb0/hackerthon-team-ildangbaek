@@ -7,6 +7,7 @@ public record SavedProductSummaryResponse(
         String name,
         String brand,
         String category,
-        LocalDateTime lastUsedAt
+        LocalDateTime lastUsedAt,
+        String imageUrl
 ) {
 }
