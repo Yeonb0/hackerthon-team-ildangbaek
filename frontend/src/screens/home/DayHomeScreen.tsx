@@ -22,7 +22,7 @@ const WEATHER_BG_ASPECT_RATIO = 760 / 837;
 // 화면에 나와 "자외선 지수가 높아요" 카드 위에 큰 여백으로 보였습니다. 관리자님이 해
 // 노출보다 그 여백 제거를 우선하기로 하셔서 0.92 → 0.65로 더 잘라냈습니다 — 해는
 // 대부분 잘리지만, 화장대가 헤더 콘텐츠 바로 아래에 붙어서 여백이 크게 줄어듭니다.
-const HERO_HEIGHT_SCALE = 0.92;
+const HERO_HEIGHT_SCALE = 0.90;
 
 type DayHomeScreenProps = {
   data: HomeResponse;
