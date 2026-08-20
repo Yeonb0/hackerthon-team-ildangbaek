@@ -29,8 +29,8 @@ import type { HomeResponse, HomeType } from '@/types/home';
 // 프론트 WeekStart가 'SUNDAY' | 'MONDAY' 두 값뿐이라 지금은 정확히 맞물리지만,
 // 값을 늘릴 일이 생기면 백엔드 파싱도 함께 넓혀야 합니다.
 export async function getHome(homeType?: HomeType, weekStart?: WeekStart): Promise<HomeResponse> {
-  // 2026-08-19(세션 19) — 백엔드 HomeService의 영어 하드코딩을 여기서 한 번만 걷어냅니다.
-  // 목업 경로에도 똑같이 적용합니다(목업이 같은 영어를 내려주도록 맞춰뒀습니다).
+  // 홈 문구를 파싱 경계에서 한 번만 다듬습니다(현재는 밤 인사말 재조립 하나).
+  // 목업 경로에도 똑같이 적용해 두 경로의 결과가 갈리지 않게 합니다.
   // 자세한 배경은 lib/homeCopy.ts 주석 참고.
   if (USE_MOCK) {
     return normalizeHomeCopy(buildMockHomeResponse(homeType ?? getFixedHomeType(), weekStart));

@@ -70,6 +70,24 @@ export interface RecordDayDetailResponse {
   skinScore: number | null;
   morningProducts: RecordDaySlotDetail;
   nightProducts: RecordDaySlotDetail;
+  /**
+   * 2026-08-20(세션 22) 신설 — 기록 허브 주간 스트립에서 **오늘이 아닌 날짜**를 눌렀을 때,
+   * 오늘과 똑같은 4슬롯 카드 UI를 그리기 위해 필요합니다. 구조는 `RecordTodayResponse`의
+   * `morning`/`night`와 **완전히 동일**합니다(같은 컴포넌트를 쓰기 때문에 갈리면 안 됩니다).
+   *
+   * ⚠️ **실서버는 아직 이 필드를 안 내려줍니다.**
+   * `docs/backend-request-record-slot-by-date.md` P0-1로 요청해 둔 상태입니다.
+   * 그동안 `api/queries/record.ts`의 `getRecordDayDetail`이 두 응답을 조합해 채웁니다:
+   *
+   *   제품 슬롯 ← `GET /records/daily`의 `morningProducts`/`nightProducts`
+   *   피부 슬롯 ← `GET /reports/daily?date=`(REPORT-03)의 `records[]`를 timeSlot으로 매칭
+   *
+   * 그래서 이 타입에서는 **필수 필드**입니다 — 파싱 경계에서 항상 채워지므로 화면은
+   * 옵셔널 분기를 하지 않습니다. 백엔드가 필드를 내려주기 시작하면 폴백 경로(추가
+   * 네트워크 호출 1회)가 저절로 꺼집니다.
+   */
+  morning: TimeSlotRecordState;
+  night: TimeSlotRecordState;
 }
 
 /** GET /records/calendar 응답 (result). 조회 월의 모든 날짜를 항상 포함합니다(BR1). */
