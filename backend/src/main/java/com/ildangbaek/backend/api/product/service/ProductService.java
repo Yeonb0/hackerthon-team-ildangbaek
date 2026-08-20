@@ -59,15 +59,22 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductSearchResponse search(User user, String keyword) {
-        if (keyword == null || keyword.isBlank() || keyword.length() > 50) {
+        if (keyword == null || keyword.isBlank()) {
+            return new ProductSearchResponse("", 0, List.of());
+        }
+        String trimmedKeyword = keyword.trim();
+        if (trimmedKeyword.length() > 50) {
             throw new BusinessException(ErrorCode.PRODUCT_INVALID_KEYWORD);
         }
         List<ProductSummaryResponse> products = productRepository
-                .findTop20ByProductNameContainingIgnoreCaseAndActiveTrue(keyword.trim())
+                .findTop20ByActiveTrueAndProductNameContainingIgnoreCaseOrActiveTrueAndBrandNameContainingIgnoreCase(
+                        trimmedKeyword,
+                        trimmedKeyword
+                )
                 .stream()
                 .map(product -> toSummary(user, product))
                 .toList();
-        return new ProductSearchResponse(keyword, products.size(), products);
+        return new ProductSearchResponse(trimmedKeyword, products.size(), products);
     }
 
     @Transactional(readOnly = true)
