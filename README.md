@@ -42,8 +42,10 @@
 
 | | | |
 | --- | --- | --- |
-| <img src="docs/images/onboarding-01.png" width="220" /> | <img src="docs/images/onboarding-02.png" width="220" /> | <img src="docs/images/onboarding-03.png" width="220" /> |
-| <img src="docs/images/onboarding-04.png" width="220" /> | <img src="docs/images/onboarding-05.png" width="220" /> | <img src="docs/images/onboarding-06.png" width="220" /> |
+| <img src="https://github.com/user-attachments/assets/84a7ff24-8a67-4474-b2db-687c616a7e33" width="220" /> | <img src="https://github.com/user-attachments/assets/264cbc58-5820-4e4e-ae96-8381de7440c5" width="220" /> | <img src="https://github.com/user-attachments/assets/8c9a6443-2319-4bd8-a1de-420ad23c60fd" width="220" /> |
+| <img src="https://github.com/user-attachments/assets/5ea28810-150b-4166-9dfb-92c009af72e0" width="220" /> | <img src="https://github.com/user-attachments/assets/ac7cfc67-8501-4a31-b82c-b261f3d5aab6" width="220" /> | <img src="https://github.com/user-attachments/assets/3efdfd67-8e09-4e7e-be3f-52c041384d52" width="220" /> |
+
+</div>
 
 </div>
 
@@ -51,10 +53,23 @@
 
 <div align="center">
 
-| | | | |
-| --- | --- | --- | --- |
-| <img src="docs/images/screen-01.png" width="220" /> | <img src="docs/images/screen-02.png" width="220" /> | <img src="docs/images/screen-03.png" width="220" /> | <img src="docs/images/screen-04.png" width="220" /> |
-| <img src="docs/images/screen-05.png" width="220" /> | <img src="docs/images/screen-06.png" width="220" /> | <img src="docs/images/screen-07.png" width="220" /> | <img src="docs/images/screen-08.png" width="220" /> |
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/b3f700d0-0cb7-4565-a703-5731f9ff82fb" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/a4bbdb3e-d7aa-447a-a66f-a8e717a4bf97" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/0e0fba08-f33b-4a70-9d84-597e65bdd87e" width="220" /></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/498e9ef7-5245-4902-bfd2-eddb427e5693" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/013c2bfb-6676-4861-b847-6f68ff4348c8" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/f35c7b11-5b86-4b12-9154-d9cb6ffce694" width="220" /></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/476eafe2-9049-4e24-869d-933df45a6c79" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/47b454d4-c298-4bb9-9921-00c68e349882" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/80319ce9-cd67-4f59-b12c-cc4c8f262d09" width="220" /></td>
+  </tr>
+</table>
 
 </div>
 
@@ -175,7 +190,7 @@ npx expo start            # Expo Go 앱으로 QR 스캔
 `EXPO_PUBLIC_USE_MOCK=true`이면 `src/api/mock`의 목업 응답을 사용하므로 백엔드 없이도 화면 개발이 가능합니다.
 백엔드를 붙일 때는 `EXPO_PUBLIC_API_BASE_URL`을 채우고 `EXPO_PUBLIC_USE_MOCK=false`로 바꿉니다.
 
-### 3. AI 서버 (선택)
+### 3. AI 서버
 
 ```bash
 cd ai-server
@@ -320,7 +335,39 @@ SKINTELLER는 바로 이 단계에서 사용자를 만나 일상적인 피부 �
 
 
 ---
+## Contributors
 
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Yeonb0">
+        <sub><b>Yeonb0</b></sub>
+      </a>
+      <br />
+      <sub>Frontend</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/yxzkng">
+        <sub><b>yxzkng</b></sub>
+      </a>
+      <br />
+      <sub>Backend</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/jui-ced">
+        <sub><b>jui-ced</b></sub>
+      </a>
+      <br />
+      <sub>Backend</sub>
+    </td>
+    <td align="center">
+      <sub><b>김서인</b></sub>
+      <br />
+      <sub>Design</sub>
+    </td>
+  </tr>
+</table>
+---
 <div align="center">
 
 **Team 일당백**
