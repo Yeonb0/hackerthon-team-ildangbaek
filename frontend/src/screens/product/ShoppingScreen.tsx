@@ -49,7 +49,16 @@
 //       교체했습니다. 확정 하트 아이콘은 아직 미수령입니다.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -600,6 +609,33 @@ function TagChips({
   );
 }
 
+/** 있으면 <Image>로 로딩, 없거나 로딩 실패 시 placeholder 아이콘. hCard/vCard 썸네일 공용. */
+function RecommendationThumbnail({
+  imageUrl,
+  size,
+  style,
+}: {
+  imageUrl?: string | null;
+  size: number;
+  style: StyleProp<ViewStyle>;
+}) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <View style={style}>
+      {imageUrl && !failed ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.thumbnailImage}
+          resizeMode="cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <IconImagePlaceholder size={size} color={color.textMuted} />
+      )}
+    </View>
+  );
+}
+
 /**
  * 추천 제품 카드 하나. 세로 스택(기본)과 가로 스크롤(horizontal) 두 배치를 겸합니다.
  * 텍스트는 관리자 지시대로 제품명(볼드) 위 / 브랜드(작은 회색) 아래입니다.
@@ -621,9 +657,7 @@ function RecommendationCard({
         onPress={onPress}
         style={({ pressed }) => [styles.hCard, pressed && styles.pressed]}
       >
-        <View style={styles.hCardThumbnail}>
-          <IconImagePlaceholder size={24} color={color.textMuted} />
-        </View>
+        <RecommendationThumbnail imageUrl={rec.imageUrl} size={24} style={styles.hCardThumbnail} />
         <Text style={[styles.cardName, styles.cardNameCentered]} numberOfLines={2}>
           {rec.name}
         </Text>
@@ -642,9 +676,7 @@ function RecommendationCard({
       onPress={onPress}
       style={({ pressed }) => [styles.vCard, pressed && styles.pressed]}
     >
-      <View style={styles.vCardThumbnail}>
-        <IconImagePlaceholder size={22} color={color.textMuted} />
-      </View>
+      <RecommendationThumbnail imageUrl={rec.imageUrl} size={22} style={styles.vCardThumbnail} />
       <View style={styles.vCardInfo}>
         {/* Figma는 "브랜드 · 용량"이지만 CHECK-01에 용량이 없어 브랜드만 표시합니다. */}
         <Text style={styles.cardName} numberOfLines={1}>
@@ -726,6 +758,7 @@ function SearchArea({
             brand={product.brand}
             name={product.name}
             category={PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
+            imageUrl={product.imageUrl}
             onPress={() => onSelect(product.productId)}
           />
         ))}
@@ -931,6 +964,11 @@ const styles = StyleSheet.create({
     backgroundColor: color.surfaceLavenderSoft,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
   },
   vCardInfo: {
     flex: 1,
@@ -958,6 +996,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.surfaceLavenderSoft,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
 
   // 카드 텍스트 — 제품명 볼드 위 / 브랜드 작은 회색 아래 (관리자 지시)

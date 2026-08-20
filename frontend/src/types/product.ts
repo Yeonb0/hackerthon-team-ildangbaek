@@ -90,6 +90,7 @@ export interface SavedProductSummary {
    * 잡아 줍니다 — **표시 용도로 쓸 때는 null 분기를 반드시 두세요.**
    */
   lastUsedAt: string | null;
+  imageUrl?: string | null;
 }
 
 /** PRODUCT-01 · GET /product-records/home?timeSlot= (S-11) */
@@ -107,6 +108,7 @@ export interface SearchedProduct {
   category: ProductCategory;
   /** 이미 저장한 제품이면 true — S-12 '저장됨' 배지 */
   saved: boolean;
+  imageUrl?: string | null;
 }
 
 /** PRODUCT-02 · GET /products?keyword= (S-12) */
