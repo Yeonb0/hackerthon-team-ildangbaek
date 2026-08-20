@@ -37,7 +37,7 @@ app:
   weather:
     kma:
       base-url: ${KMA_WEATHER_BASE_URL:https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}
-      uv-base-url: ${KMA_UV_BASE_URL:https://apis.data.go.kr/1360000/LivingWthrIdxServiceV4}
+      uv-base-url: ${KMA_UV_BASE_URL:https://apis.data.go.kr/1360000/LivingWthrIdxServiceV5}
       service-key: ${KMA_WEATHER_SERVICE_KEY:}
   skin:
     analysis:
