@@ -2,7 +2,7 @@
 
 <img src="skinteller_Thumbnail.png" alt="SKINTELLER" width="100%" />
 
-# 🧴 SKINTELLER
+# 🧴 SkinTeller
 
 ### 화장품에 피부를 맞추는 대신, 내 피부에 맞춘 화장품을 찾아주는 개인 맞춤형 피부 프로파일 서비스
 
@@ -30,7 +30,7 @@
 
 그래서 우리는 질문을 바꿨습니다. "다른 사람에게 무엇이 좋았는가"가 아니라 **"내 피부에는
 무엇이 어떻게 반응했는가"**로. 화장품에 피부를 맞추는 것이 아니라 내 피부에 맞춘 화장품을
-찾아주는 개인 맞춤형 피부 프로파일 서비스, 그것이 **SKINTELLER**입니다.
+찾아주는 개인 맞춤형 피부 프로파일 서비스, 그것이 **SkinTeller**입니다.
 
 ---
 
@@ -186,9 +186,6 @@ npm install
 cp .env.example .env      # 백엔드 준비 전이면 EXPO_PUBLIC_USE_MOCK=true 유지
 npx expo start            # Expo Go 앱으로 QR 스캔
 ```
-
-`EXPO_PUBLIC_USE_MOCK=true`이면 `src/api/mock`의 목업 응답을 사용하므로 백엔드 없이도 화면 개발이 가능합니다.
-백엔드를 붙일 때는 `EXPO_PUBLIC_API_BASE_URL`을 채우고 `EXPO_PUBLIC_USE_MOCK=false`로 바꿉니다.
 
 ### 3. AI 서버
 
@@ -367,7 +364,7 @@ SKINTELLER는 바로 이 단계에서 사용자를 만나 일상적인 피부 �
     </td>
   </tr>
 </table>
----
+
 <div align="center">
 
 **Team 일당백**
