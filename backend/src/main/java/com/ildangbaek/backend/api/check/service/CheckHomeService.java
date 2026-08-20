@@ -193,7 +193,8 @@ public class CheckHomeService {
         String reason = String.join("·", ingredientNames) + "이 잘 맞는 성분이에요";
         RecommendationCategory category = classify(product.getCategory(), todayContext);
         return new CheckRecommendationResponse(
-                product.getId(), product.getProductName(), product.getBrandName(), reason, category, null,
+                product.getId(), product.getProductName(), product.getBrandName(), reason,
+                product.getImageUrl(), category, null,
                 buildTags(category, cautionFree));
     }
 
@@ -218,7 +219,7 @@ public class CheckHomeService {
 
     private CheckRecommendationResponse withAiComment(CheckRecommendationResponse r, String aiComment) {
         return new CheckRecommendationResponse(
-                r.productId(), r.name(), r.brand(), r.reason(), r.category(), aiComment, r.tags());
+                r.productId(), r.name(), r.brand(), r.reason(), r.imageUrl(), r.category(), aiComment, r.tags());
     }
 
     /**

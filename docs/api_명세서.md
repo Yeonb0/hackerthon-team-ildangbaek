@@ -2345,6 +2345,7 @@ json
         "name": "라로슈포제 시카플라스트",
         "brand": "라로슈포제",
         "reason": "판테놀·마데카소사이드가 잘 맞는 성분이에요",
+        "imageUrl": "https://cdn.example.com/products/71.jpg",
         "category": "MATCHED_INGREDIENT",
         "aiComment": "판테놀이 진정에 도움을 줘요",
         "tags": ["잘 맞는 성분", "주의 성분 미포함"]
@@ -2354,6 +2355,7 @@ json
         "name": "마누카 히알루론산 토너",
         "brand": "마누카",
         "reason": "히알루론산 반응이 좋았어요",
+        "imageUrl": null,
         "category": "TODAY_NEEDED",
         "aiComment": null,
         "tags": ["트러블 진정 성분"]
@@ -2404,6 +2406,8 @@ json
 
    CAUTION 성분이 있으면 두 번째 칩을 붙이지 않는다(칩 1개만 나간다). "주의 성분 포함" 같은 부정
    문구는 넣지 않는다 — 추천 카드는 권하는 자리이고, 주의 성분 노출은 CHECK-02가 담당한다.
+9. `recommendations[].imageUrl`은 제품 사진 URL이며, 제품에 사진이 등록돼 있지 않으면 `null`이다.
+   클라이언트는 `null`일 때 자리표시자를 그린다.
 
 ---
 

@@ -20,7 +20,8 @@ export interface CheckRecommendation {
   brand: string;
   /** 근거 없는 추천은 서버가 아예 안 내려줍니다(BR1) — 그래서 optional이 아니라 필수. */
   reason: string;
-  imageUrl?: string | null;
+  /** 제품 사진 URL. 제품에 사진이 없으면 null — 화면은 자리표시자로 대체합니다. */
+  imageUrl: string | null;
   category: RecommendationCategory;
   /** ai-server가 reason을 근거로 생성한 한 줄 코멘트(ADR 0025). 생성 실패 시 null —
    * 추천 자체는 AI 코멘트 없이도 성립합니다. */

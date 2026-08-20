@@ -336,7 +336,8 @@ export function buildProductRecordSummary(productIds: number[]): string {
 function toSavedProductSummary(productId: number, lastUsedAt: string): SavedProductSummary | null {
   const product = findCatalogProduct(productId);
   if (!product) return null;
-  return { ...product, lastUsedAt };
+  // 목업 카탈로그는 실제 사진이 없습니다 — 화면이 자리표시자를 그리도록 null을 명시합니다.
+  return { ...product, lastUsedAt, imageUrl: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +409,8 @@ export function searchMockProducts(keyword: string): ProductSearchResult {
   const products: SearchedProduct[] = matched.slice(0, 20).map((p) => ({
     ...p,
     saved: isProductSaved(p.productId),
+    // 목업 카탈로그는 실제 사진이 없습니다 — 화면이 자리표시자를 그리도록 null을 명시합니다.
+    imageUrl: null,
   }));
 
   return { keyword, totalCount: matched.length, products };
