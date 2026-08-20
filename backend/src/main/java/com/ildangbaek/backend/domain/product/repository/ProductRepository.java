@@ -11,7 +11,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Optional<Product> findFirstByActiveTrueOrderByIdAsc();
 
-    List<Product> findTop20ByProductNameContainingIgnoreCaseAndActiveTrue(String keyword);
+    List<Product> findTop20ByActiveTrueAndProductNameContainingIgnoreCaseOrActiveTrueAndBrandNameContainingIgnoreCase(
+            String productKeyword,
+            String brandKeyword
+    );
 
     Optional<Product> findFirstByProductNameContainingIgnoreCaseAndBrandNameContainingIgnoreCaseAndActiveTrue(
             String productName,
