@@ -4,7 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ildangbaek.backend.domain.environment.entity.WeatherCondition;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URLDecoder;
+import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -26,6 +27,7 @@ public class KmaWeatherClient {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmm");
 
     private final RestClient restClient;
+    private final String baseUrl;
     private final String serviceKey;
 
     public KmaWeatherClient(
@@ -33,8 +35,9 @@ public class KmaWeatherClient {
             @Value("${app.weather.kma.base-url:" + DEFAULT_BASE_URL + "}") String baseUrl,
             @Value("${app.weather.kma.service-key:}") String serviceKey
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
-        this.serviceKey = normalizeServiceKey(serviceKey);
+        this.restClient = restClientBuilder.build();
+        this.baseUrl = trimTrailingSlash(baseUrl);
+        this.serviceKey = encodeServiceKey(serviceKey);
     }
 
     public Optional<WeatherSnapshot> getCurrent(double latitude, double longitude, LocalDateTime now) {
@@ -46,17 +49,15 @@ public class KmaWeatherClient {
         LocalDateTime baseDateTime = now.minusMinutes(40).withMinute(0).withSecond(0).withNano(0);
         try {
             KmaCurrentWeatherResponse response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/getUltraSrtNcst")
-                            .queryParam("serviceKey", serviceKey)
-                            .queryParam("pageNo", 1)
-                            .queryParam("numOfRows", 1000)
-                            .queryParam("dataType", "JSON")
-                            .queryParam("base_date", baseDateTime.toLocalDate().format(DATE_FORMATTER))
-                            .queryParam("base_time", baseDateTime.toLocalTime().format(TIME_FORMATTER))
-                            .queryParam("nx", grid.x())
-                            .queryParam("ny", grid.y())
-                            .build())
+                    .uri(URI.create(baseUrl + "/getUltraSrtNcst"
+                            + "?serviceKey=" + serviceKey
+                            + "&pageNo=1"
+                            + "&numOfRows=1000"
+                            + "&dataType=JSON"
+                            + "&base_date=" + baseDateTime.toLocalDate().format(DATE_FORMATTER)
+                            + "&base_time=" + baseDateTime.toLocalTime().format(TIME_FORMATTER)
+                            + "&nx=" + grid.x()
+                            + "&ny=" + grid.y()))
                     .retrieve()
                     .body(KmaCurrentWeatherResponse.class);
 
@@ -75,12 +76,20 @@ public class KmaWeatherClient {
         }
     }
 
-    private String normalizeServiceKey(String value) {
+    private String trimTrailingSlash(String value) {
+        if (value == null || value.isBlank()) {
+            return DEFAULT_BASE_URL;
+        }
+        String trimmed = value.trim();
+        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+    }
+
+    private String encodeServiceKey(String value) {
         if (value == null || value.isBlank()) {
             return "";
         }
         String trimmed = value.trim();
-        return trimmed.contains("%") ? URLDecoder.decode(trimmed, StandardCharsets.UTF_8) : trimmed;
+        return trimmed.contains("%") ? trimmed : URLEncoder.encode(trimmed, StandardCharsets.UTF_8);
     }
 
     private Map<String, String> itemValues(KmaCurrentWeatherResponse response) {
