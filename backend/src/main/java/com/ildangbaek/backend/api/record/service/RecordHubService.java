@@ -87,7 +87,9 @@ public class RecordHubService {
                 date,
                 skinScore(userId, date),
                 productSlot(userId, date, TimeSlot.MORNING),
-                productSlot(userId, date, TimeSlot.NIGHT));
+                productSlot(userId, date, TimeSlot.NIGHT),
+                getSlotState(userId, date, TimeSlot.MORNING),
+                getSlotState(userId, date, TimeSlot.NIGHT));
     }
 
     @Transactional(readOnly = true)
