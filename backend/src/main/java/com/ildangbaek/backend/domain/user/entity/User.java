@@ -27,6 +27,8 @@ import lombok.NoArgsConstructor;
 )
 public class User extends BaseTimeEntity {
 
+    private static final String WITHDRAWN_MARKER = ".withdrawn-";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -70,9 +72,27 @@ public class User extends BaseTimeEntity {
 
     public void withdraw() {
         this.accountStatus = AccountStatus.WITHDRAWN;
+        releaseUniqueIdentifiers();
+    }
+
+    public boolean isLegacyEmailLoginAccount() {
+        return this.provider == AuthProvider.EMAIL && this.passwordHash == null;
     }
 
     public boolean isActive() {
         return this.accountStatus == AccountStatus.ACTIVE;
+    }
+
+    private void releaseUniqueIdentifiers() {
+        String suffix = WITHDRAWN_MARKER + this.id;
+        this.providerUserId = appendWithdrawnSuffix(this.providerUserId, suffix);
+        this.email = appendWithdrawnSuffix(this.email, suffix);
+    }
+
+    private String appendWithdrawnSuffix(String value, String suffix) {
+        if (value == null || value.contains(WITHDRAWN_MARKER)) {
+            return value;
+        }
+        return value + suffix;
     }
 }
