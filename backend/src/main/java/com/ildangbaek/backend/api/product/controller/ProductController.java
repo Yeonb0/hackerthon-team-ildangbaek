@@ -38,7 +38,7 @@ public class ProductController {
     @GetMapping
     public ApiResponse<ProductSearchResponse> search(
             @CurrentUserId User user,
-            @RequestParam String keyword
+            @RequestParam(required = false) String keyword
     ) {
         return ApiResponse.success(productService.search(user, keyword));
     }
