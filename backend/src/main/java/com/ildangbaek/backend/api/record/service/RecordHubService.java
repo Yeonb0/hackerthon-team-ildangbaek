@@ -124,7 +124,9 @@ public class RecordHubService {
                 .sorted(Comparator.comparing(
                         ProductRecordItem::getUsageOrder,
                         Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(item -> new RecordDailyProductItemResponse(item.getProduct().getProductName()))
+                .map(item -> new RecordDailyProductItemResponse(
+                        item.getProduct().getId(),
+                        item.getProduct().getProductName()))
                 .toList();
         return new RecordDailySlotResponse(true, record.getId(), items);
     }
