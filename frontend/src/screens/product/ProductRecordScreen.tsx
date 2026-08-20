@@ -14,7 +14,7 @@
 // 체크 다중 선택 저장은 기존 API 그대로 씁니다 — 새 엔드포인트가 필요 없습니다.
 // ⚠️ 트레이드오프: 저장된 제품을 탭해서 성분을 다시 들여다볼 방법이 이제 없습니다(바로
 // 체크됩니다). 필요하시면 별도 "성분 보기" 진입점을 다시 추가할 수 있습니다.
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -40,7 +40,6 @@ import {
   useProductSearch,
   useRoutineQuickRecord,
   useRoutines,
-  useSavedProducts,
   useSaveProductRecord,
   useSaveProductToLibrary,
 } from '@/api/queries/product';
@@ -349,6 +348,29 @@ export function ProductRecordScreen() {
         <Text style={styles.title}>{PRODUCT_RECORD_TITLE}</Text>
       </View>
 
+      {/* 2026-08-20(세션 22) — 검색창을 **nav 바로 아래 고정**(ScrollView 밖)으로 올렸습니다.
+
+          이전에는 HomeSection과 SearchResultsSection이 각자 <ProductSearchBar>를 하나씩
+          갖고 있었습니다. `isSearchMode`(debounce 300ms)가 뒤집히는 순간 둘 중 한 섹션이
+          통째로 언마운트되면서 **입력창 인스턴스가 교체**되고, 그 타이밍에 포커스가
+          날아갔습니다. 첫 글자를 치고 300ms 뒤 키보드가 내려가는 증상의 원인입니다.
+
+          부모로 끌어올려 인스턴스를 하나로 합치면 isSearchMode가 어떻게 바뀌든
+          같은 TextInput이 계속 살아 있어 포커스가 유지됩니다. 겸사겸사 ScrollView 밖이라
+          스크롤 위치와도 무관해집니다.
+
+          ⚠️ 저장된 제품이 0개여도, 검색 결과가 0건이어도 이 검색창은 항상 보입니다
+          (명세서 F-PRODUCT-01 BR2). 조건부로 감싸지 마세요. */}
+      <View style={styles.searchBarSlot}>
+        <ProductSearchBar
+          ref={searchInputRef}
+          value={keyword}
+          onChangeText={setKeyword}
+          onScanPress={handleScanPress}
+          placeholder="추가할 상품을 검색해보세요"
+        />
+      </View>
+
       {/* Figma PROD-01 기준 — 선택한 제품을 칩으로 보여주고 ×로 바로 해제할 수 있게 합니다
           (관리자님 요청, 2026-08-14). 검색 모드에선 숨깁니다 — 이 칩이 가리키는 선택 상태(체크)는
           "저장된 제품" 목록 전용이라, 검색 결과 상태에서 보이면 혼란을 줄 수 있어서
@@ -386,9 +408,6 @@ export function ProductRecordScreen() {
             onRetry={() => searchQuery.refetch()}
             onScan={handleScanPress}
             onDirectRegister={() => handleGoToManualRegister(keyword)}
-            searchKeyword={keyword}
-            onSearchKeywordChange={setKeyword}
-            searchInputRef={searchInputRef}
           />
         ) : (
           <HomeSection
@@ -405,10 +424,6 @@ export function ProductRecordScreen() {
             onToggleProduct={handleToggleProduct}
             onViewIngredients={handleGoToIngredientCheck}
             onDirectRegister={() => handleGoToManualRegister()}
-            searchKeyword={keyword}
-            onSearchKeywordChange={setKeyword}
-            onScanPress={handleScanPress}
-            searchInputRef={searchInputRef}
           />
         )}
       </ScrollView>
@@ -495,10 +510,6 @@ function HomeSection({
   onToggleProduct,
   onViewIngredients,
   onDirectRegister,
-  searchKeyword,
-  onSearchKeywordChange,
-  onScanPress,
-  searchInputRef,
 }: {
   homeQuery: ReturnType<typeof useProductRecordHome>;
   /**
@@ -518,10 +529,6 @@ function HomeSection({
   onToggleProduct: (productId: number) => void;
   onViewIngredients: (productId: number) => void;
   onDirectRegister: () => void;
-  searchKeyword: string;
-  onSearchKeywordChange: (text: string) => void;
-  onScanPress: () => void;
-  searchInputRef?: React.RefObject<TextInput | null>;
 }) {
   // "저장된 제품" 전용 카테고리 필터(관리자님 요청, 2026-08-10) — 검색 결과나 루틴에는
   // 적용하지 않습니다. 검색 모드로 전환하면(HomeSection이 통째로 언마운트) 자연히
@@ -529,20 +536,18 @@ function HomeSection({
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   /**
-   * 2026-08-19(세션 19) — 제품 삭제가 이 목록에 반영되게 하는 보정.
+   * 2026-08-20(세션 22) — 여기 있던 "USING 목록과의 교집합" 보정을 제거했습니다.
    *
-   * 백엔드에 같은 테이블을 읽는 목록이 둘인데 **필터가 서로 다릅니다**:
-   *   · `GET /product-records/home`(이 화면) → `findAllByUserIdOrderByLastUsedAtDesc`
-   *     — 상태 조건 없음. 삭제(`stopUsing()`)한 제품이 **그대로 남습니다.**
-   *   · `GET /users/me/products`            → `findAllByUserIdAndUsageStatus(..., USING)`
-   *     — 삭제한 제품이 빠집니다.
-   * 그대로 두면 성분 확인 화면에서 삭제해도 여기서는 안 사라져서 "삭제가 안 된다"로 보입니다.
+   * 세션 19에 넣을 때는 같은 테이블을 읽는 두 목록의 필터가 어긋나 있었습니다
+   * (`/product-records/home`은 상태 조건 없음 → 삭제한 제품이 남음). 백엔드 `ce766be`가
+   * `ProductRecordService:70`을 `findAllByUserIdAndUsageStatusOrderByLastUsedAtDesc(
+   * userId, USING)`으로 맞추면서 `/users/me/products`(`UserService:90`)와 **필터·정렬이
+   * 완전히 같아졌습니다.** 교집합이 항상 원본과 동일해져 무동작 코드가 됐고, 유지하면
+   * 화면당 조회만 1회 더 나갑니다. 그래서 `useSavedProducts()` 호출도 함께 뺐습니다.
    *
-   * 그래서 USING 목록과 교집합해서 그립니다. 이 조회가 아직 안 왔거나 실패했으면
-   * **필터를 걸지 않습니다** — 잘못 걸면 목록이 통째로 비는데, 남는 쪽이 훨씬 안전합니다.
-   * 백엔드가 필터를 맞추면 교집합이 원본과 같아져 이 코드는 저절로 무해해집니다.
+   * 되돌릴 일이 생긴다면 원인은 백엔드 필터가 다시 갈라진 것입니다 — 프론트에서
+   * 교집합을 복구하지 말고 두 서비스의 쿼리를 맞추는 쪽을 먼저 확인하세요.
    */
-  const usingQuery = useSavedProducts();
 
   if (homeQuery.isLoading) {
     return <LoadingState variant="listRows" rows={3} />;
@@ -551,13 +556,7 @@ function HomeSection({
     return <ErrorState variant="network" layout="inline" onRetry={onRetryHome} />;
   }
 
-  const { savedProducts: homeSavedProducts, alreadyRecorded } = homeQuery.data;
-  const usingProductIds = usingQuery.data
-    ? new Set(usingQuery.data.map((p) => p.productId))
-    : null;
-  const savedProducts = usingProductIds
-    ? homeSavedProducts.filter((p) => usingProductIds.has(p.productId))
-    : homeSavedProducts;
+  const { savedProducts, alreadyRecorded } = homeQuery.data;
   // 관리자님 요청(2026-08-10) — 저장된 제품에 실제로 있는 카테고리만이 아니라, 표준
   // 12종(PRODUCT_CATEGORIES) 전체를 항상 필터로 보여줍니다. 선택했는데 해당 카테고리
   // 제품이 없으면 아래 filteredSavedProducts가 빈 배열이 되고, EmptyState로 안내합니다.
@@ -619,7 +618,8 @@ function HomeSection({
           ) : null}
         </View>
         {/* 카테고리 칩은 저장된 제품이 있을 때만 의미가 있습니다(고를 대상이 없으면
-            필터가 빈 목록만 만들어냅니다). 반면 검색창은 아래에서 항상 그립니다. */}
+            필터가 빈 목록만 만들어냅니다). 검색창은 2026-08-20부터 이 섹션이 아니라
+            nav 헤더 아래 고정 슬롯에 있습니다 — 부모 컴포넌트를 보세요. */}
         {savedProducts.length > 0 ? (
           <CategoryFilterBar
             categories={[...PRODUCT_CATEGORIES]}
@@ -628,30 +628,6 @@ function HomeSection({
             getLabel={getCategoryLabel}
           />
         ) : null}
-
-        {/* 2026-08-20(관리자 결정, 수정 2차 #1) — 검색창을 화면 맨 아래에서 **카테고리 칩
-            바로 아래**로 올렸습니다.
-
-            왜: 직전 위치(「저장된 제품」 목록 **아래**, 2026-08-14 배치)에서는 탭할 때
-            올라온 키보드에 그대로 덮였습니다. KeyboardAvoidingView·keyboardDidShow 스크롤·
-            겹침 직접 측정까지 세 방식을 시도했지만 전부 실패했습니다 — 스크롤 컨테이너의
-            맨 끝에 있는 입력창은 키보드 높이·플랫폼별 edge-to-edge 동작·스크롤 여백 유무에
-            계속 의존하게 되는 구조라 회피 코드로는 안정적으로 못 잡습니다. 위치를 올리는
-            것이 이 문제군 자체를 없애는 방법이라 판단했습니다.
-
-            명세서 F-PRODUCT-01 BR2("검색창은 기본/검색결과 상태 모두에서 상시 노출")는
-            "화면 어딘가에 항상 있어야 한다"는 뜻이라, 위치 이동은 이 규칙과 충돌하지
-            않습니다 — 검색 결과 상태(SearchResultsSection)에도 그대로 있습니다.
-
-            ⚠️ 저장된 제품이 0개여도 이 검색창은 그립니다(위 CategoryFilterBar와 달리).
-            제품이 없을 때야말로 검색이 가장 필요한 상태이기 때문입니다. */}
-        <ProductSearchBar
-          ref={searchInputRef}
-          value={searchKeyword}
-          onChangeText={onSearchKeywordChange}
-          onScanPress={onScanPress}
-          placeholder="추가할 상품을 검색해보세요"
-        />
 
         {savedProducts.length === 0 ? (
           <EmptyState
@@ -700,9 +676,6 @@ function SearchResultsSection({
   onRetry,
   onScan,
   onDirectRegister,
-  searchKeyword,
-  onSearchKeywordChange,
-  searchInputRef,
 }: {
   query: ReturnType<typeof useProductSearch>;
   keyword: string;
@@ -711,27 +684,13 @@ function SearchResultsSection({
   onRetry: () => void;
   onScan: () => void;
   onDirectRegister: () => void;
-  searchKeyword: string;
-  onSearchKeywordChange: (text: string) => void;
-  searchInputRef?: React.RefObject<TextInput | null>;
 }) {
-  // 명세서 F-PRODUCT-01 BR2 — 검색 결과 상태에서도 검색창은 계속 보여야 합니다.
-  // HomeSection에서는 "저장된 제품" 아래 있지만, 이 상태는 그 섹션 자체가 없어서
-  // 화면 맨 위에 둡니다(검색어를 바로 고쳐 쓸 수 있어야 하니 접근성 우선).
-  const searchBar = (
-    <ProductSearchBar
-      ref={searchInputRef}
-      value={searchKeyword}
-      onChangeText={onSearchKeywordChange}
-      onScanPress={onScan}
-      placeholder="추가할 상품을 검색해보세요"
-    />
-  );
+  // 명세서 F-PRODUCT-01 BR2(검색창 상시 노출)는 2026-08-20부터 부모의 헤더 고정
+  // 슬롯이 담당합니다. 이 섹션은 결과만 그립니다.
 
   if (query.isLoading) {
     return (
       <View style={styles.sections}>
-        {searchBar}
         <LoadingState variant="listRows" rows={3} caption={null} />
       </View>
     );
@@ -739,7 +698,6 @@ function SearchResultsSection({
   if (query.isError || !query.data) {
     return (
       <View style={styles.sections}>
-        {searchBar}
         <ErrorState variant="network" layout="inline" onRetry={onRetry} />
       </View>
     );
@@ -752,7 +710,6 @@ function SearchResultsSection({
     // "직접 등록하기" 2버튼을 나란히 보여줍니다(관리자 결정, 2026-08-13).
     return (
       <View style={styles.sections}>
-        {searchBar}
         <View style={styles.notFoundArea}>
           <Text style={styles.notFoundTitle}>&apos;{keyword}&apos;을 찾지 못했어요</Text>
           <Text style={styles.notFoundDescription}>아직 등록된 제품이 없어요</Text>
@@ -772,7 +729,6 @@ function SearchResultsSection({
 
   return (
     <View style={styles.sections}>
-      {searchBar}
       <Text style={styles.resultCount}>검색 결과 {totalCount}개</Text>
       <View style={styles.list}>
         {products.map((product) => (
@@ -826,6 +782,12 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h1,
     color: color.ink900,
+  },
+  /** nav 헤더 아래 고정된 검색창 자리. 좌우 여백은 ScrollView의 content(space[5])와
+   *  맞춰서, 스크롤되는 본문과 세로선이 어긋나 보이지 않게 합니다. */
+  searchBarSlot: {
+    paddingHorizontal: space[5],
+    paddingBottom: space[4],
   },
   chipStrip: {
     flexDirection: 'row',
