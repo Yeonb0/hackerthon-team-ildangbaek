@@ -3,7 +3,8 @@ package com.ildangbaek.backend.domain.environment.client;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URLDecoder;
+import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -22,6 +23,7 @@ public class KmaUvIndexClient {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
     private final RestClient restClient;
+    private final String baseUrl;
     private final String serviceKey;
 
     public KmaUvIndexClient(
@@ -29,8 +31,9 @@ public class KmaUvIndexClient {
             @Value("${app.weather.kma.uv-base-url:" + DEFAULT_BASE_URL + "}") String baseUrl,
             @Value("${app.weather.kma.service-key:}") String serviceKey
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
-        this.serviceKey = normalizeServiceKey(serviceKey);
+        this.restClient = restClientBuilder.build();
+        this.baseUrl = trimTrailingSlash(baseUrl);
+        this.serviceKey = encodeServiceKey(serviceKey);
     }
 
     public Optional<BigDecimal> getCurrent(String areaNo, LocalDateTime now) {
@@ -41,15 +44,13 @@ public class KmaUvIndexClient {
         LocalDateTime baseDateTime = latestBaseDateTime(now);
         try {
             KmaUvIndexResponse response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/getUVIdxV5")
-                            .queryParam("serviceKey", serviceKey)
-                            .queryParam("pageNo", 1)
-                            .queryParam("numOfRows", 10)
-                            .queryParam("dataType", "JSON")
-                            .queryParam("areaNo", areaNo)
-                            .queryParam("time", baseDateTime.format(TIME_FORMATTER))
-                            .build())
+                    .uri(URI.create(baseUrl + "/getUVIdxV5"
+                            + "?serviceKey=" + serviceKey
+                            + "&pageNo=1"
+                            + "&numOfRows=10"
+                            + "&dataType=JSON"
+                            + "&areaNo=" + areaNo
+                            + "&time=" + baseDateTime.format(TIME_FORMATTER)))
                     .retrieve()
                     .body(KmaUvIndexResponse.class);
             return firstItem(response).flatMap(item -> decimal(item.h0()));
@@ -59,12 +60,20 @@ public class KmaUvIndexClient {
         }
     }
 
-    private String normalizeServiceKey(String value) {
+    private String trimTrailingSlash(String value) {
+        if (value == null || value.isBlank()) {
+            return DEFAULT_BASE_URL;
+        }
+        String trimmed = value.trim();
+        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+    }
+
+    private String encodeServiceKey(String value) {
         if (value == null || value.isBlank()) {
             return "";
         }
         String trimmed = value.trim();
-        return trimmed.contains("%") ? URLDecoder.decode(trimmed, StandardCharsets.UTF_8) : trimmed;
+        return trimmed.contains("%") ? trimmed : URLEncoder.encode(trimmed, StandardCharsets.UTF_8);
     }
 
     private LocalDateTime latestBaseDateTime(LocalDateTime now) {
