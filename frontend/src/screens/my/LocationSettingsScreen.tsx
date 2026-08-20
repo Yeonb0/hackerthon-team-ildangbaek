@@ -175,19 +175,20 @@ export function LocationSettingsScreen() {
           loading={updateLocation.isPending}
           onPress={handleSave}
         />
-        {/* Figma 59:7578 — GPS 사용이 상단 secondary 버튼에서 하단 텍스트 버튼으로
-            내려왔습니다. 동작은 그대로(USER-06 (b) 좌표 PATCH). */}
-        <Pressable
-          onPress={handleUseCurrentPosition}
+        {/* Figma 59:7578 — GPS 사용이 상단 secondary 버튼에서 하단으로 내려왔습니다.
+            동작은 그대로(USER-06 (b) 좌표 PATCH).
+
+            2026-08-20(관리자 결정, 수정 2차 #2) — 테두리 없는 13pt 텍스트라 위 「저장」
+            버튼에 비해 눌리는 요소로 보이지 않는다는 지적. Button의 outline variant로
+            교체해 저장 버튼과 같은 높이(minHeight 54)·같은 라벨 크기(17pt)를 갖게
+            했습니다. Figma의 텍스트 버튼 형태에서 의도적으로 이탈한 지점입니다. */}
+        <Button
+          label={isLocating ? '위치 확인 중…' : '현재 위치'}
+          variant="outline"
+          loading={isLocating}
           disabled={isLocating}
-          accessibilityRole="button"
-          accessibilityLabel="현재 위치로 설정"
-          hitSlop={8}
-        >
-          <Text style={styles.currentPositionText}>
-            {isLocating ? '위치 확인 중…' : '현재 위치'}
-          </Text>
-        </Pressable>
+          onPress={handleUseCurrentPosition}
+        />
       </View>
 
       <Popup
@@ -292,12 +293,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[5],
     paddingTop: space[3],
     gap: space[3],
-  },
-  currentPositionText: {
-    fontSize: adjustFontSize(13),
-    lineHeight: 20,
-    ...weightFamily('medium'),
-    color: color.textSub,
-    textAlign: 'center',
   },
 });

@@ -709,3 +709,50 @@ export function saveMockProductRecord(
     skinRecordSuggested: true,
   };
 }
+
+/**
+ * PRODUCT-06 · `PATCH /product-records/{recordId}` 목업 (2026-08-20 세션 21).
+ *
+ * 실서버 `ProductRecordService.update()`가 던지는 예외를 같은 코드로 재현합니다 —
+ * 빈 배열(PRODUCT_RECORD_EMPTY), 30개 초과(PRODUCT_RECORD_LIMIT_EXCEEDED),
+ * 없는 제품(PRODUCT_NOT_FOUND).
+ *
+ * ⚠️ 목업은 과거 날짜의 기록을 실제로 들고 있지 않습니다(`api/mock/record.ts`가 날짜
+ * 규칙으로 즉석 생성). 그래서 여기서는 **검증과 부수효과만 재현**하고 저장은 하지
+ * 않습니다 — 화면 흐름·에러 처리를 목업으로 확인할 수 있으면 목적은 달성됩니다.
+ * 시트를 다시 열면 목업이 만든 원래 구성이 돌아오는 건 이 제약 때문이며, 실서버에서는
+ * 정상적으로 남습니다.
+ */
+export function updateMockProductRecord(
+  recordId: number,
+  productIds: number[]
+): SaveProductRecordResult {
+  if (productIds.length === 0) {
+    throw new ApiError(ErrorCode.PRODUCT_RECORD_EMPTY, '기록할 제품이 없어요.');
+  }
+  if (productIds.length > 30) {
+    throw new ApiError(
+      ErrorCode.PRODUCT_RECORD_LIMIT_EXCEEDED,
+      '한 번에 최대 30개까지 기록할 수 있어요.'
+    );
+  }
+  if (productIds.some((id) => !findCatalogProduct(id))) {
+    throw new ApiError(ErrorCode.PRODUCT_NOT_FOUND, '존재하지 않는 제품이 포함돼 있어요.');
+  }
+
+  const now = new Date().toISOString();
+  // 실서버 update()도 `saveUserProduct()`로 사용 시각을 갱신합니다(159~161행).
+  productIds.forEach((id) => savedProducts.set(id, now));
+  persistManualState();
+
+  return {
+    recordId,
+    // 목업은 슬롯 정보를 들고 있지 않습니다. 호출부(수정 화면)가 자기가 아는 slot을
+    // 쓰고 이 값은 보지 않으므로, 응답 형태만 맞춥니다.
+    timeSlot: 'MORNING',
+    recordedAt: now,
+    productCount: productIds.length,
+    // 수정은 이미 기록이 있는 슬롯에만 일어나므로 피부 기록 유도는 하지 않습니다.
+    skinRecordSuggested: false,
+  };
+}

@@ -37,10 +37,30 @@ export interface RecordMonthlySummary {
  */
 export interface RecordDayProductItem {
   name: string;
+  /**
+   * 2026-08-20(세션 21) 신설 — 시트의 "수정" 진입에 필요합니다.
+   *
+   * ⚠️ **현재 실서버는 이 값을 안 내려줍니다.** `RecordDailyProductItemResponse`가
+   * `name` 하나뿐이라, 실서버 경로에서는 항상 `undefined`입니다
+   * (`docs/backend-request-2026-08-20.md` P0-1로 요청해 둔 상태).
+   *
+   * `PATCH /product-records/{recordId}`(PRODUCT-06)는 `productIds` **전체 교체**라,
+   * 수정 화면이 기존 구성을 체크 상태로 복원하지 못하면 사용자가 하나만 빼려고
+   * 들어가도 나머지가 전부 지워집니다. 그래서 이 값이 없는 동안에는 시트의 수정
+   * 버튼을 아예 그리지 않습니다(RecordDayDetailSheet의 `canEditProducts`).
+   * 백엔드가 필드를 채워 내려주는 순간 버튼이 자동으로 나타납니다.
+   */
+  productId?: number | null;
 }
 
 export interface RecordDaySlotDetail {
   completed: boolean;
+  /**
+   * 이 슬롯의 제품 기록 ID. 기록이 없으면 null.
+   * `PATCH /product-records/{recordId}`(PRODUCT-06)의 경로 변수로 씁니다.
+   * 백엔드 `6571aa2`로 응답에 추가됐습니다(`RecordDailySlotResponse.recordId`).
+   */
+  recordId: number | null;
   items: RecordDayProductItem[];
 }
 

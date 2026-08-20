@@ -360,8 +360,10 @@ export function MyPageScreen() {
             <Text style={styles.menuLabel}>글꼴</Text>
             <SegmentToggle
               options={[
-                { value: 'pretendard' as FontChoice, label: 'Pretendard' },
+                // 2026-08-20 — 기본 글꼴이 나눔스퀘어네오로 바뀌면서 순서도 맞췄습니다.
+                // 왼쪽이 기본값이라야 "아무것도 안 고른 상태"와 화면이 일치합니다.
                 { value: 'nanumSquareNeo' as FontChoice, label: '나눔스퀘어네오' },
+                { value: 'pretendard' as FontChoice, label: 'Pretendard' },
               ]}
               value={fontChoice}
               onChange={handleSelectFont}

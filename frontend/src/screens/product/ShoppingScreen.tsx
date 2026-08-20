@@ -938,8 +938,12 @@ const styles = StyleSheet.create({
   // 예전엔 세로 카드가 오른쪽 정렬(flex-end), 가로 카드가 가운데 정렬이라 칩 길이가
   // 다를 때마다 시작 위치가 제각각이었습니다. 칩은 짧은 단어 두 개가 위아래로 쌓이는
   // 구조라, 왼쪽 모서리가 맞아야 두 줄이 한 덩어리로 읽힙니다.
+  // 2026-08-20(관리자 지시) — 세로 카드 칩을 왼쪽 정렬(flex-start) → 오른쪽 정렬로 변경.
+  // 이 스택은 카드의 오른쪽 끝에 붙어 있어서, 길이가 다른 칩이 flex-start면 왼쪽 변이
+  // 삐죽삐죽 어긋나 보입니다. 가로 카드(tagRowHorizontal)는 카드 자체가 가운데 정렬이라
+  // 그대로 둡니다.
   tagRowVertical: {
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
     gap: 4,
   },
   tagRowHorizontal: {

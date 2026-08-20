@@ -84,6 +84,8 @@ const styles = StyleSheet.create({
     ...weightFamily('regular'),
     color: color.ink900,
     height: '100%',
+    // 커서와 placeholder 원점 정렬은 AppTextInput이 공용으로 처리합니다(2026-08-20).
+    // 여기서 가로 패딩을 따로 지정할 필요가 없습니다 — 좌우 여백은 컨테이너 담당.
   },
   trailingButton: {
     padding: space[1],

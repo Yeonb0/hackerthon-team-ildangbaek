@@ -42,7 +42,7 @@ export function RoutineAddProductScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProp<DetailStackParamList, 'RoutineAddProduct'>>();
   const insets = useSafeAreaInsets();
-  const { routineId, timeSlot } = route.params;
+  const { routineId, timeSlot, returnSelection = false } = route.params;
 
   const routinesQuery = useRoutines();
   const homeQuery = useProductRecordHome(timeSlot);
@@ -67,6 +67,22 @@ export function RoutineAddProductScreen() {
   const handleAdd = async () => {
     if (selectedProductIds.size === 0 || addToRoutineMutation.isPending) return;
     setSubmitError(null);
+    // 2026-08-20(세션 21) — 기록 수정 모드에서 온 경우. 루틴을 건드리지 않고 고른
+    // productId만 RoutineEdit로 돌려줍니다. 기록은 그쪽 「저장」에서 PATCH로 한 번에
+    // 반영되므로, 여기서 루틴에 담으면 사용자가 취소해도 루틴만 바뀌어 버립니다.
+    if (returnSelection) {
+      // ⚠️ `merge: true`가 필수입니다. RoutineEdit는 이미 스택에 있고 그 params에
+      // `recordEdit`(수정 대상 기록·초기 목록)가 들어 있는데, merge 없이 navigate하면
+      // params가 통째로 교체되면서 그 값이 날아갑니다.
+      // `routineId`는 merge가 어차피 기존 값을 유지하지만 타입상 필수라 그대로 넘깁니다
+      // (RoutineEdit가 이 화면으로 올 때 넘긴 값과 같습니다).
+      navigation.navigate({
+        name: DetailRoutes.RoutineEdit,
+        params: { routineId, addedProductIds: Array.from(selectedProductIds) },
+        merge: true,
+      });
+      return;
+    }
     try {
       // 여러 개 선택 시 순서대로 하나씩 — ProductManualRegisterScreen과 같은 이유(API가
       // productId 하나만 받음)입니다.
@@ -106,9 +122,11 @@ export function RoutineAddProductScreen() {
   const existingProductIds = new Set(activeRoutine?.products.map((p) => p.productId) ?? []);
 
   // 이미 루틴에 있는 제품은 목록에서 제외 — 중복 추가 방지.
-  const addableProducts = homeQuery.data.savedProducts.filter(
-    (p) => !existingProductIds.has(p.productId)
-  );
+  // 단 기록 수정 모드(returnSelection)에서는 루틴이 기준이 아니므로 거르지 않습니다.
+  // 기록에 이미 있는 제품을 다시 고르면 RoutineEdit의 병합이 걸러냅니다.
+  const addableProducts = returnSelection
+    ? homeQuery.data.savedProducts
+    : homeQuery.data.savedProducts.filter((p) => !existingProductIds.has(p.productId));
   const filteredProducts = categoryFilter
     ? addableProducts.filter((p) => p.category === categoryFilter)
     : addableProducts;
