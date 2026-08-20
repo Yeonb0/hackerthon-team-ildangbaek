@@ -1,376 +1,199 @@
-<div align="center">
+# SKINTELLER · frontend
 
-<img src="skinteller_Thumbnail.png" alt="SKINTELLER" width="100%" />
+피부 기록과 성분 반응을 연결해 개인 피부 프로파일을 만드는 앱의 프론트엔드입니다.
+React Native (Expo) + TypeScript, iOS / Android 단일 코드베이스.
 
-# 🧴 SKINTELLER
-
-### 화장품에 피부를 맞추는 대신, 내 피부에 맞춘 화장품을 찾아주는 개인 맞춤형 피부 프로파일 서비스
-
-일반적인 성분 정보가 아니라, 사용자가 **실제로 사용한 제품 + 이후의 피부 변화 + 환경 정보**를 연결해
-"이 성분이 나에게 맞는가"에 대한 개인화된 판단 근거를 제공합니다.
-
-[![Backend](https://img.shields.io/badge/Backend-Spring%20Boot%204.1-6DB33F?logo=springboot&logoColor=white)](backend/README.md)
-[![Frontend](https://img.shields.io/badge/Frontend-Expo%2057-000020?logo=expo&logoColor=white)](frontend/README.md)
-[![AI Server](https://img.shields.io/badge/AI%20Server-FastAPI-009688?logo=fastapi&logoColor=white)](ai-server/README.md)
-[![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)](backend/README.md)
-[![TypeScript](https://img.shields.io/badge/TypeScript-React%20Native-3178C6?logo=typescript&logoColor=white)](frontend/README.md)
-
-</div>
+전체 프로젝트 개요는 [루트 README](../README.md), API 규약은 [docs/api_명세서.md](../docs/api_명세서.md)를 참고하세요.
 
 ---
 
-## 🧭 목차
-
-| 서비스가 궁금하다면 | 코드를 실행하려면 |
-| --- | --- |
-| [💡 문제 정의](#-문제-정의) | [🏗️ 시스템 구성](#️-시스템-구성) |
-| [🎯 우리의 솔루션](#-우리의-솔루션) | [🧩 기술 스택](#-기술-스택) |
-| [📌 핵심 기능](#-핵심-기능) | [🚀 빠른 시작](#-빠른-시작) |
-| [📈 시장성 및 실행 전략](#-시장성-및-실행-전략) | [🔌 API 규약 요약](#-api-규약-요약) · [📚 문서](#-문서) |
-| | [✅ 개발 규칙](#-개발-규칙) · [📊 현재 상태](#-현재-상태) |
-
----
-
-## 💡 문제 정의
-
-> "분명 리뷰에서는 잘 맞는다고 했는데, 왜 나한테는 안 맞지?"
-> "어제까지는 분명 괜찮았는데, 오늘 피부는 왜 이러지?"
-
-피부 트러블을 겪어봤거나 리뷰만 믿고 제품을 샀다가 실패해본 사람이라면 한 번쯤 해봤을 고민입니다.
-웰니스와 자기관리에 대한 관심이 높아지며 피부는 단순한 외모를 넘어 인상과 자신감을 좌우하는
-요소가 되었지만, 정작 피부과·에스테틱 같은 전문 관리는 비용 부담이 큽니다. 그래서 20대 초반
-여성들은 SNS·YouTube에서 정보를 찾고, 화해·올리브영 같은 플랫폼의 리뷰를 보고 제품을 고릅니다.
-
-문제는 여기서 시작됩니다. 성분까지 확인하고 신중하게 골랐음에도 **성분 확인 후 구매했지만 사용에
-실패한 경험이 46%**, **최근 1년간 사용을 중단한 화장품이 한 개 이상인 사람이 60%**에 달합니다.
-피부를 지성·건성·민감성·복합성으로 나눠도 완벽히 같은 피부는 없고, 누군가에게 '인생 제품'이
-다른 누군가에게는 트러블을 일으키는 제품이 됩니다. 특히 개개인마다 민감한 성분이 모두 달라
-'민감성 피부에 좋다'는 일반적 정보만으로는 판단이 어려운 민감성·트러블 피부층에게 이 문제는
-더 심각합니다 — 결국 여러 제품을 사보며 실패를 반복하고, 돈은 쓰고 피부 문제는 오히려 늘어납니다.
-
-같은 제품에 대한 경험이 이렇게 극단적으로 갈리는 이유는, 지금의 화장품 정보가 **'나'가 아니라
-'다수'를 기준**으로 제공되기 때문입니다. SNS 추천은 한 개인의 피부에 맞춘 경험이라 **너무
-개인적**이고, 플랫폼 리뷰·평점은 대중적 경향만 보여줘 **너무 일반적**입니다. 성분 정보도
-마찬가지로 '이 성분이 민감성 피부에 주의가 필요하다'는 것은 알 수 있어도, 그 성분이 **실제 내
-피부에** 어떤 영향을 미쳤는지는 알 수 없습니다.
-
-그래서 우리는 질문과 주체를 바꿨습니다. "다른 사람에게 무엇이 좋았는가"가 아니라 **"내 피부에는
-무엇이 어떻게 반응했는가"**로. "이 제품이 나에게 맞는가"가 아니라 **"내 피부에 이 제품이
-맞는가"**로. 화장품에 피부를 맞추는 것이 아니라 내 피부에 맞춘 화장품을 찾아주는 개인 맞춤형
-피부 프로파일 서비스, 그것이 **SKINTELLER**입니다.
-
-<sub>📋 출처 — 스킨케어 사용 습관 및 서비스 관심도 설문조사 · 서강대학교 재학생 50명 대상 · 2026.08.10 ~ 08.19</sub>
-
----
-
-## 🎯 우리의 솔루션
-
-SKINTELLER는 사용자가 직접 기록한 제품 사용 데이터와 피부 변화를 축적·분석해 개인의 피부
-반응을 데이터로 보여주는 맞춤형 피부 프로파일 서비스입니다. 단순히 화장품을 추천하는 서비스가
-아니라, 어떤 제품을 썼고 그때 나와 내 주변 환경은 어땠으며 이후 피부가 어떻게 변화했는지를
-지속적으로 기록해 시계열 데이터로 축적하고, 이를 통해 대중적 인기나 타인의 리뷰가 아닌
-**오직 나의 피부 데이터에 기반한 '나만의 성분·제품 반응 프로파일'**을 구축합니다.
-
-지금까지의 화장품 선택이 "남들이 좋다고 하니까 구매하는 것"이었다면, SKINTELLER는 **"내 피부가
-보여준 데이터를 근거로 선택하는 것"**을 가능하게 합니다. 한 번의 진단으로 끝나는 서비스가 아니라,
-**기록이 쌓일수록 정교해지는 피부 프로파일 완성 서비스**입니다.
-
----
-
-## 📌 핵심 기능
-
-**기록 → 분석 → 축적 → 개인화 → 구매**로 이어지는 선순환 구조입니다.
-
-### 1. 제품 · 피부 기록
-
-사용자가 매일의 제품 사용과 피부 상태를 간편하게 기록할 수 있도록 돕습니다.
-
-- **루틴 기록** — 나만의 모닝·나이트 루틴을 미리 저장해 '바로 기록'할 수 있으며, 새 제품은
-  제품 검색 · 바코드 스캔 · 직접 등록으로 추가합니다.
-- **피부 상태 기록** — 일정한 촬영 가이드를 통해 얼굴 사진을 기록하고, AI 분석을 위한 기준
-  데이터를 축적합니다.
-
-### 2. AI 피부 분석
-
-기록된 사진을 AI가 분석해 피부 상태를 객관적인 수치로 보여줍니다.
-
-- **하이브리드 피부 분석** — MediaPipe·OpenCV 기반 규칙 이미지 분석으로 1차 점수를 산출하고,
-  OpenAI Vision 멀티모달 AI가 원본 이미지와 1차 분석 결과를 함께 검토해 최종 점수를 확정하는
-  **2단계 하이브리드 파이프라인**입니다. 규칙 기반 산출로 근거를 확보하고 AI 보정으로 정확도를
-  높입니다. ([ADR 0020](docs/decisions/0020-규칙-기반-로컬-비전-분석.md) ·
-  [ADR 0022](docs/decisions/0022-openai-비전-2단계-점수-확정.md))
-- **4대 지표 정량 분석** — 트러블 · 홍조 · 모공 · 색소잡티를 각각 0~100점으로 정량화하고 종합
-  피부 점수를 제공합니다. ([ADR 0002](docs/decisions/0002-피부-지표-체계.md))
-- **변화 추적** — 첫 기록을 기준으로 이후 피부 상태를 비교하며, 7일 · 30일 단위 추이로 피부
-  변화를 확인합니다.
-
-### 3. 개인화 리포트
-
-사용자의 실제 데이터를 기반으로 성분별 개인 피부 반응을 분석합니다.
-
-- **외부 변수 함께 기록** — 자외선 · 습도 · 호르몬 정보 등 피부에 영향을 줄 수 있는 요인을 함께
-  기록해 제품과 피부 변화의 관계를 보다 정확하게 분석합니다.
-- **상관관계 기반 AI 인사이트** — 제품 사용 시점과 피부 변화 시점을 비교해 반복되는 패턴을
-  찾아냅니다. 예: "레티놀 세럼 사용 후 2일 뒤 트러블 수치가 반복적으로 증가한다"처럼 개인의
-  실제 데이터에 기반한 인사이트를 제공합니다.
-
-### 4. 맞춤형 쇼핑
-
-완성된 피부 프로파일을 실제 화장품 선택에 활용해 분석 결과를 구매로 연결합니다.
-
-- **성분 궁합 확인** — 제품을 검색하거나 바코드로 스캔하면 내 피부 프로파일을 기준으로 성분을
-  `잘 맞음 / 지켜보는 중 / 주의 필요`로 구분해 보여줍니다.
-  ([ADR 0004](docs/decisions/0004-성분-반응-상태-명칭.md))
-- **AI 설명 생성** — 피부 분석 결과와 성분 데이터를 기반으로, 추천 제품과 성분이 왜 지금 나에게
-  적합한지를 이해하기 쉬운 자연어로 설명합니다.
-  ([ADR 0025](docs/decisions/0025-제품-추천-AI-코멘트.md) ·
-  [ADR 0029](docs/decisions/0029-피부-상태-코멘트.md))
-- **개인화 제품 추천** — 오늘의 피부 상태에 필요한 성분을 우선 추천하고, 관심 제품은
-  위시리스트에 저장해 외부 스토어에서 구매할 수 있도록 연결합니다.
-
-> ⚕️ MVP의 분석 결과는 의학적 인과관계가 아니라 **기록에서 반복 관찰된 연관 패턴**입니다. (PRD 4.3 / 13.3)
-
----
-
-## 📈 시장성 및 실행 전략
-
-### 시장 규모
-
-국내 화장품 시장은 약 17.55조원이며, 이 중 기초화장품 시장만 약 10.09조원에 달합니다. 이 가운데
-뷰티 관심도가 높은 20대 여성을 초기 타깃으로 좁히면 약 **3,553.7억원 규모의 SAM**을 확보할 수
-있습니다. 우리는 이 시장의 3%를 확보하는 것을 목표로, **3년 내 106.6억원 규모의 SOM**을
-달성하고자 합니다.
-
-20대 여성은 뷰티와 자기관리에 대한 관심이 높고, SNS와 리뷰 플랫폼을 통해 적극적으로 화장품을
-탐색·구매하는 핵심 소비층입니다. SKINTELLER는 이들을 초기 타깃으로 삼아 피부 기록 → 개인화
-추천 → 구매로 이어지는 사용자 행동과 수익 가능성을 검증하고, 검증된 데이터를 바탕으로 타깃과
-제휴 범위를 단계적으로 확대합니다. 이미 형성된 거대한 화장품 소비 시장 안에서 '개인화'라는
-새로운 기준으로 시장을 확장합니다.
-
-### 수익 구조 — 추천에서 구매까지 연결되는 커머스 모델
-
-핵심 수익모델은 개인화된 제품 추천을 실제 구매로 연결하는 커머스 제휴입니다.
-
-- **① 플랫폼 제휴** — 사용자가 '구매하러 가기'를 선택하면 제휴 플랫폼의 추적 링크를 통해
-  올리브영 등 외부 스토어로 이동하고, 해당 링크를 통한 구매가 발생하면 어필리에이트 수수료를
-  확보합니다.
-- **② 브랜드 직접 제휴 (B2B)** — 사용자의 피부 프로파일과 궁합이 높은 제품을 우선 노출하고,
-  브랜드로부터 광고비·제휴 수수료를 확보합니다. **AAC 소속 브랜드**뿐 아니라 외부 브랜드까지
-  포함하는 오픈형 구조로 확장합니다.
-- **③ 프리미엄 구독 (B2C)** — 유료 플랜에서 보다 정교한 AI 피부 인사이트와 개인화 기능을
-  제공합니다.
-
-즉, 사용자가 많아질수록 → 축적되는 피부 데이터가 많아지고 → 개인화 추천의 가치가 높아지며 →
-추천이 실제 구매로 연결되는 구조입니다.
-
-### AAC 연계 — 미래 고객을 선점하는 진입점
-
-SKINTELLER는 개인 피부 데이터를 중심으로 **AAC**의 브랜드와 서비스를 연결하는 새로운 고객
-접점이 될 수 있습니다. 20대 여성은 피부 관리에 대한 관심은 높지만, 비용 등의 이유로 아직
-클리닉보다는 화장품 구매와 같은 셀프케어를 중심으로 피부를 관리하는 초기 단계에 있습니다.
-SKINTELLER는 바로 이 단계에서 사용자를 만나 일상적인 피부 기록과 맞춤형 제품 관리를 제공하며,
-전문 관리 이전부터 고객과 관계를 형성합니다.
-
-이후 사용자의 피부 데이터가 축적되고 전문적인 관리의 필요성이 높아지면, 분석 결과를 바탕으로
-**DERNA·AMRED 등 AAC 클리닉**으로 자연스럽게 연결할 수 있습니다. 이를 통해 '셀프케어 →
-화장품 구매 → 전문 관리'로 이어지는 개인화된 고객 여정을 구축합니다.
-
-즉, SKINTELLER는 단순한 화장품 관리 앱을 넘어, **AAC가 아직 클리닉을 이용하지 않는 20대 고객을
-조기에 만나고 장기적인 고객 관계로 확장할 수 있도록 하는 미래 고객 확보의 진입점**입니다.
-
-### 실행 전략 — 작게 시작해 데이터로 확장한다
-
-초기에는 에브리타임과 인스타그램을 중심으로 20대 여성 베타 사용자를 확보합니다. 서강대 재학생
-네트워크를 활용해 초기 테스트 비용을 최소화하고, SNS를 통한 콘텐츠 확산으로 타깃 사용자를
-확보한 뒤 단계적으로 확장합니다.
-
-| 단계 | 목표 |
-| --- | --- |
-| **단기 · MVP 검증** | 기록 → AI 분석 → 개인 리포트를 통해 사용자의 지속 기록과 데이터 축적 가능성을 검증 |
-| **중기 · 커머스 확장** | 개인화 제품·성분 매칭을 고도화하고 플랫폼 및 브랜드 제휴를 확대 |
-| **장기 · AAC 생태계 확장** | 클리닉 리퍼럴을 도입하고, 궁극적으로 **WHS Super App**과 연계해 개인 피부 데이터를 기반으로 AAC의 다양한 브랜드·서비스를 연결 |
-
----
-
-## 🏗️ 시스템 구성
-
-```
-📱 frontend (Expo / React Native)
-        │  REST API
-        ▼
-🖥️  backend (Spring Boot)  ──── 피부 사진 분석 요청 ────▶  🤖 ai-server (FastAPI)
-        │                                                     │
-        ▼                                                     ▼
-   MySQL 8.0                                     MediaPipe·OpenCV 1차 산출
-                                                  + OpenAI Vision 2차 확정
-```
-
-| 디렉터리 | 역할 | 스택 |
-| --- | --- | --- |
-| [`backend/`](backend/README.md) | REST API 서버 | Java 21, Spring Boot 4.1, Spring Data JPA, MySQL 8.0 |
-| [`frontend/`](frontend/README.md) | iOS / Android 앱 | Expo 57, React Native 0.86, TypeScript, TanStack Query |
-| [`ai-server/`](ai-server/README.md) | 피부 분석 AI 서버 | FastAPI, MediaPipe, OpenCV, OpenAI Vision |
-| [`docs/`](docs) | 제품 · 설계 문서 | PRD, 기능명세서, API 명세서, ERD, ADR |
-
-각 파트의 상세 실행 방법은 위 링크를 참고하세요.
-
----
-
-## 🧩 기술 스택
-
-| 파트 | 스택 |
-| --- | --- |
-| **Backend** | Java 21, Spring Boot 4.1.0, Spring Web MVC, Spring Data JPA, Bean Validation, Lombok, MySQL 8.0, Gradle |
-| **Frontend** | Expo 57, React Native 0.86, TypeScript, React Navigation 7, TanStack Query 5, zustand, axios, react-native-svg |
-| **AI Server** | FastAPI, MediaPipe, OpenCV, OpenAI Vision (gpt-4o) |
-
----
-
-## 🚀 빠른 시작
-
-### 사전 준비
-
-| 도구 | 버전 |
-| --- | --- |
-| JDK | 21 |
-| Node.js | 20 이상 |
-| Python | 3.14 (AI 서버 실행 시) |
-| Docker | 로컬 MySQL 8.0 구동용 |
-
-### 1. 백엔드
+## 시작하기
 
 ```bash
-cd backend
-docker compose up -d      # MySQL 8.0
-./gradlew bootRun         # http://localhost:8080
-```
-
-동작 확인: `GET http://localhost:8080/api/v1/health`
-
-### 2. 프론트엔드
-
-```bash
-cd frontend
 npm install
-cp .env.example .env      # 백엔드 준비 전이면 EXPO_PUBLIC_USE_MOCK=true 유지
+cp .env.example .env      # 백엔드가 아직 없으면 EXPO_PUBLIC_USE_MOCK=true 유지
 npx expo start            # Expo Go 앱으로 QR 스캔
 ```
 
-`EXPO_PUBLIC_USE_MOCK=true`이면 `src/api/mock`의 목업 응답을 사용하므로 백엔드 없이도 화면 개발이 가능합니다.
-백엔드를 붙일 때는 `EXPO_PUBLIC_API_BASE_URL`을 채우고 `EXPO_PUBLIC_USE_MOCK=false`로 바꿉니다.
+Wi-Fi 환경에서 기기가 개발 서버를 못 찾으면 `npx expo start --tunnel`로 실행합니다.
 
-### 3. AI 서버 (선택)
+> ⚠️ **RoutineEdit(루틴 수정) 화면은 Expo Go에서 크래시합니다.** `react-native-reanimated`의 네이티브
+> 모듈을 쓰는 드래그 순서 변경이 들어 있어 Development Build가 필요합니다. 그 외 화면은 Expo Go로
+> 모두 확인할 수 있습니다.
+
+### 스크립트
+
+| 명령 | 설명 |
+| --- | --- |
+| `npm start` | Expo 개발 서버 시작 |
+| `npm run typecheck` | TypeScript 타입 검사 (`tsc --noEmit`) |
+| `npm run lint` | ESLint 검사 |
+| `npm run format` | Prettier로 전체 포맷 |
+| `npm run android` / `npm run ios` | 네이티브 빌드 실행 (Development Build) |
+
+병합 전에는 `npm run typecheck`와 `npm run lint`가 모두 통과해야 합니다.
+현재 기준선은 **타입 오류 0 / ESLint 오류 0 · 경고 79**입니다.
+
+---
+
+## 환경 변수
+
+`.env.example`을 복사해 `.env`로 만들어 씁니다. `.env`는 커밋되지 않습니다.
+
+| 변수 | 설명 |
+| --- | --- |
+| `EXPO_PUBLIC_API_BASE_URL` | 백엔드 주소. **`/api/v1`까지 포함**해서 적습니다. 실기기에서는 `localhost`가 아니라 PC의 LAN IP를 씁니다. |
+| `EXPO_PUBLIC_USE_MOCK` | `true`면 모든 API 호출이 `src/api/mock`의 목업으로 응답합니다. |
+| `EXPO_PUBLIC_DEV_OAUTH_TOKEN` | 임시 인증용 토큰 자리값. **값을 바꾸면 새 계정이 생깁니다** — 온보딩을 처음부터 테스트할 때 씁니다. (백엔드 [ADR 0006](../docs/decisions/0006-임시-인증-방편.md) · [ADR 0017](../docs/decisions/0017-임시-인증-토큰-통합.md)) |
+| `EXPO_PUBLIC_SHOW_CATALOG` | `true`면 로그인·온보딩을 건너뛰고 컴포넌트 카탈로그로 진입합니다. `.env.example`에는 없으니 필요할 때 직접 추가하세요. |
+
+---
+
+## 화면 목록
+
+화면 ID는 [docs/screen-structure-v3.html](../docs/screen-structure-v3.html) 기준이며, 라우트 상수는
+`src/app/routes.ts`에 정의되어 있습니다.
+
+### 인증 · 온보딩
+
+| ID | 화면 | 비고 |
+| --- | --- | --- |
+| S-00 | 로그인 | 소셜 로그인은 목업 흐름 (실 SDK 미연동) |
+| AUTH-03~06.2 | 이메일 로그인 · 회원가입 · 비밀번호 설정 · 인증 · 성공/실패 | **프론트 목업 전용** — 백엔드 API 없음 |
+| S-01 | 기본 정보 | |
+| S-02 | 피부 타입 | |
+| S-04 | 호르몬 정보 | |
+| S-05 | 온보딩 완료 요약 | |
+| S-06 | 알림 설정 | 앱 내부 설정만 저장 (OS 권한 요청 없음) |
+
+### 메인 탭
+
+| ID | 화면 | 비고 |
+| --- | --- | --- |
+| S-07 / S-08 | 홈 (낮 / 밤) | 시간대 내부 상태로 분기 |
+| S-09 / S-10 | 기록 허브 (모닝 / 나이트) | 내부 탭으로 분기 |
+| S-19 | 리포트 | 7일 · 30일 추이 |
+| S-21 | 쇼핑 | |
+| S-23 | 마이페이지 | |
+
+### 상세 화면
+
+| ID | 화면 | 비고 |
+| --- | --- | --- |
+| S-11 / S-12 | 제품 기록 (기본 ↔ 검색 결과) | 내부 상태로 분기 |
+| S-13 | 바코드 스캔 | |
+| S-14 | 성분 확인 | **제품 기록 저장 지점** |
+| S-15 | 촬영 가이드 | |
+| S-16 | 얼굴 촬영 | 프리뷰 · 재촬영은 내부 상태 |
+| S-17 | 분석 중 | |
+| S-18 | 피부 분석 결과 | 지표 4종 + 레이더 차트 |
+| S-20 | 요인 상세 | |
+| S-22 | 구매 전 확인 결과 | **현재 미사용** — ProductDetail이 상위 호환 |
+| S-24 | 위치 설정 | |
+| S-25 | 위시리스트 | 백엔드 API 없음 — `wishlistStore` 클라이언트 저장 |
+| — | 제품 상세 (SHOP-02) | 추천 · 검색 · 스캔 3개 진입 경로가 모두 여기로 모임 |
+| — | 성분 전체 보기 (F-MY-03) | S-23에서 진입 |
+| — | 루틴 수정 (PROD-07) | Development Build 필요 |
+| — | 루틴 제품 추가 | 저장된 제품을 체크박스로 다중 선택 |
+| — | 제품 직접 등록 (PROD-05) | 프론트 목업 전용 |
+| — | 제품 등록 완료 | 제품 기록 저장 직후 |
+| — | 월간 기록 캘린더 (F-RECORD-02) | 날짜 탭 시 바텀시트 |
+
+---
+
+## 폴더 구조
+
+```
+src/
+├─ app/          # 네비게이터 — Root · Auth · Onboarding · MainTab, routes.ts, useAuthBootstrap
+├─ api/          # client / unwrap / adapters / useMock — 도메인별 파일
+│  ├─ mock/      # USE_MOCK일 때 반환할 목업 데이터 + mockPersistence
+│  └─ queries/   # TanStack Query 훅 (home, record, product, report, check)
+├─ components/
+│  ├─ base/      # Button, Card, Chip, Popup, Calendar, WheelPicker, AppTextInput 등
+│  ├─ chart/     # RadarChart, TrendGraph (react-native-svg)
+│  ├─ domain/    # ProductCard, MetricScoreList, EnvironmentCard, InsightCard 등
+│  ├─ icons/     # 아이콘 컴포넌트
+│  ├─ state/     # EmptyState / ErrorState / LoadingState / PermissionDenied
+│  └─ dev/       # DevResetButton (__DEV__ 전용)
+├─ screens/      # auth · onboarding · home · record · product · skin · report · my · dev
+├─ theme/        # tokens.ts, typography.ts, fontFamily.ts, bootstrapFont.ts
+├─ lib/          # scale, date, dayNight, weather, metricLabels, ingredientStatus 등 순수 함수
+├─ hooks/        # useDebouncedValue 등
+├─ store/        # zustand — auth, onboarding, dayNight, report, routine, wishlist, font 등
+└─ types/        # 도메인별 API 타입 + errorCodes.ts
+```
+
+절대경로 alias `@/*` → `src/*`가 설정되어 있습니다. `import { color } from '@/theme'` 형태로 씁니다.
+
+---
+
+## 코딩 규칙
+
+- **색상은 `theme/tokens.ts`에서만 정의합니다.** `src/screens/**`의 `#RRGGBB` 하드코딩은 ESLint 경고 대상입니다.
+- **폰트 크기는 `adjustFontSize()`를 씁니다.** 단, 주아체(BMJUA)가 적용된 자리에서는 래퍼를 쓰지 않습니다 (`typography.ts` 규약).
+- **`SvgText`는 StyleSheet의 폰트를 상속하지 않습니다.** `fontFamily`를 prop으로 직접 넘겨야 합니다.
+- **목업도 실제 API와 동일한 응답 형태**(`isSuccess` / `code` / `result`)를 따릅니다. 실패 케이스도 서버와 같은 방식으로 실패해야 합니다.
+- **기록 저장 후 쿼리 무효화**는 `['recordToday']` · `['recordCalendar']` · `['home']`을 항상 함께 처리합니다.
+- Enum은 문자열만 쓰고, 빈 목록은 `null`이 아니라 `[]`로 다룹니다.
+- Figma와 의도적으로 다르게 구현한 부분은 **코드 주석에 이유를 남깁니다.**
+
+---
+
+## 목업 · 개발 도구
+
+백엔드가 준비되기 전에도 화면 작업이 막히지 않도록 하는 장치들입니다.
+
+- **`EXPO_PUBLIC_USE_MOCK=true`** — 모든 API 호출이 목업 데이터로 응답합니다.
+- **`EXPO_PUBLIC_SHOW_CATALOG=true`** — 컴포넌트 카탈로그(`CatalogScreen`)로 바로 진입합니다.
+- **`DevResetButton`** — `__DEV__` 빌드 화면 우하단에 뜨는 버튼입니다. 로그인 · 온보딩 · 피부 기록 ·
+  제품 기록 상태를 개별 초기화할 수 있고, 리포트(정상/데이터부족) · 바코드 스캔(성공/인식실패/화질부족/
+  서비스장애) · 구매 전 확인(성공/프로필부족/성분부족) 시나리오를 실기기에서 바로 전환할 수 있습니다.
+  브라우저 콘솔이 없는 실기기 테스트를 위한 장치입니다.
+
+---
+
+## 빌드 · 배포
+
+EAS로 빌드합니다. 프로파일은 `eas.json`에 정의되어 있습니다.
+
+| 프로파일 | 용도 |
+| --- | --- |
+| `development` | Development Build (네이티브 모듈 필요한 화면 테스트용, Android는 APK) |
+| `preview` | 내부 배포용 |
+| `testflight` | iOS TestFlight 배포 |
+| `production` | 스토어 배포 |
 
 ```bash
-cd ai-server
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-./scripts/download_model.sh    # 얼굴 랜드마크 모델(3.7MB) 내려받기
-cp .env.example .env           # OPENAI_API_KEY 등을 채운다
-.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+eas build --profile development --platform android
+eas build --profile testflight --platform ios
 ```
 
-백엔드에서 연동하려면 `SKIN_ANALYSIS_PROVIDER=local-vision`을 설정합니다. 자세한 내용은 [ai-server/README.md](ai-server/README.md) 참고.
+> ⚠️ **EAS는 git에 커밋된 상태를 빌드합니다.** 작업 디렉터리 변경분은 반영되지 않으니 빌드 전에 반드시 커밋하세요.
 
 ---
 
-## 🔌 API 규약 요약
+## Git 브랜치 규칙
 
-전체 명세는 [docs/api_명세서.md](docs/api_명세서.md), 코드 체계는 [docs/공통응답포맷_예외처리코드.md](docs/공통응답포맷_예외처리코드.md)를 따릅니다.
-
-- Base URL: `/api/v1`
-- 인증: `Authorization: Bearer {accessToken}` (예외: `POST /auth/login`, `POST /auth/refresh`)
-- 리소스는 복수형 · kebab-case, URI에 동사 금지, `PUT` 미사용
-- 저장 API(`/product-records`, `/routines/{id}/records`, `/skin-records`, `/checks`)는 `Idempotency-Key` 헤더로 중복 저장을 방지
-- 모든 응답은 동일한 봉투를 사용
-
-```json
-{
-  "isSuccess": true,
-  "code": "COMMON_SUCCESS",
-  "message": "조회에 성공했습니다.",
-  "result": {}
-}
-```
-
-### 도메인 구성
-
-| 도메인 | 범위 |
-| --- | --- |
-| Auth | 로그인 · 토큰 재발급 · 로그아웃 |
-| Onboard | 온보딩 단계별 저장 및 완료 |
-| User | 프로필 · 위치 · 알림 · 마이페이지 · 성분 프로파일 |
-| Home | 낮 · 밤 홈 BFF |
-| Record | 기록 허브 · 월간 캘린더 · 오늘 슬롯 상태 |
-| Product | 제품 검색 · 스캔 · 성분 · 제품 기록 · 루틴 |
-| Skin | 피부 기록 생성 및 AI 분석 · 결과 조회 |
-| Check | 구매 전 확인 (위험도 분석) |
-| Report | 7일 · 30일 리포트 · 요인 상세 |
-
----
-
-## 📚 문서
-
-| 문서 | 내용 |
-| --- | --- |
-| [docs/PRD.md](docs/PRD.md) | 제품 정의, 페르소나, MVP 범위, 성공 지표, 미확정 사항 |
-| [docs/기능명세서.md](docs/기능명세서.md) | 기능 ID(F-XXX-NN)별 동작 · 예외 · Acceptance Criteria |
-| [docs/api_명세서.md](docs/api_명세서.md) | API Convention 및 엔드포인트 전체 명세 |
-| [docs/ERD.md](docs/ERD.md) | 엔티티 · 컬럼 · 관계 정의 |
-| [docs/공통응답포맷_예외처리코드.md](docs/공통응답포맷_예외처리코드.md) | 응답 봉투, 성공/에러 코드 체계 |
-| [docs/목업 데이터 구조 정의서.md](docs/목업%20데이터%20구조%20정의서.md) | 프론트 목업 데이터 형태 |
-| [docs/screen-structure-v3.html](docs/screen-structure-v3.html) | 화면 구조 정의서 v3 (화면 ID S-XX) |
-| [docs/decisions/](docs/decisions) | 아키텍처 결정 기록 (ADR) |
-
-문서는 구현의 기준입니다. 코드 · 설정 · API · DB 변경 시 영향받는 문서를 같은 작업에서 갱신합니다. ([CLAUDE.md](CLAUDE.md) 참고)
-
----
-
-## ✅ 개발 규칙
-
-### 브랜치 · 커밋
-
-- 작업 브랜치: `feat/S-XX-설명` (화면 단위) 또는 `feat/기능명`
+- `main` — 항상 실행 가능한 상태만 유지합니다.
+- 작업 브랜치: `feat/S-XX-설명` 또는 `feat/기능명` — 예: `feat/S-18-report-metric-list`
 - 커밋 메시지에 화면 ID 또는 기능 ID를 답니다 — 예: `feat(S-18): 분석 결과 지표 리스트`
-- 화면 하나가 끝나면 로딩 · 빈 데이터 · 에러 · 정상 4가지 상태를 확인한 뒤 병합합니다.
-
-### 프론트-백엔드 계약
-
-- 목업 데이터도 실제 API 응답과 **동일한 형태**로 만듭니다. (PRD 11.1)
-- 신규 에러 코드가 필요하면 `docs/공통응답포맷_예외처리코드.md`를 먼저 갱신한 뒤 코드에 반영합니다.
-- Enum은 문자열만 사용하고, 빈 목록은 `null`이 아닌 `[]`로 내려줍니다.
+- 화면 하나가 끝나면 **로딩 · 빈 데이터 · 에러 · 정상** 4가지 상태를 확인한 뒤 병합합니다.
 
 ---
 
-## 📊 현재 상태
-
-- **backend** — 공통 응답 · 예외 처리 · ERD 기준 엔티티/리포지토리 스캐폴딩 완료. 인증은 임시 방편(서명 검증 없는 목업 토큰)이며 배포 전 실제 인증으로 교체 필요.
-- **frontend** — 전 화면(S-00~S-24) 구현 완료. 백엔드 실연동은 진행 중 — 현재 `EXPO_PUBLIC_USE_MOCK=true`로 목업 모드 동작.
-- **ai-server** — 피부 지표 4종 규칙 기반 1차 산출 + OpenAI Vision 2차 확정 파이프라인 구현 완료(Phase 1~6).
-
-세부 진행 상황은 [docs/STATUS.md](docs/STATUS.md) 및 각 파트 README를 참고하세요.
-
----
-
-## ⚠️ 알려진 미확정 사항
-
-PRD 14장에 전체 목록이 있으며, 스키마에 직접 영향을 주는 항목은 다음과 같습니다.
+## 알려진 미확정 사항
 
 | 항목 | 상태 |
 | --- | --- |
-| 성별 · 호르몬 상태 enum | ERD와 api 명세서의 값 체계 불일치 |
-| 이메일 로그인 | MVP 포함 여부 미확정 (소셜 로그인 우선) |
-| 얼굴 이미지 보관 정책 | 원본 보관 · 기간 보관 · 분석 후 삭제 중 미확정 |
+| 날씨 enum | `OVERCAST` · `YELLOW_DUST` · `THUNDERSTORM` 키 이름이 백엔드 기준으로 미확정 |
+| 소셜 로그인 | 카카오 · 구글 실 SDK 미연동 — 현재 목업 흐름 |
+| 이메일 인증 | 백엔드에 대응 API가 없어 프론트 목업 전용 |
+| `expo-notifications` | SDK 53+ Expo Go에서 크래시 — S-06은 앱 내부 설정만 저장. Development Build 전환 시 재검토 |
+| 제품 검색 바 위치 | Figma PROD-01 시안(카테고리 칩 아래)과 현재 구현(내비 헤더 아래)이 다름 — 디자이너 확인 대기 |
+| 회원 탈퇴 | 백엔드 API 없음 — 목업 처리 |
+| 정리 대상 | `store/cartStore.ts` — 대응 화면(`CartScreen`)이 삭제되어 사용처가 없는 죽은 코드 |
 
-확정된 항목은 `docs/decisions/`를 참고하세요. (피부 지표 4종 — [ADR 0002](docs/decisions/0002-피부-지표-체계.md),
-성분 반응 상태 enum 매핑 — [ADR 0004](docs/decisions/0004-성분-반응-상태-명칭.md))
-
-확정 시 새 ADR을 `docs/decisions/`에 추가하고, 영향받는 문서와 코드를 함께 갱신합니다.
-
----
-
-<div align="center">
-
-**Team 일당백**
-
-</div>
+피부 지표는 **트러블 · 홍조 · 모공 · 색소잡티** 4종으로 확정되어 있습니다
+([ADR 0002](../docs/decisions/0002-피부-지표-체계.md)). 라벨 문자열은 놓이는 자리마다 쓸 수 있는
+글자 수가 달라 `src/lib/metricLabels.ts`에서 슬롯별로 관리합니다.
