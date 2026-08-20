@@ -15,7 +15,7 @@
           "NSAllowsArbitraryLoads": true
         }
       },
-      "buildNumber": "7"
+      "buildNumber": "13"
     },
     "android": {
       "package": "com.ildangbaek.skinteller",
