@@ -68,6 +68,7 @@ public class HomeService {
     @Transactional
     public HomeResponse getHome(Long userId, HomeType requestedHomeType, DayOfWeek weekStart) {
         HomeType homeType = requestedHomeType == null ? defaultHomeType() : requestedHomeType;
+        TimeSlot homeTimeSlot = homeType == HomeType.DAY ? TimeSlot.MORNING : TimeSlot.NIGHT;
         UserProfile profile = userProfileRepository.findByUserId(userId).orElse(null);
         RecordTodayResponse today = recordHubService.getToday(userId);
 
@@ -76,10 +77,10 @@ public class HomeService {
                 greeting(profile, homeType),
                 homeType == HomeType.NIGHT ? "지금 기록하면 내일 분석이 더 정확해져요." : null,
                 homeType == HomeType.DAY ? environment(userId, profile) : null,
-                routineRecommendation(userId, homeType == HomeType.DAY ? TimeSlot.MORNING : TimeSlot.NIGHT),
+                routineRecommendation(userId, homeTimeSlot),
                 todayRecord(today),
                 homeType == HomeType.NIGHT ? weeklyCalendar(userId, weekStart) : null,
-                homeType == HomeType.NIGHT ? todayReport(userId) : null,
+                todayReport(userId, homeTimeSlot),
                 List.of());
     }
 
@@ -224,34 +225,46 @@ public class HomeService {
                 .toList();
     }
 
-    private TodayReportResponse todayReport(Long userId) {
+    private TodayReportResponse todayReport(Long userId, TimeSlot preferredTimeSlot) {
         LocalDate today = LocalDate.now(KST);
-        TimeSlot timeSlot = TimeSlot.NIGHT;
-        Optional<SkinRecord> record = skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
+        return todaySkinRecord(userId, today, preferredTimeSlot)
+                .map(skinRecord -> toTodayReport(userId, skinRecord.getRecordDate(), skinRecord.getTimeSlot(), skinRecord))
+                .orElse(null);
+    }
+
+    private Optional<SkinRecord> todaySkinRecord(Long userId, LocalDate today, TimeSlot preferredTimeSlot) {
+        Optional<SkinRecord> preferred = skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
                 userId,
                 today,
-                timeSlot);
-        return record
+                preferredTimeSlot
+        ).filter(skinRecord -> Objects.nonNull(skinRecord.getOverallScore()));
+        if (preferred.isPresent()) {
+            return preferred;
+        }
+
+        return skinRecordRepository.findAllByUserIdAndRecordDateOrderByTimeSlotAsc(userId, today).stream()
                 .filter(skinRecord -> Objects.nonNull(skinRecord.getOverallScore()))
-                .map(skinRecord -> toTodayReport(userId, today, timeSlot, skinRecord))
-                .orElse(null);
+                .filter(skinRecord -> skinRecord.getTimeSlot() != preferredTimeSlot)
+                .reduce((ignored, latest) -> latest);
     }
 
     private TodayReportResponse toTodayReport(Long userId, LocalDate recordDate, TimeSlot timeSlot,
                                               SkinRecord skinRecord) {
         int totalScore = skinRecord.getOverallScore().intValue();
-        LocalDate previousDate = recordDate.minusDays(1);
-        Optional<SkinRecord> previous = skinRecordRepository.findByUserIdAndRecordDateAndTimeSlot(
-                userId,
-                previousDate,
-                timeSlot
-        ).filter(previousRecord -> Objects.nonNull(previousRecord.getOverallScore()));
+        Optional<SkinRecord> previous = skinRecordRepository
+                .findFirstByUserIdAndTimeSlotAndRecordDateBeforeAndOverallScoreIsNotNullOrderByRecordDateDescCapturedAtDesc(
+                        userId,
+                        timeSlot,
+                        recordDate
+                );
 
         Integer previousScore = previous
                 .map(previousRecord -> previousRecord.getOverallScore().intValue())
                 .orElse(null);
         Integer change = previousScore == null ? null : totalScore - previousScore;
-        String comparedTo = previousScore == null ? null : "%s %s".formatted(previousDate, timeSlot);
+        String comparedTo = previous
+                .map(previousRecord -> "%s %s".formatted(previousRecord.getRecordDate(), previousRecord.getTimeSlot()))
+                .orElse(null);
 
         return new TodayReportResponse(
                 skinRecord.getId(),
@@ -268,11 +281,11 @@ public class HomeService {
             return "오늘 피부 분석이 완료됐어요.";
         }
         if (change > 0) {
-            return "어제보다 좋아졌어요.";
+            return "이전 기록보다 좋아졌어요.";
         }
         if (change < 0) {
-            return "어제보다 낮아졌어요.";
+            return "이전 기록보다 낮아졌어요.";
         }
-        return "어제와 비슷해요.";
+        return "이전 기록과 비슷해요.";
     }
 }
