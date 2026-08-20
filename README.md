@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/62847420-51b3-4ac9-912e-c34196f3506b" alt="SKINTELLER" width="100%" />
+<img src="https://github.com/user-attachments/assets/62847420-51b3-4ac9-912e-c34196f3506b" alt="SKINTELLER" width="85%" />
 
 # 🧴 SkinTeller
 
