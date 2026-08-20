@@ -18,6 +18,7 @@ import {
   scanMockProduct,
   searchMockProducts,
   unsaveMockProduct,
+  updateMockProductRecord,
 } from '@/api/mock/product';
 import type { CatalogProduct } from '@/api/mock/product';
 import { recordMockProductCompletion } from '@/api/mock/record';
@@ -53,10 +54,16 @@ export async function getProductRecordHome(timeSlot: TimeSlot): Promise<ProductR
   );
 }
 
-export function useProductRecordHome(timeSlot: TimeSlot) {
+/**
+ * `enabled`는 2026-08-20(세션 21)에 추가했습니다 — RoutineEditScreen이 **기록 수정
+ * 모드일 때만** 이 목록을 씁니다(추가한 제품의 이름 조회). 루틴 모드에서 불필요한
+ * 요청이 나가지 않도록 기본값 true로 두고 호출부가 끕니다.
+ */
+export function useProductRecordHome(timeSlot: TimeSlot, enabled = true) {
   return useQuery({
     queryKey: ['productRecordHome', timeSlot],
     queryFn: () => getProductRecordHome(timeSlot),
+    enabled,
   });
 }
 
@@ -427,6 +434,48 @@ export async function saveProductRecord(params: {
   return unwrap<SaveProductRecordResult>(
     apiClient.post('/product-records', { timeSlot, productIds, force })
   );
+}
+
+/**
+ * PRODUCT-06 · `PATCH /product-records/{recordId}` (2026-08-20 세션 21 신설).
+ *
+ * 월간 기록 시트의 "수정"에서만 씁니다. 백엔드에는 진작 있었는데
+ * (`ProductRecordController.update`) 프론트가 안 붙이고 있던 API입니다.
+ *
+ * ⚠️ **전체 교체입니다.** 서버가 `deleteAllByProductRecordId`로 기존 항목을 전부 지우고
+ * 받은 `productIds`로 다시 씁니다(`ProductRecordService:156`). 즉 요청에서 빠진 제품은
+ * 그 기록에서 사라집니다 — 호출부는 반드시 **바꾼 뒤의 최종 목록 전체**를 보내야 합니다.
+ *
+ * 빈 배열은 서버가 `@NotEmpty`로 막습니다(400). 화면에서 미리 막아 주세요.
+ */
+export async function updateProductRecord(params: {
+  recordId: number;
+  productIds: number[];
+}): Promise<SaveProductRecordResult> {
+  const { recordId, productIds } = params;
+  if (USE_MOCK) {
+    return updateMockProductRecord(recordId, productIds);
+  }
+  return unwrap<SaveProductRecordResult>(
+    apiClient.patch(`/product-records/${recordId}`, { productIds })
+  );
+}
+
+export function useUpdateProductRecord() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateProductRecord,
+    onSuccess: () => {
+      // 저장(useSaveProductRecord)과 같은 무효화 세트에 `recordDayDetail`을 더합니다 —
+      // 수정하고 시트로 돌아왔을 때 방금 바꾼 구성이 그대로 보여야 합니다.
+      // timeSlot을 모르므로(수정은 과거 슬롯 대상) productRecordHome은 키 전체를 무효화합니다.
+      queryClient.invalidateQueries({ queryKey: ['recordDayDetail'] });
+      queryClient.invalidateQueries({ queryKey: ['productRecordHome'] });
+      queryClient.invalidateQueries({ queryKey: ['recordToday'] });
+      queryClient.invalidateQueries({ queryKey: ['recordCalendar'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+    },
+  });
 }
 
 /**

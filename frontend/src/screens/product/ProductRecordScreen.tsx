@@ -21,6 +21,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/base/Button';
 import { Popup } from '@/components/base/Popup';
+import { KeyboardAvoidingScreen } from '@/components/base/KeyboardAvoidingScreen';
 import { IconBack, IconChevronRight, IconClose } from '@/components/icons';
 import { ProductCard } from '@/components/domain/ProductCard';
 import { CategoryFilterBar } from '@/components/domain/CategoryFilterBar';
@@ -325,7 +326,16 @@ export function ProductRecordScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    /* 2026-08-20(관리자 지시) — 위치 설정(S-24)처럼 키보드가 뜨면 화면이 위로 올라가게
+       합니다. 이 화면은 자기 ScrollView를 이미 갖고 있으므로 scrollable={false}입니다
+       (ScrollView를 중첩하면 스크롤이 서로 먹습니다).
+
+       ⚠️ 이전 두 번의 시도가 실패한 이유가 여기 있었습니다. 저는 KeyboardAvoidingView를
+       nav 아래 ScrollView만 감싸도록 넣고 안드로이드는 behavior를 비웠는데, Expo SDK 57
+       (RN 0.86) 안드로이드는 edge-to-edge가 강제라 adjustResize로 창이 줄지 않습니다.
+       공용 KeyboardAvoidingScreen은 **양 플랫폼 모두 padding**을 쓰고 화면 전체를 감싸는
+       방식으로 이미 위치 설정에서 검증돼 있습니다. 직접 구현하지 말고 이걸 씁니다. */
+    <KeyboardAvoidingScreen scrollable={false} style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.nav}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -466,7 +476,7 @@ export function ProductRecordScreen() {
         onRequestClose={() => setConfirm(null)}
       />
 
-    </View>
+    </KeyboardAvoidingScreen>
   );
 }
 
@@ -608,59 +618,71 @@ function HomeSection({
             <Text style={styles.sectionCount}>{savedProducts.length}개</Text>
           ) : null}
         </View>
+        {/* 카테고리 칩은 저장된 제품이 있을 때만 의미가 있습니다(고를 대상이 없으면
+            필터가 빈 목록만 만들어냅니다). 반면 검색창은 아래에서 항상 그립니다. */}
+        {savedProducts.length > 0 ? (
+          <CategoryFilterBar
+            categories={[...PRODUCT_CATEGORIES]}
+            selected={categoryFilter}
+            onSelect={setCategoryFilter}
+            getLabel={getCategoryLabel}
+          />
+        ) : null}
+
+        {/* 2026-08-20(관리자 결정, 수정 2차 #1) — 검색창을 화면 맨 아래에서 **카테고리 칩
+            바로 아래**로 올렸습니다.
+
+            왜: 직전 위치(「저장된 제품」 목록 **아래**, 2026-08-14 배치)에서는 탭할 때
+            올라온 키보드에 그대로 덮였습니다. KeyboardAvoidingView·keyboardDidShow 스크롤·
+            겹침 직접 측정까지 세 방식을 시도했지만 전부 실패했습니다 — 스크롤 컨테이너의
+            맨 끝에 있는 입력창은 키보드 높이·플랫폼별 edge-to-edge 동작·스크롤 여백 유무에
+            계속 의존하게 되는 구조라 회피 코드로는 안정적으로 못 잡습니다. 위치를 올리는
+            것이 이 문제군 자체를 없애는 방법이라 판단했습니다.
+
+            명세서 F-PRODUCT-01 BR2("검색창은 기본/검색결과 상태 모두에서 상시 노출")는
+            "화면 어딘가에 항상 있어야 한다"는 뜻이라, 위치 이동은 이 규칙과 충돌하지
+            않습니다 — 검색 결과 상태(SearchResultsSection)에도 그대로 있습니다.
+
+            ⚠️ 저장된 제품이 0개여도 이 검색창은 그립니다(위 CategoryFilterBar와 달리).
+            제품이 없을 때야말로 검색이 가장 필요한 상태이기 때문입니다. */}
+        <ProductSearchBar
+          ref={searchInputRef}
+          value={searchKeyword}
+          onChangeText={onSearchKeywordChange}
+          onScanPress={onScanPress}
+          placeholder="추가할 상품을 검색해보세요"
+        />
+
         {savedProducts.length === 0 ? (
           <EmptyState
             icon="navShop"
             title="아직 저장된 제품이 없어요"
             description="검색하거나 스캔해서 첫 제품을 기록해보세요."
           />
+        ) : filteredSavedProducts.length === 0 ? (
+          <EmptyState
+            icon="filter"
+            title="해당 카테고리의 제품이 없어요"
+            description="초기화를 눌러 전체 제품을 다시 볼 수 있어요."
+          />
         ) : (
-          <>
-            <CategoryFilterBar
-              categories={[...PRODUCT_CATEGORIES]}
-              selected={categoryFilter}
-              onSelect={setCategoryFilter}
-              getLabel={getCategoryLabel}
-            />
-            {filteredSavedProducts.length === 0 ? (
-              <EmptyState
-                icon="filter"
-                title="해당 카테고리의 제품이 없어요"
-                description="초기화를 눌러 전체 제품을 다시 볼 수 있어요."
+          <View style={styles.savedListCard}>
+            {filteredSavedProducts.map((product, index) => (
+              <ProductCard
+                key={product.productId}
+                variant="plain"
+                brand={product.brand}
+                name={product.name}
+                category={getCategoryLabel(product.category)}
+                selected={selectedProductIds.has(product.productId)}
+                onPress={() => onToggleProduct(product.productId)}
+                onViewIngredients={() => onViewIngredients(product.productId)}
+                style={index > 0 ? styles.savedListDivider : undefined}
               />
-            ) : (
-              <View style={styles.savedListCard}>
-                {filteredSavedProducts.map((product, index) => (
-                  <ProductCard
-                    key={product.productId}
-                    variant="plain"
-                    brand={product.brand}
-                    name={product.name}
-                    category={getCategoryLabel(product.category)}
-                    selected={selectedProductIds.has(product.productId)}
-                    onPress={() => onToggleProduct(product.productId)}
-                    onViewIngredients={() => onViewIngredients(product.productId)}
-                    style={index > 0 ? styles.savedListDivider : undefined}
-                  />
-                ))}
-              </View>
-            )}
-          </>
+            ))}
+          </View>
         )}
       </View>
-
-      {/* 관리자님 요청(2026-08-14) — 검색창을 상단 헤더에서 "저장된 제품" 섹션 아래로 이동.
-          명세서 F-PRODUCT-01 BR2("검색창은 기본 상태와 검색 결과 상태 모두에서 상시 노출")는
-          "화면 어딘가에 항상 있어야 한다"는 뜻이라, 위치를 옮기는 것 자체는 이 규칙과
-          충돌하지 않습니다 — 그래서 검색 결과 상태(SearchResultsSection)에도 동일하게
-          검색창을 넣어서 계속 보이게 했습니다. */}
-      <ProductSearchBar
-        ref={searchInputRef}
-        value={searchKeyword}
-        onChangeText={onSearchKeywordChange}
-        onScanPress={onScanPress}
-        placeholder="추가할 상품을 검색해보세요"
-      />
 
       <DirectRegisterButton onPress={onDirectRegister} />
     </View>

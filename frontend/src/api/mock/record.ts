@@ -159,10 +159,35 @@ export function buildMockRecordToday(): RecordTodayResponse {
 // 월간 기록 날짜 탭 바텀시트용 — 백엔드 API 없음(위 types/record.ts 주석 참고).
 // 캘린더 점 상태(FULL/PARTIAL/NONE)에서 있음직한 데모 데이터를 만들어서 보여줍니다.
 // ---------------------------------------------------------------------------
-const MOCK_PRODUCT_NAMES: Record<TimeSlot, string[]> = {
-  MORNING: ['자작나무 토너', '비타민 세럼', '선크림'],
-  NIGHT: ['클렌징 오일', '레티놀 크림'],
+// 2026-08-20(세션 21) — 이름만 있던 자리표시자를 **실제 카탈로그 productId**로 바꿨습니다.
+// 시트의 "수정"이 `PATCH /product-records/{recordId}`(productIds 전체 교체)로 이어지는데,
+// 목업 항목에 실재하지 않는 ID가 실려 있으면 수정 화면에서 그 제품을 못 그립니다.
+// ID·이름은 api/mock/product.ts의 CATALOG와 반드시 같아야 합니다.
+//
+// MORNING의 21(닥터지 선베이스)은 **일부러 savedProducts 초기값(11·15)에서 빼둔 ID**입니다 —
+// "과거 기록에는 있는데 지금은 저장 목록에 없는 제품"(찜 해제 후)을 재현하려는 것입니다.
+// 실서버에서도 `stopUsing()` 후 똑같이 벌어지는 상황이고, 수정 화면이 이 제품을 목록에
+// 못 그리면 저장 시 조용히 지워집니다. 목업이 이 케이스를 재현해야 검증할 수 있습니다.
+const MOCK_RECORD_PRODUCTS: Record<TimeSlot, { productId: number; name: string }[]> = {
+  MORNING: [
+    { productId: 11, name: '라운드랩 자작나무 수분 토너' },
+    { productId: 15, name: '이니스프리 어성초 세럼' },
+    { productId: 21, name: '닥터지 선베이스' },
+  ],
+  NIGHT: [
+    { productId: 92, name: '코스알엑스 달팽이 에센스' },
+    { productId: 71, name: '라로슈포제 시카플라스트' },
+  ],
 };
+
+/**
+ * 슬롯별 제품 기록 ID. 실서버는 DB 시퀀스지만 목업은 날짜+슬롯으로 안정적인 값을
+ * 만들어 냅니다 — 같은 날짜를 다시 열어도 같은 ID여야 수정 화면이 어긋나지 않습니다.
+ */
+function mockProductRecordId(date: string, slot: TimeSlot): number {
+  const digits = Number(date.replace(/-/g, '').slice(-6));
+  return digits * 10 + (slot === 'MORNING' ? 1 : 2);
+}
 
 export function buildMockRecordDayDetail(date: string): RecordDayDetailResponse {
   // 오늘이면 buildMockRecordToday()와 같은 세션 상태를 재사용해서 방금 기록한 게
@@ -184,10 +209,17 @@ export function buildMockRecordDayDetail(date: string): RecordDayDetailResponse 
 
   const buildSlot = (status: RecordDotStatus, slot: TimeSlot): RecordDayDetailResponse['morningProducts'] => {
     const completed = status !== 'NONE';
-    const names = MOCK_PRODUCT_NAMES[slot];
+    const products = MOCK_RECORD_PRODUCTS[slot];
     // PARTIAL이면 일부만, FULL이면 전부, NONE이면 빈 배열.
-    const count = status === 'FULL' ? names.length : status === 'PARTIAL' ? Math.max(1, names.length - 1) : 0;
-    return { completed, items: names.slice(0, count).map((name) => ({ name })) };
+    const count =
+      status === 'FULL' ? products.length : status === 'PARTIAL' ? Math.max(1, products.length - 1) : 0;
+    return {
+      completed,
+      // 기록이 없는 슬롯엔 고칠 대상도 없으므로 recordId도 null입니다(실서버와 동일 —
+      // `RecordHubService.dailySlot()`이 기록 없으면 `new RecordDailySlotResponse(false, null, ...)`).
+      recordId: completed ? mockProductRecordId(date, slot) : null,
+      items: products.slice(0, count).map(({ productId, name }) => ({ productId, name })),
+    };
   };
 
   const hasSkinRecord = morningStatus !== 'NONE' || nightStatus !== 'NONE';

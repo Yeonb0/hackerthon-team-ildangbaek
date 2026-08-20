@@ -62,7 +62,9 @@ export const DISPLAY_FONT_FAMILIES: Record<DisplayFont, string> = {
   bmjua: 'BMJUA',
 };
 
-export const DEFAULT_FONT_CHOICE: FontChoice = 'pretendard';
+// 2026-08-20(관리자 결정) — 기본 글꼴을 Pretendard → 나눔스퀘어네오로 변경.
+// 마이페이지에서 Pretendard를 고른 사용자는 그대로 유지됩니다(아래 normalizeFontChoice).
+export const DEFAULT_FONT_CHOICE: FontChoice = 'nanumSquareNeo';
 
 /** fontStore와 bootstrapFont가 같은 키를 봐야 하므로 여기서 단일 정의합니다. */
 export const FONT_STORAGE_KEY = 'skinteller.settings.fontChoice';
@@ -70,8 +72,15 @@ export const FONT_STORAGE_KEY = 'skinteller.settings.fontChoice';
 let activeFontChoice: FontChoice = DEFAULT_FONT_CHOICE;
 let locked = false;
 
+/**
+ * ⚠️ 저장값을 **양쪽 다 명시적으로** 봐야 합니다. 예전에는 'nanumSquareNeo'만 확인하고
+ * 나머지를 DEFAULT로 넘겼는데, 기본값이 나눔스퀘어네오가 된 지금 그 코드를 두면
+ * 이미 Pretendard를 골라둔 사용자의 저장값이 조용히 무시됩니다.
+ */
 export function normalizeFontChoice(value: string | null | undefined): FontChoice {
-  return value === 'nanumSquareNeo' ? 'nanumSquareNeo' : DEFAULT_FONT_CHOICE;
+  if (value === 'pretendard') return 'pretendard';
+  if (value === 'nanumSquareNeo') return 'nanumSquareNeo';
+  return DEFAULT_FONT_CHOICE;
 }
 
 /**

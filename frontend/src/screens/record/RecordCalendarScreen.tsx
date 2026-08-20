@@ -25,6 +25,7 @@ import { ErrorState } from '@/components/state/ErrorState';
 import { useRecordCalendar, useRecordDayDetail } from '@/api/queries/record';
 import { formatYearMonthString, isFutureDateString } from '@/lib/date';
 import { useWeekStartStore } from '@/store/weekStartStore';
+import { LOCAL_ROUTINE_ID } from '@/store/routineStore';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, space, weightFamily } from '@/theme';
 
@@ -84,6 +85,31 @@ export function RecordCalendarScreen() {
     if (!date) return;
     setSelectedDate(null);
     navigation.navigate(DetailRoutes.SkinResult, { date });
+  };
+
+  /**
+   * 시트의 슬롯별 "수정" — 2026-08-20(세션 21) 복원(2번 항목).
+   *
+   * 전용 화면을 새로 만들지 않고 **기존 루틴 수정 화면(PROD-07)을 재사용**합니다
+   * (관리자 결정). 필요한 UI가 이미 거기 다 있고, 순서 변경이 기록에서도 실제
+   * 의미가 있습니다 — PATCH의 productIds 순서가 그대로 usageOrder가 됩니다.
+   *
+   * 시트를 **닫지 않고** push합니다(`handleViewSkinDetail`과 다른 점). 수정 화면에서
+   * 뒤로 나오면 같은 날짜 시트가 그대로 있고, `useUpdateProductRecord`가 무효화한
+   * `recordDayDetail`이 다시 조회돼 바뀐 구성이 보입니다.
+   */
+  const handleEditProduct: React.ComponentProps<typeof RecordDayDetailSheet>['onEditProduct'] = ({
+    recordId,
+    timeSlot,
+    items,
+  }) => {
+    const date = selectedDate;
+    if (!date) return;
+    navigation.navigate(DetailRoutes.RoutineEdit, {
+      // 기록 모드에선 안 쓰이지만 라우트 타입상 필수입니다(routes.ts 주석 참고).
+      routineId: LOCAL_ROUTINE_ID[timeSlot],
+      recordEdit: { recordId, date, timeSlot, items },
+    });
   };
 
   return (
@@ -197,6 +223,7 @@ export function RecordCalendarScreen() {
         }
         onRequestClose={() => setSelectedDate(null)}
         onViewSkinDetail={handleViewSkinDetail}
+        onEditProduct={handleEditProduct}
       />
     </View>
   );

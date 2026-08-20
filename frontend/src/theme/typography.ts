@@ -1,13 +1,14 @@
 // src/theme/typography.ts
 //
-// 2026-08-15 — 글꼴 기능 A안 적용. 기본 글꼴은 Pretendard(관리자 확정).
+// 2026-08-15 — 글꼴 기능 A안 적용.
+// 2026-08-20 — 기본 글꼴을 Pretendard → 나눔스퀘어네오로 변경(관리자 결정).
 //
 // ⚠️ 평가 시점에 활성 글꼴을 한 번 읽어 상수로 굳힙니다.
 // 화면들이 모듈 최상단 StyleSheet.create()에서 `...typography.body`를 스프레드하기
 // 때문에, 이 파일이 평가된 뒤에 활성 글꼴을 바꿔도 반영되지 않습니다. 그래서
 // index.ts → src/app/Root.tsx가 저장값을 먼저 확정한 다음에야 App(그리고 화면들)을
 // 동적 import 합니다. 이 순서를 깨고 부팅 게이트보다 먼저 이 모듈을 import하면
-// 사용자가 뭘 골랐든 항상 Pretendard로 굳습니다.
+// 사용자가 뭘 골랐든 항상 기본 글꼴로 굳습니다.
 //
 // ⚠️ fontWeight를 더 이상 typography에 넣지 않습니다.
 // Pretendard-SemiBold처럼 굵기별 파일을 지정한 상태에서 fontWeight까지 주면
@@ -33,7 +34,7 @@ export const fontFamily = {
 
 /**
  * 글꼴별 크기 보정을 적용합니다 (fontFamily.ts의 FONT_SIZE_OFFSET).
- * 나눔스퀘어네오는 -1pt — Pretendard 기준으로 잡은 크기가 더 크게 보여서입니다.
+ * 글꼴마다 같은 pt에서 실제로 보이는 크기가 달라 보정합니다(FONT_SIZE_OFFSET).
  *
  * 화면에서 크기를 직접 지정할 때도 이걸 통과시켜야 글꼴 전환 시 같이 조정됩니다.
  *

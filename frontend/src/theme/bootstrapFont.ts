@@ -17,7 +17,7 @@ import {
 
 /**
  * 반드시 App/화면 모듈이 평가되기 전에 완료돼야 합니다 (src/app/Root.tsx가 보장).
- * 저장소 읽기가 실패해도 앱은 떠야 하므로 기본값(Pretendard)으로 넘어갑니다.
+ * 저장소 읽기가 실패해도 앱은 떠야 하므로 기본값(나눔스퀘어네오)으로 넘어갑니다.
  */
 export async function bootstrapFontChoice(): Promise<FontChoice> {
   try {

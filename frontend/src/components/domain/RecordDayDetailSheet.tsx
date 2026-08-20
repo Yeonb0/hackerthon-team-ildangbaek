@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconCheck, IconMoon, IconSunny } from '@/components/icons';
 import { RecordDot } from '@/components/domain/RecordDot';
 import { color, gradient, gradientDirection, radius, space, weightFamily } from '@/theme';
-import type { RecordDayDetailResponse } from '@/types/record';
+import type { RecordDayDetailResponse, RecordDaySlotDetail } from '@/types/record';
 import type { RecordDotStatus } from '@/types/home';
 
 type RecordDayDetailSheetProps = {
@@ -47,11 +47,23 @@ type RecordDayDetailSheetProps = {
    * "자세히 보기" — 그 날짜의 피부 결과 화면(S-18)으로 이동합니다.
    * REPORT-03(`GET /reports/daily`)이 이 경로 전용으로 백엔드에 이미 있습니다.
    *
-   * ℹ️ 2026-08-18 — 이 시트에 있던 "수정" 버튼 2개(피부·제품)는 제거됐습니다.
-   * 사유는 본문 렌더 부분의 주석을 참고하세요. 되살릴 때 `onEditSkin`·`onEditProduct`
-   * prop을 여기 다시 추가하면 됩니다.
+   * ℹ️ 2026-08-18 — 이 시트에 있던 "수정" 버튼 2개(피부·제품)가 제거됐습니다.
+   * **피부 쪽은 계속 없는 게 맞습니다**(지난 날짜 피부는 고칠 방법 자체가 없음 — 본문
+   * 주석 참고). 제품 쪽은 2026-08-20에 `onEditProduct`로 되살렸습니다.
    */
   onViewSkinDetail?: () => void;
+  /**
+   * "수정" — 그 슬롯의 제품 기록 구성을 바꾸는 화면(ProductRecordEdit)으로 이동합니다.
+   * 2026-08-20(세션 21) 복원.
+   *
+   * ⚠️ **이 prop이 있어도 버튼이 항상 보이는 건 아닙니다.** 아래 `canEditSlot()` 조건을
+   * 통과한 슬롯에만 그립니다 — 자세한 이유는 그 함수 주석을 보세요.
+   */
+  onEditProduct?: (params: {
+    recordId: number;
+    timeSlot: 'MORNING' | 'NIGHT';
+    items: { productId: number; name: string }[];
+  }) => void;
   /** 타이틀 우측 점 2개(모닝/나이트) — 캘린더 셀과 같은 상태를 보여줍니다(Figma
    * 210:1103 실측, 2026-08-15 추가). 부모가 캘린더 데이터에서 그 날짜를 찾아 넘깁니다. */
   dayStatus?: { morning: RecordDotStatus; night: RecordDotStatus };
@@ -61,6 +73,38 @@ const TIME_SLOT_META = {
   morning: { Icon: IconSunny, label: '모닝 루틴' },
   night: { Icon: IconMoon, label: '나이트 루틴' },
 } as const;
+
+/**
+ * 이 슬롯에 "수정" 버튼을 그려도 되는지. 2026-08-20(세션 21).
+ *
+ * 세 조건을 **전부** 만족해야 합니다.
+ *   1. `onEditProduct`가 있음 — 호출부가 목적지를 연결했는가
+ *   2. `recordId`가 있음 — PATCH 경로 변수. 기록이 없는 슬롯은 애초에 고칠 게 없음
+ *   3. 모든 항목에 `productId`가 있음 — ⚠️ **여기가 핵심입니다**
+ *
+ * 3번이 필요한 이유: `PATCH /product-records/{recordId}`는 productIds **전체 교체**라,
+ * 수정 화면이 기존 구성을 체크 상태로 복원하려면 ID를 알아야 합니다. 그런데 실서버
+ * `RecordDailyProductItemResponse`는 아직 `name`만 내려줍니다. ID를 모르는 채로 화면을
+ * 열면 사용자가 제품 하나만 빼려고 들어가도 나머지가 전부 지워집니다.
+ *
+ * ID가 없으면 버튼을 **아예 그리지 않습니다** — 세션 18에 이 버튼을 감췄던 판단("목적지
+ * 없는 버튼을 남겨두면 눌렀다가 아무 일도 안 일어나는 경험")과 같은 이유이고, 더 나아가
+ * 여기서는 데이터가 조용히 지워지는 걸 막습니다.
+ *
+ * 백엔드가 `productId`를 실어 내려주는 순간(요청: `docs/backend-request-2026-08-20.md`
+ * P0-1) 이 조건이 저절로 참이 되어 버튼이 나타납니다. 프론트 재배포가 필요 없습니다.
+ */
+function canEditSlot(
+  slot: RecordDaySlotDetail,
+  onEditProduct?: RecordDayDetailSheetProps['onEditProduct']
+): slot is RecordDaySlotDetail & { recordId: number } {
+  return (
+    onEditProduct !== undefined &&
+    slot.recordId !== null &&
+    slot.items.length > 0 &&
+    slot.items.every((item) => typeof item.productId === 'number')
+  );
+}
 
 const DISMISS_THRESHOLD = 120; // 이 이상 아래로 끌면 닫힘
 const DISMISS_VELOCITY = 800; // 짧게 휙 내려도(속도만으로) 닫히는 기준
@@ -115,6 +159,7 @@ export function RecordDayDetailSheet({
   onRetry,
   onRequestClose,
   onViewSkinDetail,
+  onEditProduct,
   dayStatus,
 }: RecordDayDetailSheetProps) {
   const translateY = useSharedValue(0);
@@ -248,13 +293,12 @@ export function RecordDayDetailSheet({
               )}
             </View>
 
-            {/* 2026-08-18 — 제품 기록 "수정" 버튼도 제거했습니다(관리자 결정). 피부 쪽과
-                달리 백엔드에는 `PATCH /product-records/{recordId}`(PRODUCT-06)가 있지만,
-                이 시트가 쓰는 `RecordDayDetailResponse`에 `recordId`가 없어 어느 기록을
-                고칠지 지정할 수가 없습니다. 목적지 없는 버튼을 남겨두면 눌렀다가 아무 일도
-                안 일어나는 경험이라, 연결 준비가 될 때까지 감춥니다.
-                되살리려면 recordId를 응답·목업에 싣고 이 자리에 sectionHeader 행을
-                되돌린 뒤 onEditProduct를 연결하면 됩니다. */}
+            {/* 2026-08-20(세션 21) — 제품 기록 "수정"을 되살렸습니다. 세션 18에 감췄던
+                이유(recordId가 응답에 없어 어느 기록을 고칠지 지정 불가)는 백엔드
+                `6571aa2`로 해소됐습니다.
+                ⚠️ 다만 슬롯이 두 개라 섹션 헤더가 아니라 **슬롯 헤더 우측**에 답니다 —
+                "제품 기록" 옆에 하나만 두면 모닝·나이트 중 어느 쪽을 고치는지 알 수
+                없습니다. 노출 조건은 canEditSlot() 주석 참고. */}
             <Text style={styles.sectionTitle}>제품 기록</Text>
             <View style={styles.productCard}>
               {(['morning', 'night'] as const).map((slot, index) => {
@@ -278,6 +322,27 @@ export function RecordDayDetailSheet({
                           >
                             <IconCheck size={10} color={color.bg} />
                           </LinearGradient>
+                        )}
+                        {canEditSlot(data, onEditProduct) && (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`${meta.label} 기록 수정`}
+                            hitSlop={8}
+                            style={styles.slotEditButton}
+                            onPress={() =>
+                              onEditProduct?.({
+                                recordId: data.recordId,
+                                timeSlot: slot === 'morning' ? 'MORNING' : 'NIGHT',
+                                // canEditSlot이 productId가 전부 number임을 보장합니다.
+                                items: data.items.map((item) => ({
+                                  productId: item.productId as number,
+                                  name: item.name,
+                                })),
+                              })
+                            }
+                          >
+                            <Text style={styles.editLabel}>수정</Text>
+                          </Pressable>
                         )}
                       </View>
                       {data.items.length > 0 ? (
@@ -440,6 +505,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
+  },
+  // 2026-08-18에 지웠던 editLabel을 2026-08-20에 되살렸습니다(위치만 섹션 헤더 →
+  // 슬롯 헤더로 바뀜). marginLeft:'auto'로 행 오른쪽 끝에 붙입니다 —
+  // justifyContent를 바꾸면 체크 배지 간격까지 흐트러집니다.
+  slotEditButton: {
+    marginLeft: 'auto',
+  },
+  editLabel: {
+    ...weightFamily('bold'),
+    fontSize: 12,
+    color: color.brand500,
   },
   slotHeaderText: {
     ...weightFamily('bold'),

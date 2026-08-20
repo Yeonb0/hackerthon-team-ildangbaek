@@ -138,8 +138,58 @@ export type DetailStackParamList = {
   // initialStatus: 마이페이지 요약 카드에서 특정 배지(맞음/주의/데이터부족)를 탭해 들어온
   // 경우 그 상태로 필터를 미리 켜둡니다. 없으면 전체 목록.
   [DetailRoutes.IngredientList]: { initialStatus?: IngredientStatus } | undefined;
-  [DetailRoutes.RoutineEdit]: { routineId: number };
-  [DetailRoutes.RoutineAddProduct]: { routineId: number; timeSlot: TimeSlot };
+  [DetailRoutes.RoutineEdit]: {
+    routineId: number;
+    /**
+     * 2026-08-20(세션 21) — **제품 기록 수정 모드**(2번 항목).
+     *
+     * 월간 기록 시트(S-24)의 슬롯별 "수정"에서만 실립니다. 값이 있으면 이 화면은
+     * 루틴이 아니라 **그 날짜·슬롯의 제품 기록**을 편집하고, 「저장」이
+     * `routineStore.reorder()` 대신 `PATCH /product-records/{recordId}`로 갑니다.
+     *
+     * 별도 화면을 만들지 않고 이 화면을 재사용하는 이유(관리자 결정, 2026-08-20):
+     * 필요한 UI가 이미 여기 다 있습니다 — 제품 목록 · X 삭제 · 드래그 순서 변경 ·
+     * 제품 추가 · 저장/취소. 게다가 순서 변경이 기록에서도 **실제로 의미가 있습니다**:
+     * `ProductRecordService.update()`가 받은 productIds 순서대로 `usageOrder`를
+     * 1부터 다시 매깁니다(158~167행).
+     *
+     * 이 모드에서는 모닝/나이트 탭을 감춥니다 — 편집 대상이 특정 슬롯의 기록 하나로
+     * 고정돼 있어서 다른 루틴으로 건너뛸 수 없습니다. `routineId`는 이 모드에서
+     * 쓰이지 않지만, 라우트 타입을 갈라 놓으면 호출부가 복잡해져 그대로 둡니다.
+     */
+    recordEdit?: {
+      /** PATCH 경로 변수. */
+      recordId: number;
+      /** 헤더 표기용('2026-08-05' → "8월 5일 모닝 기록 수정"). 요청에는 안 쓰입니다. */
+      date: string;
+      timeSlot: TimeSlot;
+      /**
+       * 수정 전 구성. 화면이 이걸로 목록을 초기화합니다.
+       *
+       * ⚠️ **이름까지 받는 게 중요합니다.** 저장 목록(`GET /product-records/home`)은
+       * `USING`만 주므로 그 사이 찜 해제한 제품은 이름을 알 방법이 없습니다. 이름이
+       * 없으면 목록에 그릴 수 없고, 못 그리면 사용자가 모르는 채로 저장 시 그 제품이
+       * 기록에서 사라집니다(PATCH는 전체 교체). 시트가 이미 이름을 갖고 있으므로
+       * 그대로 실어 보냅니다.
+       */
+      items: { productId: number; name: string }[];
+    };
+    /**
+     * 기록 수정 모드에서 "제품 추가하기" → RoutineAddProductScreen이 돌아오며 실어 주는
+     * 값입니다. 루틴 모드는 스토어가 바뀌므로 이 경로를 쓰지 않습니다.
+     */
+    addedProductIds?: number[];
+  };
+  [DetailRoutes.RoutineAddProduct]: {
+    routineId: number;
+    timeSlot: TimeSlot;
+    /**
+     * 2026-08-20(세션 21) — true면 **루틴에 담지 않고** 고른 productId를 호출부
+     * (RoutineEdit 기록 수정 모드)로 돌려주기만 합니다. 기록 수정은 「저장」을 눌러야
+     * 서버에 반영되므로, 이 화면에서 루틴을 건드리면 안 됩니다.
+     */
+    returnSelection?: boolean;
+  };
   [DetailRoutes.ProductRecordComplete]: {
     timeSlot: TimeSlot;
     /**
