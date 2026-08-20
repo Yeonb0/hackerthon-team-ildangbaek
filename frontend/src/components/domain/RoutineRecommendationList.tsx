@@ -110,6 +110,7 @@ export function RoutineRecommendationList({
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: -10,
     gap: space[2],
     paddingBottom: space[2],
   },
