@@ -10,6 +10,7 @@ import com.ildangbaek.backend.global.exception.ErrorCode;
 import com.ildangbaek.backend.global.response.ApiResponse;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/records")
 public class RecordController {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final RecordHubService recordHubService;
 
@@ -43,7 +46,14 @@ public class RecordController {
             @CurrentUserId Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
+        validateNotFutureDate(date);
         return ApiResponse.success(recordHubService.getDaily(userId, date));
+    }
+
+    private void validateNotFutureDate(LocalDate date) {
+        if (date.isAfter(LocalDate.now(KST))) {
+            throw new BusinessException(ErrorCode.RECORD_FUTURE_DATE_NOT_ALLOWED);
+        }
     }
 
     private YearMonth parseYearMonth(String yearMonth) {
