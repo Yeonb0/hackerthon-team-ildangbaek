@@ -11,13 +11,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 @Slf4j
 @Component
 public class KmaUvIndexClient {
 
-    private static final String DEFAULT_BASE_URL = "http://apis.data.go.kr/1360000/LivingWthrIdxServiceV4";
+    private static final String DEFAULT_BASE_URL = "https://apis.data.go.kr/1360000/LivingWthrIdxServiceV4";
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
     private final RestClient restClient;
@@ -52,7 +51,7 @@ public class KmaUvIndexClient {
                     .retrieve()
                     .body(KmaUvIndexResponse.class);
             return firstItem(response).flatMap(item -> decimal(item.h0()));
-        } catch (RestClientException exception) {
+        } catch (RuntimeException exception) {
             log.warn("기상청 자외선지수 조회 실패: areaNo={}", areaNo, exception);
             return Optional.empty();
         }
