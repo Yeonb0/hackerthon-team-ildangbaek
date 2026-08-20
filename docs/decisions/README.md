@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
 아키텍처 · 정책 결정을 기록하는 곳입니다. 결정을 바꿀 때는 **기존 ADR을 수정하지 않고 새 ADR을 추가**하고,
-기존 ADR의 상태를 `대체됨`으로 바꾸며 새 번호를 가리킵니다. (`CLAUDE.md` — Architecture Decisions)
+기존 ADR의 상태를 `대체됨`으로 바꾸며 새 번호를 가리킵니다.
 
 ## 상태 정의
 

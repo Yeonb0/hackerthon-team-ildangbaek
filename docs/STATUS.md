@@ -816,7 +816,7 @@ F-ANALYSIS-01이 `LagPattern`에서 이미 계산해 놓고 `description` 문장
 **`RiskLevel.INSUFFICIENT`와 `CHECK_CALCULATION_FAILED`(500)는 정의만 되어 있고 실제 경로가 없다.**
 판정 성분이 0건이면 등급을 매기지 않고 `CHECK_PROFILE_NOT_READY`(409)를 던지며 행을 저장하지
 않는다 — 값과 오류가 동시에 답일 수 없어 오류를 택했다. 위험도 계산은 정수 셋의 산술이라 실패할
-수 없어 500을 던지는 코드 경로를 만들지 않았다(CLAUDE.md §2).
+수 없어 500을 던지는 코드 경로를 만들지 않았다 — 발생할 수 없는 상황에 대한 방어 코드는 넣지 않는다는 원칙에 따랐다.
 
 **두 409 모두 평가를 저장하지 않는다.** `CHECK_INGREDIENT_DATA_INSUFFICIENT`는 제품 성분 행이
 0건일 때, `CHECK_PROFILE_NOT_READY`는 이 제품 성분 중 판정된 것이 하나도 없을 때다 — "프로파일
@@ -1237,5 +1237,5 @@ ai-server 로그에서 `POST /insight-tips 200` · 실제 OpenAI 호출을 확�
 
 ## 갱신 규칙
 
-`CLAUDE.md`의 Documentation Synchronization을 따른다. 코드 · 설정 · API · 인증 · DB · 마이그레이션 · 운영
-변경이 있을 때 **같은 작업 단위에서** 이 문서를 갱신한다. 완료 표시는 **동작 확인 후에만** 한다.
+코드 · 설정 · API · 인증 · DB · 마이그레이션 · 운영 변경이 있을 때 **같은 작업 단위에서** 이 문서를 갱신한다.
+완료 표시는 **동작 확인 후에만** 한다.

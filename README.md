@@ -237,7 +237,7 @@ cp .env.example .env           # OPENAI_API_KEY 등을 채운다
 | [docs/screen-structure-v3.html](docs/screen-structure-v3.html) | 화면 구조 정의서 v3 (화면 ID S-XX) |
 | [docs/decisions/](docs/decisions) | 아키텍처 결정 기록 (ADR) |
 
-문서는 구현의 기준입니다. 코드 · 설정 · API · DB 변경 시 영향받는 문서를 같은 작업에서 갱신합니다. ([CLAUDE.md](CLAUDE.md) 참고)
+문서는 구현의 기준입니다. 코드 · 설정 · API · DB 변경 시 영향받는 문서를 같은 작업에서 갱신합니다.
 
 ---
 
@@ -307,32 +307,6 @@ SKINTELLER는 바로 이 단계에서 사용자를 만나 일상적인 피부 �
 - 신규 에러 코드가 필요하면 `docs/공통응답포맷_예외처리코드.md`를 먼저 갱신한 뒤 코드에 반영합니다.
 - Enum은 문자열만 사용하고, 빈 목록은 `null`이 아닌 `[]`로 내려줍니다.
 
----
-
-## 📊 현재 상태
-
-- **backend** — 공통 응답 · 예외 처리 · ERD 기준 엔티티/리포지토리 스캐폴딩 완료. 인증은 임시 방편(서명 검증 없는 목업 토큰)이며 배포 전 실제 인증으로 교체 필요.
-- **frontend** — 전 화면(S-00~S-24) 구현 완료. 백엔드 실연동은 진행 중 — 현재 `EXPO_PUBLIC_USE_MOCK=true`로 목업 모드 동작.
-- **ai-server** — 피부 지표 4종 규칙 기반 1차 산출 + OpenAI Vision 2차 확정 파이프라인 구현 완료(Phase 1~6).
-
-세부 진행 상황은 [docs/STATUS.md](docs/STATUS.md) 및 각 파트 README를 참고하세요.
-
----
-
-## ⚠️ 알려진 미확정 사항
-
-PRD 14장에 전체 목록이 있으며, 스키마에 직접 영향을 주는 항목은 다음과 같습니다.
-
-| 항목 | 상태 |
-| --- | --- |
-| 성별 · 호르몬 상태 enum | ERD와 api 명세서의 값 체계 불일치 |
-| 이메일 로그인 | MVP 포함 여부 미확정 (소셜 로그인 우선) |
-| 얼굴 이미지 보관 정책 | 원본 보관 · 기간 보관 · 분석 후 삭제 중 미확정 |
-
-확정된 항목은 `docs/decisions/`를 참고하세요. (피부 지표 4종 — [ADR 0002](docs/decisions/0002-피부-지표-체계.md),
-성분 반응 상태 enum 매핑 — [ADR 0004](docs/decisions/0004-성분-반응-상태-명칭.md))
-
-확정 시 새 ADR을 `docs/decisions/`에 추가하고, 영향받는 문서와 코드를 함께 갱신합니다.
 
 ---
 
