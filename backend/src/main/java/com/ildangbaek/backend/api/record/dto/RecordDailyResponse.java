@@ -6,6 +6,8 @@ public record RecordDailyResponse(
         LocalDate date,
         Integer skinScore,
         RecordDailySlotResponse morningProducts,
-        RecordDailySlotResponse nightProducts
+        RecordDailySlotResponse nightProducts,
+        TimeSlotRecordStateResponse morning,
+        TimeSlotRecordStateResponse night
 ) {
 }
