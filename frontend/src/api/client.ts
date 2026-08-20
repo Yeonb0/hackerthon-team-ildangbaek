@@ -89,7 +89,12 @@ async function refreshAccessToken(): Promise<string> {
 
 // refresh를 시도하면 안 되는 엔드포인트. 특히 /auth/login의 401(AUTH_LOGIN_FAILED)까지
 // refresh를 태우면, 로그인 실패가 엉뚱하게 "세션 만료"로 처리됩니다.
-const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh'];
+//
+// 2026-08-19(세션 20) — '/auth/email/'을 추가했습니다. POST /auth/email/login 실패도
+// AUTH_LOGIN_FAILED(401)라서, 비밀번호를 틀렸을 뿐인데 refresh를 태우고 그 실패로
+// clearAuth()까지 도는 경로가 열려 있었습니다(재로그인 중인 사용자의 남은 세션을
+// 지워버림). includes 매칭이라 접두사 하나로 email 5개 엔드포인트가 모두 걸립니다.
+const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/email/'];
 
 /** 이 401이 "액세스 토큰 만료"인지 판정합니다. 코드가 없으면(봉투가 아닌 응답) 만료로 간주합니다. */
 function isExpiredAccessToken(code: string | undefined): boolean {

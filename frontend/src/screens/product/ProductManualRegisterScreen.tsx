@@ -31,7 +31,14 @@ import { Input } from '@/components/base/Input';
 import { LoadingState } from '@/components/state/LoadingState';
 import { PermissionDenied } from '@/components/state/PermissionDenied';
 import { prepareProductPhoto } from '@/lib/image';
-import { useAddProductToRoutine, useRegisterProduct, useRoutines } from '@/api/queries/product';
+import {
+  matchProduct,
+  useAddProductToRoutine,
+  useRegisterProduct,
+  useRoutines,
+  useSaveProductToLibrary,
+} from '@/api/queries/product';
+import { Popup } from '@/components/base/Popup';
 import { DetailRoutes, DetailStackParamList } from '@/app/routes';
 import { color, radius, space, typography } from '@/theme';
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/types/product';
@@ -52,6 +59,8 @@ export function ProductManualRegisterScreen() {
   const [category, setCategory] = useState<ProductCategory | null>(null);
   const [ingredientsText, setIngredientsText] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
+  /** GET /products/match에서 같은 이름·브랜드 제품이 잡힌 경우의 productId(팝업 표시용). */
+  const [matchedProductId, setMatchedProductId] = useState<number | null>(null);
 
   // 관리자님 요청(2026-08-13) — 제품 사진을 찍어서 등록할 수 있게. 별도 화면/라우트로
   // 안 빼고 이 화면 내부 상태로 카메라 뷰를 전환합니다(FaceCaptureScreen과 같은 패턴,
@@ -92,6 +101,8 @@ export function ProductManualRegisterScreen() {
 
   const registerMutation = useRegisterProduct();
   const addToRoutineMutation = useAddProductToRoutine();
+  // 기존 제품 재사용 경로에서만 씁니다(등록 경로는 registerProduct 내부에서 저장합니다).
+  const saveMutation = useSaveProductToLibrary();
 
   // 관리자님 요청(2026-08-14) — 모닝/나이트 루틴 둘 다 동시에 추가할 수 있게 다중 선택으로.
   // initialRoutineId(2026-08-15 세션5, RoutineAddProductScreen "새 제품 등록하기"에서 옴)가
@@ -130,10 +141,48 @@ export function ProductManualRegisterScreen() {
     [ingredientsText]
   );
 
+  /**
+   * 제품이 정해진 뒤의 공통 처리 — 새로 등록했든 기존 제품을 재사용했든 동일합니다.
+   * (2026-08-19 세션 20에 중복 매칭 분기가 생기면서 handleSubmit에서 떼어냈습니다.)
+   */
+  const continueWithProduct = async (productId: number) => {
+    if (selectedRoutineIds.size === 0) {
+      // 2026-08-19(세션 18, 관리자님 지시) — 예전엔 성분 확인(S-14)으로 넘겨서
+      // 거기서 다시 고르게 했는데, 이 화면에 이미 같은 3지선다가 있어서 두 번
+      // 묻는 셈이었습니다. 「제품만 등록하기」면 등록으로 이미 끝난 상태라
+      // 제품 기록(S-11)으로 바로 돌아갑니다.
+      navigation.replace(DetailRoutes.ProductRecord, { timeSlot });
+      return;
+    }
+
+    // 루틴에 추가하는 건 "오늘 기록"이 아니라 루틴 구성을 바꾸는 것이라(관리자님
+    // 확인, 2026-08-13), 성분확인/기록완료로 보내지 않습니다. 모닝/나이트 둘 다
+    // 고를 수 있어서(관리자님 요청, 2026-08-14) 순서대로 하나씩 추가합니다.
+    for (const routineId of selectedRoutineIds) {
+      await addToRoutineMutation.mutateAsync({ routineId, productId });
+    }
+
+    // 루틴에 추가만 해두고 방금 등록한 제품이 바로 보이는 제품 기록(S-11) 화면으로
+    // 돌아갑니다(관리자님 요청, 2026-08-14 — 기록 허브로 나갔다가 다시 들어오면 목록이
+    // 안 보인다는 문제 보고 있었는데, 새로 mount되는 화면으로 보내는 편이 더 확실합니다).
+    navigation.replace(DetailRoutes.ProductRecord, { timeSlot });
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit || !category) return;
     setSubmitError(null);
     try {
+      // 2026-08-19(세션 20) — 등록 전에 GET /products/match로 같은 이름·브랜드가 이미
+      // 있는지 확인합니다. 있으면 등록하지 않고 그 제품을 재사용할지 물어봅니다 —
+      // 그냥 등록하면 같은 제품이 계정마다 새 row로 쌓이고, 성분 분석도 각자 따로
+      // 갖게 됩니다. 조회 실패는 무시하고 등록으로 진행합니다(편의 기능이라 등록을
+      // 막으면 안 됨).
+      const match = await matchProduct(name.trim(), brand.trim()).catch(() => null);
+      if (match?.matched && match.productId != null) {
+        setMatchedProductId(match.productId);
+        return;
+      }
+
       const product = await registerMutation.mutateAsync({
         name: name.trim(),
         brand: brand.trim(),
@@ -141,29 +190,25 @@ export function ProductManualRegisterScreen() {
         ingredientNames,
         imageUri: photoUri ?? undefined,
       });
-
-      if (selectedRoutineIds.size === 0) {
-        // 2026-08-19(세션 18, 관리자님 지시) — 예전엔 성분 확인(S-14)으로 넘겨서
-        // 거기서 다시 고르게 했는데, 이 화면에 이미 같은 3지선다가 있어서 두 번
-        // 묻는 셈이었습니다. 「제품만 등록하기」면 등록으로 이미 끝난 상태라
-        // 제품 기록(S-11)으로 바로 돌아갑니다.
-        navigation.replace(DetailRoutes.ProductRecord, { timeSlot });
-        return;
-      }
-
-      // 루틴에 추가하는 건 "오늘 기록"이 아니라 루틴 구성을 바꾸는 것이라(관리자님
-      // 확인, 2026-08-13), 성분확인/기록완료로 보내지 않습니다. 모닝/나이트 둘 다
-      // 고를 수 있어서(관리자님 요청, 2026-08-14) 순서대로 하나씩 추가합니다.
-      for (const routineId of selectedRoutineIds) {
-        await addToRoutineMutation.mutateAsync({ routineId, productId: product.productId });
-      }
-
-      // 루틴에 추가만 해두고 방금 등록한 제품이 바로 보이는 제품 기록(S-11) 화면으로
-      // 돌아갑니다(관리자님 요청, 2026-08-14 — 기록 허브로 나갔다가 다시 들어오면 목록이
-      // 안 보인다는 문제 보고 있었는데, 새로 mount되는 화면으로 보내는 편이 더 확실합니다).
-      navigation.replace(DetailRoutes.ProductRecord, { timeSlot });
+      await continueWithProduct(product.productId);
     } catch {
       setSubmitError('등록에 실패했어요. 다시 시도해주세요.');
+    }
+  };
+
+  /** 중복 매칭 팝업에서 "기존 제품 사용"을 고른 경우. */
+  const handleUseMatchedProduct = async () => {
+    const productId = matchedProductId;
+    setMatchedProductId(null);
+    if (productId == null) return;
+    try {
+      // 등록 경로(registerProduct)는 안에서 saveProductToLibrary를 이어 붙여 UserProduct를
+      // 만듭니다. 기존 제품을 재사용할 때는 그 단계가 없어서, 여기서 직접 저장하지 않으면
+      // "저장된 제품" 목록과 루틴 이름 조회에 안 잡힙니다.
+      await saveMutation.mutateAsync(productId);
+      await continueWithProduct(productId);
+    } catch {
+      setSubmitError('처리에 실패했어요. 다시 시도해주세요.');
     }
   };
 
@@ -364,12 +409,29 @@ export function ProductManualRegisterScreen() {
             label="등록하기"
             variant="primary"
             disabled={!canSubmit}
-            loading={registerMutation.isPending || addToRoutineMutation.isPending}
+            loading={
+              registerMutation.isPending || addToRoutineMutation.isPending || saveMutation.isPending
+            }
             onPress={handleSubmit}
             style={styles.bottomButton}
           />
         </View>
       </KeyboardAvoidingScreen>
+
+      {/* 이미 같은 이름·브랜드의 제품이 서버에 있는 경우(GET /products/match).
+          기존 제품을 쓰면 이 화면에서 입력한 카테고리·성분은 반영되지 않습니다 —
+          서버에 그 제품을 수정하는 API가 없어서, 다르게 알고 있는 값을 덮어쓸 방법이
+          없습니다. 그래서 문구로 미리 알립니다. */}
+      <Popup
+        visible={matchedProductId !== null}
+        title="이미 등록된 제품이에요"
+        description={`${brand.trim()} ${name.trim()}은(는) 이미 등록돼 있어요. 기존 제품으로 진행하면 입력하신 카테고리·성분 대신 등록된 정보가 쓰여요.`}
+        primaryLabel="기존 제품 사용"
+        onPrimaryPress={handleUseMatchedProduct}
+        secondaryLabel="취소"
+        onSecondaryPress={() => setMatchedProductId(null)}
+        onRequestClose={() => setMatchedProductId(null)}
+      />
     </View>
   );
 }

@@ -6,43 +6,66 @@
 // (참고: 2026-08-15엔 이 3종 전체를 색 고정으로 확정했었으나, 상태색 구분이 필요하다는
 // 관리자님 재요청으로 변경되었습니다.)
 //
-// 2026-08-19(세션 20) — `gradientColors` 지원 추가. 제품 등록 완료 화면(Figma 322:911)이
-// 이 아이콘을 80px로 크게 쓰는데, 관리자님 요청으로 앱 아이콘처럼 그라데이션을 입힙니다.
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-08-19(세션 20) — gradientColors 지원 방식 수정.
 //
-// **새 의존성 없이** react-native-svg의 Defs + LinearGradient로 처리합니다. 텍스트
-// 그라데이션에 쓰는 MaskedView와 달리 SVG 내부 처리라 부팅 크래시 이력과 무관합니다
-// (GradientNumber.tsx 주석 참고).
+// 관리자님 리포트: "획마다 그라데이션이 따로 적용된 것처럼 보인다."
+// SVG 그라데이션의 기본 좌표계는 `gradientUnits="objectBoundingBox"`라, 그라데이션
+// 하나를 여러 path가 참조해도 **각 path의 바운딩 박스에 맞춰 다시 늘어납니다.**
+// 그래서 눈·볼·입처럼 작은 조각에서도 보라→핑크가 처음부터 끝까지 다 지나가고,
+// 결과적으로 획마다 별도 그라데이션처럼 보입니다.
 //
-// gradientColors를 안 넘기면 예전 그대로 color 단색입니다 — 기존 사용처(성분 화면 상태
-// 표시 등)는 아무 영향이 없습니다. 볼터치(#FDAAC6)는 디자인 의도상 계속 고정입니다.
-import React, { useId } from 'react';
+// → `gradientUnits="userSpaceOnUse"`로 바꾸고 좌표를 24×24 뷰박스 전체(0,0 → 24,24)에
+//   고정합니다. 이제 모든 path가 **아이콘 전체를 가로지르는 하나의 그라데이션**에서
+//   자기 위치에 해당하는 색만 가져갑니다(왼쪽 조각은 보라, 오른쪽 조각은 핑크).
+//
+// id는 useId로 인스턴스마다 다르게 만듭니다 — 같은 화면에 두 개 이상 그릴 때
+// 안드로이드에서 id가 충돌해 한쪽 색이 다른 쪽으로 새는 일을 막습니다.
+// (useId가 만드는 ':'는 url(#...) 참조에서 못 쓰므로 제거합니다.)
+import React from 'react';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { IconProps, ICON_DEFAULT_SIZE, ICON_DEFAULT_COLOR } from './types';
 
 type IconFaceGoodProps = IconProps & {
-  /** [시작색, 끝색]. 넘기면 얼굴 선/눈/입이 그라데이션으로 칠해집니다. */
-  gradientColors?: readonly [string, string];
+  /**
+   * 2색 이상을 넘기면 color 대신 그라데이션으로 칠합니다(제품 기록 완료 화면 등).
+   * 넘기지 않으면 기존처럼 color 단색입니다 — 성분 화면의 상태색 용도는 그대로입니다.
+   */
+  gradientColors?: readonly string[];
 };
 
 export function IconFaceGood({
   size = ICON_DEFAULT_SIZE,
   color = ICON_DEFAULT_COLOR,
-  style,
   gradientColors,
+  style,
 }: IconFaceGoodProps) {
-  // 한 화면에 이 아이콘이 여러 개 놓여도 그라데이션 정의가 서로 덮어쓰지 않도록
-  // 인스턴스마다 고유 id를 씁니다. useId 결과에는 콜론이 섞여 있어서(":r0:") SVG
-  // 참조자로 쓰기 전에 영숫자만 남깁니다.
-  const gradientId = `iconFaceGood${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  const paint = gradientColors ? `url(#${gradientId})` : color;
+  // ':'는 url(#...) 참조에서 쓸 수 없어 지웁니다(useId는 ':r0:' 같은 값을 만듭니다).
+  const gradientId = `faceGood-${React.useId().replace(/:/g, '')}`;
+  const useGradient = (gradientColors?.length ?? 0) >= 2;
+  // 아래 path들이 fill/stroke에 공통으로 쓰는 값. 그라데이션이면 전부 같은 id를
+  // 가리키고, 좌표계가 userSpaceOnUse라 뷰박스 기준으로 한 번만 흐릅니다.
+  const paint = useGradient ? `url(#${gradientId})` : color;
+
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-      {gradientColors ? (
+      {useGradient ? (
         <Defs>
-          {/* 정사각형 요소용 135° 방향 — theme의 gradientDirection.iconBox와 같은 좌표입니다. */}
-          <LinearGradient id={gradientId} x1="0.1464" y1="0.1464" x2="0.8536" y2="0.8536">
-            <Stop offset="0" stopColor={gradientColors[0]} />
-            <Stop offset="1" stopColor={gradientColors[1]} />
+          <LinearGradient
+            id={gradientId}
+            gradientUnits="userSpaceOnUse"
+            x1={0}
+            y1={0}
+            x2={24}
+            y2={24}
+          >
+            {gradientColors!.map((stopColor, index) => (
+              <Stop
+                key={`${stopColor}-${index}`}
+                offset={gradientColors!.length === 1 ? 0 : index / (gradientColors!.length - 1)}
+                stopColor={stopColor}
+              />
+            ))}
           </LinearGradient>
         </Defs>
       ) : null}

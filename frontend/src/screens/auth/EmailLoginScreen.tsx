@@ -10,6 +10,8 @@ import { Input } from '@/components/base/Input';
 import { IconBack } from '@/components/icons';
 import { useAuthStore } from '@/store/authStore';
 import { loginWithEmail } from '@/api/emailAuth';
+import { ApiError } from '@/api/unwrap';
+import { ErrorCode } from '@/types/errorCodes';
 import { isValidEmail } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
 import { color, space } from '@/theme/tokens';
@@ -40,8 +42,14 @@ export function EmailLoginScreen() {
       setOnboardingCompleted(result.onboardingCompleted);
       setOnboardingNextStep(result.onboardingCompleted ? null : result.nextStep);
       // LoginScreen과 동일 — RootNavigator가 accessToken 변화를 감지해 자동 전환합니다.
-    } catch {
-      setErrorMessage('로그인에 실패했어요. 다시 시도해주세요.');
+    } catch (e) {
+      // 2026-08-19(세션 20) — 서버가 비밀번호를 실제로 검증하게 되면서(AUTH_LOGIN_FAILED)
+      // "연결이 안 됨"과 "계정/비밀번호가 틀림"을 구분해줄 수 있게 됐습니다.
+      if (e instanceof ApiError && e.code === ErrorCode.AUTH_LOGIN_FAILED) {
+        setErrorMessage('이메일 또는 비밀번호가 올바르지 않아요.');
+      } else {
+        setErrorMessage('로그인에 실패했어요. 다시 시도해주세요.');
+      }
     } finally {
       setIsSubmitting(false);
     }

@@ -80,6 +80,14 @@ interface RoutineState {
   reorder: (timeSlot: TimeSlot, productIds: number[]) => void;
   reset: () => void;
   hydrate: () => Promise<void>;
+  /**
+   * 저장 제품 목록에 없는 productId를 걷어냅니다(2026-08-19 세션 20).
+   * 실제로 지울 게 있을 때만 상태를 바꿉니다 — 호출부(useRoutines)가 렌더마다 부르므로
+   * 무조건 set()하면 리렌더 루프가 됩니다.
+   */
+  pruneMissing: (knownProductIds: number[]) => void;
+  /** pruneMissing을 앱 실행당 1회만 돌리기 위한 플래그. 아래 주석 참고. */
+  pruned: boolean;
 }
 
 const EMPTY: RoutineProducts = { MORNING: [], NIGHT: [] };
@@ -94,6 +102,7 @@ function persist(products: RoutineProducts): void {
 export const useRoutineStore = create<RoutineState>((set, get) => ({
   products: EMPTY,
   hydrated: false,
+  pruned: false,
 
   addProduct: (timeSlot, productId) => {
     const current = get().products;
@@ -127,8 +136,49 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
   },
 
   reset: () => {
-    set({ products: EMPTY });
+    set({ products: EMPTY, pruned: false });
     persist(EMPTY);
+  },
+
+  /**
+   * ⚠️ 2026-08-19(세션 20, 관리자님 리포트 "루틴에 아무것도 안 넣었는데 «알 수 없는
+   * 제품»이 들어 있음")
+   *
+   * 이 스토어는 **기기 저장소**에 남고 로그아웃·계정 전환·목업↔실서버 전환 어디서도
+   * 비워지지 않았습니다(reset을 부르는 곳이 개발용 DevResetButton뿐이었습니다).
+   * 그래서 예전 계정/목업에서 담았던 productId가 그대로 남고, 새 계정의 저장 제품
+   * 목록에는 그 id가 없으니 useRoutines가 이름을 못 찾아 자리표시자를 그렸습니다.
+   * 사용자 입장에선 "담은 적 없는 제품이 기본으로 들어 있는" 것으로 보입니다.
+   *
+   * **앱 실행당 한 번만** 돌립니다. 매번 돌리면 제품을 루틴에 막 추가한 직후
+   * (저장 제품 캐시가 아직 갱신 전인 창) 방금 넣은 제품이 "없는 제품"으로 잡혀
+   * 지워집니다 — 남은 쓰레기를 치우는 것보다 사용자가 방금 한 조작을 되돌리는 쪽이
+   * 훨씬 나쁩니다. 실기기에서 문제가 되는 건 앱을 켤 때 이미 남아 있던 값이라
+   * 시작 시 1회로 충분합니다.
+   */
+  pruneMissing: (knownProductIds) => {
+    if (get().pruned) return;
+    const known = new Set(knownProductIds);
+    const current = get().products;
+    const next: RoutineProducts = {
+      MORNING: current.MORNING.filter((id) => known.has(id)),
+      NIGHT: current.NIGHT.filter((id) => known.has(id)),
+    };
+    const changed =
+      next.MORNING.length !== current.MORNING.length ||
+      next.NIGHT.length !== current.NIGHT.length;
+    if (!changed) {
+      set({ pruned: true });
+      return;
+    }
+    if (__DEV__) {
+      console.warn('[routineStore] 저장 제품에 없는 루틴 항목을 정리했습니다', {
+        before: current,
+        after: next,
+      });
+    }
+    set({ products: next, pruned: true });
+    persist(next);
   },
 
   hydrate: async () => {

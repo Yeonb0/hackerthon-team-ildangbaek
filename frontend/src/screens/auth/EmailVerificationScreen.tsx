@@ -9,6 +9,7 @@ import { Button } from '@/components/base/Button';
 import { KeyboardAvoidingScreen } from '@/components/base/KeyboardAvoidingScreen';
 import { Input } from '@/components/base/Input';
 import { IconBack } from '@/components/icons';
+import { InlineErrorBanner } from '@/components/state/InlineErrorBanner';
 import { getResendRemainingSeconds, sendVerificationCode, verifyEmailCode } from '@/api/emailAuth';
 import { isValidVerificationCode } from '@/lib/emailAuthValidation';
 import { AuthRoutes, AuthStackParamList } from '@/app/routes';
@@ -26,11 +27,16 @@ export function EmailVerificationScreen() {
   const [code, setCode] = useState('');
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
 
   // 화면 진입 시 실제 남은 쿨다운을 조회 (PasswordSetup에서 발송한 시점 기준).
   useEffect(() => {
-    getResendRemainingSeconds().then(setRemainingSeconds);
+    // 서버가 이메일별로 쿨다운을 관리하므로 email을 넘깁니다(세션 20 실 API 교체).
+    // 실패해도 화면을 막지 않습니다 — 0초가 되어 재전송 버튼이 활성화될 뿐입니다.
+    getResendRemainingSeconds(email).then(setRemainingSeconds).catch(() => setRemainingSeconds(0));
+    // email은 route param이라 이 화면 생애주기 동안 바뀌지 않습니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 1초마다 카운트다운. 0이 되면 재전송 버튼이 활성화됩니다.
@@ -49,6 +55,7 @@ export function EmailVerificationScreen() {
 
   const handleVerify = async () => {
     if (!canVerify) return;
+    setVerifyError(null);
     setIsVerifying(true);
     try {
       const success = await verifyEmailCode(email, code);
@@ -57,6 +64,11 @@ export function EmailVerificationScreen() {
       } else {
         navigation.replace(AuthRoutes.VerificationFail, { email, password });
       }
+    } catch {
+      // 2026-08-19(세션 20) — 실 API로 바꾸면서 생긴 분기입니다. 네트워크·서버 오류는
+      // "코드가 틀렸다"가 아니므로 실패 화면(AUTH-06.2)으로 보내면 안 됩니다.
+      // 입력값을 유지한 채 이 화면에서 다시 시도하게 둡니다.
+      setVerifyError('인증에 실패했어요. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsVerifying(false);
     }
@@ -67,7 +79,7 @@ export function EmailVerificationScreen() {
     setIsResending(true);
     try {
       await sendVerificationCode(email);
-      setRemainingSeconds(await getResendRemainingSeconds());
+      setRemainingSeconds(await getResendRemainingSeconds(email));
     } finally {
       setIsResending(false);
     }
@@ -112,6 +124,10 @@ export function EmailVerificationScreen() {
         </Text>
       </Pressable>
 
+      {verifyError ? (
+        <InlineErrorBanner message={verifyError} style={styles.errorBanner} />
+      ) : null}
+
       <Button
         label="인증 완료"
         variant="primary"
@@ -129,6 +145,9 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: color.bg,
+  },
+  errorBanner: {
+    marginTop: space[4],
   },
   nav: {
     flexDirection: 'row',
