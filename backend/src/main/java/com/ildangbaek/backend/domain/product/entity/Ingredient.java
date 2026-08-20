@@ -49,4 +49,10 @@ public class Ingredient {
         this.functionCategory = functionCategory;
         this.description = description;
     }
+
+    public void updateSampleInfo(String koreanName, String englishName, String functionCategory) {
+        this.koreanName = koreanName;
+        this.englishName = englishName;
+        this.functionCategory = functionCategory;
+    }
 }
