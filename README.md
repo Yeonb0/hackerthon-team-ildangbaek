@@ -332,6 +332,15 @@ SKINTELLER는 바로 이 단계에서 사용자를 만나 일상적인 피부 �
 
 
 ---
+
+## 📑 Project Presentation
+
+SKINTELLER의 문제 정의부터 서비스 구조, 핵심 기능 및 기술 구현까지 확인할 수 있습니다.
+
+**[→ 발표자료 보기](./docs/SkinTeller_발표자료.pdf)**
+
+---
+
 ## Contributors
 
 <table>
