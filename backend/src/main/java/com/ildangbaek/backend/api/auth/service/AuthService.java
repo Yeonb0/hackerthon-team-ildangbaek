@@ -44,6 +44,10 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
+        if (request.provider() == AuthProvider.EMAIL) {
+            throw new BusinessException(ErrorCode.AUTH_UNSUPPORTED_PROVIDER);
+        }
+
         String providerUserId = mockProviderUserId(request);
         User user = findMockLoginUser(request, providerUserId)
                 .orElse(null);
@@ -53,7 +57,7 @@ public class AuthService {
             user = userRepository.save(User.builder()
                     .provider(request.provider())
                     .providerUserId(providerUserId)
-                    .email(mockEmail(request, providerUserId))
+                    .email(mockEmail(providerUserId))
                     .build());
         } else if (!user.isActive()) {
             throw new BusinessException(ErrorCode.AUTH_LOGIN_FAILED);
@@ -100,9 +104,7 @@ public class AuthService {
         if (!isVerified(email)) {
             throw new BusinessException(ErrorCode.COMMON_VALIDATION_FAILED);
         }
-        if (userRepository.findByEmail(email).filter(User::isActive).isPresent()) {
-            throw new BusinessException(ErrorCode.USER_ALREADY_EXISTS);
-        }
+        resolveExistingEmailSignupBlocker(email);
 
         User user = User.builder()
                 .provider(AuthProvider.EMAIL)
@@ -148,30 +150,25 @@ public class AuthService {
     }
 
     private String mockProviderUserId(LoginRequest request) {
-        if (request.provider() == AuthProvider.EMAIL) {
-            return normalizeEmail(request.oauthAccessToken());
-        }
         return request.provider().name().toLowerCase() + "-" + request.oauthAccessToken();
     }
 
     private Optional<User> findMockLoginUser(LoginRequest request, String providerUserId) {
-        Optional<User> user = userRepository.findByProviderAndProviderUserId(request.provider(), providerUserId);
-        if (user.isPresent() || request.provider() != AuthProvider.EMAIL) {
-            return user;
-        }
-
-        String legacyProviderUserId = request.provider().name().toLowerCase() + "-" + request.oauthAccessToken();
-        if (legacyProviderUserId.equals(providerUserId)) {
-            return Optional.empty();
-        }
-        return userRepository.findByProviderAndProviderUserId(request.provider(), legacyProviderUserId);
+        return userRepository.findByProviderAndProviderUserId(request.provider(), providerUserId);
     }
 
-    private String mockEmail(LoginRequest request, String providerUserId) {
-        if (request.provider().name().equals("EMAIL")) {
-            return providerUserId;
-        }
+    private String mockEmail(String providerUserId) {
         return providerUserId + "@mock.ildangbaek.local";
+    }
+
+    private void resolveExistingEmailSignupBlocker(String email) {
+        userRepository.findByEmail(email).ifPresent(existing -> {
+            if (existing.isActive() && !existing.isLegacyEmailLoginAccount()) {
+                throw new BusinessException(ErrorCode.USER_ALREADY_EXISTS);
+            }
+            existing.withdraw();
+            userRepository.saveAndFlush(existing);
+        });
     }
 
     private String normalizeEmail(String email) {
