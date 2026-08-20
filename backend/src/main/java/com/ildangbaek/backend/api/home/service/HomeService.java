@@ -116,14 +116,15 @@ public class HomeService {
     }
 
     private DailyEnvironment refreshEnvironment(Long userId, UserProfile profile) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
+        LocalDateTime now = LocalDateTime.now(KST);
         String location = location(profile);
         if (profile == null || profile.getLatitude() == null || profile.getLongitude() == null) {
             return dailyEnvironmentRepository.findByUserIdAndRecordDate(userId, today).orElse(null);
         }
 
         WeatherSnapshot snapshot = kmaWeatherClient
-                .getCurrent(profile.getLatitude(), profile.getLongitude(), LocalDateTime.now())
+                .getCurrent(profile.getLatitude(), profile.getLongitude(), now)
                 .orElse(null);
         if (snapshot == null) {
             return dailyEnvironmentRepository.findByUserIdAndRecordDate(userId, today).orElse(null);
@@ -132,7 +133,7 @@ public class HomeService {
         BigDecimal fallbackUvIndex = dailyEnvironmentRepository.findByUserIdAndRecordDate(userId, today)
                 .map(DailyEnvironment::getUvIndexCurrent)
                 .orElse(BigDecimal.valueOf(5));
-        BigDecimal uvIndex = kmaUvIndexClient.getCurrent(kmaAreaNoResolver.resolve(location), LocalDateTime.now())
+        BigDecimal uvIndex = kmaUvIndexClient.getCurrent(kmaAreaNoResolver.resolve(location), now)
                 .orElse(fallbackUvIndex == null ? BigDecimal.valueOf(5) : fallbackUvIndex);
 
         DailyEnvironment environment = dailyEnvironmentRepository.findByUserIdAndRecordDate(userId, today)
