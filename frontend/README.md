@@ -1,4 +1,4 @@
-# SKINTELLER · frontend
+# SkinTeller · frontend
 
 피부 기록과 성분 반응을 연결해 개인 피부 프로파일을 만드는 앱의 프론트엔드입니다.
 React Native (Expo) + TypeScript, iOS / Android 단일 코드베이스.
@@ -180,20 +180,4 @@ eas build --profile testflight --platform ios
 - 커밋 메시지에 화면 ID 또는 기능 ID를 답니다 — 예: `feat(S-18): 분석 결과 지표 리스트`
 - 화면 하나가 끝나면 **로딩 · 빈 데이터 · 에러 · 정상** 4가지 상태를 확인한 뒤 병합합니다.
 
----
 
-## 알려진 미확정 사항
-
-| 항목 | 상태 |
-| --- | --- |
-| 날씨 enum | `OVERCAST` · `YELLOW_DUST` · `THUNDERSTORM` 키 이름이 백엔드 기준으로 미확정 |
-| 소셜 로그인 | 카카오 · 구글 실 SDK 미연동 — 현재 목업 흐름 |
-| 이메일 인증 | 백엔드에 대응 API가 없어 프론트 목업 전용 |
-| `expo-notifications` | SDK 53+ Expo Go에서 크래시 — S-06은 앱 내부 설정만 저장. Development Build 전환 시 재검토 |
-| 제품 검색 바 위치 | Figma PROD-01 시안(카테고리 칩 아래)과 현재 구현(내비 헤더 아래)이 다름 — 디자이너 확인 대기 |
-| 회원 탈퇴 | 백엔드 API 없음 — 목업 처리 |
-| 정리 대상 | `store/cartStore.ts` — 대응 화면(`CartScreen`)이 삭제되어 사용처가 없는 죽은 코드 |
-
-피부 지표는 **트러블 · 홍조 · 모공 · 색소잡티** 4종으로 확정되어 있습니다
-([ADR 0002](../docs/decisions/0002-피부-지표-체계.md)). 라벨 문자열은 놓이는 자리마다 쓸 수 있는
-글자 수가 달라 `src/lib/metricLabels.ts`에서 슬롯별로 관리합니다.
